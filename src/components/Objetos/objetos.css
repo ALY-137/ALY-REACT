@@ -1,0 +1,277 @@
+.cardContainerDesktopDev{
+    position: relative;
+    margin-right: auto;
+    margin-left: auto;
+    margin-bottom: 40px;
+    background-color: #020813;
+    margin-bottom: 60px;
+
+}
+
+.cardContainerDesktopHome{
+    position: relative;
+    margin-right: auto;
+    margin-left: auto;
+    margin-bottom: 40px;
+    background-color: #0c0213;
+    margin-bottom: 60px;
+}
+
+.cardContainerDesktopDesign{
+    position: relative;
+    margin-right: auto;
+    margin-left: auto;
+    margin-bottom: 40px;
+    background-color: #020813;
+    margin-bottom: 60px;
+}
+
+.cardCabecalhoDev{
+    border: 1px solid #0e62ff;
+    width: 100%;
+    border-bottom: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #020813;
+    
+}
+.cardCabecalhoHome{
+    border: 1px solid #7e0eff;
+    width: 100%;
+    border-bottom: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #0c0213;
+    
+}
+
+.cardCabecalhoDesign{
+    border: 1px solid #fb008a;
+    width: 100%;
+    border-bottom: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #0c0213;
+    
+}
+
+
+.cardNomeDev{
+    color: #abc9ff;
+    width: 95%;
+    text-align: left;
+    background-color: #031435;
+    border: 1px solid #0e62ff;
+    padding-top: 5px;
+    padding-bottom: 7px;
+    text-indent: 10px;
+    letter-spacing: 2px;
+}
+
+.cardNomeHome{
+    color: #d8b5ff;
+    width: 95%;
+    text-align: left;
+    background-color: #24033b;
+    border: 1px solid #7e0eff;
+    padding-top: 5px;
+    padding-bottom: 7px;
+    text-indent: 10px;
+    letter-spacing: 2px;
+}
+
+.cardNomeDesign{
+    color: #ffc6e5;
+    width: 95%;
+    text-align: left;
+    background-color: #3b0338;
+    border: 1px solid #fb008a;
+    padding-top: 5px;
+    padding-bottom: 7px;
+    text-indent: 10px;
+    letter-spacing: 2px;
+}
+
+.cardImagemDev{
+    border: 1px solid #0e62ff;
+    width: 100%;
+    height: 55%;
+    border-bottom: none;
+    border-top: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cardImagemDesign{
+    border: 1px solid #fb008a;
+    width: 100%;
+    height: 55%;
+    border-bottom: none;
+    border-top: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+
+.cardImagemHome{
+    border: 1px solid #7e0eff;
+    width: 100%;
+    height: 55%;
+    border-bottom: none;
+    border-top: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cardDescricaoDev{
+    border: 1px solid #0e62ff;
+    border-top: none;
+    width: 100%;
+    font-size: 11px;
+    height: 35%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #020813;
+
+
+}
+
+.cardDescricaoDesign{
+    border: 1px solid #fb008a;
+    border-top: none;
+    width: 100%;
+    font-size: 11px;
+    height: 35%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #020813;
+
+}
+
+.cardDescricaoHome{
+    border: 1px solid #7e0eff;
+    border-top: none;
+    width: 100%;
+    font-size: 11px;
+    height: 35%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #0c0213;
+
+}
+
+
+
+.cardDescricaoDivDev{
+    height: 90%;
+    width: 95%;
+    display:block;
+    text-align: left;
+    color: #abc9ff;
+    overflow-x: scroll;
+    border: 1px solid #0e62ff;
+    background-color: #01040c;
+
+
+}
+.cardDescricaoDivHome{
+    height: 90%;
+    width: 95%;
+    display:block;
+    text-align: left;
+    color: #bc82ff;
+    overflow-x: scroll;
+    border: 1px solid #7e0eff;
+    background-color: #07000c;
+    
+
+}
+
+.cardDescricaoDivDesign{
+    height: 90%;
+    width: 95%;
+    display:block;
+    text-align: left;
+    color: #ff8aca;
+    overflow-x: scroll;
+    border: 1px solid #fb008a;
+    background-color: #07000c;
+
+
+}
+
+.imgCardDev{
+    width: 85%;
+    border: 3px solid #0e62ff;
+    border-style: double;
+}
+
+.imgCardHome{
+    width: 85%;
+    border: 3px solid #7e0eff;
+    border-style: double;
+}
+
+.imgCardDesign{
+    width: 85%;
+    border: 3px solid #fb008a;
+    border-style: double;
+}
+
+.txtDescricao{
+    margin-left: 10px;
+    margin-right: 10px;
+    text-align: justify;
+    line-height:12px;
+    letter-spacing: 2px;
+}
+
+.txtTituloPri{
+    margin-left: 10px;
+    margin-right: 10px;
+    line-height:11px;
+    font-weight: bold;
+    letter-spacing: 2px;
+    margin-top: -10px;
+
+}
+.txtTitulo{
+    margin-left: 10px;
+    margin-right: 10px;
+    line-height:11px;
+    font-weight: bold;
+    letter-spacing: 2px;
+
+}
+
+.checkBoxHab{
+    min-width: none;
+    text-align: right;
+    width: 95%;
+}
+
+.imgCheckHabiliOff{
+    height: 20px;
+    width: 20px;
+    margin-left: 10px;
+    margin-top: 10px;
+    display: none;
+}
+
+.imgCheckHabiliAtivo{
+    height: 20px;
+    width: 20px;
+    margin-left: 10px;
+    margin-top: 10px;
+    display: flexbox;
+}
+
