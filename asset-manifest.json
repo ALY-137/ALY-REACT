@@ -1,0 +1,14 @@
+{
+  "files": {
+    "main.css": "/ALY-REACT/static/css/main.58a9938c.css",
+    "main.js": "/ALY-REACT/static/js/main.b69a627c.js",
+    "static/media/audio.mp3": "/ALY-REACT/static/media/audio.8a640214eb3345dd6849.mp3",
+    "index.html": "/ALY-REACT/index.html",
+    "main.58a9938c.css.map": "/ALY-REACT/static/css/main.58a9938c.css.map",
+    "main.b69a627c.js.map": "/ALY-REACT/static/js/main.b69a627c.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.58a9938c.css",
+    "static/js/main.b69a627c.js"
+  ]
+}
