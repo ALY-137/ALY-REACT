@@ -1,9 +1,9 @@
 import React, { Component } from 'react';
-import '../App.css';
+import './App.css';
 
-import home from '../home';
-import blue from '../dev';
-import pink from '../design';
+import home from './home';
+import blue from './dev';
+import pink from './design';
 
 
 
