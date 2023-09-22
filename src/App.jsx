@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React from 'react';
 import './App.css';
 
 import home from './home';
@@ -11,17 +11,7 @@ import {Link,Outlet}from 'react-router-dom';
 
 
 
-  class App extends Component {
-    componentDidMount() {
-   
-  
-
-
-  
-    }
-  
-    render(){
- 
+function App(){
 
 
   return (
@@ -126,6 +116,6 @@ import {Link,Outlet}from 'react-router-dom';
 
    
 
-}
+
 
 export default App;
