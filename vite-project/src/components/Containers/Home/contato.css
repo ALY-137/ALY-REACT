@@ -1,0 +1,23 @@
+.subIcones{
+    height: 25px;
+    width: 25px;
+}
+
+.containerContatos{
+    width: 50%;
+    height: 25px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    justify-content:space-between; 
+    margin: auto;
+    margin-bottom: 5px;
+}
+
+#icon0{
+    margin-left: -25px;
+}
+
+#icon1{
+    margin-right: -25px;
+}

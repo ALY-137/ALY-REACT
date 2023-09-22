@@ -1,0 +1,13 @@
+.texto1{
+    font-size: 13px;
+    position: relative;  
+    align-items: center;
+    justify-content: center;
+    font-family: 'Special Elite', cursive;
+    margin: 20px;
+    text-align: center;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    line-height: 15px;
+    color: #9a46fa;
+}

@@ -1,0 +1,71 @@
+
+.canto0{
+    display: flex;
+    margin-left: -22px;
+    margin-top: -21px;
+    transform: rotate(90deg);
+}
+
+.canto1{
+    display: flex;
+    margin-bottom: -42px;
+    margin-left: -21px;
+    transform: rotate(0deg);
+}
+
+.canto2{
+    display: flex;
+    margin-left: auto;
+    margin-bottom: -41px;
+    margin-right: -21px;
+    transform: rotate(-90deg);
+}
+
+.canto3{
+    display: flex;
+    margin-top: -93px;
+    margin-left: auto;
+    margin-right: -22px;
+    transform: rotate(180deg);
+    margin-bottom: 95px;
+}
+
+.iconePai{
+    display: flex;
+    height: 50px;
+    width: 50px;
+    margin-top: -107px; 
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.cantoHead0{
+    display: flex;
+    margin-left: -22px;
+    margin-top: -22px;
+    transform: rotate(90deg);
+
+}
+.cantoHead3{
+    display: flex;
+    margin-top: -41px;
+    margin-left: auto;
+    margin-right: -22px;
+    transform: rotate(180deg);
+}
+
+.cantoHead1{
+    display: flex;
+    margin-left: -21px;
+    margin-top: 53px;
+
+    transform: rotate(0deg);
+}
+.cantoHead2{
+    display: flex;
+    margin-left: auto;
+    margin-right: -22px;
+    margin-top: -42px;
+
+    transform: rotate(-90deg);
+}
