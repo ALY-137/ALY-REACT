@@ -38,7 +38,7 @@ export function pink(){
         abaDesign.classList.remove('optionsAbasDesign');
         abaDesign.classList.add('optionsAbasFocoDesign');
 
-        var abaDesign = document.getElementById('abaHome');
+        abaDesign = document.getElementById('abaHome');
         abaDesign.classList.remove('optionsAbasFocoDev');
         abaDesign.classList.remove('optionsAbasFocoHome');
         abaDesign.classList.remove('optionsAbasDev');
@@ -46,7 +46,7 @@ export function pink(){
         abaDesign.classList.remove('optionsAbasFocoDesign');
         abaDesign.classList.add('optionsAbasDesign');
         
-        var abaDesign = document.getElementById('abaDev');
+        abaDesign = document.getElementById('abaDev');
         abaDesign.classList.remove('optionsAbasFocoHome');
         abaDesign.classList.remove('optionsAbasFocoDev');
         abaDesign.classList.remove('optionsAbasDev');
@@ -58,13 +58,13 @@ export function pink(){
         
         // MOSTRA/ESCONDE MATRIXES
 
-        var abaDesign = document.getElementById('MatrixDesign');
+        abaDesign = document.getElementById('MatrixDesign');
         abaDesign.style.display = 'block';
 
-        var abaDesign = document.getElementById('MatrixDev');
+        abaDesign = document.getElementById('MatrixDev');
         abaDesign.style.display = 'none';
 
-        var abaDesign = document.getElementById('MatrixHome');
+        abaDesign = document.getElementById('MatrixHome');
         abaDesign.style.display = 'none';
 
         // ESTILIZA O CARD
@@ -78,19 +78,19 @@ export function pink(){
             estilo.classList.add('conteudoAbasMobileEstiloDesign');
 
 
-        var estilo = document.getElementById('fundo');
+            estilo = document.getElementById('fundo');
             estilo.classList.remove('fundoEstiloHome');
             estilo.classList.remove('fundoEstiloDev');
             estilo.classList.add('fundoEstiloDesign');
 
-        var estilo = document.getElementById('rodape');
+            estilo = document.getElementById('rodape');
             estilo.classList.remove('rodapeEstiloHome');
             estilo.classList.remove('rodapeEstiloDev');
             estilo.classList.add('rodapeEstiloDesign');   
             
 
             
-        var estilo = document.getElementById('conteudo');
+            estilo = document.getElementById('conteudo');
             estilo.classList.remove('conteudoEstiloDev');
             estilo.classList.remove('conteudoEstiloHome');
             estilo.classList.add('conteudoEstiloDesign');  
@@ -100,10 +100,10 @@ export function pink(){
         var note = document.getElementById('imgnoteDesign');
         note.style.display = 'block';
 
-        var note = document.getElementById('imgnoteDev');
+        note = document.getElementById('imgnoteDev');
         note.style.display = 'none';
 
-        var note = document.getElementById('imgnoteHome');
+        note = document.getElementById('imgnoteHome');
         note.style.display = 'none';
 
         // BUSTO
@@ -113,7 +113,7 @@ export function pink(){
 
 
         // COR TEXTO PADRÃO PAGE        
-        var estilo = document.body;
+        estilo = document.body;
         estilo.style.color = '#fb008a';           
         
         
@@ -129,7 +129,7 @@ export function pink(){
         texto.classList.add('numBrilhaDesign');
 
 
-        var texto = document.getElementById('txtAbaHome');
+        texto = document.getElementById('txtAbaHome');
         texto.classList.remove('numNeutroDev');
         texto.classList.remove('numBrilhaDev');
 
@@ -138,7 +138,7 @@ export function pink(){
 
         texto.classList.add('numNeutroDesign');
 
-        var texto = document.getElementById('txtAbaDev');
+        texto = document.getElementById('txtAbaDev');
         texto.classList.remove('numNeutroDev');
         texto.classList.remove('numBrilhaDev');
 

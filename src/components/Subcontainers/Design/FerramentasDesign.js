@@ -26,18 +26,18 @@ function FerramentasDesign(){
 
         <div className="boxSubcontainersDesign">
             <div className="tituloSubcontainersDesign">
-            <img className='canto0SubTit' src='/design/cantoSubcontainer.png'  />  
+            <img className='canto0SubTit' src='/design/cantoSubcontainer.png' alt="imagem" />  
                  
                 <p className='tituloTxt'>
                     FERRAMENTAS
                 </p>  
-                <img className='canto3SubTit' src='/design/cantoSubcontainer.png'   /> 
+                <img className='canto3SubTit' src='/design/cantoSubcontainer.png' alt="imagem"  /> 
                 <Faixa />
                 <Faixa />
                 <Faixa />
   
         
-                <img className='canto3SubTit' src='/design/cantoSubcontainer.png'   /> 
+                <img className='canto3SubTit' src='/design/cantoSubcontainer.png' alt="imagem"  /> 
                                                                              
             </div>
         <div className='contentSubcontainersDesign'>
@@ -47,10 +47,10 @@ function FerramentasDesign(){
                 
                 <motion.div  drag='x' className='inner' dragConstraints={{right: +width, left:-width}}>
                   
-                    <BoxSub xp='4' nome='INDESIGN' icon='./Design/in.png' styleBox='boxSubDesign' style='Design' xpBoxSub='xpBoxSubDesign'/>  
-                    <BoxSub xp='5' nome='PHOTOSHOP' icon='./Design/ps.png' styleBox='boxSubDesign' style='Design' xpBoxSub='xpBoxSubDesign'/>
-                    <BoxSub xp='5' nome='ILLUSTRATOR' icon='./Design/ai.png' styleBox='boxSubDesign' style='Design' xpBoxSub='xpBoxSubDesign'/>
-                    <BoxSub xp='4' nome='FIGMA' icon='./Design/fi.png' styleBox='boxSubDesign' style='Design' xpBoxSub='xpBoxSubDesign'/>
+                    <BoxSub xp='4' nome='INDESIGN' icon='./Design/in.png' styleBox='boxSubDesign' Style='Design' xpBoxSub='xpBoxSubDesign'/>  
+                    <BoxSub xp='5' nome='PHOTOSHOP' icon='./Design/ps.png' styleBox='boxSubDesign' Style='Design' xpBoxSub='xpBoxSubDesign'/>
+                    <BoxSub xp='5' nome='ILLUSTRATOR' icon='./Design/ai.png' styleBox='boxSubDesign' Style='Design' xpBoxSub='xpBoxSubDesign'/>
+                    <BoxSub xp='4' nome='FIGMA' icon='./Design/fi.png' styleBox='boxSubDesign' Style='Design' xpBoxSub='xpBoxSubDesign'/>
 
                 </motion.div>
 

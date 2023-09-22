@@ -1,7 +1,7 @@
 function Faixa(){
 
     return(
-        <img className='faixa' src='/design/faixa.png'   /> 
+        <img className='faixa' src='/design/faixa.png' alt="imagem"  /> 
 
 
 

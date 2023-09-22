@@ -1,14 +1,14 @@
 import './subobjetos.css';
 
-function StarsXP({xp,style}){
+function StarsXP({xp,Style}){
 
-    if(style=='Design'){
+    if(Style==='Design'){
  switch (xp) {
 
       case '1':
         return(
             <div>
-                <img className='starXP' src='./design/star.png'/> 
+                <img className='starXP' src='./design/star.png' alt="imagem"/> 
             </div>
 
 
@@ -17,8 +17,8 @@ function StarsXP({xp,style}){
       case '2':
         return(
             <div>
-                <img className='starXP' src='./design/star.png'/>
-                <img className='starXP' src='./design/star.png'/> 
+                <img className='starXP' src='./design/star.png' alt="imagem"/>
+                <img className='starXP' src='./design/star.png' alt="imagem"/> 
             </div>
 
             )
@@ -28,19 +28,19 @@ function StarsXP({xp,style}){
         return(
             
             <div>
-                <img className='starXP' src='./design/star.png'/>
-                <img className='starXP' src='./design/star.png'/> 
-                <img className='starXP' src='./design/star.png'/> 
+                <img className='starXP' src='./design/star.png' alt="imagem"/>
+                <img className='starXP' src='./design/star.png' alt="imagem"/> 
+                <img className='starXP' src='./design/star.png' alt="imagem"/> 
             </div>        
             )
 
       case '4':
         return(
             <div>
-                <img className='starXP' src='./design/star.png'/>
-                <img className='starXP' src='./design/star.png'/> 
-                <img className='starXP' src='./design/star.png'/> 
-                <img className='starXP' src='./design/star.png'/> 
+                <img className='starXP' src='./design/star.png' alt="imagem"/>
+                <img className='starXP' src='./design/star.png' alt="imagem"/> 
+                <img className='starXP' src='./design/star.png' alt="imagem"/> 
+                <img className='starXP' src='./design/star.png' alt="imagem"/> 
             </div>   
             
             )
@@ -49,11 +49,11 @@ function StarsXP({xp,style}){
       case '5':
         return(
             <div>
-                <img className='starXP' src='./design/star.png'/>
-                <img className='starXP' src='./design/star.png'/> 
-                <img className='starXP' src='./design/star.png'/> 
-                <img className='starXP' src='./design/star.png'/> 
-                <img className='starXP' src='./design/star.png'/> 
+                <img className='starXP' src='./design/star.png' alt="imagem"/>
+                <img className='starXP' src='./design/star.png' alt="imagem"/> 
+                <img className='starXP' src='./design/star.png' alt="imagem"/> 
+                <img className='starXP' src='./design/star.png' alt="imagem"/> 
+                <img className='starXP' src='./design/star.png' alt="imagem"/> 
             </div>   
             
             )
@@ -65,13 +65,13 @@ function StarsXP({xp,style}){
 
     }
 
-    if(style=='Dev'){
+    if(Style==='Dev'){
         switch (xp) {
        
              case '1':
                return(
                    <div>
-                       <img className='starXP' src='./dev/star.png'/> 
+                       <img className='starXP' src='./dev/star.png' alt="imagem"/> 
                    </div>
        
        
@@ -80,8 +80,8 @@ function StarsXP({xp,style}){
              case '2':
                return(
                    <div>
-                       <img className='starXP' src='./dev/star.png'/>
-                       <img className='starXP' src='./dev/star.png'/> 
+                       <img className='starXP' src='./dev/star.png' alt="imagem"/>
+                       <img className='starXP' src='./dev/star.png' alt="imagem"/> 
                    </div>
        
                    )
@@ -91,19 +91,19 @@ function StarsXP({xp,style}){
                return(
                    
                    <div>
-                       <img className='starXP' src='./dev/star.png'/>
-                       <img className='starXP' src='./dev/star.png'/> 
-                       <img className='starXP' src='./dev/star.png'/> 
+                       <img className='starXP' src='./dev/star.png' alt="imagem"/>
+                       <img className='starXP' src='./dev/star.png' alt="imagem"/> 
+                       <img className='starXP' src='./dev/star.png' alt="imagem"/> 
                    </div>        
                    )
        
              case '4':
                return(
                    <div>
-                       <img className='starXP' src='./dev/star.png'/>
-                       <img className='starXP' src='./dev/star.png'/> 
-                       <img className='starXP' src='./dev/star.png'/> 
-                       <img className='starXP' src='./dev/star.png'/> 
+                       <img className='starXP' src='./dev/star.png' alt="imagem"/>
+                       <img className='starXP' src='./dev/star.png' alt="imagem"/> 
+                       <img className='starXP' src='./dev/star.png' alt="imagem"/> 
+                       <img className='starXP' src='./dev/star.png' alt="imagem"/> 
                    </div>   
                    
                    )
@@ -112,11 +112,11 @@ function StarsXP({xp,style}){
              case '5':
                return(
                    <div>
-                       <img className='starXP' src='./dev/star.png'/>
-                       <img className='starXP' src='./dev/star.png'/> 
-                       <img className='starXP' src='./dev/star.png'/> 
-                       <img className='starXP' src='./dev/star.png'/> 
-                       <img className='starXP' src='./dev/star.png'/> 
+                       <img className='starXP' src='./dev/star.png' alt="imagem"/>
+                       <img className='starXP' src='./dev/star.png' alt="imagem"/> 
+                       <img className='starXP' src='./dev/star.png' alt="imagem"/> 
+                       <img className='starXP' src='./dev/star.png' alt="imagem"/> 
+                       <img className='starXP' src='./dev/star.png' alt="imagem"/> 
                    </div>   
                    
                    )

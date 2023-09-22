@@ -26,7 +26,7 @@ function LinguagensDev(){
 
         <div className="boxSubcontainersDev">
             <div className="tituloSubcontainersDev">
-            <img className='canto0SubTit' src='/dev/cantoSubcontainer.png'  />  
+            <img className='canto0SubTit' src='/dev/cantoSubcontainer.png' alt="imagem"  />  
                  
         
          
@@ -34,7 +34,7 @@ function LinguagensDev(){
                 <p className='tituloTxt'>
                     LINGUAGENS
                 </p>  
-                <img className='canto3SubTit' src='/dev/cantoSubcontainer.png'   /> 
+                <img className='canto3SubTit' src='/dev/cantoSubcontainer.png' alt="imagem"  /> 
                 <Faixa />
                 <Faixa />
                 <Faixa />
@@ -42,7 +42,7 @@ function LinguagensDev(){
            
           
    
-                <img className='canto3SubTit' src='/dev/cantoSubcontainer.png'   /> 
+                <img className='canto3SubTit' src='/dev/cantoSubcontainer.png' alt="imagem"  /> 
      
 
                                                                                
@@ -54,12 +54,12 @@ function LinguagensDev(){
 
                 <motion.div  drag='x' className='inner' dragConstraints={{right: +width, left:-width}}>
 
-                    <BoxSub xp='3' nome='VISUAL BASIC' icon='./dev/vb.png' styleBox='boxSubDev' style='Dev' xpBoxSub='xpBoxSubDev'/>
-                    <BoxSub xp='2' nome='JAVA' icon='./dev/java.png' styleBox='boxSubDev' style='Dev' xpBoxSub='xpBoxSubDev'/>
-                    <BoxSub xp='4' nome='C' icon='./dev/c.png' styleBox='boxSubDev' style='Dev' xpBoxSub='xpBoxSubDev'/>
-                    <BoxSub xp='5' nome='JAVASCRIPT' icon='./dev/js.png' styleBox='boxSubDev' style='Dev' xpBoxSub='xpBoxSubDev'/>
-                    <BoxSub xp='5' nome='HTML' icon='./dev/html.png' styleBox='boxSubDev' style='Dev' xpBoxSub='xpBoxSubDev'/>
-                    <BoxSub xp='5' nome='CSS' icon='./dev/css.png' styleBox='boxSubDev' style='Dev' xpBoxSub='xpBoxSubDev'/>
+                    <BoxSub xp='3' nome='VISUAL BASIC' icon='./dev/vb.png' styleBox='boxSubDev' Style='Dev' xpBoxSub='xpBoxSubDev'/>
+                    <BoxSub xp='2' nome='JAVA' icon='./dev/java.png' styleBox='boxSubDev' Style='Dev' xpBoxSub='xpBoxSubDev'/>
+                    <BoxSub xp='4' nome='C' icon='./dev/c.png' styleBox='boxSubDev' Style='Dev' xpBoxSub='xpBoxSubDev'/>
+                    <BoxSub xp='5' nome='JAVASCRIPT' icon='./dev/js.png' styleBox='boxSubDev' Style='Dev' xpBoxSub='xpBoxSubDev'/>
+                    <BoxSub xp='5' nome='HTML' icon='./dev/html.png' styleBox='boxSubDev' Style='Dev' xpBoxSub='xpBoxSubDev'/>
+                    <BoxSub xp='5' nome='CSS' icon='./dev/css.png' styleBox='boxSubDev' Style='Dev' xpBoxSub='xpBoxSubDev'/>
 
                 </motion.div>
 

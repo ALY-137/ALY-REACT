@@ -36,32 +36,32 @@ import {Link,Outlet}from 'react-router-dom';
 
                                     <div id="cardProfile">
 
-                                            <img src="/imagens/imgHome/note.png" id="imgnoteHome"/>
-                                            <img src="/imagens/imgDev/note.png" id="imgnoteDev"/>
-                                            <img src="/imagens/imgDesign/note.png" id="imgnoteDesign"/>
+                                            <img src="/imagens/imgHome/note.png" id="imgnoteHome" alt="imagem"/>
+                                            <img src="/imagens/imgDev/note.png" id="imgnoteDev" alt="imagem"/>
+                                            <img src="/imagens/imgDesign/note.png" id="imgnoteDesign" alt="imagem"/>
 
                                             <div id="MatrixDesign">
                                                 
-                                                <img src="/imagens/imgDesign/busto.png" id="imgBustoDesign"/>
-                                                <img src="/imagens/imgDesign/busto0.png" id="imgBustoDesign0"/>  
-                                                <img src="/imagens/imgDesign/busto1.png" id="imgBustoDesign1"/> 
-                                                <img src="/imagens/imgDesign/busto.png" id="imgBustoDesign2"/> 
+                                                <img src="/imagens/imgDesign/busto.png" id="imgBustoDesign" alt="imagem"/>
+                                                <img src="/imagens/imgDesign/busto0.png" id="imgBustoDesign0" alt="imagem"/>  
+                                                <img src="/imagens/imgDesign/busto1.png" id="imgBustoDesign1" alt="imagem"/> 
+                                                <img src="/imagens/imgDesign/busto.png" id="imgBustoDesign2" alt="imagem"/> 
 
                                             </div>  
 
                                             <div id="MatrixDev">
-                                                <img src="/imagens/imgDev/busto.png" id="imgBustoDev"/>
-                                                <img src="/imagens/imgDev/busto0.png" id="imgBustoDev0"/>  
-                                                <img src="/imagens/imgDev/busto1.png" id="imgBustoDev1"/> 
-                                                <img src="/imagens/imgDev/busto.png" id="imgBustoDev2"/> 
+                                                <img src="/imagens/imgDev/busto.png" id="imgBustoDev" alt="imagem"/>
+                                                <img src="/imagens/imgDev/busto0.png" id="imgBustoDev0" alt="imagem"/>  
+                                                <img src="/imagens/imgDev/busto1.png" id="imgBustoDev1" alt="imagem"/> 
+                                                <img src="/imagens/imgDev/busto.png" id="imgBustoDev2" alt="imagem"/> 
                                                   
                                             </div> 
 
                                             <div id="MatrixHome">
-                                                <img src="/imagens/imgHome/busto.png" id="imgBustoHome"/>
-                                                <img src="/imagens/imgHome/busto0.png" id="imgBustoHome0"/>  
-                                                <img src="/imagens/imgHome/busto1.png" id="imgBustoHome1"/> 
-                                                <img src="/imagens/imgHome/busto.png" id="imgBustoHome2"/>   
+                                                <img src="/imagens/imgHome/busto.png" id="imgBustoHome" alt="imagem"/>
+                                                <img src="/imagens/imgHome/busto0.png" id="imgBustoHome0" alt="imagem"/>  
+                                                <img src="/imagens/imgHome/busto1.png" id="imgBustoHome1" alt="imagem"/> 
+                                                <img src="/imagens/imgHome/busto.png" id="imgBustoHome2" alt="imagem"/>   
                                             </div>   
                                       
                                     </div>
@@ -95,7 +95,7 @@ import {Link,Outlet}from 'react-router-dom';
                                       <Outlet />
                     
                  <div id="rodape">
-                                <img src="/logo.png" id="logoRod"/>
+                                <img src="/logo.png" id="logoRod" alt="imagem"/>
                                 <p>ALY-137©</p>  
                               
 

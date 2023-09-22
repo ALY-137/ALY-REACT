@@ -5,12 +5,12 @@ function CheckHabilidades({classStatusAI,classStatusPS,classStatusVSHome,classSt
 
         return(
             <div className='checkBoxHab'>
-                <img className={classStatusVB} src='./dev/vb.png' />
-                <img  className={classStatusC} src='./dev/c.png' />
-                <img  className={classStatusVS} src='./dev/vscode.png' />
-                <img  className={classStatusVSHome} src='./home/vscode.png' />
-                <img  className={classStatusPS} src='./design/ps.png' />
-                <img  className={classStatusAI} src='./design/ai.png' />
+                <img className={classStatusVB} src='./dev/vb.png' alt="imagem"/>
+                <img  className={classStatusC} src='./dev/c.png' alt="imagem"/>
+                <img  className={classStatusVS} src='./dev/vscode.png' alt="imagem"/>
+                <img  className={classStatusVSHome} src='./home/vscode.png' alt="imagem"/>
+                <img  className={classStatusPS} src='./design/ps.png' alt="imagem"/>
+                <img  className={classStatusAI} src='./design/ai.png' alt="imagem"/>
             </div>
         )
 

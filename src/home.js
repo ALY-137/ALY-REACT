@@ -36,7 +36,7 @@ export function violet(){
         abaDesign.classList.remove('optionsAbasHome');
         abaDesign.classList.add('optionsAbasFocoHome');
 
-        var abaDesign = document.getElementById('abaDesign');
+        abaDesign = document.getElementById('abaDesign');
         abaDesign.classList.remove('optionsAbasFocoDev');
         abaDesign.classList.remove('optionsAbasFocoDesign');
         abaDesign.classList.remove('optionsAbasDev');
@@ -44,7 +44,7 @@ export function violet(){
         abaDesign.classList.remove('optionsAbasFocoHome');
         abaDesign.classList.add('optionsAbasHome');
         
-        var abaDesign = document.getElementById('abaDev');
+        abaDesign = document.getElementById('abaDev');
         abaDesign.classList.remove('optionsAbasFocoDev');
         abaDesign.classList.remove('optionsAbasFocoDesign');
         abaDesign.classList.remove('optionsAbasDev');
@@ -58,10 +58,10 @@ export function violet(){
         var aba = document.getElementById('MatrixHome');
         aba.style.display = 'block';
 
-        var aba = document.getElementById('MatrixDev');
+        aba = document.getElementById('MatrixDev');
         aba.style.display = 'none';
 
-        var aba = document.getElementById('MatrixDesign');
+        aba = document.getElementById('MatrixDesign');
         aba.style.display = 'none';
 
 
@@ -74,24 +74,24 @@ export function violet(){
 
 
 
-        var estilo = document.getElementById('fundo');
+        estilo = document.getElementById('fundo');
         estilo.classList.remove('fundoEstiloDev');
         estilo.classList.remove('fundoEstiloDesign');
         estilo.classList.add('fundoEstiloHome');
 
-        var estilo = document.getElementById('rodape');
+        estilo = document.getElementById('rodape');
         estilo.classList.remove('rodapeEstiloDev');
         estilo.classList.remove('rodapeEstiloDesign');
         estilo.classList.add('rodapeEstiloHome');
 
 
-        var estilo = document.getElementById('conteudo');
+        estilo = document.getElementById('conteudo');
         estilo.classList.remove('conteudoEstiloDev');
         estilo.classList.remove('conteudoEstiloDesign');
         estilo.classList.add('conteudoEstiloHome');   
 
         // COR TEXTO PADRÃO PAGE           
-        var estilo = document.body;
+        estilo = document.body;
         estilo.style.color = '#7e0eff';
 
        // TEXTO DAS ABAS
@@ -106,7 +106,7 @@ export function violet(){
        texto.classList.add('numNeutroHome');
 
 
-       var texto = document.getElementById('txtAbaHome');
+       texto = document.getElementById('txtAbaHome');
        texto.classList.remove('numNeutroDesign');
        texto.classList.remove('numBrilhaDesign');
 
@@ -115,7 +115,7 @@ export function violet(){
 
        texto.classList.add('numBrilhaHome');
 
-       var texto = document.getElementById('txtAbaDev');
+       texto = document.getElementById('txtAbaDev');
        texto.classList.remove('numNeutroDesign');
        texto.classList.remove('numBrilhaDesign');
 
@@ -129,22 +129,22 @@ export function violet(){
         var note = document.getElementById('imgnoteDev');
         note.style.display = 'none';
 
-        var note = document.getElementById('imgnoteHome');
+        note = document.getElementById('imgnoteHome');
         note.style.display = 'block';
 
-        var note = document.getElementById('imgnoteDesign');
+        note = document.getElementById('imgnoteDesign');
         note.style.display = 'none';  
 
 
         // ALTERA IMAGEM BUSTO
 
-        var aba = document.getElementById('imgBustoHome2');
+        aba = document.getElementById('imgBustoHome2');
         aba.style.display = 'block';
 
-        var aba = document.getElementById('imgBustoDev2');
+        aba = document.getElementById('imgBustoDev2');
         aba.style.display = 'none';
 
-        var aba = document.getElementById('imgBustoDesign2');
+        aba = document.getElementById('imgBustoDesign2');
         aba.style.display = 'none';
 
     // CHAMA FUNÇÃO MATRIX DA HOME

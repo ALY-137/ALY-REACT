@@ -10,15 +10,17 @@ const largura = window.innerWidth;
 const altura = window.innerHeight;
 //Essas variáveis foram criadas para obter os valores em pixels das dimensões de tela qual o usuário está utilizando.
 
+var resultado;
+
 
 function realocaChuvasTxt(altura){
 
  
     if(altura<400){
-        var resultado = (altura/100) * 55;
+        resultado = (altura/100) * 55;
         resultado = alyAlt - resultado;
     }else{
-        var resultado = (altura/100) * 25;
+        resultado = (altura/100) * 25;
         resultado = alyAlt - resultado;
     }
 
@@ -113,7 +115,7 @@ var temporizadorF2 = [];
 var temporizadorF3 = [];
 
 const wait = ms => new Promise(resolve => setInterval(resolve, ms));
-let espera = null;
+
 var prox0 = 0;
 
 export var contAnimatrix = 0;
@@ -123,13 +125,13 @@ export var contAnimatrix = 0;
 
 function theMatrixDev(altura,largura){
 
-    if(contAnimatrix==0){
+    if(contAnimatrix===0){
         contAnimatrix=1; 
 
 
         numLin = Math.trunc(((altura) / 20)-1);
         numCol = Math.trunc(((largura) / 20)-1);
-        if(numCol%2==0){
+        if(numCol%2===0){
         numCol = numCol -1;
         }
         //Limita número de linhas e colunas.
@@ -184,19 +186,19 @@ var chuvamatrix = document.getElementById('MatrixDev');
 chuvamatrix.style.height = `${chuvaAltura}px`;
 chuvamatrix.style.width = `${chuvaLargura}px`;
 
-var chuvamatrix = document.getElementById('chuvaDev0');
+chuvamatrix = document.getElementById('chuvaDev0');
 chuvamatrix.style.height = `${chuvaAltura}px`;
 chuvamatrix.style.width = `${chuvaLargura}px`;
 
-var chuvamatrix = document.getElementById('chuvaDev1');
+chuvamatrix = document.getElementById('chuvaDev1');
 chuvamatrix.style.height = `${chuvaAltura}px`;
 chuvamatrix.style.width = `${chuvaLargura}px`;
 
-var chuvamatrix = document.getElementById('chuvaDev2');
+chuvamatrix = document.getElementById('chuvaDev2');
 chuvamatrix.style.height = `${chuvaAltura}px`;
 chuvamatrix.style.width = `${chuvaLargura}px`;
 
-var chuvamatrix = document.getElementById('chuvaDev3');
+chuvamatrix = document.getElementById('chuvaDev3');
 chuvamatrix.style.height = `${chuvaAltura}px`;
 chuvamatrix.style.width = `${chuvaLargura}px`;
 }
@@ -208,11 +210,12 @@ function comprimentoCols0(){
 }
 
 function desenhaMatrix() {
-    for (var i = 0; i < numLin; i++) {
+    var i,j,n;
+    for (i = 0; i < numLin; i++) {
         caseDev[i] = [];
-        for (var j = 0; j < numCol; j++) {
+        for (j = 0; j < numCol; j++) {
             caseDev[i][j]= [];
-            for (var n = 0; n < 4; n++) {
+            for (n = 0; n < 4; n++) {
                 caseDev[i][j][n] = document.createElement("div");
                 caseDev[i][j][n].setAttribute('class', `caseDev`);
                 caseDev[i][j][n].setAttribute('id', `caseDev${i}.${j}.${n}`);
@@ -220,11 +223,11 @@ function desenhaMatrix() {
             }
         }
     }
-    for (var i = 0; i < numLin; i++) {
+    for (i = 0; i < numLin; i++) {
         matrix[i] = [];
-        for (var j = 0; j < numCol; j++) {
+        for (j = 0; j < numCol; j++) {
             matrix[i][j]=[];
-            for (var n = 0; n < 4; n++) {
+            for (n = 0; n < 4; n++) {
             
                 matrix[i][j][n] = document.createElement("div");
                 matrix[i][j][n].setAttribute('id', 'nums');
@@ -263,7 +266,7 @@ function randOrd() {
 
 function idPosMeio(){
     for (var i = 0; i < numCol ; i++) {
-        if (sequenciaemVChuva0[i] == meio) {
+        if (sequenciaemVChuva0[i] === meio) {
         sequenciaemVChuva0[i] = guarda;
         sequenciaemVChuva0[0] = meio;
         }
@@ -279,11 +282,11 @@ function construVetMens(){
 function caiemV(vetor,tamanho){
     var ref = 0;
     for(var i= 0;i<tamanho;i++){
-        if(i==0){
+        if(i===0){
         vetor[i]= meio;
 
         }else{
-        if(ref==0){
+        if(ref===0){
             meio= meio-i;
 
             ref += 1;
@@ -298,7 +301,7 @@ function caiemV(vetor,tamanho){
 }
 
 function comecoMBV(){
-    if(numMensBV%2==0){
+    if(numMensBV%2===0){
     comeco = sequenciaemV[numMensBV-1];
     }else{
     comeco = sequenciaemV[numMensBV-2];
@@ -330,7 +333,7 @@ function trocador(d) {
     for (var a = 0; a < numLin; a++) {
         for (var b = 0; b < numCol; b++) {
             for (var c = 0; c < 2; c++) {
-                if (b % 2 == 0) {
+                if (b % 2 === 0) {
                     d[a][b][c].innerHTML = `${caracteres[random(0, caracteres.length)]}`;
                 }
             }
@@ -340,14 +343,15 @@ function trocador(d) {
 
 async function anima0() {
     trocador(matrix);
+    var busto;
 
 
     for (var j = 0; j < numCol; j++){
 
         
         //MUDAR BUSTO
-        if(j%2==0){
-            var busto = document.getElementById('imgBustoDev0');
+        if(j%2===0){
+            busto = document.getElementById('imgBustoDev0');
             busto.style.display = 'block';
 
             busto = document.getElementById('imgBustoDev1');
@@ -369,23 +373,23 @@ async function anima0() {
 
         }
 
-        espera = await wait(1280 / (j + 2));
+        await wait(1280 / (j + 2));
 
-        if (aLi0[j] == 0) {
+        if (aLi0[j] === 0) {
  
                     matrix[aLi0[j]][sequenciaemVChuva0[j]][0].setAttribute('class', 'numBrilhaDev');
                     matrix[aLi0[j]][sequenciaemVChuva0[j]][0].innerHTML = `${caracteres1[random(0, caracteres1.length)]}`;
 
 
             } else {
-            if (aLi0[j] <= numLin && aLf0[j] == 0) {
+            if (aLi0[j] <= numLin && aLf0[j] === 0) {
         
                     matrix[aLi0[j] - 1][sequenciaemVChuva0[j]][0].setAttribute('class', 'numNeutroDev');
                     matrix[aLi0[j] - 1][sequenciaemVChuva0[j]][0].innerHTML = `${caracteres[random(0, caracteres.length)]}`;
     
 
             
-                if (temporizadorI0[j] >= numLin && aLf0[j] == 0) {
+                if (temporizadorI0[j] >= numLin && aLf0[j] === 0) {
               
                         matrix[aLi0[j]][sequenciaemVChuva0[j]][0].setAttribute('class', 'numNeutroDev');
                         matrix[aLi0[j]][sequenciaemVChuva0[j]][0].innerHTML = `${caracteres[random(0, caracteres.length)]}`;
@@ -404,7 +408,7 @@ async function anima0() {
         temporizadorI0[j] += 1;
         if(temporizadorI0[j] > numLin){
             prox0 += 1;
-            if (prox0 == 1){
+            if (prox0 === 1){
                 start1();
             }
         }
@@ -449,12 +453,12 @@ function enviaNome(){
             mensagem1[i]= i;
         }
 
-        for(var i= 0;i<numNome;i++){
-            if(i==0){
+        for(i= 0;i<numNome;i++){
+            if(i===0){
                 sequenciaemV1[i]= meio1;
 
             }else{
-                if(ref1==0){
+                if(ref1===0){
                     meio1= meio1-i;
 
                     ref1 += 1;
@@ -469,13 +473,13 @@ function enviaNome(){
         }
 
 
-        for(var i=0;i<numNome;i++){
+        for(i=0;i<numNome;i++){
                 posj3[i]= sequenciaemV1[i];
         }
 
         var comeco1 ;
 
-        if(numNome%2==0){
+        if(numNome%2===0){
             comeco1 = sequenciaemV1[numNome-1];
         }else{
             comeco1 = sequenciaemV1[numNome-2];
@@ -483,7 +487,7 @@ function enviaNome(){
 
 
         var cont1=0;
-        for( var i =0 ;i<numCol;i++){
+        for( i =0 ;i<numCol;i++){
             if(i<comeco1){
                 mensagem1[i]=0;
             }else{
@@ -492,7 +496,7 @@ function enviaNome(){
             };
         }
 
-        for (var i = 0; i < numNome; i++) {
+        for ( i = 0; i < numNome; i++) {
             comprimento3[i] = random((numLin/2)+1 , numLin );
         }
                 
@@ -518,23 +522,23 @@ async function anima1() {
 
     for (var j = 0; j < numCol; j++) {
 
-        espera = await wait(1280/ (j + 2));
+        await wait(1280/ (j + 2));
 
-        if (aLi1[j] == 0) {
+        if (aLi1[j] === 0) {
      
                 matrix[aLi1[j]][sequenciaemVChuva0[j]][1].setAttribute('class', 'numBrilhaDev');
                 matrix[aLi1[j]][sequenciaemVChuva0[j]][1].innerHTML = `${caracteres1[random(0, caracteres1.length)]}`;
     
    
         } else {
-            if (aLi1[j] <= numLin && aLf1[j] == 0) {
+            if (aLi1[j] <= numLin && aLf1[j] === 0) {
 
                     matrix[aLi1[j] - 1][sequenciaemVChuva0[j]][1].setAttribute('class', 'numNeutroDev');
                     matrix[aLi1[j] - 1][sequenciaemVChuva0[j]][1].innerHTML = `${caracteres[random(0, caracteres.length)]}`;
     
    
 
-                if (temporizadorI1[j] >= numLin && aLf1[j] == 0) {
+                if (temporizadorI1[j] >= numLin && aLf1[j] === 0) {
        
                         matrix[aLi1[j]][sequenciaemVChuva0[j]][1].setAttribute('class', 'numNeutroDev');
                         matrix[aLi1[j]][sequenciaemVChuva0[j]][1].innerHTML = `${caracteres[random(0, caracteres.length)]}`;
@@ -555,8 +559,8 @@ async function anima1() {
         
         if (temporizadorI1[j] > numLin + numLin/2){
             prox1 += 1;
-            if (prox1 == 1){
-                if(contAnimatrix==1){
+            if (prox1 === 1){
+                if(contAnimatrix===1){
                     start2();
                     start3();
                 }else{
@@ -608,7 +612,7 @@ async function anima2() {
     for (var a = 0; a < numLin2 -1 ; a++) {
         for (var b = 0; b < numCol; b++) {
             
-                if (b % 2 == 0) {
+                if (b % 2 === 0) {
                     matrix[a][b][2].innerHTML = `${caracteres[random(0, caracteres.length)]}`;
                 }
             
@@ -617,23 +621,23 @@ async function anima2() {
    
     for (var j = 0; j < numMensBV; j++) {
 
-        espera = await wait(1280 / (j + 2));
+        await wait(1280 / (j + 2));
 
-        if (aLi2[j] == 0) {
+        if (aLi2[j] === 0) {
      
                 matrix[aLi2[j]][sequenciaemV[j]][2].setAttribute('class', 'numBrilhaDev');
                 matrix[aLi2[j]][sequenciaemV[j]][2].innerHTML = `${caracteres1[random(0, caracteres1.length)]}`;
     
      
         } else {
-            if (aLi2[j] < numLin2 && aLf2[j] == 0) {
+            if (aLi2[j] < numLin2 && aLf2[j] === 0) {
   
                     matrix[aLi2[j] - 1][sequenciaemV[j]][2].setAttribute('class', 'numNeutroDev');
                     matrix[aLi2[j] - 1][sequenciaemV[j]][2].innerHTML = `${caracteres[random(0, caracteres.length)]}`;
     
          
 
-                if (temporizadorI2[j] > numLin2   && aLf2[j] == 0) {
+                if (temporizadorI2[j] > numLin2   && aLf2[j] === 0) {
                
                         matrix[aLi2[j]][sequenciaemV[j]][2].setAttribute('class', 'numNeutroDev');
                         matrix[aLi2[j]][sequenciaemV[j]][2].innerHTML = `${caracteres[random(0, caracteres.length)]}`;
@@ -691,7 +695,7 @@ function start2() {
 export async function anima3() {  
     for (var a = 0; a < numLin3 -1 ; a++) {
         for (var b = 0; b < numCol; b++) {
-            if (b % 2 == 0) {
+            if (b % 2 === 0) {
                 matrix[a][b][3].innerHTML = `${caracteres[random(0, caracteres.length)]}`;
             }  
         }
@@ -699,22 +703,22 @@ export async function anima3() {
    
     for (var j = 0; j < numNome; j++) {
 
-        espera = await wait(1280/(j + 2));
+        await wait(1280/(j + 2));
 
-        if (aLi3[j] == 0) {
+        if (aLi3[j] === 0) {
        
                 matrix[aLi3[j]][posj3[j]][3].setAttribute('class', 'numBrilhaDev');
                 matrix[aLi3[j]][posj3[j]][3].innerHTML = `${caracteres1[random(0, caracteres1.length)]}`;
     
         } else {
-            if (aLi3[j] < numLin3 && aLf3[j] == 0) {
+            if (aLi3[j] < numLin3 && aLf3[j] === 0) {
          
                     matrix[aLi3[j] - 1][posj3[j]][3].setAttribute('class', 'numNeutroDev');
                     matrix[aLi3[j] - 1][posj3[j]][3].innerHTML = `${caracteres[random(0, caracteres.length)]}`;
     
             
 
-                if (temporizadorI3[j] > numLin3   && aLf3[j] == 0) {
+                if (temporizadorI3[j] > numLin3   && aLf3[j] === 0) {
                   
                         matrix[aLi3[j]][posj3[j]][3].setAttribute('class', 'numNeutroDev');
                         matrix[aLi3[j]][posj3[j]][3].innerHTML = `${caracteres[random(0, caracteres.length)]}`;
@@ -756,7 +760,7 @@ export async function anima3() {
 
                 var recebe = document.getElementById("chuvaDev2");
                 recebe.style.marginTop = `${realocaChuvasTxt(altura,largura)}px`;
-                var recebe = document.getElementById("chuvaDev3");
+                recebe = document.getElementById("chuvaDev3");
                 recebe.style.marginTop = `${realocaChuvasTxt(altura,largura)}px`;
                     
 
@@ -796,10 +800,10 @@ function atualizaBusto(){
     var busto = document.getElementById('imgBustoDev0');
     busto.style.display = 'none';
     
-    var busto = document.getElementById('imgBustoDev1');
+    busto = document.getElementById('imgBustoDev1');
     busto.style.display = 'none';
 
-    var busto = document.getElementById('imgBustoDev2');
+    busto = document.getElementById('imgBustoDev2');
     busto.style.display = 'block';
 
 }

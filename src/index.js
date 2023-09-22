@@ -5,7 +5,7 @@ import App from './routes/App';
 
 
 
-import {createBrowserRouter, Router, RouterProvider}from 'react-router-dom';
+import {createBrowserRouter, RouterProvider}from 'react-router-dom';
 
 import Home from "./routes/Home";
 import Development from "./routes/Development";
@@ -19,7 +19,7 @@ const router = createBrowserRouter(
     {
       path: "/",
       element: <App />,
-  
+      errorElement: <Error />,
       children: 
       [
         {

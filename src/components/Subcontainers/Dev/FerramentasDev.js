@@ -26,7 +26,7 @@ function FerramentasDev(){
 
         <div className="boxSubcontainersDev">
             <div className="tituloSubcontainersDev">
-            <img className='canto0SubTit' src='/dev/cantoSubcontainer.png'  />  
+            <img className='canto0SubTit' src='/dev/cantoSubcontainer.png' alt="imagem" />  
                  
         
          
@@ -34,14 +34,14 @@ function FerramentasDev(){
                 <p className='tituloTxt'>
                     FERRAMENTAS
                 </p>  
-                <img className='canto3SubTit' src='/dev/cantoSubcontainer.png'   /> 
+                <img className='canto3SubTit' src='/dev/cantoSubcontainer.png' alt="imagem"  /> 
                 <Faixa />
                 <Faixa />
                 <Faixa />
            
           
    
-                <img className='canto3SubTit' src='/dev/cantoSubcontainer.png'   /> 
+                <img className='canto3SubTit' src='/dev/cantoSubcontainer.png' alt="imagem"  /> 
      
 
                                                                                
@@ -53,10 +53,10 @@ function FerramentasDev(){
 
                 <motion.div  drag='x' className='inner' dragConstraints={{right: +width, left:-width}}>
                     
-                    <BoxSub xp='5' nome='REACT JS' icon='./dev/react.png' styleBox='boxSubDev' style='Dev' xpBoxSub='xpBoxSubDev'/>
-                    <BoxSub xp='5' nome='VS CODE' icon='./dev/vscode.png' styleBox='boxSubDev' style='Dev' xpBoxSub='xpBoxSubDev'/>
-                    <BoxSub xp='5' nome='GITHUB' icon='./dev/git.png' styleBox='boxSubDev' style='Dev' xpBoxSub='xpBoxSubDev'/>
-                    <BoxSub xp='2' nome='NODE JS' icon='./dev/node.png' styleBox='boxSubDev' style='Dev' xpBoxSub='xpBoxSubDev'/>
+                    <BoxSub xp='5' nome='REACT JS' icon='./dev/react.png' styleBox='boxSubDev' Style='Dev' xpBoxSub='xpBoxSubDev'/>
+                    <BoxSub xp='5' nome='VS CODE' icon='./dev/vscode.png' styleBox='boxSubDev' Style='Dev' xpBoxSub='xpBoxSubDev'/>
+                    <BoxSub xp='5' nome='GITHUB' icon='./dev/git.png' styleBox='boxSubDev' Style='Dev' xpBoxSub='xpBoxSubDev'/>
+                    <BoxSub xp='2' nome='NODE JS' icon='./dev/node.png' styleBox='boxSubDev' Style='Dev' xpBoxSub='xpBoxSubDev'/>
 
                 </motion.div>
 

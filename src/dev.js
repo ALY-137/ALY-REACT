@@ -11,6 +11,8 @@ var alyLar;
 
 
 
+
+
 alyAlt = altSreen-137;
     
 if(larSreen>1000){
@@ -31,15 +33,15 @@ if(larSreen>1000){
     
     
     // GERENCIA ABAS
-    var abaDesign = document.getElementById('abaDev');
-    abaDesign.classList.remove('optionsAbasDesign');
-    abaDesign.classList.remove('optionsAbasHome');
-    abaDesign.classList.remove('optionsAbasFocoHome');
-    abaDesign.classList.remove('optionsAbasFocoDesign');
-    abaDesign.classList.remove('optionsAbasDev');
-    abaDesign.classList.add('optionsAbasFocoDev');
+    var abaDev = document.getElementById('abaDev');
+    abaDev.classList.remove('optionsAbasDesign');
+    abaDev.classList.remove('optionsAbasHome');
+    abaDev.classList.remove('optionsAbasFocoHome');
+    abaDev.classList.remove('optionsAbasFocoDesign');
+    abaDev.classList.remove('optionsAbasDev');
+    abaDev.classList.add('optionsAbasFocoDev');
 
-    var abaDev = document.getElementById('abaHome');
+    abaDev = document.getElementById('abaHome');
     abaDev.classList.remove('optionsAbasFocoHome');
     abaDev.classList.remove('optionsAbasFocoDesign');
     abaDev.classList.remove('optionsAbasDesign');
@@ -47,7 +49,7 @@ if(larSreen>1000){
     abaDev.classList.remove('optionsAbasFocoDev');
     abaDev.classList.add('optionsAbasDev');
     
-    var abaDev = document.getElementById('abaDesign');
+    abaDev = document.getElementById('abaDesign');
     abaDev.classList.remove('optionsAbasFocoHome');
     abaDev.classList.remove('optionsAbasFocoDesign');
     abaDev.classList.remove('optionsAbasDesign');
@@ -60,13 +62,13 @@ if(larSreen>1000){
 
         // MOSTRA / ESCONDE MATRIXES
 
-        var abaDev = document.getElementById('MatrixDev');
+        abaDev = document.getElementById('MatrixDev');
         abaDev.style.display = 'block';
 
-        var abaDev = document.getElementById('MatrixDesign');
+        abaDev = document.getElementById('MatrixDesign');
         abaDev.style.display = 'none';
 
-        var abaDev = document.getElementById('MatrixHome');
+        abaDev = document.getElementById('MatrixHome');
         abaDev.style.display = 'none';
 
         // ESTILIZA CARD
@@ -81,7 +83,7 @@ if(larSreen>1000){
 
         
 
-        var estilo = document.getElementById('fundo');
+        estilo = document.getElementById('fundo');
         estilo.classList.remove('fundoEstiloHome');
         estilo.classList.remove('fundoEstiloDesign');
         estilo.classList.add('fundoEstiloDev');
@@ -92,7 +94,7 @@ if(larSreen>1000){
         estiloCont.classList.add('rodapeEstiloDev');
 
     
-        var estiloCont = document.getElementById('conteudo');
+        estiloCont = document.getElementById('conteudo');
         estiloCont.classList.remove('conteudoEstiloDesign');
         estiloCont.classList.remove('conteudoEstiloHome');
         estiloCont.classList.add('conteudoEstiloDev');  
@@ -100,7 +102,7 @@ if(larSreen>1000){
         
         // COR TEXTO PADRÃO PAGE
 
-        var estilo = document.body;
+        estilo = document.body;
         estilo.style.color = '#0e62ff';
 
         // TEXTO DAS ABAS
@@ -115,7 +117,7 @@ if(larSreen>1000){
         texto.classList.add('numNeutroDev');
 
 
-        var texto = document.getElementById('txtAbaHome');
+        texto = document.getElementById('txtAbaHome');
         texto.classList.remove('numNeutroDesign');
         texto.classList.remove('numBrilhaDesign');
 
@@ -124,7 +126,7 @@ if(larSreen>1000){
 
         texto.classList.add('numNeutroDev');
 
-        var texto = document.getElementById('txtAbaDev');
+        texto = document.getElementById('txtAbaDev');
         texto.classList.remove('numNeutroDesign');
         texto.classList.remove('numBrilhaDesign');
 
@@ -139,10 +141,10 @@ if(larSreen>1000){
         var note = document.getElementById('imgnoteDev');
         note.style.display = 'block';
 
-        var note = document.getElementById('imgnoteHome');
+        note = document.getElementById('imgnoteHome');
         note.style.display = 'none';
 
-        var note = document.getElementById('imgnoteDesign');
+        note = document.getElementById('imgnoteDesign');
         note.style.display = 'none';
 
 

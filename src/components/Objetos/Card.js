@@ -11,7 +11,7 @@ function Card({classStatusAI,classStatusPS,classStatusVSHome,imgCard,classStatus
                 <p className={cardNome}> ▣  {nome}</p>
             </div>
             <div className={cardImagem}>
-                <img  className={imgCard} src={imagem} />
+                <img  className={imgCard} src={imagem} alt="imagem"/>
             </div>
             <div className={cardDescricao}>
 
