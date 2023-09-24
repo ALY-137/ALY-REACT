@@ -5,7 +5,7 @@ import App from './App';
 
 
 
-import {createBrowserRouter, RouterProvider}from 'react-router-dom';
+import {createBrowserRouter, RouterProvider} from 'react-router-dom';
 
 import Home from "./routes/Home";
 import Development from "./routes/Development";
