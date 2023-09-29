@@ -18,15 +18,21 @@ if(larSreen>1000){
     alyLar = 1000;
     alyAlt = (altSreen/100)*35;
 }else{
-    if(altSreen<400){
-        alyLar = larSreen;
-        alyAlt = (altSreen/100)*80;
+    
+    if(larSreen>400){
 
+        if(altSreen>400){
+            alyLar = larSreen;
+            alyAlt = (altSreen/100)*35;
+        }else{
+            alyLar = larSreen;
+            alyAlt = (altSreen/100)*80;
+        }
+        
     }else{
         alyLar = larSreen;
         alyAlt = larSreen*0.618;
-    }
-        
+    }   
     
 }
     
@@ -102,7 +108,7 @@ if(larSreen>1000){
         // COR TEXTO PADRÃO PAGE
 
         estilo = document.body;
-        estilo.style.color = '#0e62ff';
+        estilo.style.color = '#abc9ff';
 
         // TEXTO DAS ABAS
 

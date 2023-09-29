@@ -10,22 +10,28 @@ export function violet(){
 
 
      
-        
         if(larSreen>1000){
-        alyLar = 1000;
-        alyAlt = (altSreen/100)*35;
-        }else{
-                if(altSreen<400){
+                alyLar = 1000;
+                alyAlt = (altSreen/100)*35;
+            }else{
+                
+                if(larSreen>400){
+        
+                    if(altSreen>400){
+                        alyLar = larSreen;
+                        alyAlt = (altSreen/100)*35;
+                    }else{
                         alyLar = larSreen;
                         alyAlt = (altSreen/100)*80;
-
+                    }
+                    
                 }else{
-                        alyLar = larSreen;
-                        alyAlt = larSreen*0.618;
-                }
-                        
-        
-        }
+                    alyLar = larSreen;
+                    alyAlt = larSreen*0.618;
+                }   
+                
+            }
+                
 
      
         var abaDesign = document.getElementById('abaHome');
@@ -92,7 +98,7 @@ export function violet(){
 
         // COR TEXTO PADRÃO PAGE           
         estilo = document.body;
-        estilo.style.color = '#7e0eff';
+        estilo.style.color = '#ae6bfa';
 
        // TEXTO DAS ABAS
 

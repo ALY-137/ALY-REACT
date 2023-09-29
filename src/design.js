@@ -15,18 +15,23 @@ export function pink(){
         alyLar = 1000;
         alyAlt = (altSreen/100)*35;
     }else{
-        if(altSreen<400){
-            alyLar = larSreen;
-            alyAlt = (altSreen/100)*80;
+        
+        if(larSreen>400){
 
+            if(altSreen>400){
+                alyLar = larSreen;
+                alyAlt = (altSreen/100)*35;
+            }else{
+                alyLar = larSreen;
+                alyAlt = (altSreen/100)*80;
+            }
+            
         }else{
             alyLar = larSreen;
             alyAlt = larSreen*0.618;
-        }
-            
+        }   
         
     }
-        
     
         
         // MOSTRA/ESCONDE ABAS
@@ -114,7 +119,7 @@ export function pink(){
 
         // COR TEXTO PADRÃO PAGE        
         estilo = document.body;
-        estilo.style.color = '#fb008a';           
+        estilo.style.color = '#ff8aca';           
         
         
         // TEXTO DAS ABAS
