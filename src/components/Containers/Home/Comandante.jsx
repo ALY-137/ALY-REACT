@@ -14,7 +14,7 @@ function Comandante(){
                 <p className="subtitulo">SAVANNA PASSARELA</p>
                 
                 <p className='paragrafo'>
-                Profissional apaixonada e versátil, combinando habilidades em desenvolvimento web e design. Seu fascínio precoce por tecnologia a levou a criar um sistema inovador antes mesmo de ingressar na academia, demonstrando sua capacidade de solucionar problemas. Determinada em exercer suas paixões, se destaca unindo a programação com a estética visual. Com dedicação contínua ao aprendizado, ela busca empregar seu talento combinado em projetos impactantes e significativos no ciberespaço.
+                Profissional apaixonada e versátil, combinando habilidades em desenvolvimento web e design. Seu fascínio precoce por tecnologia a levou a criar seu primeiro sistema antes mesmo de ingressar na academia, demonstrando sua capacidade em solucionar problemas. Determinada em exercer suas paixões, se destaca unindo a programação com a estética visual. Com dedicação contínua ao aprendizado, ela busca empregar seu talento combinado em projetos impactantes e significativos no ciberespaço.
                 </p>
 
             <EstiloContainerBot />

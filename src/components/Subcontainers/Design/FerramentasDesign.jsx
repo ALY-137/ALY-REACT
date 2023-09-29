@@ -47,10 +47,10 @@ function FerramentasDesign(){
                 
                 <motion.div  drag='x' className='inner' dragConstraints={{right: +width, left:-width}}>
                   
-                    <BoxSub xp='4' nome='INDESIGN' icon='./Design/in.png' styleBox='boxSubDesign' Style='Design' xpBoxSub='xpBoxSubDesign'/>  
-                    <BoxSub xp='5' nome='PHOTOSHOP' icon='./Design/ps.png' styleBox='boxSubDesign' Style='Design' xpBoxSub='xpBoxSubDesign'/>
-                    <BoxSub xp='5' nome='ILLUSTRATOR' icon='./Design/ai.png' styleBox='boxSubDesign' Style='Design' xpBoxSub='xpBoxSubDesign'/>
-                    <BoxSub xp='4' nome='FIGMA' icon='./Design/fi.png' styleBox='boxSubDesign' Style='Design' xpBoxSub='xpBoxSubDesign'/>
+                    <BoxSub xp='4' nome='INDESIGN' icon='./design/in.png' styleBox='boxSubDesign' Style='Design' xpBoxSub='xpBoxSubDesign'/>  
+                    <BoxSub xp='5' nome='PHOTOSHOP' icon='./design/ps.png' styleBox='boxSubDesign' Style='Design' xpBoxSub='xpBoxSubDesign'/>
+                    <BoxSub xp='5' nome='ILLUSTRATOR' icon='./design/ai.png' styleBox='boxSubDesign' Style='Design' xpBoxSub='xpBoxSubDesign'/>
+                    <BoxSub xp='4' nome='FIGMA' icon='./design/fi.png' styleBox='boxSubDesign' Style='Design' xpBoxSub='xpBoxSubDesign'/>
 
                 </motion.div>
 
