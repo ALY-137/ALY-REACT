@@ -3,7 +3,7 @@
     margin-right: auto;
     margin-left: auto;
     margin-bottom: 40px;
-    background-color: #020813;
+    background-color: #02102c;
     margin-bottom: 60px;
 
 }
@@ -13,7 +13,7 @@
     margin-right: auto;
     margin-left: auto;
     margin-bottom: 40px;
-    background-color: #0c0213;
+    background-color: #160025;
     margin-bottom: 60px;
 }
 
@@ -22,7 +22,7 @@
     margin-right: auto;
     margin-left: auto;
     margin-bottom: 40px;
-    background-color: #020813;
+    background-color: #35011d;
     margin-bottom: 60px;
 }
 
@@ -33,7 +33,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: #020813;
+    background-color: #02102c;
     
 }
 .cardCabecalhoHome{
@@ -43,7 +43,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: #0c0213;
+    background-color: #160025;
     
 }
 
@@ -54,7 +54,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: #0c0213;
+    background-color: #35011d;
     
 }
 
@@ -63,7 +63,7 @@
     color: #abc9ff;
     width: 95%;
     text-align: left;
-    background-color: #031435;
+    background-color: #00205f;
     border: 1px solid #0e62ff;
     padding-top: 5px;
     padding-bottom: 7px;
@@ -75,7 +75,7 @@
     color: #d8b5ff;
     width: 95%;
     text-align: left;
-    background-color: #24033b;
+    background-color: #39005f;
     border: 1px solid #7e0eff;
     padding-top: 5px;
     padding-bottom: 7px;
@@ -87,7 +87,7 @@
     color: #ffc6e5;
     width: 95%;
     text-align: left;
-    background-color: #3b0338;
+    background-color: #830048;
     border: 1px solid #fb008a;
     padding-top: 5px;
     padding-bottom: 7px;
@@ -138,7 +138,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: #020813;
+    background-color: #02102c;
 
 
 }
@@ -152,7 +152,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: #020813;
+    background-color: #35011d;
 
 }
 
@@ -165,7 +165,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: #0c0213;
+    background-color: #160025;
 
 }
 

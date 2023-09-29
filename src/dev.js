@@ -13,7 +13,6 @@ var alyLar;
 
 
 
-alyAlt = altSreen-137;
     
 if(larSreen>1000){
     alyLar = 1000;
@@ -25,7 +24,7 @@ if(larSreen>1000){
 
     }else{
         alyLar = larSreen;
-        alyAlt = (altSreen/100)*35;
+        alyAlt = larSreen*0.618;
     }
         
     

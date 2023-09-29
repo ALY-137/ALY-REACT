@@ -73,7 +73,7 @@ export function layout(){
 
     // REDIMENCIONA CARD DESKTOP/MOBILE
 
-    alyAlt = altSreen-137;
+
     
     if(larSreen>1000){
         alyLar = 1000;
@@ -85,7 +85,7 @@ export function layout(){
 
         }else{
             alyLar = larSreen;
-            alyAlt = (altSreen/100)*35;
+            alyAlt = larSreen*0.618;
         }
             
         
