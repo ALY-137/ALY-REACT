@@ -7,13 +7,10 @@ export function violet(){
         var alyAlt;
         var alyLar;
 
-
-
-     
         if(larSreen>1000){
                 alyLar = 1000;
                 alyAlt = (altSreen/100)*35;
-            }else{
+        }else{
                 
                 if(larSreen>400){
         
@@ -30,7 +27,7 @@ export function violet(){
                     alyAlt = larSreen*0.618;
                 }   
                 
-            }
+        }
                 
 
      
