@@ -76,6 +76,9 @@ if(larSreen>1000){
         abaDev = document.getElementById('MatrixHome');
         abaDev.style.display = 'none';
 
+
+        
+
         // ESTILIZA CARD
 
  
@@ -141,27 +144,15 @@ if(larSreen>1000){
         texto.classList.add('numBrilhaDev');
 
 
-        // ALTERA IMAGEM NOTE
-
-        var note = document.getElementById('imgnoteDev');
-        note.style.display = 'block';
-
-        note = document.getElementById('imgnoteHome');
-        note.style.display = 'none';
-
-        note = document.getElementById('imgnoteDesign');
-        note.style.display = 'none';
 
 
-        // BUSTO
 
-        var busto = document.getElementById('imgBustoDev2');
-        busto.style.display = 'block';
+
               
 
         
         theMatrixDev(alyAlt,alyLar);
-       
+
 }
 
 export default blue;

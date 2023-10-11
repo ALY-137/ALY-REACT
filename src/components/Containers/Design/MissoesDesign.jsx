@@ -22,7 +22,7 @@ function MissoesDesign(){
                 descricao='Criação da marca do time brasileiro de eSports HELLMANS.'
                 data='DEZEMBRO de 2021'
                 atividade='DESIGN'
-                criador='SAVANNA PASSARELA'
+                criador='SAVANNA OLIVEIRA'
                 imagem='./design/hellmans.png'
 
 

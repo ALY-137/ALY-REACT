@@ -2,7 +2,7 @@
     margin-left: 20px;
     margin-right: 20px;
     border-style: double;
-    border: 1px solid #fb008a;
+    border: 1px solid #ff60b7;
     margin-top: 70px;
     background-image: url(../../../../public/back.png);
     text-align: center;
@@ -42,7 +42,7 @@
 
 .topMidDesign{
     border-style: double;
-    border: 1px solid #fb008a;
+    border: 1px solid #ff60b7;
     margin-top: -42px;
     background-color: #080110;
     text-align: center;

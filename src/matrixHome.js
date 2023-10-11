@@ -8,28 +8,32 @@ import audio from './audios/audio.mp3';
 
 const largura = window.innerWidth;
 const altura = window.innerHeight;
+
 //Essas variáveis foram criadas para obter os valores em pixels das dimensões de tela qual o usuário está utilizando.
 
-var resultado;
+
 var i;
+
+var resultado;
+
 
 function realocaChuvasTxt(altura){
 
  
-        if(altura<400){
-            resultado = (altura/100) * 55;
-            resultado = alyAlt - resultado;
-        }else{
-            resultado = (altura/100) * 25;
-            resultado = alyAlt - resultado;
-        }
-    
-    return resultado;    
+    if(altura<400){
+        resultado = (altura/100) * 58;
+        resultado = -(alyAlt - resultado);
+    }else{
+        resultado = (altura/100) * 28;
+        resultado = -(alyAlt - resultado);
+    }
+
+return resultado;    
 }
 
 
 
-var alyAlt = altura-137;
+var alyAlt = altura;
     
 if(largura>1000){
     alyAlt = (altura/100)*35;
@@ -41,6 +45,11 @@ if(largura>1000){
         alyAlt = (altura/100)*35;
     }
 }
+
+
+
+
+
 
 
 // CARACTERES SOMBRA
@@ -66,7 +75,7 @@ const chuvas =[];
 var chuvaAltura = 0;
 var chuvaLargura = 0;
 const comprimento0 = [];
-var tempAnima0;
+
 var nome;
 var numNome;
 var MensBVNome = [];
@@ -95,29 +104,25 @@ var numLin2;
 var cont=0;
 const comprimento2 = [];
 
-var aLi0 = [];
+
 var aLi1 = [];
 var aLi2 = [];
 var aLi3 = [];
 
-var aLf0 = [];
+
 var aLf1 = [];
 var aLf2 = [];
 var aLf3 = [];
 
-var temporizadorI0 = [];
 var temporizadorI1 = [];
 var temporizadorI2 = [];
 var temporizadorI3 = [];
 
-var temporizadorF0 = [];
 var temporizadorF1 = [];
 var temporizadorF2 = [];
 var temporizadorF3 = [];
 
 const wait = ms => new Promise(resolve => setInterval(resolve, ms));
-
-var prox0 = 0;
 
 export var contAnimatrix = 0;
 
@@ -161,7 +166,7 @@ function theMatrixHome(altura,largura){
         caiemV(sequenciaemV,numMensBV); // Organiza a sequência para que as letras caem na forma de V.
         comecoMBV(); // Identifica a posição em que a MensBV deve começar para ficar centralizada.
         preencheZeros(); // Esse for preenche com zeros as posições que antecedem a posição que foi identificada como a de início da frase.
-        start0();
+        start1();
 
     }
 
@@ -348,98 +353,6 @@ function trocador(d) {
     }
 }
 
-async function anima0() {
-    trocador(matrix);
-    var busto;
-
-
-    for (var j = 0; j < numCol; j++){
-
-        
-        //MUDAR BUSTO
-        if(j%2===0){
-            busto = document.getElementById('imgBustoHome0');
-            busto.style.display = 'block';
-
-            busto = document.getElementById('imgBustoHome1');
-            busto.style.display = 'none';
-
-            busto = document.getElementById('imgBustoHome2');
-            busto.style.display = 'none';
-
-
-        }else{
-            busto = document.getElementById('imgBustoHome0');
-            busto.style.display = 'none';
-
-            busto = document.getElementById('imgBustoHome1');
-            busto.style.display = 'block';
-
-            busto = document.getElementById('imgBustoHome2');
-            busto.style.display = 'none';
-
-        }
-
-        await wait(1280 / (j + 2));
-
-        if (aLi0[j] === 0) {
- 
-                    matrix[aLi0[j]][sequenciaemVChuva0[j]][0].setAttribute('class', 'numBrilhaHome');
-                    matrix[aLi0[j]][sequenciaemVChuva0[j]][0].innerHTML = `${caracteres1[random(0, caracteres1.length)]}`;
-
-
-            } else {
-            if (aLi0[j] <= numLin && aLf0[j] === 0) {
-        
-                    matrix[aLi0[j] - 1][sequenciaemVChuva0[j]][0].setAttribute('class', 'numNeutroHome');
-                    matrix[aLi0[j] - 1][sequenciaemVChuva0[j]][0].innerHTML = `${caracteres[random(0, caracteres.length)]}`;
-    
-
-            
-                if (temporizadorI0[j] >= numLin && aLf0[j] === 0) {
-              
-                        matrix[aLi0[j]][sequenciaemVChuva0[j]][0].setAttribute('class', 'numNeutroHome');
-                        matrix[aLi0[j]][sequenciaemVChuva0[j]][0].innerHTML = `${caracteres[random(0, caracteres.length)]}`;
-
-
-                } else {
-     
-                        matrix[aLi0[j]][sequenciaemVChuva0[j]][0].setAttribute('class', 'numBrilhaHome');
-                        matrix[aLi0[j]][sequenciaemVChuva0[j]][0].innerHTML = `${caracteres1[random(0, caracteres1.length)]}`;
-    
-        
-                }
-            }
-        }
-
-        temporizadorI0[j] += 1;
-        if(temporizadorI0[j] > numLin){
-            prox0 += 1;
-            if (prox0 === 1){
-                start1();
-            }
-        }
-
-
-        if(temporizadorI0[j] < numLin){
-            aLi0[j] += 1;
-        };
-
-        if (temporizadorI0[j] >= comprimento0[j]) {
-            matrix[aLf0[j]][sequenciaemVChuva0[j]][0].setAttribute('class', 'numOff');
-            temporizadorF0[j] += 1;
-            if (temporizadorF0[j] > numLin * 3) {
-                clearInterval(tempAnima0);
-            }
-
-            if (temporizadorF0[j] < numLin) {
-                aLf0[j] += 1;
-            }
-        }
-
-    }
-
-};
 
 function enviaNome(){ 
 
@@ -511,21 +424,10 @@ function enviaNome(){
 }
 
 
-function start0() {
-    prox0 = 0;
-
-    for (i = 0; i <= numCol; i++) {
-        aLi0[i] = 0;
-        aLf0[i] = 0;
-        temporizadorI0[i] = 0;
-        temporizadorF0[i] = 0;
-    }
-    tempAnima0 = setInterval(async () => await anima0(), 80);
-}
-
-
 async function anima1() {
+
     trocador(matrix);
+    
 
     for (var j = 0; j < numCol; j++) {
 
@@ -570,8 +472,6 @@ async function anima1() {
                 if(contAnimatrix===1){
                     start2();
                     start3();
-                }else{
-                    start0();
                 }
                 
             }
@@ -586,7 +486,7 @@ async function anima1() {
             matrix[aLf1[j]][sequenciaemVChuva0[j]][1].setAttribute('class', 'numOff');
 
             temporizadorF1[j] += 1;
-            if (temporizadorF1[j] > numLin * 3) {
+            if (temporizadorF1[j] > numLin * 5) {
                 clearInterval(tempAnima1);
                 
             }
@@ -673,7 +573,7 @@ async function anima2() {
 
             temporizadorF2[j] += 1;
 
-            if (temporizadorF2[j] > (numLin/2) * 8) {
+            if (temporizadorF2[j] > (numLin/2) * 5) {
                 clearInterval(tempAnima2);   
             }
 
@@ -755,25 +655,22 @@ export async function anima3() {
 
             if (temporizadorF3[j] > (numLin/2) * 5 ) {
                 
-    
                 clearInterval(tempAnima3);
-
                 
                 pause();
 
-                atualizaBusto();
-                
-                
+
+
                 var recebe = document.getElementById("chuvaHome2");
                 recebe.style.marginTop = `${realocaChuvasTxt(altura,largura)}px`;
                 recebe = document.getElementById("chuvaHome3");
                 recebe.style.marginTop = `${realocaChuvasTxt(altura,largura)}px`;
                     
-       
-            
+
+                atualizaBusto();      
+                
                 return 0;
                 
-  
             }
         
 
@@ -797,19 +694,14 @@ function start3() {
     tempAnima3 = setInterval(async () => await anima3(), 80);  
 }
 
-function atualizaBusto(){
-    
-    var busto = document.getElementById('imgBustoHome0');
-    busto.style.display = 'none';
-    
-    busto = document.getElementById('imgBustoHome1');
-    busto.style.display = 'none';
 
-    busto = document.getElementById('imgBustoHome2');
-    busto.style.display = 'block';
+function atualizaBusto(){
+ 
+    var busto = document.getElementById('imgBustoHome');
+    busto.style.bottom = 0;
+  
 
 }
-
 
 
 export default theMatrixHome;

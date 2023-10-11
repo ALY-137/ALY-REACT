@@ -72,6 +72,7 @@ export function pink(){
         abaDesign = document.getElementById('MatrixHome');
         abaDesign.style.display = 'none';
 
+
         // ESTILIZA O CARD
         
 
@@ -100,21 +101,8 @@ export function pink(){
             estilo.classList.remove('conteudoEstiloHome');
             estilo.classList.add('conteudoEstiloDesign');  
             
-        // NOTE
 
-        var note = document.getElementById('imgnoteDesign');
-        note.style.display = 'block';
 
-        note = document.getElementById('imgnoteDev');
-        note.style.display = 'none';
-
-        note = document.getElementById('imgnoteHome');
-        note.style.display = 'none';
-
-        // BUSTO
-
-        var busto = document.getElementById('imgBustoDesign2');
-        busto.style.display = 'block';
 
 
         // COR TEXTO PADRÃO PAGE        
@@ -152,9 +140,12 @@ export function pink(){
 
         texto.classList.add('numNeutroDesign');
 
-        
+
+
   
         theMatrixDesign(alyAlt,alyLar);
+
+
         
 }
 export default pink;

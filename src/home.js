@@ -127,28 +127,11 @@ export function violet(){
 
        texto.classList.add('numNeutroHome');  
 
-        // ALTERA IMAGEM NOTE
-
-        var note = document.getElementById('imgnoteDev');
-        note.style.display = 'none';
-
-        note = document.getElementById('imgnoteHome');
-        note.style.display = 'block';
-
-        note = document.getElementById('imgnoteDesign');
-        note.style.display = 'none';  
+    
 
 
-        // ALTERA IMAGEM BUSTO
 
-        aba = document.getElementById('imgBustoHome2');
-        aba.style.display = 'block';
 
-        aba = document.getElementById('imgBustoDev2');
-        aba.style.display = 'none';
-
-        aba = document.getElementById('imgBustoDesign2');
-        aba.style.display = 'none';
 
     // CHAMA FUNÇÃO MATRIX DA HOME
 

@@ -23,7 +23,7 @@ function MissoesDev(){
                 descricao='Sistema programado para efetuar controle financeiro para corporações prestadoras de serviços. Capaz de automatizar diversas funções como: contatar clientes;  registar pagamentos; agendamento de cobranças; levantamento de dados e outras. Empresas que contrataram este serviço obteveram retorno com aumento de até 300% em seu faturamento mensal.'
                 data={'AGOSTO de 2018'}
                 atividade='DESENVOLVIMENTO'
-                criador='SAVANNA PASSARELA'
+                criador='SAVANNA OLIVEIRA'
                 imagem='./dev/cafe.png'
 
 
@@ -51,7 +51,7 @@ function MissoesDev(){
                 descricao='Aplicação desenvolvida para usuárie obter maior economia em suas compras de supermercado. O aplicativo inteligente permite gerar automaticamente listas de compras e identificar a opção de comércio mais econômica buscando produtos com os menores preços.'
                 data={'AGOSTO de 2019'}
                 atividade='DESENVOLVIMENTO'
-                criador='SAVANNA PASSARELA'
+                criador='SAVANNA OLIVEIRA'
                 imagem='./dev/econolista.png'
 
                 

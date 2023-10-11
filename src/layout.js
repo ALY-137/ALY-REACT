@@ -12,14 +12,13 @@ var cardProfile;
 var conteudoAbas;
 var estilo;
 var abaDesign;
-var busto;
 
 
-    // A FUNÇÃO PROFILE É A PRIMEIRA FUNÇÃO EXECUTADA NO SISTEMA
-    // ELA É EXECUTADA ASSIM QUE O SISTEMA CARREGAR
+
+    // FUNÇÃO PROFILE É A PRIMEIRA FUNÇÃO EXECUTADA NO SISTEMA
+    // EXECUTADA ASSIM QUE O SISTEMA CARREGAR
     // CRIA O LAYOUT PADRÃO DE TODO O SISTEMA
-    // ELA TAMBÉM É RESPONSÁVEL POR GERENCIAR A BARRA HOME
-    // ONDE É VISUALIZAÇÃO INICIAL DO PROGRAMA
+
 
 export function layout(){
 
@@ -74,8 +73,6 @@ export function layout(){
     // REDIMENCIONA CARD DESKTOP/MOBILE
 
 
-    
-     
     if(larSreen>1000){
         alyLar = 1000;
         alyAlt = (altSreen/100)*35;
@@ -159,18 +156,7 @@ export function layout(){
     abaDesign.classList.add('optionsAbasHome');
 
 
-        // BUSTO
-
-        busto = document.getElementById('imgBustoDev2');
-        busto.style.display = 'none';
-        
-        busto = document.getElementById('imgBustoDesign2');
-        busto.style.display = 'none';
-
-        busto = document.getElementById('imgBustoHome2');
-        busto.style.display = 'block';
-
-        
+       
        
 
  

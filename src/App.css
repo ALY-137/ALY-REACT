@@ -27,6 +27,7 @@
   display: none;
   align-items: center;
   justify-content:space-between; 
+ 
   margin-top: -1px;
 }
 
@@ -74,7 +75,7 @@
   background-color: #080110;
 }
 .rodapeEstiloDesign{
-  border: 1px solid #fb008a;
+  border: 1px solid #ff60b7;
   background-color: #080110;
 }
 .rodapeEstiloHome{
@@ -101,7 +102,7 @@
   border: 1px solid #0e62ff;
 }
 .cardEstiloDesign{
-  border: 1px solid #fb008a;
+  border: 1px solid #ff60b7;
 }
 .cardEstiloHome{
   border: 1px solid #7e0eff;
@@ -142,7 +143,7 @@
 .optionsAbasDesign{
   height: 40px;
   width: 50%;
-  border: 1px solid #fb008a;
+  border: 1px solid #ff60b7;
   margin: auto;
   margin-bottom: 0px;
   z-index: 25;  
@@ -173,7 +174,7 @@
 .optionsAbasFocoDesign{
   height: 40px;
   width: 51%;
-  border: 1px solid #fb008a;
+  border: 1px solid #ff60b7;
   border-bottom: none;
   margin: auto;
   z-index: 25;  
@@ -212,7 +213,7 @@
   background-color: #00000000;
 }
 .fundoEstiloDesign{
-  border: 1px solid #fb008a;
+  border: 1px solid #ff60b7;
   background-color: #00000000;
 }
 .fundoEstiloHome{
@@ -228,13 +229,14 @@
   left:0px;
   right:0px;
   height: 0px;
-  background-position: 52%;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
   transition: all ease 3s;
   padding: 0px;
   display: flex;
   justify-content: center;
   overflow: hidden;
-  background-image: url(../public/back.png);
+  background-image: url(../public/sky.jpg);
 }
 
 #imgBustoDev{
@@ -367,14 +369,17 @@
   display: none;
 }
 
+
+
 #imgBustoHome{
-  height: 100%; 
-  z-index: 3;
-  position: absolute;
   margin: auto;
   right: 0px;
   left: 0px;
-  bottom: 0px;
+  bottom: 0;
+  height: 70%; 
+  z-index: 3;
+  transition: all ease 3s;
+  position: absolute;
 }
 
 #imgBustoHome0{
@@ -413,7 +418,6 @@
 #imgnoteHome{
   z-index: 5;
   height: 100%;
-  bottom: 0px;
 }
 
 #imgnoteDev{
@@ -463,6 +467,7 @@ body{
   width: 0px;
   line-height: 0px;
   margin-top: 30px;
+  
 }
 
 #MatrixDesign{
@@ -477,6 +482,7 @@ body{
   width: 0px;
   line-height: 0px;
   margin-top: 30px;
+ 
 }
 
 
@@ -666,19 +672,19 @@ body{
   font-family: 'Special Elite', cursive;
   color: #e8d4ff;
   text-shadow:
-  0 0 1px #fb008a,
-  0 0 2px #fb008a,
-  0 0 3px #fb008a,
-  0 0 4px #fb008a,
-  0 0 5px #fb008a,
-  0 0 6px #fb008a,
-  0 0 7px #fb008a,
-  0 0 8px #fb008a;
+  0 0 1px #ff60b7,
+  0 0 2px #ff60b7,
+  0 0 3px #ff60b7,
+  0 0 4px #ff60b7,
+  0 0 5px #ff60b7,
+  0 0 6px #ff60b7,
+  0 0 7px #ff60b7,
+  0 0 8px #ff60b7;
 }
 
 .numNeutroDesign{
   font-family: 'Special Elite', cursive;
-  color: #fb008a37;
+  color: #ff60b737;
   text-shadow:
   0 0 1px #ff0e9b5a,
   0 0 2px #ff0e9b5a,
@@ -738,6 +744,7 @@ body{
   width: 0px;
   line-height: 0px;
   margin-top: 30px;
+  
 }
 
 #chuvaHome0{

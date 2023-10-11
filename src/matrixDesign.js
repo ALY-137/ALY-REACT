@@ -18,11 +18,11 @@ function realocaChuvasTxt(altura){
 
  
     if(altura<400){
-        resultado = (altura/100) * 55;
-        resultado = alyAlt - resultado;
+        resultado = (altura/100) * 58;
+        resultado = -(alyAlt - resultado);
     }else{
-        resultado = (altura/100) * 25;
-        resultado = alyAlt - resultado;
+        resultado = (altura/100) * 28;
+        resultado = -(alyAlt - resultado);
     }
 
 return resultado;    
@@ -30,7 +30,7 @@ return resultado;
 
 
 
-var alyAlt = altura-137;
+var alyAlt = altura;
     
 if(largura>1000){
     alyAlt = (altura/100)*35;
@@ -66,7 +66,6 @@ const chuvas =[];
 var chuvaAltura = 0;
 var chuvaLargura = 0;
 const comprimento0 = [];
-var tempAnima0;
 var nome;
 var numNome;
 var MensBVNome = [];
@@ -86,7 +85,7 @@ var sequenciaemVChuva0 = [];
 var guarda = 0;
 //Essa variável guarda o valor da primeira posição da sequência.
 
-const MensBV = ["A","L","Y","-","1","3","7"];
+const MensBV = ["L","A","B","O","R","A","T","Ó","R","I","O"];
 var numMensBV = MensBV.length;
 const mensagem0 = [];
 const sequenciaemV = [];
@@ -95,29 +94,28 @@ var numLin2;
 var cont=0;
 const comprimento2 = [];
 
-var aLi0 = [];
+
 var aLi1 = [];
 var aLi2 = [];
 var aLi3 = [];
 
-var aLf0 = [];
+
 var aLf1 = [];
 var aLf2 = [];
 var aLf3 = [];
 
-var temporizadorI0 = [];
+
 var temporizadorI1 = [];
 var temporizadorI2 = [];
 var temporizadorI3 = [];
 
-var temporizadorF0 = [];
 var temporizadorF1 = [];
 var temporizadorF2 = [];
 var temporizadorF3 = [];
 
 const wait = ms => new Promise(resolve => setInterval(resolve, ms));
 
-var prox0 = 0;
+
 
 export var contAnimatrix = 0;
 
@@ -159,7 +157,7 @@ function theMatrixDesign(altura,largura){
         caiemV(sequenciaemV,numMensBV); // Organiza a sequência para que as letras caem na forma de V.
         comecoMBV(); // Identifica a posição em que a MensBV deve começar para ficar centralizada.
         preencheZeros(); // Esse for preenche com zeros as posições que antecedem a posição que foi identificada como a de início da frase.
-        start0();
+        start1();
 
     }
 
@@ -353,99 +351,6 @@ function trocador(d) {
     }
 }
 
-async function anima0() {
-    var j;
-    var busto;
-    trocador(matrix);
-
-
-    for (j = 0; j < numCol; j++){
-
-        
-        //MUDAR BUSTO
-        if(j%2===0){
-            busto = document.getElementById('imgBustoDesign0');
-            busto.style.display = 'block';
-
-            busto = document.getElementById('imgBustoDesign1');
-            busto.style.display = 'none';
-
-            busto = document.getElementById('imgBustoDesign2');
-            busto.style.display = 'none';
-
-            
-        }else{
-            busto = document.getElementById('imgBustoDesign0');
-            busto.style.display = 'none';
-
-            busto = document.getElementById('imgBustoDesign1');
-            busto.style.display = 'block';
-
-            busto = document.getElementById('imgBustoDesign2');
-            busto.style.display = 'none';
-
-        }
-
-       await wait(1280 / (j + 2));
-
-        if (aLi0[j] === 0) {
- 
-                    matrix[aLi0[j]][sequenciaemVChuva0[j]][0].setAttribute('class', 'numBrilhaDesign');
-                    matrix[aLi0[j]][sequenciaemVChuva0[j]][0].innerHTML = `${caracteres1[random(0, caracteres1.length)]}`;
-
-
-            } else {
-            if (aLi0[j] <= numLin && aLf0[j] === 0) {
-        
-                    matrix[aLi0[j] - 1][sequenciaemVChuva0[j]][0].setAttribute('class', 'numNeutroDesign');
-                    matrix[aLi0[j] - 1][sequenciaemVChuva0[j]][0].innerHTML = `${caracteres[random(0, caracteres.length)]}`;
-    
-
-            
-                if (temporizadorI0[j] >= numLin && aLf0[j] === 0) {
-              
-                        matrix[aLi0[j]][sequenciaemVChuva0[j]][0].setAttribute('class', 'numNeutroDesign');
-                        matrix[aLi0[j]][sequenciaemVChuva0[j]][0].innerHTML = `${caracteres[random(0, caracteres.length)]}`;
-
-
-                } else {
-     
-                        matrix[aLi0[j]][sequenciaemVChuva0[j]][0].setAttribute('class', 'numBrilhaDesign');
-                        matrix[aLi0[j]][sequenciaemVChuva0[j]][0].innerHTML = `${caracteres1[random(0, caracteres1.length)]}`;
-    
-        
-                }
-            }
-        }
-
-        temporizadorI0[j] += 1;
-        if(temporizadorI0[j] > numLin){
-            prox0 += 1;
-            if (prox0 === 1){
-                start1();
-            }
-        }
-
-
-        if(temporizadorI0[j] < numLin){
-            aLi0[j] += 1;
-        };
-
-        if (temporizadorI0[j] >= comprimento0[j]) {
-            matrix[aLf0[j]][sequenciaemVChuva0[j]][0].setAttribute('class', 'numOff');
-            temporizadorF0[j] += 1;
-            if (temporizadorF0[j] > numLin * 3) {
-                clearInterval(tempAnima0);
-            }
-
-            if (temporizadorF0[j] < numLin) {
-                aLf0[j] += 1;
-            }
-        }
-
-    }
-
-};
 
 function enviaNome(){ 
     var i;
@@ -518,18 +423,6 @@ function enviaNome(){
 }
 
 
-function start0() {
-    var i;
-    prox0 = 0;
-
-    for (i = 0; i <= numCol; i++) {
-        aLi0[i] = 0;
-        aLf0[i] = 0;
-        temporizadorI0[i] = 0;
-        temporizadorF0[i] = 0;
-    }
-    tempAnima0 = setInterval(async () => await anima0(), 80);
-}
 
 
 async function anima1() {
@@ -579,8 +472,6 @@ async function anima1() {
                 if(contAnimatrix===1){
                     start2();
                     start3();
-                }else{
-                    start0();
                 }
                 
             }
@@ -774,7 +665,7 @@ export async function anima3() {
                 
                 pause();
 
-                atualizaBusto();
+               
                 
 
                 var recebe = document.getElementById("chuvaDesign2");
@@ -783,6 +674,7 @@ export async function anima3() {
                 recebe.style.marginTop = `${realocaChuvasTxt(altura,largura)}px`;
                     
 
+                atualizaBusto();
 
                 return 0;
                 
@@ -812,15 +704,9 @@ function start3() {
 }
 
 function atualizaBusto(){
-    
-    var busto = document.getElementById('imgBustoDesign0');
-    busto.style.display = 'none';
-    
-    busto = document.getElementById('imgBustoDesign1');
-    busto.style.display = 'none';
-
-    busto = document.getElementById('imgBustoDesign2');
-    busto.style.display = 'block';
+ 
+    var busto = document.getElementById('imgBustoHome');
+    busto.style.bottom = 0;
 
 }
 

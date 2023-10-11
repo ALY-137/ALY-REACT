@@ -48,7 +48,7 @@
 }
 
 .cardCabecalhoDesign{
-    border: 1px solid #fb008a;
+    border: 1px solid #ff60b7;
     width: 100%;
     border-bottom: none;
     display: flex;
@@ -88,7 +88,7 @@
     width: 95%;
     text-align: left;
     background-color: #830048;
-    border: 1px solid #fb008a;
+    border: 1px solid #ff60b7;
     padding-top: 5px;
     padding-bottom: 7px;
     text-indent: 10px;
@@ -107,7 +107,7 @@
 }
 
 .cardImagemDesign{
-    border: 1px solid #fb008a;
+    border: 1px solid #ff60b7;
     width: 100%;
     height: 55%;
     border-bottom: none;
@@ -144,7 +144,7 @@
 }
 
 .cardDescricaoDesign{
-    border: 1px solid #fb008a;
+    border: 1px solid #ff60b7;
     border-top: none;
     width: 100%;
     font-size: 11px;
@@ -203,7 +203,7 @@
     text-align: left;
     color: #ff8aca;
     overflow-x: scroll;
-    border: 1px solid #fb008a;
+    border: 1px solid #ff60b7;
     background-color: #07000c;
 
 
@@ -223,7 +223,7 @@
 
 .imgCardDesign{
     width: 85%;
-    border: 3px solid #fb008a;
+    border: 3px solid #ff60b7;
     border-style: double;
 }
 
