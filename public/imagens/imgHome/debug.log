@@ -13,3 +13,5 @@
 [1005/220630.281:WARNING:dns_config_service_win.cc(668)] Failed to read DnsConfig.
 [1005/220635.297:WARNING:dns_config_service_win.cc(668)] Failed to read DnsConfig.
 [1011/060138.432:ERROR:backend_impl.cc(1062)] Critical error found -8
+[1011/183201.476:WARNING:dns_config_service_win.cc(668)] Failed to read DnsConfig.
+[1011/183206.500:WARNING:dns_config_service_win.cc(668)] Failed to read DnsConfig.

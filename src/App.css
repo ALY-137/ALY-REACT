@@ -21,14 +21,13 @@
 
 #cabecalho{
   height: 40px;
-  position: relative;  
+  position: sticky;  
   z-index: 20;
   transition: all ease 3s;
   display: none;
   align-items: center;
   justify-content:space-between; 
- 
-  margin-top: -1px;
+  top:0px;
 }
 
 #conteudo{
@@ -156,9 +155,9 @@
   width: 51%;
   border: 1px solid #7e0eff;
   margin: auto;
-  border-bottom: none;
   z-index: 25;  
   transition: all ease 3s;
+  background-color: #080110;
 }
 
 .optionsAbasFocoDev{
@@ -166,19 +165,19 @@
   width: 51%;
   border: 1px solid #0e62ff;
   margin: auto;
-  border-bottom: none;
   z-index: 25;  
   transition: all ease 3s;
+  background-color: #080110;
 }
 
 .optionsAbasFocoDesign{
   height: 40px;
   width: 51%;
   border: 1px solid #ff60b7;
-  border-bottom: none;
   margin: auto;
   z-index: 25;  
   transition: all ease 3s;
+  background-color: #080110;
 }
 
 .buttonGoogle{ 

@@ -7,7 +7,7 @@ import pink from './design';
 
 
 
-import {Link,Outlet}from 'react-router-dom';
+import {Link,Outlet} from 'react-router-dom';
 
 
 
@@ -51,41 +51,41 @@ function App(){
                                              
                                       
                                     </div>
-                                  
+                                   <div id="cabecalho">
 
-                                  <div id="conteudoAbas">
+                                                    <div id="abas">
 
-                                      <div id="cabecalho">
+                                                    
 
-                                          <div id="abas">
+                                                      <Link onClick={blue} class="optionsAbas" id="abaDev" to='/development'> 
+                                                        <p id="txtAbaDev" className="numNeutroHome">DEV</p>            
+                                                      </Link>  
 
-                                           
+                                                      <Link onClick={home} class="optionsAbasFoco" id="abaHome" to='/home'> 
+                                                        <p id="txtAbaHome" className="numBrilhaHome">CENTRAL</p>                
+                                                      </Link>
 
-                                            <Link onClick={blue} class="optionsAbas" id="abaDev" to='/development'> 
-                                              <p id="txtAbaDev" className="numNeutroHome">DEV</p>            
-                                            </Link>  
-
-                                            <Link onClick={home} class="optionsAbasFoco" id="abaHome" to='/home'> 
-                                              <p id="txtAbaHome" className="numBrilhaHome">CENTRAL</p>                
-                                            </Link>
-
-                                            <Link onClick={pink} class="optionsAbas" id="abaDesign" to='/design'>                          
-                                              <p id="txtAbaDesign" className="numNeutroHome">DESIGN</p>                                         
-                                            </Link>
-                                         
+                                                      <Link onClick={pink} class="optionsAbas" id="abaDesign" to='/design'>                          
+                                                        <p id="txtAbaDesign" className="numNeutroHome">DESIGN</p>                                         
+                                                      </Link>
+                                                  
 
 
-                                          </div>
-                                      </div>
+                                                    </div>
+                                                </div>
+
+                                <div id="conteudoAbas">
+
+                                               
                                       
                                       <Outlet />
                     
-                 <div id="rodape">
+                                  <div id="rodape">
                                 <img src="/logo.png" id="logoRod" alt="imagem"/>
                                 <p>ALY-137©</p>  
                               
 
-                                  </div>   
+                             </div>   
 
 
                               
