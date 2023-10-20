@@ -1,20 +1,21 @@
 import React from 'react';
 import './App.css';
 
-import home from './home';
-import blue from './dev';
-import pink from './design';
+import Navbar from './components/Layout/Navbar';
 
-
-
-import {Link,Outlet} from 'react-router-dom';
-
-
+import {Outlet} from 'react-router-dom';
+  
+  
 
 function App(){
 
 
+
   return (
+
+
+      
+  
     
   <body>
 
@@ -51,28 +52,9 @@ function App(){
                                              
                                       
                                     </div>
-                                   <div id="cabecalho">
 
-                                                    <div id="abas">
-
-                                                    
-
-                                                      <Link onClick={blue} class="optionsAbas" id="abaDev" to='/development'> 
-                                                        <p id="txtAbaDev" className="numNeutroHome">DEV</p>            
-                                                      </Link>  
-
-                                                      <Link onClick={home} class="optionsAbasFoco" id="abaHome" to='/home'> 
-                                                        <p id="txtAbaHome" className="numBrilhaHome">CENTRAL</p>                
-                                                      </Link>
-
-                                                      <Link onClick={pink} class="optionsAbas" id="abaDesign" to='/design'>                          
-                                                        <p id="txtAbaDesign" className="numNeutroHome">DESIGN</p>                                         
-                                                      </Link>
-                                                  
-
-
-                                                    </div>
-                                                </div>
+                                    <Navbar />
+                        
 
                                 <div id="conteudoAbas">
 
