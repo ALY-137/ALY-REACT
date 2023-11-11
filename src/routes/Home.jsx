@@ -4,14 +4,8 @@ import Comandante from "../components/Containers/Home/Comandante";
 import Contato from "../components/Containers/Home/Contato";
 import MissoesHome from "../components/Containers/Home/MissoesHome";
 
-import { violet } from '../home'; 
-import { layout } from '../layout'; 
 
 import PropCard from '../components/Objetos/PropCard';
-
-import { jwtDecode } from 'jwt-decode';
-
-
 
 
 
@@ -19,10 +13,7 @@ class Home extends Component {
 
   
   componentDidMount() {
-
-    //    layout();
-    //    violet();   
-       
+  
 
    
 

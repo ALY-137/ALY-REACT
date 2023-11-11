@@ -821,7 +821,7 @@ body{
 
 
 #login{
-  background-color: #000000;
+  background-color: #05000b;
   height: 100%;
   width:  100%;
   position: absolute;
@@ -830,4 +830,25 @@ body{
   justify-content: center;
   flex-direction: row;
   align-items: center;
+}
+
+#given_name{
+  display: none;
+}
+
+#iconsLogin{
+  height: 200px;
+  width: 150px;
+
+}
+
+#signInDiv{
+  margin-left: 57px;
+}
+
+#logoLogin{
+  margin: 0;
+  padding: 0;
+  height: 150px;
+  width: 150px;
 }

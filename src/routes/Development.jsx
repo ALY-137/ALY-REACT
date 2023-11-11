@@ -4,7 +4,6 @@ import HabilidadesDev from '../components/Containers/Dev/HabilidadesDev';
 import PropCard from '../components/Objetos/PropCard';
 
 
-
 class Development extends Component {
   componentDidMount() {
 

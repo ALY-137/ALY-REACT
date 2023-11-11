@@ -12,16 +12,8 @@ import { jwtDecode } from 'jwt-decode';
 import Estrutura from './components/Layout/Estrutura';
 
 
-
-
-
-
-
-
 import {useLocation} from 'react-router-dom';
 
- 
-  
 
 function App(){
 
@@ -30,6 +22,7 @@ function App(){
 
   const rotaAtual = location.pathname;
 
+ 
 
 
 
@@ -42,31 +35,35 @@ function App(){
     console.log(useObject);
     setUser(useObject);
     document.getElementById('signInDiv').hidden = true;
+    window.given_name.textContent = useObject.given_name;
+
+    const login = document.getElementById('login');
+    login.style.display = "none";
 
     layout(); 
     
-    if(rotaAtual=='/home/'){
+    if(rotaAtual==='/home/'){
       violet();
   
     }
-    if(rotaAtual=='/development/'){
+    if(rotaAtual==='/development/'){
       blue();
 
     }
-    if(rotaAtual=='/design/'){
+    if(rotaAtual==='/design/'){
       pink();
      
     }
 
-    if(rotaAtual=='/home'){
+    if(rotaAtual==='/home'){
       violet();
   
     }
-    if(rotaAtual=='/development'){
+    if(rotaAtual==='/development'){
       blue();
 
     }
-    if(rotaAtual=='/design'){
+    if(rotaAtual==='/design'){
       pink();
      
     }
@@ -85,7 +82,12 @@ function App(){
    window.google.accounts.id.renderButton(
 
     document.getElementById("signInDiv"),{
-      theme: "outline" , size: "large"
+      theme: "outline", 
+      size: "large",
+      type:"icon",
+      shape:"retangular",
+      text:"$ {button.text}",
+      locale:"pt-BR"
     }
    )
   },[])
@@ -96,29 +98,29 @@ function App(){
   return ( 
 
     
-    <div> <Estrutura />
-        <div id="signInDiv"></div> 
-       
+        <div> 
+          
+            <Estrutura />
 
+            <div id='login'> 
+                  <div id='iconsLogin'>
+                              <img src='/logo.png' id='logoLogin' />
+                              <div id="signInDiv"></div> 
+                            </div>
+            </div>
 
-
-    </div>
-     
-        
-
-
-
-   
-    
-
-                
-
-                         
+          
             
+            <p id="given_name" ></p>
+          
+
+
+
+        </div>
+     
+                      
 
     )
-
-  
 
 
  

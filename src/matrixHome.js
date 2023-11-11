@@ -356,14 +356,10 @@ function trocador(d) {
 
 function enviaNome(){ 
 
-    // var nomeGoogle = document.getElementById('given_name');
-    //nome = nomeGoogle.textContent;
+    var nomeGoogle = document.getElementById('given_name');
+    nome = nomeGoogle.textContent;
 
    
-        nome = "USUARIE";   
-
-
-    
 
     nome = nome.toUpperCase(); // DEIXA NOME SEMPRE EM MAIÚSCULO
     numNome = nome.length;
