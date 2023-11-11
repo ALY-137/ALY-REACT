@@ -15,6 +15,9 @@ import Estrutura from './components/Layout/Estrutura';
 
 
 
+
+
+
 import {useLocation} from 'react-router-dom';
 
  
@@ -30,7 +33,7 @@ function App(){
 
 
 
-  const [user , setUser] = useState({})
+  const [ , setUser] = useState({})
 
   function handleCallbackResponse(response){
 
@@ -74,12 +77,12 @@ function App(){
 
   
 
-   google.accounts.id.initialize({
+   window.google.accounts.id.initialize({
       client_id: "99960275074-f5d0bnogv6a9oq1ui4pkrbou60ffh43f.apps.googleusercontent.com",
       callback: handleCallbackResponse
    });
 
-   google.accounts.id.renderButton(
+   window.google.accounts.id.renderButton(
 
     document.getElementById("signInDiv"),{
       theme: "outline" , size: "large"
