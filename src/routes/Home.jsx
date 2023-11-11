@@ -9,11 +9,22 @@ import { layout } from '../layout';
 
 import PropCard from '../components/Objetos/PropCard';
 
+import { jwtDecode } from 'jwt-decode';
+
+
+
+
 
 class Home extends Component {
+
+  
   componentDidMount() {
-    layout();
-    violet(); 
+
+    //    layout();
+    //    violet();   
+       
+
+   
 
     var idcard;
 

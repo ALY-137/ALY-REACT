@@ -5,7 +5,7 @@
 } 
 
 .tituloSubcontainersDesign{
-    border: 1px solid #ff60b7; 
+    border: 1px solid #fb008a; 
     height:  30px;
     width: min-content;
     display: flex;
@@ -24,14 +24,14 @@
 
 .contentSubcontainersDesign{
     width: 100%;
-    border: 1px solid #ff60b7;
+    border: 1px solid #fb008a;
     margin-top: -11px;
     position: relative;
     z-index: 3;
 }
 
 .carrosselDesign{
-    border: 1px solid #ff60b7; 
+    border: 1px solid #fb008a; 
     margin-left: 10px;
     margin-right: 10px;
     margin-top: 5px;

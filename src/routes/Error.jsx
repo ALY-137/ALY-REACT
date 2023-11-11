@@ -6,6 +6,8 @@ const Error=()=>{
 
     return(
         <div>
+
+            
             <p className="texto1">ERRO 404</p>
 
 

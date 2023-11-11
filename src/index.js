@@ -3,15 +3,12 @@ import {createRoot} from 'react-dom/client';
 import './index.css';
 import App from './App';
 
-
-
 import {createBrowserRouter, RouterProvider} from 'react-router-dom';
 
 import Home from "./routes/Home";
 import Development from "./routes/Development";
 import Design from "./routes/Design";
 import Error from './routes/Error';
-
 
 
 const router = createBrowserRouter(
