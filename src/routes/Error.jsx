@@ -1,5 +1,5 @@
 import React from "react";
-import '../components/Containers/Home/dialogo.css'
+
 
 
 const Error=()=>{
@@ -7,8 +7,10 @@ const Error=()=>{
     return(
         <div>
 
+            <div id="containerError">
+                <p id="textError">ERRO 404</p>
+            </div>
             
-            <p className="texto1">ERRO 404</p>
 
 
         </div>

@@ -22,9 +22,6 @@ function App(){
 
   const rotaAtual = location.pathname;
 
- 
-
-
 
   const [ , setUser] = useState({})
 
@@ -40,33 +37,25 @@ function App(){
     const login = document.getElementById('login');
     login.style.display = "none";
 
+
     layout(); 
-    
-    if(rotaAtual==='/home/'){
-      violet();
-  
-    }
-    if(rotaAtual==='/development/'){
-      blue();
+    switch (rotaAtual) {
+      case '/':
+      case '/home/':
+      case '/home':
+          violet();
+          break;
+      case '/development/':
+      case '/development':
+          blue();
+          break;
+      case '/design/':
+      case '/design':
+          pink();
+          break;
+      default:
+  }
 
-    }
-    if(rotaAtual==='/design/'){
-      pink();
-     
-    }
-
-    if(rotaAtual==='/home'){
-      violet();
-  
-    }
-    if(rotaAtual==='/development'){
-      blue();
-
-    }
-    if(rotaAtual==='/design'){
-      pink();
-     
-    }
    
   }
 
@@ -104,9 +93,11 @@ function App(){
 
             <div id='login'> 
                   <div id='iconsLogin'>
-                              <img src='/logo.png' id='logoLogin' />
+                              <img src='/logoNeon.png' id='logoLogin' />
+                              <p id='textoLogin'>ENTRE COM O GOOGLE</p>
                               <div id="signInDiv"></div> 
                             </div>
+                  <p id='rodapeLogin'>ALY-137© 2023</p>  
             </div>
 
           

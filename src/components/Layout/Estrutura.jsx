@@ -10,58 +10,38 @@ function Estrutura(){
         <div id="fundo">
                             
                        
-       
+       <div id="cardProfile">
+          
+                            <img src="/imagens/imgHome/busto.png" id="imgBustoHome" alt="imagem"/>
+                                
+
+                            <div id="MatrixDesign"></div>  
+
+                            <div id="MatrixDev"></div> 
+
+                            <div id="MatrixHome"></div>  
+  
+                  
+                </div>
        
 
   
                             
         <div id="conteudo">
 
-                <div id="cardProfile">
-                            
-                           
-                              
-                                <img src="/imagens/imgHome/busto.png" id="imgBustoHome" alt="imagem"/>
-                                
-                          
-                       
-
-                            <div id="MatrixDesign">
-                                
-    
-                            </div>  
-
-                            <div id="MatrixDev">
-                                
-                            </div> 
-
-                            <div id="MatrixHome">
-                               
-                                  
-                            </div>  
-                      
-
-                         
-                  
-                </div>
+                
 
                 <Navbar />
     
 
-            <div id="conteudoAbas">
+                <div id="conteudoAbas">      
+                    
+                    <Outlet />
 
-         
-         
-       
-
-                           
-                  
-                  <Outlet />
-
-              <div id="rodape">
-            <img src="/logo.png" id="logoRod" alt="imagem"/>
-            <p>ALY-137©</p>  
-          
+                <div id="rodape">
+                <img src="/logo.png" id="logoRod" alt="imagem"/>
+                <p>ALY-137©</p>  
+            
 
          </div>   
 
