@@ -835,9 +835,8 @@ body{
 }
 
 #iconsLogin{
-  height: 300px;
+  height: 350px;
   width: 150px;
-
 }
 
 #signInDiv{
@@ -860,16 +859,7 @@ body{
   font-family: 'DotGothic16', sans-serif;
   letter-spacing: 2px;
   text-transform: uppercase;
-  color: #e8d4ff;
-  text-shadow:
-  0 0 1px #7e0eff,
-  0 0 2px #7e0eff,
-  0 0 3px #7e0eff,
-  0 0 4px #7e0eff,
-  0 0 5px #7e0eff,
-  0 0 6px #7e0eff,
-  0 0 7px #7e0eff,
-  0 0 8px #7e0eff;
+  color: #ae66ff;
   text-align: center;
 }
 
@@ -914,4 +904,25 @@ body{
   align-items: center;
   justify-content: center;
   height: 100vh;
+}
+
+#logoTxt{
+  margin-top: -45px;
+  margin-bottom: 60px;
+  font-size: 33px; 
+  font-family: 'DotGothic16', sans-serif;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #e8d4ff;
+  text-shadow:
+  0 0 1px #7e0eff,
+  0 0 2px #7e0eff,
+  0 0 3px #7e0eff,
+  0 0 4px #7e0eff,
+  0 0 5px #7e0eff,
+  0 0 6px #7e0eff,
+  0 0 7px #7e0eff,
+  0 0 8px #7e0eff;
+  text-align: center;
+
 }

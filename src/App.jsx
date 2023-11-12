@@ -94,6 +94,7 @@ function App(){
             <div id='login'> 
                   <div id='iconsLogin'>
                               <img src='/logoNeon.png' id='logoLogin' />
+                              <p id='logoTxt'>ALY-137©</p>
                               <p id='textoLogin'>ENTRE COM O GOOGLE</p>
                               <div id="signInDiv"></div> 
                             </div>
