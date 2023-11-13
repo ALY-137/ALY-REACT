@@ -11,20 +11,7 @@
     transition: all ease 3s;
 }
 
-.ContatoDesktop{
-    width: 40%;
-    margin-left: auto;
-    margin-right: auto;
-    border-style: double;
-    border: 1px solid #7e0eff;
-    margin-top: 70px;
-    background-image: url(../../../../public/back.png);
-    text-align: center;
-    border-left: none;
-    border-right: none;
-}
-
-.ContatoMob{
+.Contato{
     margin-left: 20px;
     margin-right: 20px;
     border-style: double;
@@ -34,6 +21,7 @@
     text-align: center;
     border-left: none;
     border-right: none;
+
 }
 
 .tituloHome{

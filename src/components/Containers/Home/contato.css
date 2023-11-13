@@ -21,3 +21,86 @@
 #icon1{
     margin-right: -25px;
 }
+
+
+#help{
+    width: 91%;
+    background-color: #080110;
+    border: 1px solid #7e0eff;
+    color: #ae6bfa;
+    padding: 3px;
+    cursor: pointer;
+    outline: none;
+    letter-spacing: 2px;
+    font-family: 'DotGothic16', sans-serif;
+ }
+ select:focus option {
+    background-color: #080110;
+    color: #ae6bfa;
+    letter-spacing: 1px;
+
+ }
+ 
+ #helpMens{
+    width: 90%; 
+    height: 80px;
+    margin-top: 15px;
+    background-color: #080110;
+    border: 1px solid #7e0eff;
+    color: #ae6bfa;
+    font-family: 'DotGothic16', sans-serif;
+    outline: none; 
+    letter-spacing: 2px;
+ }
+
+ textarea::placeholder {
+    color: #ae6bfa;
+}
+
+ #form{
+    display: flex;
+    flex-direction: column; 
+    align-items: center; 
+    height: 200px;
+    margin-bottom: 30px;
+ }
+
+ #formTitle{
+    margin-top: 0px;
+    margin-bottom: 20px;
+ }
+
+ #enviarMensagem{
+    width: 80px;
+    height: 30px;
+    margin-top: 15px;
+    background-color: #bf87ff;
+    color: #080011;    
+    font-family: 'DotGothic16', sans-serif;
+    cursor: pointer;
+    letter-spacing: 1px;
+ }
+
+ #containerSucesso{
+    display: none;
+ }
+
+ .sucesso{
+    color: #e8d4ff;
+    text-shadow:
+    0 0 1px #7e0eff,
+    0 0 2px #7e0eff,
+    0 0 3px #7e0eff,
+    0 0 4px #7e0eff,
+    0 0 5px #7e0eff,
+    0 0 6px #7e0eff,
+    0 0 7px #7e0eff,
+    0 0 8px #7e0eff;
+
+ }
+
+ .descriSucesso{
+    margin-bottom:80px;
+    font-size: 15px;
+
+ }

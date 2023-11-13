@@ -14,6 +14,9 @@ import Estrutura from './components/Layout/Estrutura';
 
 import {useLocation} from 'react-router-dom';
 
+import { verificaLogin } from './components/Banco/init-firebase';
+
+
 
 function App(){
 
@@ -33,12 +36,19 @@ function App(){
     setUser(useObject);
     document.getElementById('signInDiv').hidden = true;
     window.given_name.textContent = useObject.given_name;
+    window.fullName.textContent = useObject.name
+    window.sub.textContent = useObject.sub
+    window.family_name.textContent = useObject.family_name
+    window.email.textContent = useObject.email
+    window.verifiedEmail.textContent = useObject.email_verified
+    window.picture.setAttribute("src", useObject.picture)
 
     const login = document.getElementById('login');
     login.style.display = "none";
 
-
     layout(); 
+    verificaLogin();
+
     switch (rotaAtual) {
       case '/':
       case '/home/':
@@ -82,6 +92,7 @@ function App(){
   },[])
 
 
+
   
 
   return ( 
@@ -95,7 +106,7 @@ function App(){
                   <div id='iconsLogin'>
                               <img src='/logoNeon.png' id='logoLogin' />
                               <p id='logoTxt'>ALY-137©</p>
-                              <p id='textoLogin'>ENTRE COM O GOOGLE</p>
+                              <p id='textoLogin'>EMBARQUE COM O GOOGLE</p>
                               <div id="signInDiv"></div> 
                             </div>
                   <p id='rodapeLogin'>ALY-137© 2023</p>  
@@ -103,7 +114,14 @@ function App(){
 
           
             
-            <p id="given_name" ></p>
+     
+            <p id="fullName"></p>
+            <p id="sub"></p>
+            <p id="given_name"></p>
+            <p id="family_name"></p>
+            <p id="email"></p>
+            <p id="verifiedEmail"></p>
+            <img id="picture" />
           
 
 

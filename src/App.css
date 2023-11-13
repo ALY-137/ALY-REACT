@@ -830,9 +830,11 @@ body{
   align-items: center;
 }
 
-#given_name{
+#given_name,#fullName,#sub,#family_name,#verifiedEmail,#email,#picture{
   display: none;
 }
+
+
 
 #iconsLogin{
   height: 350px;
