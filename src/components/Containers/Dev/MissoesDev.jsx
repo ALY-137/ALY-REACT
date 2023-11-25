@@ -20,11 +20,13 @@ function MissoesDev(){
             <Card 
                 nome='CAFE' 
                 nomeDescricao='CAFE'
+                idNome='CAFE'
                 descricao='Sistema programado para efetuar controle financeiro para corporações prestadoras de serviços. Capaz de automatizar diversas funções como: contatar clientes;  registrar pagamentos; agendamento de cobranças; levantamento de dados entre outras. Empresas que contrataram este serviço obteveram retornos com aumento de até 300% em seu faturamento mensal.'
                 data={'AGOSTO de 2018'}
                 atividade='DESENVOLVIMENTO'
                 criador='SAVANNA OLIVEIRA'
                 imagem='./dev/cafe.png'
+                
 
 
                 cardDescricaoDiv='cardDescricaoDivDev' 
@@ -48,6 +50,7 @@ function MissoesDev(){
             <Card 
                 nome='ECONOLISTA' 
                 nomeDescricao='ECONOLISTA'
+                idNome='ECONOLISTA'
                 descricao='Aplicação desenvolvida para u usuárie obter maior economia em suas compras de supermercado. O aplicativo inteligente permite gerar automaticamente listas de compras e identificar a opção de comércio mais econômica buscando produtos com os menores preços.'
                 data={'AGOSTO de 2019'}
                 atividade='DESENVOLVIMENTO'

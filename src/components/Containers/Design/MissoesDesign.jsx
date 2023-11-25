@@ -17,9 +17,10 @@ function MissoesDesign(){
             
                 
             <Card 
-                nome='HELLMANS' 
-                nomeDescricao='HELLMANS'
-                descricao='Criação da marca do time brasileiro de eSports HELLMANS.'
+                nome='HELL MANS' 
+                nomeDescricao='HELL MANS'
+                idNome='HELLMANS'
+                descricao='Criação da marca do time brasileiro de eSports HELL MANS ESPORTS.'
                 data='DEZEMBRO de 2021'
                 atividade='DESIGN'
                 criador='SAVANNA OLIVEIRA'

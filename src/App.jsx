@@ -14,7 +14,7 @@ import Estrutura from './components/Layout/Estrutura';
 
 import {useLocation} from 'react-router-dom';
 
-import { verificaLogin } from './components/Banco/init-firebase';
+import { verificaUser } from './components/Banco/init-firebase';
 
 
 
@@ -30,7 +30,6 @@ function App(){
 
   function handleCallbackResponse(response){
 
-    console.log("Token: " + response.credential );
     const useObject = jwtDecode(response.credential);
     console.log(useObject);
     setUser(useObject);
@@ -46,8 +45,14 @@ function App(){
     const login = document.getElementById('login');
     login.style.display = "none";
 
+    const camp = 'idGoogle';
+    const value = useObject.sub;
+
+    verificaUser(camp, value);
+
+
     layout(); 
-    verificaLogin();
+
 
     switch (rotaAtual) {
       case '/':

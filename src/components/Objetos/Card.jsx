@@ -1,12 +1,12 @@
 import './objetos.css'
 import CheckHabilidades from './CheckHabilidades';
 
-function Card({classStatusAI,classStatusPS,classStatusVSHome,imgCard,classStatusVS,classStatusC,classStatusVB,atividade,criador,nomeDescricao,data,descricao,imagem,cardDescricaoDiv,cardNome,nome,cardContainerDesktop,cardCabecalho,cardImagem,cardDescricao}){
+function Card({classStatusAI,classStatusPS,classStatusVSHome,imgCard,classStatusVS,classStatusC,classStatusVB,atividade,criador,nomeDescricao,data,descricao,imagem,cardDescricaoDiv,cardNome,nome,cardContainerDesktop,cardCabecalho,cardImagem,cardDescricao,idNome}){
 
 
     return(
 
-        <div id={nome}   className={cardContainerDesktop}>
+        <div id={idNome}   className={cardContainerDesktop}>
             <div className={cardCabecalho}>
                 <p className={cardNome}> ▣  {nome}</p>
             </div>

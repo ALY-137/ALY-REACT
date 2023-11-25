@@ -338,8 +338,6 @@ function trocador(d) {
 
 function enviaNome(){ 
 
-    // var nomeGoogle = document.getElementById('given_name');
-    //nome = nomeGoogle.textContent;
 
    
         nome = "DEVELOPER";   
