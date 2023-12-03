@@ -926,5 +926,42 @@ body{
   0 0 7px #7e0eff,
   0 0 8px #7e0eff;
   text-align: center;
+}
 
+.menu{
+  height: 40px;
+  width: 40px;
+  font-size: 35px;
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  margin-left: 10px;
+  cursor: pointer;
+  z-index: 30;
+
+}
+
+#Menu{
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  z-index: 35;
+  display: none;
+  backdrop-filter: blur(10px);
+}
+
+.closeMenu{
+  height: 40px;
+  width: 40px;
+  font-size: 20px;
+  position: absolute;
+  cursor: pointer;
+  right: 0px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gaveta{
+  margin:10px
 }

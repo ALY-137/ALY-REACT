@@ -21,7 +21,7 @@ function Navbar(){
     
    return(
 
-    <div id="cabecalho" >
+    <div id="cabecalho" >    
 
     <div id="abas">
    
@@ -36,6 +36,8 @@ function Navbar(){
       <Link onClick={pink} class="optionsAbas" id="abaDesign" to='/design'>                          
         <p id="txtAbaDesign" className="numNeutroHome">DESIGN</p>                                         
       </Link>
+
+     
 
     </div>
 </div>

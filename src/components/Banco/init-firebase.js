@@ -14,28 +14,42 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
   
 
-export function fazerContato(assunto, mensagem){  
- 
-        let data = new Date();
-        
-        const user = firebase.firestore().collection("mensagens");
- 
-        const novaMensagem = {
-        data: data,
-        assunto: assunto,
-        mensagem: mensagem, 
-        };
- 
-        user.add(novaMensagem);
- 
-        console.log("MENSAGEM ENVIADA");
+export const fazerContato = async (valor, assunto, mensagem) => {
+  try {
+    const userCollection = firebase.firestore().collection("user");
+
+    // Consulta para verificar se o usuário já existe na coleção "user"
+    const query = userCollection.where('idGoogle', '==', valor);
+    const snapshot = await query.get();
+
+    if (!snapshot.empty) {
+      // Usuário encontrado, adiciona a mensagem na subcoleção 'mensagem' do usuário existente
+      snapshot.forEach(async (doc) => {
+        const mensagemSubcollectionRef = doc.ref.collection('mensagem');
+        await mensagemSubcollectionRef.add({
+          assunto: assunto,
+          mensagem: mensagem,
+          data: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+
+       
+      });
+    } else {
+      console.log('Usuário não encontrado. Mensagem não registrada.');
+    }
+  } catch (error) {
+    console.error('Erro ao verificar usuário e enviar mensagem:', error);
+  }
 };
+
+;
 
 export const verificaUser = async (campo, valor) => {
   try {
     const bd = firebase.firestore();
     const query = bd.collection("user").where(campo, '==', valor);
     const snapshot = await query.get();
+   
 
     if (!snapshot.empty) {
 

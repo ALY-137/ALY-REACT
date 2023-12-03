@@ -16,7 +16,7 @@ import {useLocation} from 'react-router-dom';
 
 import { verificaUser } from './components/Banco/init-firebase';
 
-
+let idGoogle;
 
 function App(){
 
@@ -46,9 +46,10 @@ function App(){
     login.style.display = "none";
 
     const camp = 'idGoogle';
-    const value = useObject.sub;
+    idGoogle = useObject.sub;
 
-    verificaUser(camp, value);
+   
+    verificaUser(camp, idGoogle);
 
 
     layout(); 
@@ -73,6 +74,8 @@ function App(){
 
    
   }
+
+  
 
   useEffect  (() =>{
 
@@ -99,6 +102,7 @@ function App(){
 
 
   
+
 
   return ( 
 
@@ -144,5 +148,5 @@ function App(){
    
 
 
-
+export { idGoogle }; 
 export default App;

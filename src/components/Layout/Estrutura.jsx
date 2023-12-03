@@ -1,35 +1,43 @@
 import Navbar from "./Navbar";
 import {Outlet} from 'react-router-dom';
+import Menu from "./Menu";
 
 
 function Estrutura(){
 
+
+    function openMenu(){
+
+        var Menu = document.getElementById('Menu');
+        Menu.style.display  = 'block';
+
+    }
+
     return(
 
         <body>
+        
         <div id="fundo">
-                            
-                       
-       <div id="cardProfile">
+
+         <Menu />
+
+        <div id="cardProfile">
           
-                            <img src="/imagens/imgHome/busto.png" id="imgBustoHome" alt="imagem"/>
-                                
+            <img src="/imagens/imgHome/busto.png" id="imgBustoHome" alt="imagem"/>
 
-                            <div id="MatrixDesign"></div>  
+            <div id="MatrixDesign"></div>  
 
-                            <div id="MatrixDev"></div> 
+            <div id="MatrixDev"></div> 
 
-                            <div id="MatrixHome"></div>  
-  
-                  
-                </div>
+            <div id="MatrixHome"></div>  
+
+            <div className='menu' onClick={openMenu}> ㆔ </div>
+                           
+        </div>                
        
-
-  
                             
         <div id="conteudo">
 
-                
 
                 <Navbar />
     
