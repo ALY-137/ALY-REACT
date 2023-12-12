@@ -1,7 +1,7 @@
 import firebase from "firebase/app";
 import 'firebase/firestore';
 
-const firebaseConfig = {
+export const firebaseConfig = {
     apiKey: "AIzaSyAhSNGCUOM_nRiVwtRmmPz9o6ciQA6lSYA",
     authDomain: "teste-aa015.firebaseapp.com",
     projectId: "teste-aa015",
@@ -11,22 +11,24 @@ const firebaseConfig = {
   };
   
 
-firebase.initializeApp(firebaseConfig);
+export const db = firebase.initializeApp(firebaseConfig);
+
   
 
 export const fazerContato = async (valor, assunto, mensagem) => {
   try {
-    const userCollection = firebase.firestore().collection("user");
+    const userCollection = firebase.firestore().collection("users");
 
     // Consulta para verificar se o usuário já existe na coleção "user"
     const query = userCollection.where('idGoogle', '==', valor);
     const snapshot = await query.get();
 
     if (!snapshot.empty) {
-      // Usuário encontrado, adiciona a mensagem na subcoleção 'mensagem' do usuário existente
+  
       snapshot.forEach(async (doc) => {
-        const mensagemSubcollectionRef = doc.ref.collection('mensagem');
+        const mensagemSubcollectionRef = doc.ref.collection('formularios');
         await mensagemSubcollectionRef.add({
+          idRemetente: valor,
           assunto: assunto,
           mensagem: mensagem,
           data: firebase.firestore.FieldValue.serverTimestamp(),
@@ -47,7 +49,7 @@ export const fazerContato = async (valor, assunto, mensagem) => {
 export const verificaUser = async (campo, valor) => {
   try {
     const bd = firebase.firestore();
-    const query = bd.collection("user").where(campo, '==', valor);
+    const query = bd.collection("users").where(campo, '==', valor);
     const snapshot = await query.get();
    
 
@@ -55,7 +57,7 @@ export const verificaUser = async (campo, valor) => {
 
       for (const doc of snapshot.docs) {
             
-            const loginSubcollectionRef = doc.ref.collection('login');
+            const loginSubcollectionRef = doc.ref.collection('logins');
             await loginSubcollectionRef.add({
               data: firebase.firestore.FieldValue.serverTimestamp(),          
             });
@@ -81,27 +83,29 @@ export const verificaUser = async (campo, valor) => {
 
           let data = new Date();
        
-          const user = firebase.firestore().collection("user");
+          const user = firebase.firestore().collection("users");
+
+          const id = idGoogle;
     
           const newUser = {
+
           idGoogle: idGoogle,    
           nomeGoogle: nomeGoogle,
           nomeCompletoGoogle: nomeCompletoGoogle,
           emailGoogle: emailGoogle,
           picGoogle: picGoogle,
           data: data,
+          isAdmin: false,
           };
 
-          const userDocRef = await user.add(newUser);
+          await user.doc(id).set(newUser);
 
-          const loginSubcollectionRef =  userDocRef.collection('login');
+          const loginSubcollectionRef =  user.collection('logins');
   
           await loginSubcollectionRef.add({
             data: firebase.firestore.FieldValue.serverTimestamp(),
-          });
-    
- 
 
+          });
     }
   } catch (error) {
     console.error('Erro ao verificar usuário:', error);

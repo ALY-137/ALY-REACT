@@ -1,0 +1,57 @@
+.boxSubcontainersDesign{
+    margin-left: 20px;
+    margin-right: 20px;
+    margin-bottom: 50px;
+} 
+
+.tituloSubcontainersDesign{
+    border: 1px solid #fb008a; 
+    height:  30px;
+    width: min-content;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-bottom: none;
+    border-left: none;
+    border-right: none;
+    background-image: url(../../../../../../../public/back.png); 
+    font-size: 13px;
+    position: relative;
+    z-index: 10;
+    margin-left: 20px;
+    color: #ff8ccb;
+}
+
+.contentSubcontainersDesign{
+    width: 100%;
+    border: 1px solid #fb008a;
+    margin-top: -11px;
+    position: relative;
+    z-index: 3;
+}
+
+.carrosselDesign{
+    border: 1px solid #fb008a; 
+    margin-left: 10px;
+    margin-right: 10px;
+    margin-top: 5px;
+    margin-bottom:5px;
+    height: 150px;
+    border-top: none;
+    border-bottom: none;
+    background-image: url(../../../../../../../public/backConteudo.png); 
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    overflow: hidden;
+    padding-left: 5px;
+    padding-right: 5px;
+}
+
+.inner{
+    display: flex;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
+}

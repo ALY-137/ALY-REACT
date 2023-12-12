@@ -1,6 +1,8 @@
-import Navbar from "./Navbar";
+import Navbar from "./Navbar/Navbar";
 import {Outlet} from 'react-router-dom';
-import Menu from "./Menu";
+import Menu from "./Menu/Menu";
+
+import { idGoogle } from "../../App";
 
 
 function Estrutura(){
@@ -8,9 +10,23 @@ function Estrutura(){
 
     function openMenu(){
 
-        var Menu = document.getElementById('Menu');
-        Menu.style.display  = 'block';
+        document.getElementById('Menu').classList.remove('oculta');
+        document.getElementById('Menu').classList.add('openMenu');
 
+        //Retorna para o estado normal de rolamento do conteúdo da página.
+        document.getElementById('fundo').classList.add('scroll-lock');
+        document.getElementById('cardProfile').classList.add('scroll-lock');
+        document.getElementById('conteudo').classList.add('scroll-lock');
+
+        if(idGoogle==='113891358948396359936'){
+            document.getElementById('gavetaUsers').classList.add('mostra');
+       
+        }else{
+            document.getElementById('gavetaUsers').classList.add('oculta');
+        
+            
+        }
+    
     }
 
     return(
@@ -31,7 +47,7 @@ function Estrutura(){
 
             <div id="MatrixHome"></div>  
 
-            <div className='menu' onClick={openMenu}> ㆔ </div>
+            <div className='menuIcon' onClick={openMenu}> ㆔ </div>
                            
         </div>                
        

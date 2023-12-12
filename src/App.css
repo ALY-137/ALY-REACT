@@ -14,8 +14,6 @@
   opacity: 0;;
 }
 
-
-
 .conteudoAbasMobileEstiloDev{
   background-image: url(../public/backConteudo.png);
   transition: all ease 3s;
@@ -31,25 +29,11 @@
   transition: all ease 3s;
 }
 
-#conteudoAbas{
-  margin-bottom: 40px;
-  height: 60vh;
-  text-align: center;
-}
 
 
 
-#conteudo{
-  height: 0px;
-  transition: all ease 3s;
-  border-top:none;
-  display: block;
-  position: relative;
-  margin-top: 0px;
-  overflow-x: hidden;
-  background-image: url(../public/backConteudo.png);
-  height: 60vh;
-}
+
+
 
 .conteudoEstiloDev{
   background-color: #080110;
@@ -216,19 +200,6 @@
   overflow-x: hidden;
 }
 
-.fundoEstiloDev{
-  border: 1px solid #0e62ff;
-  background-color: #00000000;
-}
-.fundoEstiloDesign{
-  border: 1px solid #fb008a;
-  background-color: #00000000;
-}
-.fundoEstiloHome{
-  border: 1px solid #7e0eff;
-  background-color: #00000000;
-}
-
 #cardProfile{
   position: relative;
   margin: auto;
@@ -243,9 +214,40 @@
   padding: 0px;
   display: flex;
   justify-content: center;
-  overflow: hidden;
-
 }
+
+#conteudo{
+  height: 0px;
+  transition: all ease 3s;
+  border-top:none;
+  display: block;
+  position: relative;
+  margin-top: 0px;
+  overflow-x: hidden;
+  background-image: url(../public/backConteudo.png);
+  height: 100vh;
+}
+
+#conteudoAbas{
+  margin-bottom: 40px;
+  height: 60vh;
+  text-align: center;
+}
+
+.fundoEstiloDev{
+  border: 1px solid #0e62ff;
+  background-color: #00000000;
+}
+.fundoEstiloDesign{
+  border: 1px solid #fb008a;
+  background-color: #00000000;
+}
+.fundoEstiloHome{
+  border: 1px solid #7e0eff;
+  background-color: #00000000;
+}
+
+
 
 #imgBustoDev{
   height: 100%; 
@@ -928,7 +930,7 @@ body{
   text-align: center;
 }
 
-.menu{
+.menuIcon{
   height: 40px;
   width: 40px;
   font-size: 35px;
@@ -941,27 +943,48 @@ body{
 
 }
 
-#Menu{
+
+.openMenu{
+  display: flex; 
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   width: 100%;
   height: 100%;
   position: absolute;
   z-index: 35;
-  display: none;
   backdrop-filter: blur(10px);
+  background: rgba(0, 0, 0, 0.5); 
+  overflow: scroll;
+ 
+
 }
 
-.closeMenu{
-  height: 40px;
-  width: 40px;
-  font-size: 20px;
-  position: absolute;
-  cursor: pointer;
-  right: 0px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.mostra{
+  display: flex; 
+  flex-direction: column;
+
+
+
 }
+
+.oculta{
+  display: none;
+}
+
 
 .gaveta{
-  margin:10px
+  margin:10px;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+}
+
+
+
+
+
+ /* Classe criada para fixar o fundo do layout quando menu abrir */
+.scroll-lock {
+  overflow: hidden;
 }

@@ -1,0 +1,82 @@
+.containerDev{
+    margin-left: 20px;
+    margin-right: 20px;
+    border-style: double;
+    border: 1px solid #0e62ff;
+    margin-top: 70px;
+    background-image: url(../../../../../../public/back.png);
+    text-align: center;
+    border-left: none;
+    border-right: none;
+    transition: all ease 3s;
+}
+
+
+.tituloDev{
+   
+    margin-left: 30px;
+    margin-right: 30px;
+    margin-top:    1px;
+    font-size: 17px; 
+    font-family: 'DotGothic16', sans-serif;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #e8d4ff;
+    text-shadow:
+    0 0 1px #0e62ff,
+    0 0 2px #0e62ff,
+    0 0 3px #0e62ff,
+    0 0 4px #0e62ff,
+    0 0 5px #0e62ff,
+    0 0 6px #0e62ff,
+    0 0 7px #0e62ff,
+    0 0 8px #0e62ff;
+}
+
+.bottomMid{
+    display: flex;
+    margin-bottom: -21px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.topMidDev{
+    border-style: double;
+    border: 1px solid #0e62ff;
+    margin-top: -42px;
+    background-color: #080110;
+    text-align: center;
+    margin-left: auto;
+    margin-right: auto;
+    height: 91px;
+    background-image: url(../../../../../../public/back.png); 
+    max-width: max-content;
+}
+
+
+.subtitulo{
+    margin-left: 30px;
+    margin-right: 30px;
+    margin-top:    1px;
+    font-size: 19px; 
+    font-family: 'Special Elite', cursive;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #b87cfc;
+    margin-top: 20px;
+}
+
+.paragrafo{
+    font-size: 13px;
+    position: relative;  
+    align-items: center;
+    justify-content: center;
+    font-family: 'Special Elite', cursive;
+    margin: 20px;
+    margin-top: 15px;
+    text-align: center;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    line-height: 15px;
+    color: #9a46fa;
+}

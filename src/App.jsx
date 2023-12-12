@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react';
 import React from 'react';
 import './App.css';
 
-import violet from './home';
-import blue from './dev';
-import pink from './design';
-import layout from './layout';
+import violet from './components/Layout/home';
+import blue from './components/Layout/dev';
+import pink from './components/Layout/design';
+import layout from './components/Layout/layout';
 
 
 import { jwtDecode } from 'jwt-decode';
@@ -17,6 +17,7 @@ import {useLocation} from 'react-router-dom';
 import { verificaUser } from './components/Banco/init-firebase';
 
 let idGoogle;
+let nomeCompleto;
 
 function App(){
 
@@ -47,6 +48,7 @@ function App(){
 
     const camp = 'idGoogle';
     idGoogle = useObject.sub;
+    nomeCompleto = useObject.name;
 
    
     verificaUser(camp, idGoogle);
@@ -149,4 +151,5 @@ function App(){
 
 
 export { idGoogle }; 
+export { nomeCompleto };
 export default App;
