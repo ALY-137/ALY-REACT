@@ -4,6 +4,8 @@ import React from "react";
 
 const Error=()=>{
 
+    window.location.reload(true);
+
     return(
         <div>
 

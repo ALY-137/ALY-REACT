@@ -23,13 +23,8 @@ let nomeCompleto;
 
 function App(){
 
-  document.addEventListener('DOMContentLoaded', function () {
-    if (!sessionStorage.getItem('pagereLoaded')) {
-        window.location.reload();
-
-        sessionStorage.setItem('pagereLoaded', 'true');
-    }
-});
+ 
+  
 
 
   const location = useLocation();
