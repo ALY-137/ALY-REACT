@@ -23,16 +23,9 @@ let nomeCompleto;
 
 function App(){
 
- 
-  
-
-
   const location = useLocation();
 
-
-
   const rotaAtual = location.pathname;
-
 
   const [ , setUser] = useState({})
 

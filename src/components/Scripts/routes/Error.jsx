@@ -1,10 +1,16 @@
 import React from "react";
-
+import {useLocation} from 'react-router-dom';
 
 
 const Error=()=>{
+    const location = useLocation();
+    const rotaAtual = location.pathname;
 
-    window.location.reload(true);
+    switch (rotaAtual) {
+        case '/':
+        window.location.reload(true);
+        default:
+    }
 
     return(
         <div>
