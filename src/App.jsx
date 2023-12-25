@@ -19,10 +19,22 @@ import { verificaUser } from './components/Banco/init-firebase';
 let idGoogle;
 let nomeCompleto;
 
+
+
 function App(){
+
+  document.addEventListener('DOMContentLoaded', function () {
+    if (!sessionStorage.getItem('pagereLoaded')) {
+        window.location.reload();
+
+        sessionStorage.setItem('pagereLoaded', 'true');
+    }
+});
 
 
   const location = useLocation();
+
+
 
   const rotaAtual = location.pathname;
 
@@ -108,6 +120,7 @@ function App(){
 
   return ( 
 
+ 
     
         <div> 
           
