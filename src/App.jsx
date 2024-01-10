@@ -19,10 +19,9 @@ import { verificaUser } from './components/Banco/init-firebase';
 let idGoogle;
 let nomeCompleto;
 
-
-
 function App(){
 
+ 
   const location = useLocation();
 
   const rotaAtual = location.pathname;

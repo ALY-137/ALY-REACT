@@ -4,6 +4,8 @@ import Menu from "./Menu/Menu";
 
 import { idGoogle } from "../../App";
 
+import { seforAdm } from "../Scripts/verificações/verificaAdm";
+
 
 function Estrutura(){
 
@@ -18,14 +20,6 @@ function Estrutura(){
         document.getElementById('cardProfile').classList.add('scroll-lock');
         document.getElementById('conteudo').classList.add('scroll-lock');
 
-        if(idGoogle==='113891358948396359936'){
-            document.getElementById('gavetaUsers').classList.add('mostra');
-       
-        }else{
-            document.getElementById('gavetaUsers').classList.add('oculta');
-        
-            
-        }
     
     }
 
@@ -47,7 +41,9 @@ function Estrutura(){
 
             <div id="MatrixHome"></div>  
 
-            <div className='menuIcon' onClick={openMenu}> ㆔ </div>
+            { seforAdm() && (
+                            <div id='menuId' className='menuIcon' onClick={openMenu}> ㆔ </div>
+            )}
                            
         </div>                
        

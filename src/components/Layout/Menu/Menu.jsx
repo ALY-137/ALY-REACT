@@ -1,6 +1,10 @@
 import Formularios from "./Formularios/Formularios";
 import Users from "./Users/Users";
 
+import { seforAdm } from "../../Scripts/verificações/verificaAdm";
+
+
+
 
 function Menu(){
 
@@ -57,7 +61,11 @@ function Menu(){
             <div id="Menu" className="oculta">
                 <div id='Gavetas' className="mostra">
                     <div onClick={closeMenu} className='gaveta'> VOLTAR </div>
+                   
+                   {seforAdm() && (
                     <div onClick={abrirUsers} className='gaveta' id="gavetaUsers"> USUÁRIES </div>
+                   )}
+                   
                     <div onClick={abrirForms} className='gaveta' id="gavetaForms"> FORMULÁRIOS </div>
                     <div onClick={recarregarPagina} className='gaveta'> ENCERRAR </div>   
                 </div>
@@ -67,11 +75,12 @@ function Menu(){
                     <Formularios />
                 </div>
 
+                
                 <div id='Users' className='oculta'>
                     <div id='closeMensagensButton' onClick={fecharUsers} >VOLTAR</div>
                     <Users />
                 </div>
-
+               
             
             </div> 
         </div>   
