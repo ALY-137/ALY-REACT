@@ -1,0 +1,27 @@
+.errorContainer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh; 
+}
+
+.containerError {
+    opacity: 0;
+    transition: opacity 2s ease;
+}
+
+.fadeIn {
+    opacity: 1;
+    font-size: 11px;
+    text-align: center;
+    color: #e8d4ff;
+    text-shadow:
+    0 0 1px #7e0eff,
+    0 0 2px #7e0eff,
+    0 0 3px #7e0eff,
+    0 0 4px #7e0eff,
+    0 0 5px #7e0eff,
+    0 0 6px #7e0eff,
+    0 0 7px #7e0eff,
+    0 0 8px #7e0eff;
+   }

@@ -1,27 +1,35 @@
-import React from "react";
-import {useLocation} from 'react-router-dom';
+import React, { useState, useEffect } from "react";
+import { useLocation } from 'react-router-dom';
+import './Error.css'; // Importe o arquivo CSS com as animações
 
-const Error=()=>{
-    
+const Error = () => {
     const location = useLocation();
     const rotaAtual = location.pathname;
 
-    switch (rotaAtual) {
-        case '/':
+    const [mostrarMensagem, setMostrarMensagem] = useState(false);
+
+    useEffect(() => {
+
+        const timeoutId = setTimeout(() => {
+            setMostrarMensagem(true);
+        }, 1000);
+
+     
+        return () => clearTimeout(timeoutId);
+    }, []);
+
+   
+    if (rotaAtual === '/') {
         window.location.reload(true);
-        default:
     }
 
-    return(
-
-        <div>
-
-            <div id="containerError">
-                <p id="textError">ERRO 404</p>
+    return (
+        <div className="errorContainer">
+            <div className={`containerError ${mostrarMensagem ? 'fadeIn' : ''}`}>
+                <p className="textError">ERRO 404</p>
             </div>
-     
         </div>
-    )
+    );
 };
 
 export default Error;

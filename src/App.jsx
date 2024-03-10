@@ -102,8 +102,17 @@ function App(){
    )
   },[])
 
+  const [mostrarLogin, setMostrarLogin] = useState(false);
 
+  useEffect(() => {
 
+    const timeoutId = setTimeout(() => {
+        setMostrarLogin(true);
+    }, 80);
+
+ 
+    return () => clearTimeout(timeoutId);
+}, []);
 
 
   
@@ -117,7 +126,7 @@ function App(){
           
             <Estrutura />
 
-            <div id='login'> 
+            <div id='login' className={`containerLogin ${mostrarLogin? 'fadeIn' : ''}`}> 
                   <div id='iconsLogin'>
                               <img src='/logoNeon.png' id='logoLogin' />
                               <p id='logoTxt'>ALY-137©</p>
