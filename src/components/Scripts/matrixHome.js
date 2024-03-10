@@ -46,11 +46,6 @@ if(largura>1000){
 }
 
 
-
-
-
-
-
 // CARACTERES SOMBRA
 var caracteres = ["▲","△"];
 

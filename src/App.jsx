@@ -16,6 +16,8 @@ import {useLocation} from 'react-router-dom';
 
 import { verificaUser } from './components/Banco/init-firebase';
 
+import AnoAtualizado from './components/Scripts/data/AnoAtualizado';
+
 let idGoogle;
 let nomeCompleto;
 
@@ -102,6 +104,8 @@ function App(){
 
 
 
+
+
   
 
 
@@ -120,7 +124,7 @@ function App(){
                               <p id='textoLogin'>EMBARQUE COM O GOOGLE</p>
                               <div id="signInDiv"></div> 
                             </div>
-                  <p id='rodapeLogin'>ALY-137© 2023</p>  
+                  <p id='rodapeLogin'>ALY-137© <AnoAtualizado /></p>  
             </div>
 
           
