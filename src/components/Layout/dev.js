@@ -96,13 +96,10 @@ if(larSreen>1000){
         estilo.classList.remove('fundoEstiloDesign');
         estilo.classList.add('fundoEstiloDev');
 
-        var estiloCont = document.getElementById('rodape');
-        estiloCont.classList.remove('rodapeEstiloHome');
-        estiloCont.classList.remove('rodapeEstiloDesign');
-        estiloCont.classList.add('rodapeEstiloDev');
+
 
     
-        estiloCont = document.getElementById('conteudo');
+        var estiloCont = document.getElementById('conteudo');
         estiloCont.classList.remove('conteudoEstiloDesign');
         estiloCont.classList.remove('conteudoEstiloHome');
         estiloCont.classList.add('conteudoEstiloDev');  

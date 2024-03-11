@@ -89,10 +89,6 @@ export function pink(){
             estilo.classList.remove('fundoEstiloDev');
             estilo.classList.add('fundoEstiloDesign');
 
-            estilo = document.getElementById('rodape');
-            estilo.classList.remove('rodapeEstiloHome');
-            estilo.classList.remove('rodapeEstiloDev');
-            estilo.classList.add('rodapeEstiloDesign');   
             
 
             

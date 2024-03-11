@@ -2,8 +2,6 @@ import Navbar from "./Navbar/Navbar";
 import {Outlet} from 'react-router-dom';
 import Menu from "./Menu/Menu";
 
-import { idGoogle } from "../../App";
-
 import { seforAdm } from "../Scripts/verificações/verificaAdm";
 
 
@@ -27,63 +25,51 @@ function Estrutura(){
 
         <body>
         
-        <div id="fundo">
+            <div id="fundo">
 
-         <Menu />
+                <Menu />
 
-        <div id="cardProfile">
-          
-            <img src="/imagens/imgHome/busto.png" id="imgBustoHome" alt="imagem"/>
+                <div id="cardProfile">
+                
+                    <img src="/imagens/imgHome/busto.png" id="imgBustoHome" alt="imagem"/>
 
-            <div id="MatrixDesign"></div>  
+                    <div id="MatrixDesign"></div>  
 
-            <div id="MatrixDev"></div> 
+                    <div id="MatrixDev"></div> 
 
-            <div id="MatrixHome"></div>  
+                    <div id="MatrixHome"></div>  
 
-            { seforAdm() && (
-                            <div id='menuId' className='menuIcon' onClick={openMenu}> ㆔ </div>
-            )}
-                           
-        </div>                
-       
-                            
-        <div id="conteudo">
+                    { seforAdm() && (
+                                    <div id='menuId' className='menuIcon' onClick={openMenu}> ㆔ </div>
+                    )}
+                                
+                </div>                
+            
+                                    
+                <div id="conteudo">
 
 
-                <Navbar />
-    
-
-                <div id="conteudoAbas">      
-                    
-                    <Outlet />
-
-                <div id="rodape">
-                <img src="/logo.png" id="logoRod" alt="imagem"/>
-                <p>ALY-137©</p>  
+                        <Navbar />
             
 
-         </div>   
+                        <div id="conteudoAbas">      
+                            
+                            <Outlet />
 
+                         
 
-          
+                        </div>
+                               
+                </div>
 
-              
+                
 
-          </div>
-
-
-          </div>
-
-             
-
-              
-              
-                 </div>  
+                
+            </div>  
 
     
 
-      </body> 
+        </body> 
 
     )
 }

@@ -7,6 +7,8 @@ import Contato from "../../Layout/Objects/Containers/Home/Contato";
 
 import PropCard from "../../Layout/Objects/Objetos/PropCard";
 
+import Rodape from '../../Layout/Rodape/Rodape';
+
 
 
 class Home extends Component {
@@ -14,8 +16,6 @@ class Home extends Component {
   
   componentDidMount() {
   
-
-   
 
     var idcard;
 
@@ -32,6 +32,11 @@ class Home extends Component {
             <Comandante />
             <MissoesHome />
             <Contato />
+
+
+            <Rodape estilo="rodapeEstiloHome" />
+
+
       </div>
     );
   }

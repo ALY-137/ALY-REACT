@@ -7,7 +7,7 @@ var alyLar;
 var fundo;
 var cabecalho;
 var conteudo;
-var rodape;
+
 var cardProfile;
 var conteudoAbas;
 var estilo;
@@ -50,8 +50,6 @@ export function layout(){
         cabecalho = document.getElementById('cabecalho');
         cabecalho.style.width = `${1000-5}px`;
     
-        rodape = document.getElementById('rodape');
-        rodape.style.width = `${1000-6}px`;
     
 
     }else{
@@ -63,9 +61,7 @@ export function layout(){
 
         cabecalho = document.getElementById('cabecalho');
         cabecalho.style.width = `${larSreen-5}px`;
-    
-        rodape = document.getElementById('rodape');
-        rodape.style.width = `${larSreen-6}px`;
+
     
     }
 
@@ -125,10 +121,7 @@ export function layout(){
     estilo.classList.remove('fundoEstiloDesign');
     estilo.classList.add('fundoEstiloHome');
 
-    estilo = document.getElementById('rodape');
-    estilo.classList.remove('rodapeEstiloDev');
-    estilo.classList.remove('rodapeEstiloDesign');
-    estilo.classList.add('rodapeEstiloHome');
+
 
     estilo = document.getElementById('conteudo');
     estilo.classList.remove('conteudoEstiloDev');

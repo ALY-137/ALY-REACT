@@ -50,30 +50,8 @@
   width: 0px;
 }
 
-#rodape{
-  height: 20px;
-  font-size: 12px;
-  z-index: 16;
-  transition: all ease 3s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  bottom: 0px;
-  margin-top: 25px;
-}
 
-.rodapeEstiloDev{
-  border: 1px solid #0e62ff;
-  background-color: #080110;
-}
-.rodapeEstiloDesign{
-  border: 1px solid #fb008a;
-  background-color: #080110;
-}
-.rodapeEstiloHome{
-  border: 1px solid #7e0eff;
-  background-color: #080110;
-}
+
 
 #logoRod{
   width: 17px;

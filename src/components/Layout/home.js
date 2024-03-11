@@ -82,11 +82,6 @@ export function violet(){
         estilo.classList.remove('fundoEstiloDesign');
         estilo.classList.add('fundoEstiloHome');
 
-        estilo = document.getElementById('rodape');
-        estilo.classList.remove('rodapeEstiloDev');
-        estilo.classList.remove('rodapeEstiloDesign');
-        estilo.classList.add('rodapeEstiloHome');
-
 
         estilo = document.getElementById('conteudo');
         estilo.classList.remove('conteudoEstiloDev');
