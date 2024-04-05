@@ -1,14 +1,14 @@
 {
   "files": {
-    "main.css": "/static/css/main.c99e0c80.css",
-    "main.js": "/static/js/main.5efefe0f.js",
+    "main.css": "/static/css/main.bef5883b.css",
+    "main.js": "/static/js/main.0cd6dc4f.js",
     "static/media/bigSky.jpg": "/static/media/bigSky.951fd721b146ba3265c1.jpg",
     "index.html": "/index.html",
-    "main.c99e0c80.css.map": "/static/css/main.c99e0c80.css.map",
-    "main.5efefe0f.js.map": "/static/js/main.5efefe0f.js.map"
+    "main.bef5883b.css.map": "/static/css/main.bef5883b.css.map",
+    "main.0cd6dc4f.js.map": "/static/js/main.0cd6dc4f.js.map"
   },
   "entrypoints": [
-    "static/css/main.c99e0c80.css",
-    "static/js/main.5efefe0f.js"
+    "static/css/main.bef5883b.css",
+    "static/js/main.0cd6dc4f.js"
   ]
 }
