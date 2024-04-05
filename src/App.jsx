@@ -1,6 +1,14 @@
-import { useEffect, useState } from 'react';
+
 import React from 'react';
 import './App.css';
+
+import { useEffect, useState } from 'react';
+
+
+
+import { useLocation } from 'react-router-dom';
+
+import { verificaUser } from './components/Banco/init-firebase';
 
 import violet from './components/Layout/home';
 import blue from './components/Layout/dev';
@@ -9,21 +17,19 @@ import layout from './components/Layout/layout';
 
 
 import { jwtDecode } from 'jwt-decode';
+
+
 import Estrutura from './components/Layout/Estrutura';
 
-
-import {useLocation} from 'react-router-dom';
-
-import { verificaUser } from './components/Banco/init-firebase';
-
 import AnoAtualizado from './components/Scripts/data/AnoAtualizado';
+
 
 let idGoogle;
 let nomeCompleto;
 
 function App(){
 
- 
+  
   const location = useLocation();
 
   const rotaAtual = location.pathname;
@@ -102,6 +108,9 @@ function App(){
    )
   },[])
 
+
+  
+
   const [mostrarLogin, setMostrarLogin] = useState(false);
 
   useEffect(() => {
@@ -115,7 +124,15 @@ function App(){
 }, []);
 
 
-  
+
+
+
+
+
+
+
+
+
 
 
   return ( 
@@ -126,6 +143,7 @@ function App(){
           
             <Estrutura />
 
+            
             <div id='login' className={`containerLogin ${mostrarLogin? 'fadeIn' : ''}`}> 
                   <div id='iconsLogin'>
                               <img src='/logoNeon.png' id='logoLogin' />
@@ -147,6 +165,9 @@ function App(){
             <p id="verifiedEmail"></p>
             <img id="picture" />
           
+
+
+
 
 
 

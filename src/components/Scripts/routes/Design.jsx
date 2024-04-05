@@ -6,6 +6,8 @@ import PropCard from '../../Layout/Objects/Objetos/PropCard';
 
 import Rodape from '../../Layout/Rodape/Rodape';
 
+
+
 class Design extends Component {
   componentDidMount() {
 
@@ -14,11 +16,14 @@ class Design extends Component {
     idcard='HELLMANS';
     PropCard(idcard);
 
+
   }
+
+  
 
   render() {
     return (
-      <div>
+      <div className='conteudoAbas'>
 
         
          <HabilidadesDesign />

@@ -11,6 +11,7 @@ import Rodape from '../../Layout/Rodape/Rodape';
 
 
 
+
 class Home extends Component {
 
   
@@ -21,13 +22,16 @@ class Home extends Component {
 
     idcard='CYBERPINK-137';
     PropCard(idcard);
-   
+
+ 
   }
+
+  
 
 
   render() {
     return (
-      <div> 
+      <div className='conteudoAbas' > 
             <BoasVindas />
             <Comandante />
             <MissoesHome />

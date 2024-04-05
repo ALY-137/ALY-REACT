@@ -77,14 +77,10 @@ export function pink(){
         
 
 
-
-            var estilo = document.getElementById('conteudoAbas');
-            estilo.classList.remove('conteudoAbasMobileEstiloHome');
-            estilo.classList.remove('conteudoAbasMobileEstiloDev');
-            estilo.classList.add('conteudoAbasMobileEstiloDesign');
+;
 
 
-            estilo = document.getElementById('fundo');
+            var estilo = document.getElementById('fundo');
             estilo.classList.remove('fundoEstiloHome');
             estilo.classList.remove('fundoEstiloDev');
             estilo.classList.add('fundoEstiloDesign');

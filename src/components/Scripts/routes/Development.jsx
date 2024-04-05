@@ -6,6 +6,8 @@ import PropCard from '../../Layout/Objects/Objetos/PropCard';
 
 import Rodape from '../../Layout/Rodape/Rodape';
 
+
+
 class Development extends Component {
   componentDidMount() {
 
@@ -15,11 +17,15 @@ class Development extends Component {
     PropCard(idcard);
     idcard='ECONOLISTA';
     PropCard(idcard);
+    
+
   }
+
+  
 
   render() {
     return (
-      <div>
+      <div className='conteudoAbas'>
         <HabilidadesDev />
         <MissoesDev />
 

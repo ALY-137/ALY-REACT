@@ -49,16 +49,11 @@ function Estrutura(){
                 <div id="conteudo">
 
 
-                        <Navbar />
-            
-
-                        <div id="conteudoAbas">      
+                    <Navbar />
+                                     
                             
-                            <Outlet />
+                    <Outlet />
 
-                         
-
-                        </div>
                                
                 </div>
 

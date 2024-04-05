@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import firebase from 'firebase/app';
 import 'firebase/firestore';
 
-import { idGoogle, nomeCompleto } from '../../../../App';
+import { idGoogle, nomeCompleto } from '../../../../App.jsx'
 
 function Formularios() {
   const [formularios, setFormularios] = useState([]);

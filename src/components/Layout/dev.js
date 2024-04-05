@@ -83,15 +83,12 @@ if(larSreen>1000){
 
  
 
-            var estilo = document.getElementById('conteudoAbas');
-            estilo.classList.remove('conteudoAbasMobileEstiloHome');
-            estilo.classList.remove('conteudoAbasMobileEstiloDesign');
-            estilo.classList.add('conteudoAbasMobileEstiloDev');
+ 
 
 
         
 
-        estilo = document.getElementById('fundo');
+        var estilo = document.getElementById('fundo');
         estilo.classList.remove('fundoEstiloHome');
         estilo.classList.remove('fundoEstiloDesign');
         estilo.classList.add('fundoEstiloDev');

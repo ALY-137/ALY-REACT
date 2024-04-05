@@ -14,20 +14,7 @@
   opacity: 0;;
 }
 
-.conteudoAbasMobileEstiloDev{
-  background-image: url(../public/backConteudo.png);
-  transition: all ease 3s;
-}
 
-.conteudoAbasMobileEstiloDesign{
-  background-image: url(../public/backConteudo.png);
-  transition: all ease 3s;
-}
-
-.conteudoAbasMobileEstiloHome{
-  background-image: url(../public/backConteudo.png);
-  transition: all ease 3s;
-}
 
 
 
@@ -206,11 +193,7 @@
   height: 100vh;
 }
 
-#conteudoAbas{
-  margin-bottom: 40px;
-  height: 60vh;
-  text-align: center;
-}
+
 
 .fundoEstiloDev{
   border: 1px solid #0e62ff;

@@ -70,14 +70,11 @@ export function violet(){
 
 
 
-                var estilo = document.getElementById('conteudoAbas');
-                estilo.classList.remove('conteudoAbasMobileEstiloDev');
-                estilo.classList.remove('conteudoAbasMobileEstiloDesign');
-                estilo.classList.add('conteudoAbasMobileEstiloHome');
 
 
 
-        estilo = document.getElementById('fundo');
+
+        var estilo = document.getElementById('fundo');
         estilo.classList.remove('fundoEstiloDev');
         estilo.classList.remove('fundoEstiloDesign');
         estilo.classList.add('fundoEstiloHome');

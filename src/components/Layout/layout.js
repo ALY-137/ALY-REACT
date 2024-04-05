@@ -9,7 +9,7 @@ var cabecalho;
 var conteudo;
 
 var cardProfile;
-var conteudoAbas;
+
 var estilo;
 var abaDesign;
 
@@ -101,9 +101,6 @@ export function layout(){
     conteudo = document.getElementById('conteudo');
     conteudo.style.width = `100%`;
 
-        
-    conteudoAbas = document.getElementById('conteudoAbas');  
-    conteudoAbas.classList.add('conteudoAbasMobileEstiloHome');
 
      
     if(larSreen>1000){
