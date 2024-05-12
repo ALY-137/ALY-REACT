@@ -12,7 +12,6 @@ var resultado;
 
 function realocaChuvasTxt(altura){
 
- 
     if(altura<400){
         resultado = (altura/100) * 58;
         resultado = -(alyAlt - resultado);
