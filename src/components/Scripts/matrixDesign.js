@@ -44,11 +44,11 @@ if(largura>1000){
 }
 
 // CARACTERES SOMBRA
-var caracteres = ["✦","✰","兎","★","♡"];
+var caracteres = ["✦","✰","兎","★"];
 
 
 // CARACTERES BRILHANTES
-const caracteres1 = ["♦","兎","✦","★","✰","♡"," "];
+const caracteres1 = ["♦","兎","✦","★","✰"," "];
 //Esses são os arrays com os pacotes de caracteres que serão usados na matrix.
 
 const random = (min, max) => Math.floor(Math.random() * (max - min) + min);

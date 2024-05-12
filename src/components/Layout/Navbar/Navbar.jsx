@@ -1,13 +1,16 @@
-import React from 'react';
+import NewRouteComponent from '../../Scripts/routes/NewRouteComponent';
+import React, { useState } from 'react';
+import { BrowserRouter as Router, Route, Switch, Link } from 'react-router-dom';
 
 import home from '../home';
 import blue from '../dev';
 import pink from '../design';
 
-import {Link} from 'react-router-dom';
 
 
-function Navbar(){
+const Navbar = ({ routes }) =>{
+
+
 
     window.addEventListener("scroll",function(){
         let header = document.getElementById("abas")
@@ -18,6 +21,8 @@ function Navbar(){
         
     })
 
+
+  
     
    return(
 
@@ -37,13 +42,17 @@ function Navbar(){
         <p id="txtAbaDesign" className="numNeutroHome">DESIGN</p>                                         
       </Link>
 
+
+
+      
+
      
 
     </div>
 </div>
 
-)}
-
+)
+}
 export default Navbar;
 
 

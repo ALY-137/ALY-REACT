@@ -111,8 +111,3 @@ export const verificaUser = async (campo, valor) => {
     console.error('Erro ao verificar usuário:', error);
   }
 };
-
-
-
-
-

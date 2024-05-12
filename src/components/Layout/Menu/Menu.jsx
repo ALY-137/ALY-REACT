@@ -1,6 +1,6 @@
 import Formularios from "./Formularios/Formularios";
 import Users from "./Users/Users";
-
+import Config from "./Config/Config";
 import { seforAdm } from "../../Scripts/verificações/verificaAdm";
 
 
@@ -24,6 +24,7 @@ function Menu(){
 
         document.getElementById('Forms').classList.add('mostra');
         document.getElementById('Forms').classList.remove('oculta');  
+
     }
     function fecharForms(){
         document.getElementById('Gavetas').classList.remove('oculta');
@@ -31,6 +32,7 @@ function Menu(){
 
         document.getElementById('Forms').classList.remove('mostra');
         document.getElementById('Forms').classList.add('oculta');  
+
     }
 
     function abrirUsers(){
@@ -39,6 +41,7 @@ function Menu(){
 
         document.getElementById('Users').classList.add('mostra');
         document.getElementById('Users').classList.remove('oculta');  
+
     }
 
     function fecharUsers(){
@@ -47,6 +50,23 @@ function Menu(){
 
         document.getElementById('Users').classList.add('oculta');
         document.getElementById('Users').classList.remove('mostra');  
+
+    }
+
+    function abrirConfig(){
+        document.getElementById('Gavetas').classList.add('oculta');
+        document.getElementById('Gavetas').classList.remove('mostra');
+
+        document.getElementById('Config').classList.add('mostra');
+        document.getElementById('Config').classList.remove('oculta');  
+    }
+
+    function fecharConfig(){
+        document.getElementById('Gavetas').classList.add('mostra');
+        document.getElementById('Gavetas').classList.remove('oculta');
+
+        document.getElementById('Config').classList.add('oculta');
+        document.getElementById('Config').classList.remove('mostra');  
     }
 
 
@@ -67,6 +87,7 @@ function Menu(){
                    )}
                    
                     <div onClick={abrirForms} className='gaveta' id="gavetaForms"> FORMULÁRIOS </div>
+                    <div onClick={abrirConfig} className='gaveta' id="gavetaConfig"> CONFIGURAÇÕES </div>
                     <div onClick={recarregarPagina} className='gaveta'> ENCERRAR </div>   
                 </div>
 
@@ -79,6 +100,11 @@ function Menu(){
                 <div id='Users' className='oculta'>
                     <div id='closeMensagensButton' onClick={fecharUsers} >VOLTAR</div>
                     <Users />
+                </div>
+
+                <div id='Config' className='oculta'>
+                    <div id='closeMensagensButton' onClick={fecharConfig} >VOLTAR</div>
+                    <Config />
                 </div>
                
             

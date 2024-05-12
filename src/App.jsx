@@ -1,10 +1,10 @@
-
 import React from 'react';
 import './App.css';
 
+import Navbar from './components/Layout/Navbar/Navbar';
+import Config from './components/Layout/Menu/Config/Config';
+
 import { useEffect, useState } from 'react';
-
-
 
 import { useLocation } from 'react-router-dom';
 
@@ -15,21 +15,17 @@ import blue from './components/Layout/dev';
 import pink from './components/Layout/design';
 import layout from './components/Layout/layout';
 
-
 import { jwtDecode } from 'jwt-decode';
-
 
 import Estrutura from './components/Layout/Estrutura';
 
 import AnoAtualizado from './components/Scripts/data/AnoAtualizado';
-
 
 let idGoogle;
 let nomeCompleto;
 
 function App(){
 
-  
   const location = useLocation();
 
   const rotaAtual = location.pathname;
@@ -56,13 +52,10 @@ function App(){
     const camp = 'idGoogle';
     idGoogle = useObject.sub;
     nomeCompleto = useObject.name;
-
    
     verificaUser(camp, idGoogle);
 
-
     layout(); 
-
 
     switch (rotaAtual) {
       case '/':
@@ -81,14 +74,9 @@ function App(){
       default:
   }
 
-   
   }
 
-  
-
   useEffect  (() =>{
-
-  
 
    window.google.accounts.id.initialize({
       client_id: "99960275074-f5d0bnogv6a9oq1ui4pkrbou60ffh43f.apps.googleusercontent.com",
@@ -108,9 +96,6 @@ function App(){
    )
   },[])
 
-
-  
-
   const [mostrarLogin, setMostrarLogin] = useState(false);
 
   useEffect(() => {
@@ -123,21 +108,7 @@ function App(){
     return () => clearTimeout(timeoutId);
 }, []);
 
-
-
-
-
-
-
-
-
-
-
-
-
   return ( 
-
- 
     
         <div> 
           
@@ -164,15 +135,9 @@ function App(){
             <p id="email"></p>
             <p id="verifiedEmail"></p>
             <img id="picture" />
-          
-
-
-
-
 
 
         </div>
-     
                       
 
     )
@@ -180,9 +145,6 @@ function App(){
 
  
 }
-
-   
-
 
 export { idGoogle }; 
 export { nomeCompleto };
