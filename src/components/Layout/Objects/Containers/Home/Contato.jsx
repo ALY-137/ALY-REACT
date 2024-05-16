@@ -50,11 +50,11 @@ function Contato(){
 
                         <select value={valorSelecionado}id='help'  onChange={(e) => setValorSelecionado(e.target.value)}>
                             <option value="" selected disabled>Assunto... </option>
-                            <option value={'IDENTIDADE VISUAL'}>Logotipo ou Identidade Visual.</option>
-                            <option value={'ONE PAGE'}>One Page para meu negócio.</option>
-                            <option value={'SISTEMA'}>Sistema inteligente para minha empresa.</option>
-                            <option value={'OUTRO'}>Outro serviço.</option>
-                            <option value={'PROJETO ENCHENTES RS'}>Projeto para suporte a pessoas atingidas pelas inundações no RS.</option>
+                            <option value={'IDENTIDADE VISUAL'}> - Logotipo ou Identidade Visual</option>
+                            <option value={'ONE PAGE'}> - One Page para meu negócio</option>
+                            <option value={'SISTEMA'}> - Sistema inteligente para minha empresa</option>
+                            <option value={'OUTRO'}> - Outro serviço</option>
+                            <option value={'PROJETO ENCHENTES RS'}> - Projeto para suporte a pessoas atingidas pelas inundações no RS</option>
                             
                         </select>
 
