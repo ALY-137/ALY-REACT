@@ -9,10 +9,6 @@ const altSreen = window.innerHeight;
 var alyAlt;
 var alyLar;
 
-
-
-
-
     
 if(larSreen>1000){
     alyLar = 1000;
@@ -38,6 +34,7 @@ if(larSreen>1000){
     
     
     // GERENCIA ABAS
+
     var abaDev = document.getElementById('abaDev');
     abaDev.classList.remove('optionsAbasDesign');
     abaDev.classList.remove('optionsAbasHome');
@@ -64,7 +61,6 @@ if(larSreen>1000){
 
 
 
-
         // MOSTRA / ESCONDE MATRIXES
 
         abaDev = document.getElementById('MatrixDev');
@@ -77,16 +73,8 @@ if(larSreen>1000){
         abaDev.style.display = 'none';
 
 
-        
 
         // ESTILIZA CARD
-
- 
-
- 
-
-
-        
 
         var estilo = document.getElementById('fundo');
         estilo.classList.remove('fundoEstiloHome');

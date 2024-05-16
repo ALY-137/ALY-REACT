@@ -1,6 +1,7 @@
 import theMatrixHome from "../Scripts/matrixHome";
 
 export function violet(){
+
         const larSreen = window.innerWidth;
         const altSreen = window.innerHeight;
 
@@ -28,9 +29,7 @@ export function violet(){
                 }   
                 
         }
-                
 
-     
         var abaDesign = document.getElementById('abaHome');
         abaDesign.classList.remove('optionsAbasDev');
         abaDesign.classList.remove('optionsAbasDesign');

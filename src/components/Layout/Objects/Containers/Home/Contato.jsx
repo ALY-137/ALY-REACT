@@ -49,13 +49,12 @@ function Contato(){
                         <p id='formTitle'>Me conte como posso te ajudar?</p>
 
                         <select value={valorSelecionado}id='help'  onChange={(e) => setValorSelecionado(e.target.value)}>
-                            <option value="" selected disabled>Preciso...</option>
-                            <option value={'IDENTIDADE VISUAL'}>ter o meu Logotipo e Identidade Visual.</option>
-                            <option value={'SOCIAL MEDIA 1'}>atualizar o conteúdo de minhas redes.</option>
-                            <option value={'SOCIAL MEDIA 2'}>ter um perfil mais atraente no Instagram.</option>
-                            <option value={'ONE PAGE'}>de uma One Page para meu negócio.</option>
-                            <option value={'SISTEMA'}>de um sistema inteligente para minha empresa.</option>
-                            <option value={'OUTRO'}>de outro serviço.</option>
+                            <option value="" selected disabled>Assunto... </option>
+                            <option value={'IDENTIDADE VISUAL'}>Logotipo ou Identidade Visual.</option>
+                            <option value={'ONE PAGE'}>One Page para meu negócio.</option>
+                            <option value={'SISTEMA'}>Sistema inteligente para minha empresa.</option>
+                            <option value={'OUTRO'}>Outro serviço.</option>
+                            <option value={'PROJETO ENCHENTES RS'}>Projeto para suporte a pessoas atingidas pelas inundações no RS.</option>
                             
                         </select>
 

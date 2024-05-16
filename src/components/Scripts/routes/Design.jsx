@@ -1,25 +1,21 @@
 import React, { Component } from 'react';
-
 import MissoesDesign from '../../Layout/Objects/Containers/Design/MissoesDesign';
 import HabilidadesDesign from '../../Layout/Objects/Containers/Design/HabilidadesDesign';
 import PropCard from '../../Layout/Objects/Objetos/PropCard';
-
-import Rodape from '../../Layout/Rodape/Rodape';
-
+import Rodape from '../../Layout/Rodape/Rodape'; 
 
 
 class Design extends Component {
+
   componentDidMount() {
 
-    var idcard;
+    var idcard; 
 
     idcard='HELLMANS';
     PropCard(idcard);
 
-
   }
 
-  
 
   render() {
     return (

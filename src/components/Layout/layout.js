@@ -13,14 +13,12 @@ var cardProfile;
 var estilo;
 var abaDesign;
 
-
-
     // FUNÇÃO PROFILE É A PRIMEIRA FUNÇÃO EXECUTADA NO SISTEMA
     // EXECUTADA ASSIM QUE O SISTEMA CARREGAR
     // CRIA O LAYOUT PADRÃO DE TODO O SISTEMA
 
-
 export function layout(){
+
 
     // CRIA ESTILIZAÇÃO GERAL DO LAYOUT (FUNDO, CONTEÚDO, RODAPÉ E ETC...).
 
@@ -35,12 +33,11 @@ export function layout(){
     conteudo.style.height = `${altSreen}px`;
 
 
-    
-
 
     // DESKTOP / MOBILE
 
     if(larSreen>1000){
+
         conteudo = document.getElementById('conteudo');
         conteudo.style.width = `1000px`;
         
@@ -50,9 +47,8 @@ export function layout(){
         cabecalho = document.getElementById('cabecalho');
         cabecalho.style.width = `${1000-5}px`;
     
-    
-
     }else{
+
         conteudo = document.getElementById('conteudo');
         conteudo.style.width = `${larSreen}px`;
 
@@ -62,7 +58,6 @@ export function layout(){
         cabecalho = document.getElementById('cabecalho');
         cabecalho.style.width = `${larSreen-5}px`;
 
-    
     }
 
 
@@ -117,8 +112,6 @@ export function layout(){
     estilo.classList.remove('fundoEstiloDev');
     estilo.classList.remove('fundoEstiloDesign');
     estilo.classList.add('fundoEstiloHome');
-
-
 
     estilo = document.getElementById('conteudo');
     estilo.classList.remove('conteudoEstiloDev');
