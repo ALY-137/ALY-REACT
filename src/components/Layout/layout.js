@@ -139,11 +139,6 @@ export function layout(){
     abaDesign.classList.add('optionsAbasHome');
 
 
-       
-       
-
- 
-
 }
 
 export default layout;
