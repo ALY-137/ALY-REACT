@@ -51,7 +51,7 @@ function MissoesDev(){
                 nome='ECONOLISTA' 
                 nomeDescricao='ECONOLISTA'
                 idNome='ECONOLISTA'
-                descricao='Aplicação desenvolvida para u usuárie obter maior economia em suas compras de supermercado. O aplicativo inteligente permite gerar automaticamente listas de compras e identificar a opção de comércio mais econômica buscando produtos com os menores preços.'
+                descricao='Aplicação desenvolvida com o propósito de os clientes obterem maior economia em suas compras de supermercado. O aplicativo inteligente permite gerar automaticamente listas de compras e identificar a opção de comércio mais econômica, buscando produtos com os menores preços.'
                 data={'AGOSTO de 2019'}
                 atividade='DESENVOLVIMENTO'
                 criador='SAVANNA OLIVEIRA'

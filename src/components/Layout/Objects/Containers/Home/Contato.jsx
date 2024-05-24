@@ -2,15 +2,10 @@ import './containersHome.css';
 import './contato.css';
 import EstiloContainerTop from './EstiloContainerTop';
 import EstiloContainerBot from './EstiloContainerBot';
-
 import { fazerContato } from '../../../../Banco/init-firebase';
-
 import { useState } from 'react';
 import { validarFormulario } from './validarForm';
-
 import { idGoogle } from '../../../../../App';
-
-
 
 function Contato(){
     const [valorSelecionado, setValorSelecionado] = useState(''); 
@@ -31,7 +26,6 @@ function Contato(){
             let sucesso = document.getElementById('containerSucesso');
             sucesso.style.display = 'block';
         }
-
 
       };
 
@@ -67,25 +61,15 @@ function Contato(){
                                             <p className='sucesso'>CONTATO REALIZADO COM SUCESSO!</p>
                                             <p className='descriSucesso'>Sua resposta será enviada em breve para seu endereço de e-mail. Confira sua caixa de entrada.</p>
                             </div>
-
-                    
+   
                 </div>
 
-
-               
-
-                <EstiloContainerBot />
-    
-    
+                <EstiloContainerBot />    
     
             </div>
     
             )
 
-   
-
     }
-
-
 
 export default Contato;
