@@ -44,6 +44,7 @@ function MissoesDev(){
                 classStatusVSHome='imgCheckHabiliOff'
                 classStatusPS='imgCheckHabiliOff'
                 classStatusAI='imgCheckHabiliOff'
+                classStatusIN='imgCheckHabiliOff'
                 />
    
 
@@ -73,6 +74,7 @@ function MissoesDev(){
                 classStatusVSHome='imgCheckHabiliOff'
                 classStatusPS='imgCheckHabiliOff'
                 classStatusAI='imgCheckHabiliOff'
+                classStatusIN='imgCheckHabiliOff'
           />
 
 

@@ -1,7 +1,7 @@
 import './objetos.css';
 
 
-function CheckHabilidades({classStatusAI,classStatusPS,classStatusVSHome,classStatusC,classStatusVB,classStatusVS}){
+function CheckHabilidades({classStatusAI,classStatusPS,classStatusVSHome,classStatusC,classStatusVB,classStatusVS,classStatusIN}){
 
         return(
             <div className='checkBoxHab'>
@@ -11,6 +11,7 @@ function CheckHabilidades({classStatusAI,classStatusPS,classStatusVSHome,classSt
                 <img  className={classStatusVSHome} src='./home/vscode.png' alt="imagem"/>
                 <img  className={classStatusPS} src='./design/ps.png' alt="imagem"/>
                 <img  className={classStatusAI} src='./design/ai.png' alt="imagem"/>
+                <img  className={classStatusIN} src='./design/in.png' alt="imagem"/>
             </div>
         )
 

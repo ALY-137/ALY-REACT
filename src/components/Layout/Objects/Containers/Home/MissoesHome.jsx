@@ -44,6 +44,7 @@ function MissoesHome(){
                 classStatusVSHome='imgCheckHabiliAtivo'  
                 classStatusPS='imgCheckHabiliOff'
                 classStatusAI='imgCheckHabiliOff'
+                classStatusIN='imgCheckHabiliOff'
                 
             />
 

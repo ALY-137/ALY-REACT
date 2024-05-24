@@ -41,7 +41,8 @@ function MissoesDesign(){
                 classStatusC='imgCheckHabiliOff'
                 classStatusVB='imgCheckHabiliOff'
                 classStatusVS='imgCheckHabiliOff'  
-                classStatusVSHome='imgCheckHabiliOff'  
+                classStatusVSHome='imgCheckHabiliOff'
+                classStatusIN='imgCheckHabiliOff'  
                 classStatusPS='imgCheckHabiliAtivo'
                 classStatusAI='imgCheckHabiliAtivo'
                 

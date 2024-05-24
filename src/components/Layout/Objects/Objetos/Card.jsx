@@ -1,7 +1,7 @@
 import './objetos.css'
 import CheckHabilidades from './CheckHabilidades';
 
-function Card({classStatusAI,classStatusPS,classStatusVSHome,imgCard,classStatusVS,classStatusC,classStatusVB,atividade,criador,nomeDescricao,data,descricao,imagem,cardDescricaoDiv,cardNome,nome,cardContainerDesktop,cardCabecalho,cardImagem,cardDescricao,idNome}){
+function Card({classStatusIN,classStatusAI,classStatusPS,classStatusVSHome,imgCard,classStatusVS,classStatusC,classStatusVB,atividade,criador,nomeDescricao,data,descricao,imagem,cardDescricaoDiv,cardNome,nome,cardContainerDesktop,cardCabecalho,cardImagem,cardDescricao,idNome}){
 
 
     return(
@@ -20,7 +20,7 @@ function Card({classStatusAI,classStatusPS,classStatusVSHome,imgCard,classStatus
                     
                        
                     <CheckHabilidades 
-                    
+                    classStatusIN={classStatusIN} 
                     classStatusC={classStatusC} 
                     classStatusVB={classStatusVB} 
                     classStatusVS={classStatusVS}
