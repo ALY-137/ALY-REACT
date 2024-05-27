@@ -1,9 +1,6 @@
 //DEV:  ALY-137
-
 //IMPORTAÇÕES
-
-/////////////////////////////////////////////
-
+///////////////
 const largura = window.innerWidth;
 const altura = window.innerHeight;
 //Essas variáveis foram criadas para obter os valores em pixels das dimensões de tela qual o usuário está utilizando.

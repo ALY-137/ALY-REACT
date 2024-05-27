@@ -24,7 +24,22 @@ import AnoAtualizado from './components/Scripts/data/AnoAtualizado';
 let idGoogle;
 let nomeCompleto;
 
+import getIp from './components/Scripts/plugins/getIp';
+
 function App(){
+
+  // FUNÇÃO GETIP
+const [ip, setIp] = useState('');
+
+useEffect(() => {
+  // Chame a função getIp ao montar o componente
+  const fetchIp = async () => {
+    const ip = await getIp();
+    setIp(ip);
+  };
+
+  fetchIp();
+}, []);
 
   const location = useLocation();
 
@@ -108,6 +123,9 @@ function App(){
     return () => clearTimeout(timeoutId);
 }, []);
 
+
+
+
   return ( 
     
         <div> 
@@ -135,6 +153,7 @@ function App(){
             <p id="email"></p>
             <p id="verifiedEmail"></p>
             <img id="picture" />
+            <p>Your IP address is: {ip}</p>
 
 
         </div>
