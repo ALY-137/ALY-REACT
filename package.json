@@ -1,4 +1,5 @@
 {
+  "homepage": "https://aly-137.github.io/ALY-REACT/",
   "name": "aly-react",
   "version": "1.0.0",
   "description": "This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).",
@@ -7,7 +8,9 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d build"
   },
   "author": "",
   "license": "ISC",
@@ -15,6 +18,7 @@
     "axios": "^1.7.2",
     "firebase": "^8.10.0",
     "framer-motion": "^4.1.17",
+    "gh-pages": "^6.1.1",
     "jwt-decode": "^4.0.0",
     "react-router-dom": "^6.23.1",
     "react-scripts": "^5.0.1"
