@@ -1,14 +1,14 @@
 {
   "files": {
-    "main.css": "/ALY-REACT/static/css/main.71f85a81.css",
-    "main.js": "/ALY-REACT/static/js/main.ed8472e4.js",
-    "static/media/bigSky.jpg": "/ALY-REACT/static/media/bigSky.951fd721b146ba3265c1.jpg",
-    "index.html": "/ALY-REACT/index.html",
-    "main.71f85a81.css.map": "/ALY-REACT/static/css/main.71f85a81.css.map",
-    "main.ed8472e4.js.map": "/ALY-REACT/static/js/main.ed8472e4.js.map"
+    "main.css": "/static/css/main.990af0ad.css",
+    "main.js": "/static/js/main.8196fd19.js",
+    "static/media/bigSky.jpg": "/static/media/bigSky.951fd721b146ba3265c1.jpg",
+    "index.html": "/index.html",
+    "main.990af0ad.css.map": "/static/css/main.990af0ad.css.map",
+    "main.8196fd19.js.map": "/static/js/main.8196fd19.js.map"
   },
   "entrypoints": [
-    "static/css/main.71f85a81.css",
-    "static/js/main.ed8472e4.js"
+    "static/css/main.990af0ad.css",
+    "static/js/main.8196fd19.js"
   ]
 }
