@@ -25,7 +25,7 @@ function AcademiaDesign(){
             descricao='Curso profissionalizante realizado com a intenção de obter certificação e aperfeiçoamento no conhecimento das principais ferramentas utilizadas por profissionais da área, como o pacote Adobe e até mesmo as mais clássicas, como o CorelDRAW.'
             
             
-            data='DEZEMBRO de 2017'
+            data=''
             atividade='CURSADO'
             criador='SAVANNA OLIVEIRA'
             imagem='./design/designgrafico.png'

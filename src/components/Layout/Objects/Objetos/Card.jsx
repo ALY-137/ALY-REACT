@@ -30,10 +30,11 @@ function Card({classStatusIN,classStatusAI,classStatusPS,classStatusVSHome,imgCa
                     />
                                   
                     
-                    <p className='txtTituloPri'> [ {nomeDescricao} ] </p>
-                    <p className='txtDescricao'> {descricao}</p>
-                    <p className='txtTitulo'>  [ {atividade} ] por {criador}.</p>
-                    <p className='txtTitulo'>  [ DATA ] {data}.</p>
+                    {nomeDescricao && <p className='txtTituloPri'> [ {nomeDescricao} ] </p>}
+                    {descricao && <p className='txtDescricao'> {descricao}</p>}
+                    {atividade && criador && <p className='txtTitulo'>  [ {atividade} ] por {criador}.</p>}
+                    {data && <p className='txtTitulo'>  [ DATA ] {data}.</p>}
+
 
                 </div>
             </div>
