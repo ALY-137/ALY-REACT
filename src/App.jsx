@@ -122,7 +122,7 @@ function App(){
                               <p id='textoLogin'>EMBARQUE COM O GOOGLE</p>
                               <div id="signInDiv"></div> 
                             </div>
-                  <p id='rodapeLogin'>ALY-138© <AnoAtualizado /></p>  
+                  <p id='rodapeLogin'>ALY-139© <AnoAtualizado /></p>  
             </div>
 
           
