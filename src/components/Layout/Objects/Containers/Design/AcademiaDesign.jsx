@@ -19,7 +19,7 @@ function AcademiaDesign(){
         
             
         <Card 
-            nome='DESIGN GRÁFIC' 
+            nome='DESIGN GRÁFICO' 
             nomeDescricao='Senac RS'
             idNome='DESIGNGRAFICO'
             descricao='Curso profissionalizante realizado com a intenção de obter certificação e aperfeiçoamento no conhecimento das principais ferramentas utilizadas por profissionais da área, como o pacote Adobe e até mesmo as mais clássicas, como o CorelDRAW.'
