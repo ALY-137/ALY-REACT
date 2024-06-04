@@ -13,3 +13,23 @@
 [0604/000318.100:WARNING:dns_config_service_win.cc(668)] Failed to read DnsConfig.
 [0604/000323.125:WARNING:dns_config_service_win.cc(668)] Failed to read DnsConfig.
 [0604/005611.139:INFO:CONSOLE(1)] "Long rAF frame-time", source: file:///C:/Program%20Files/Adobe/Adobe%20Photoshop%202020/Required/www-rich-tooltips/build/external.js (1)
+[0604/010537.391:WARNING:dns_config_service_win.cc(668)] Failed to read DnsConfig.
+[0604/012646.134:WARNING:dns_config_service_win.cc(668)] Failed to read DnsConfig.
+[0604/012651.155:WARNING:dns_config_service_win.cc(668)] Failed to read DnsConfig.
+[0604/012656.166:WARNING:dns_config_service_win.cc(668)] Failed to read DnsConfig.
+[0604/012701.170:WARNING:dns_config_service_win.cc(668)] Failed to read DnsConfig.
+[0604/012706.192:WARNING:dns_config_service_win.cc(668)] Failed to read DnsConfig.
+[0604/012711.208:WARNING:dns_config_service_win.cc(668)] Failed to read DnsConfig.
+[0604/012716.223:WARNING:dns_config_service_win.cc(668)] Failed to read DnsConfig.
+[0604/012721.245:WARNING:dns_config_service_win.cc(668)] Failed to read DnsConfig.
+[0604/012726.251:WARNING:dns_config_service_win.cc(668)] Failed to read DnsConfig.
+[0604/012731.270:WARNING:dns_config_service_win.cc(668)] Failed to read DnsConfig.
+[0604/012736.285:WARNING:dns_config_service_win.cc(668)] Failed to read DnsConfig.
+[0604/012741.301:WARNING:dns_config_service_win.cc(668)] Failed to read DnsConfig.
+[0604/012746.317:WARNING:dns_config_service_win.cc(668)] Failed to read DnsConfig.
+[0604/012751.332:WARNING:dns_config_service_win.cc(668)] Failed to read DnsConfig.
+[0604/012756.348:WARNING:dns_config_service_win.cc(668)] Failed to read DnsConfig.
+[0604/012801.364:WARNING:dns_config_service_win.cc(668)] Failed to read DnsConfig.
+[0604/012806.397:WARNING:dns_config_service_win.cc(668)] Failed to read DnsConfig.
+[0604/013149.482:WARNING:ipc_message_attachment_set.cc(49)] MessageAttachmentSet destroyed with unconsumed attachments: 0/1
+[0604/013150.482:ERROR:browser_gpu_channel_host_factory.cc(139)] Failed to launch GPU process.
