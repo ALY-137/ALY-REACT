@@ -1,24 +1,15 @@
 import React from 'react';
-import './App.css';
-
-import Navbar from './components/Layout/Navbar/Navbar';
-import Config from './components/Layout/Menu/Config/Config';
-
 import { useEffect, useState } from 'react';
-
 import { useLocation } from 'react-router-dom';
-
 import { verificaUser } from './components/Banco/init-firebase';
+import { jwtDecode } from 'jwt-decode';
+import './App.css';
 
 import violet from './components/Layout/home';
 import blue from './components/Layout/dev';
 import pink from './components/Layout/design';
 import layout from './components/Layout/layout';
-
-import { jwtDecode } from 'jwt-decode';
-
 import Estrutura from './components/Layout/Estrutura';
-
 import AnoAtualizado from './components/Scripts/data/AnoAtualizado';
 
 let idGoogle;
@@ -124,9 +115,6 @@ function App(){
                             </div>
                   <p id='rodapeLogin'>ALY-137© <AnoAtualizado /></p>  
             </div>
-
-          
-            
      
             <p id="fullName"></p>
             <p id="sub"></p>
@@ -136,14 +124,8 @@ function App(){
             <p id="verifiedEmail"></p>
             <img id="picture" />
 
-
-        </div>
-                      
-
+         </div>                      
     )
-
-
- 
 }
 
 export { idGoogle }; 

@@ -68,7 +68,7 @@
     padding-top: 5px;
     padding-bottom: 7px;
     text-indent: 10px;
-    letter-spacing: 2px;
+    letter-spacing: 1px;
 }
 
 .cardNomeHome{
@@ -80,7 +80,7 @@
     padding-top: 5px;
     padding-bottom: 7px;
     text-indent: 10px;
-    letter-spacing: 2px;
+    letter-spacing: 1px;
 }
 
 .cardNomeDesign{
@@ -92,7 +92,7 @@
     padding-top: 5px;
     padding-bottom: 7px;
     text-indent: 10px;
-    letter-spacing: 2px;
+    letter-spacing: 1px;
 }
 
 .cardImagemDev{
@@ -168,9 +168,6 @@
     background-color: #160025;
 
 }
-
-
-
 .cardDescricaoDivDev{
     height: 90%;
     width: 95%;
@@ -192,8 +189,6 @@
     overflow-x: scroll;
     border: 1px solid #7e0eff;
     background-color: #07000c;
-    
-
 }
 
 .cardDescricaoDivDesign{
@@ -205,8 +200,6 @@
     overflow-x: scroll;
     border: 1px solid #fb008a;
     background-color: #07000c;
-
-
 }
 
 .imgCardDev{

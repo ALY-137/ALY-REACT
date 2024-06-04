@@ -33,7 +33,7 @@ function Card({classStatusIN,classStatusAI,classStatusPS,classStatusVSHome,imgCa
                     {nomeDescricao && <p className='txtTituloPri'> [ {nomeDescricao} ] </p>}
                     {descricao && <p className='txtDescricao'> {descricao}</p>}
                     {atividade && criador && <p className='txtTitulo'>  [ {atividade} ] por {criador}.</p>}
-                    {data && <p className='txtTitulo'>  [ DATA ] {data}.</p>}
+                    {data && <p className='txtTitulo'>  [ PERÍODO ] {data}.</p>}
 
 
                 </div>

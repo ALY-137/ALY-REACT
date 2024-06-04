@@ -22,7 +22,7 @@ function MissoesDesign(){
                 nomeDescricao='HELL MANS'
                 idNome='HELLMANS'
                 descricao='Criação da marca do time brasileiro de eSports HELL MANS.'
-                data='DEZEMBRO de 2021'
+                data='2021'
                 atividade='DESIGN'
                 criador='SAVANNA OLIVEIRA'
                 imagem='./design/hellmans.png'

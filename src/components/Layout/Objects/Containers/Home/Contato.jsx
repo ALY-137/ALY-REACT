@@ -16,7 +16,7 @@ function Contato(){
 
         var valor = validarFormulario();
 
-        if(valor==1){
+        if(valor===1){
 
             fazerContato(idGoogle,valorSelecionado,valorTextarea);
 

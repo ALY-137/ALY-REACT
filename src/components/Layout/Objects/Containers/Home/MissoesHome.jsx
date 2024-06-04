@@ -20,7 +20,7 @@ function MissoesHome(){
                 nomeDescricao='CYBERPINK-137'
                 idNome='CYBERPINK-137'
                 descricao='CYBERPINK-137 é uma identidade visual com estilo baseado na cultura cyberpunk. O tema que foi criado para a plataforma Visual Studio CODE já obteve mais de 7 mil instalações. O estilo que fez tanto sucesso é adaptável a usuários que sofrem com sensibilidade à luz ou fotofobia. A paleta dark combinada com cores neon e 100% livres da luz amarela é perfeita para o conforto dos olhos de programadores.'
-                data='JANEIRO de 2022'
+                data='2022'
                 atividade='DESENVOLVIMENTO E DESIGN'
                 criador='SAVANNA OLIVEIRA'
                 imagem='./home/cyberpink.png'

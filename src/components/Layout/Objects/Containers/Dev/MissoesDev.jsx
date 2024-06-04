@@ -22,7 +22,7 @@ function MissoesDev(){
                 nomeDescricao='CAFE'
                 idNome='CAFE'
                 descricao='Sistema programado para efetuar controle financeiro para corporações prestadoras de serviços. Capaz de automatizar diversas funções como: contatar clientes;  registrar pagamentos; agendamento de cobranças; levantamento de dados entre outras. Empresas que contrataram este serviço obteveram retornos com aumento de até 300% em seu faturamento mensal.'
-                data={'AGOSTO de 2018'}
+                data={'2018'}
                 atividade='DESENVOLVIMENTO'
                 criador='SAVANNA OLIVEIRA'
                 imagem='./dev/cafe.png'
