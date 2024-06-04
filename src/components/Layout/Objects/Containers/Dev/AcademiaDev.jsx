@@ -57,7 +57,6 @@ function AcademiaDev(){
                 imagem='./dev/sistemas.png'
                 
 
-
                 cardDescricaoDiv='cardDescricaoDivDev' 
                 cardNome='cardNomeDev' 
                 cardContainerDesktop='cardContainerDesktopDev' 
