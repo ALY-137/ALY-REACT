@@ -15,6 +15,7 @@ class Development extends Component {
 
     idcard='CAFE';
     PropCard(idcard);
+    
     idcard='ECONOLISTA';
     PropCard(idcard);
 

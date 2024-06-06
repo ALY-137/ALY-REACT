@@ -71,9 +71,12 @@ function Menu(){
 
 
 
-    function recarregarPagina() {
+    function logoff() {
         window.location.reload(true); 
+        localStorage.clear();
     }
+
+ 
 
     return(
 
@@ -88,7 +91,7 @@ function Menu(){
                    
                     <div onClick={abrirForms} className='gaveta' id="gavetaForms"> FORMULÁRIOS </div>
                     <div onClick={abrirConfig} className='gaveta' id="gavetaConfig"> CONFIGURAÇÕES </div>
-                    <div onClick={recarregarPagina} className='gaveta'> ENCERRAR </div>   
+                    <div onClick={logoff} className='gaveta'> ENCERRAR </div>   
                 </div>
 
                 <div id='Forms' className='oculta'>

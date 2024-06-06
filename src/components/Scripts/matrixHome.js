@@ -5,6 +5,8 @@
 
 /////////////////////////////////////////////
 
+
+
 const largura = window.innerWidth;
 const altura = window.innerHeight;
 
@@ -455,6 +457,7 @@ async function anima1() {
                 if(contAnimatrix===1){
                     start2();
                     start3();
+                
                 }
                 
             }
@@ -557,7 +560,9 @@ async function anima2() {
             temporizadorF2[j] += 1;
 
             if (temporizadorF2[j] > (numLin/2) * 5) {
-                clearInterval(tempAnima2);   
+                clearInterval(tempAnima2);  
+               
+              
             }
 
             if (temporizadorF2[j] < numLin2 -1) {
@@ -581,89 +586,75 @@ function start2() {
     tempAnima2 = setInterval(async () => await anima2(), 80);
 }
 
-
-export async function anima3() {  
-    for (var a = 0; a < numLin3 -1 ; a++) {
-        for (var b = 0; b < numCol; b++) {
-            if (b % 2 === 0) {
-                matrix[a][b][3].innerHTML = `${caracteres[random(0, caracteres.length)]}`;
-            }  
-        }
-    }
-   
-    for (var j = 0; j < numNome; j++) {
-
-        await wait(1280/(j + 2));
-
-        if (aLi3[j] === 0) {
-       
-                matrix[aLi3[j]][posj3[j]][3].setAttribute('class', 'numBrilhaHome');
-                matrix[aLi3[j]][posj3[j]][3].innerHTML = `${caracteres1[random(0, caracteres1.length)]}`;
-    
-        } else {
-            if (aLi3[j] < numLin3 && aLf3[j] === 0) {
-         
-                    matrix[aLi3[j] - 1][posj3[j]][3].setAttribute('class', 'numNeutroHome');
-                    matrix[aLi3[j] - 1][posj3[j]][3].innerHTML = `${caracteres[random(0, caracteres.length)]}`;
-    
-            
-
-                if (temporizadorI3[j] > numLin3   && aLf3[j] === 0) {
-                  
-                        matrix[aLi3[j]][posj3[j]][3].setAttribute('class', 'numNeutroHome');
-                        matrix[aLi3[j]][posj3[j]][3].innerHTML = `${caracteres[random(0, caracteres.length)]}`;
-
-
-                } else {
-                
-                        matrix[aLi3[j]][posj3[j]][3].setAttribute('class', 'numBrilhaHome');
-                        matrix[aLi3[j]][posj3[j]][3].innerHTML = `${mensagem1[posj3[j]]}`;
-     
-         
+export function anima3() {
+    return new Promise(async (resolve) => {
+        for (var a = 0; a < numLin3 - 1; a++) {
+            for (var b = 0; b < numCol; b++) {
+                if (b % 2 === 0) {
+                    matrix[a][b][3].innerHTML = `${caracteres[random(0, caracteres.length)]}`;
                 }
             }
-        }  
-
-        temporizadorI3[j] += 1;
-
-        if (temporizadorI3[j] <= numLin3  ) {
-            aLi3[j] += 1;
-        };
-
-        if (temporizadorI3[j] >= comprimento3[j] && aLf3[j] < numLin3-1) {
-
-            matrix[aLf3[j]][posj3[j]][3].setAttribute('class', 'numOff');
-
-            temporizadorF3[j] += 1;
-
-            if (temporizadorF3[j] > (numLin/2) * 5 ) {
-                
-                clearInterval(tempAnima3);
-                
-
-
-                var recebe = document.getElementById("chuvaHome2");
-                recebe.style.marginTop = `${realocaChuvasTxt(altura,largura)}px`;
-                recebe = document.getElementById("chuvaHome3");
-                recebe.style.marginTop = `${realocaChuvasTxt(altura,largura)}px`;
-                    
-
-                atualizaBusto();      
-                
-                return 0;
-                
-            }
-        
-
-            if (temporizadorF3[j] < numLin3 -1) {
-                aLf3[j] += 1;
-            }
-
         }
 
-    }
+        for (var j = 0; j < numNome; j++) {
+            await wait(1280 / (j + 2));
 
-};
+            if (aLi3[j] === 0) {
+                matrix[aLi3[j]][posj3[j]][3].setAttribute('class', 'numBrilhaHome');
+                matrix[aLi3[j]][posj3[j]][3].innerHTML = `${caracteres1[random(0, caracteres1.length)]}`;
+            } else {
+                if (aLi3[j] < numLin3 && aLf3[j] === 0) {
+                    matrix[aLi3[j] - 1][posj3[j]][3].setAttribute('class', 'numNeutroHome');
+                    matrix[aLi3[j] - 1][posj3[j]][3].innerHTML = `${caracteres[random(0, caracteres.length)]}`;
+
+                    if (temporizadorI3[j] > numLin3 && aLf3[j] === 0) {
+                        matrix[aLi3[j]][posj3[j]][3].setAttribute('class', 'numNeutroHome');
+                        matrix[aLi3[j]][posj3[j]][3].innerHTML = `${caracteres[random(0, caracteres.length)]}`;
+                    } else {
+                        matrix[aLi3[j]][posj3[j]][3].setAttribute('class', 'numBrilhaHome');
+                        matrix[aLi3[j]][posj3[j]][3].innerHTML = `${mensagem1[posj3[j]]}`;
+                    }
+                }
+            }
+
+            temporizadorI3[j] += 1;
+
+            if (temporizadorI3[j] <= numLin3) {
+                aLi3[j] += 1;
+            }
+
+            if (temporizadorI3[j] >= comprimento3[j] && aLf3[j] < numLin3 - 1) {
+                matrix[aLf3[j]][posj3[j]][3].setAttribute('class', 'numOff');
+
+                temporizadorF3[j] += 1;
+
+                if (temporizadorF3[j] > (numLin / 2) * 5) {
+                    clearInterval(tempAnima3);
+
+                   
+
+                    var recebe = document.getElementById("chuvaHome2");
+                    recebe.style.marginTop = `${realocaChuvasTxt(altura, largura)}px`;
+                    recebe = document.getElementById("chuvaHome3");
+                    recebe.style.marginTop = `${realocaChuvasTxt(altura, largura)}px`;
+
+                    console.log("Animação terminada");
+                   
+                    resolve(true); // Resolve a promessa aqui quando a animação termina
+                    
+                    break;
+                }
+
+                if (temporizadorF3[j] < numLin3 - 1) {
+                    aLf3[j] += 1;
+                }
+            }
+        }
+    });
+}
+
+
+
 
 function start3() {
     for (i = 0; i <= numCol; i++) {
@@ -676,13 +667,8 @@ function start3() {
 }
 
 
-function atualizaBusto(){
- 
-    var busto = document.getElementById('imgBustoHome');
-    busto.style.bottom = 0;
-  
 
-}
+
 
 
 export default theMatrixHome;
