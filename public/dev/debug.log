@@ -33,3 +33,4 @@
 [0604/012806.397:WARNING:dns_config_service_win.cc(668)] Failed to read DnsConfig.
 [0604/013149.482:WARNING:ipc_message_attachment_set.cc(49)] MessageAttachmentSet destroyed with unconsumed attachments: 0/1
 [0604/013150.482:ERROR:browser_gpu_channel_host_factory.cc(139)] Failed to launch GPU process.
+[0607/071548.668:ERROR:media_internals.cc(112)] Cannot get RenderProcessHost
