@@ -568,92 +568,92 @@ function start2() {
 
 
 export async function anima3() {  
-    for (var a = 0; a < numLin3 -1 ; a++) {
-        for (var b = 0; b < numCol; b++) {
-            if (b % 2 === 0) {
-                matrix[a][b][3].innerHTML = `${caracteres[random(0, caracteres.length)]}`;
-            }  
+    return new Promise(async (resolve) => {
+        for (var a = 0; a < numLin3 -1 ; a++) {
+            for (var b = 0; b < numCol; b++) {
+                if (b % 2 === 0) {
+                    matrix[a][b][3].innerHTML = `${caracteres[random(0, caracteres.length)]}`;
+                }  
+            }
         }
-    }
-   
-    for (var j = 0; j < numNome; j++) {
-
-        await wait(1280/(j + 2));
-
-        if (aLi3[j] === 0) {
-       
-                matrix[aLi3[j]][posj3[j]][3].setAttribute('class', 'numBrilhaDev');
-                matrix[aLi3[j]][posj3[j]][3].innerHTML = `${caracteres1[random(0, caracteres1.length)]}`;
     
-        } else {
-            if (aLi3[j] < numLin3 && aLf3[j] === 0) {
-         
-                    matrix[aLi3[j] - 1][posj3[j]][3].setAttribute('class', 'numNeutroDev');
-                    matrix[aLi3[j] - 1][posj3[j]][3].innerHTML = `${caracteres[random(0, caracteres.length)]}`;
-    
+        for (var j = 0; j < numNome; j++) {
+
+            await wait(1280/(j + 2));
+
+            if (aLi3[j] === 0) {
+        
+                    matrix[aLi3[j]][posj3[j]][3].setAttribute('class', 'numBrilhaDev');
+                    matrix[aLi3[j]][posj3[j]][3].innerHTML = `${caracteres1[random(0, caracteres1.length)]}`;
+        
+            } else {
+                if (aLi3[j] < numLin3 && aLf3[j] === 0) {
             
-
-                if (temporizadorI3[j] > numLin3   && aLf3[j] === 0) {
-                  
-                        matrix[aLi3[j]][posj3[j]][3].setAttribute('class', 'numNeutroDev');
-                        matrix[aLi3[j]][posj3[j]][3].innerHTML = `${caracteres[random(0, caracteres.length)]}`;
-
-
-                } else {
+                        matrix[aLi3[j] - 1][posj3[j]][3].setAttribute('class', 'numNeutroDev');
+                        matrix[aLi3[j] - 1][posj3[j]][3].innerHTML = `${caracteres[random(0, caracteres.length)]}`;
+        
                 
-                        matrix[aLi3[j]][posj3[j]][3].setAttribute('class', 'numBrilhaDev');
-                        matrix[aLi3[j]][posj3[j]][3].innerHTML = `${mensagem1[posj3[j]]}`;
-     
-         
+
+                    if (temporizadorI3[j] > numLin3   && aLf3[j] === 0) {
+                    
+                            matrix[aLi3[j]][posj3[j]][3].setAttribute('class', 'numNeutroDev');
+                            matrix[aLi3[j]][posj3[j]][3].innerHTML = `${caracteres[random(0, caracteres.length)]}`;
+
+
+                    } else {
+                    
+                            matrix[aLi3[j]][posj3[j]][3].setAttribute('class', 'numBrilhaDev');
+                            matrix[aLi3[j]][posj3[j]][3].innerHTML = `${mensagem1[posj3[j]]}`;
+        
+            
+                    }
                 }
-            }
-        }  
+            }  
 
-        temporizadorI3[j] += 1;
+            temporizadorI3[j] += 1;
 
-        if (temporizadorI3[j] <= numLin3  ) {
-            aLi3[j] += 1;
-        };
+            if (temporizadorI3[j] <= numLin3  ) {
+                aLi3[j] += 1;
+            };
 
-        if (temporizadorI3[j] >= comprimento3[j] && aLf3[j] < numLin3-1) {
+            if (temporizadorI3[j] >= comprimento3[j] && aLf3[j] < numLin3-1) {
 
-            matrix[aLf3[j]][posj3[j]][3].setAttribute('class', 'numOff');
+                matrix[aLf3[j]][posj3[j]][3].setAttribute('class', 'numOff');
 
-            temporizadorF3[j] += 1;
+                temporizadorF3[j] += 1;
 
-            if (temporizadorF3[j] > (numLin/2) * 5) {
-                
-    
-                clearInterval(tempAnima3);
-
-            
-                
-                
-
-                var recebe = document.getElementById("chuvaDev2");
-                recebe.style.marginTop = `${realocaChuvasTxt(altura,largura)}px`;
-                recebe = document.getElementById("chuvaDev3");
-                recebe.style.marginTop = `${realocaChuvasTxt(altura,largura)}px`;
+                if (temporizadorF3[j] > (numLin/2) * 5) {
                     
+        
+                    clearInterval(tempAnima3);
 
-                    
-                atualizaBusto();
-                    
-                    
-            
-                return 0;
-                
-  
-            }
         
 
-            if (temporizadorF3[j] < numLin3 -1) {
-                aLf3[j] += 1;
+                    var recebe = document.getElementById("chuvaDev2");
+                    recebe.style.marginTop = `${realocaChuvasTxt(altura,largura)}px`;
+                    recebe = document.getElementById("chuvaDev3");
+                    recebe.style.marginTop = `${realocaChuvasTxt(altura,largura)}px`;
+                        
+
+ 
+
+                    resolve(true);
+
+                    break;
+                 
+    
+                }
+            
+
+                if (temporizadorF3[j] < numLin3 -1) {
+                    aLf3[j] += 1;
+                }
+
             }
 
         }
 
-    }
+    });
 
 };
 
@@ -665,13 +665,6 @@ function start3() {
         temporizadorF3[i] = 0;
     }
     tempAnima3 = setInterval(async () => await anima3(), 80);  
-}
-
-function atualizaBusto(){
- 
-    var busto = document.getElementById('imgBustoHome');
-    busto.style.bottom = 0;
-
 }
 
 export default theMatrixDev;

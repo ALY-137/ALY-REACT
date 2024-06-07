@@ -549,7 +549,7 @@ async function anima2() {
 
         temporizadorI2[j] += 1;
 
-        if (temporizadorI2[j] <= numLin2  ) {
+        if (temporizadorI2[j] <= numLin2) {
             aLi2[j] += 1;
         };
 
@@ -561,8 +561,7 @@ async function anima2() {
 
             if (temporizadorF2[j] > (numLin/2) * 5) {
                 clearInterval(tempAnima2);  
-               
-              
+
             }
 
             if (temporizadorF2[j] < numLin2 -1) {
@@ -640,7 +639,7 @@ export function anima3() {
 
                     console.log("Animação terminada");
                    
-                    resolve(true); // Resolve a promessa aqui quando a animação termina
+                    resolve(true); 
                     
                     break;
                 }
@@ -653,9 +652,6 @@ export function anima3() {
     });
 }
 
-
-
-
 function start3() {
     for (i = 0; i <= numCol; i++) {
         aLi3[i] = 0;
@@ -665,10 +661,5 @@ function start3() {
     }
     tempAnima3 = setInterval(async () => await anima3(), 80);  
 }
-
-
-
-
-
 
 export default theMatrixHome;

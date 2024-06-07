@@ -595,6 +595,7 @@ function start2() {
 
 
 export async function anima3() {  
+    return new Promise(async (resolve) => {
     var j;
     for (var a = 0; a < numLin3 -1 ; a++) {
         for (var b = 0; b < numCol; b++) {
@@ -663,9 +664,9 @@ export async function anima3() {
                 recebe.style.marginTop = `${realocaChuvasTxt(altura,largura)}px`;
                     
 
-                atualizaBusto();
+               resolve(true);
 
-                return 0;
+               break;
                 
   
             }
@@ -678,6 +679,8 @@ export async function anima3() {
         }
 
     }
+
+});
 
 };
 
@@ -692,12 +695,7 @@ function start3() {
     tempAnima3 = setInterval(async () => await anima3(), 80);  
 }
 
-function atualizaBusto(){
- 
-    var busto = document.getElementById('imgBustoHome');
-    busto.style.bottom = 0;
 
-}
 
 
 export default theMatrixDesign;
