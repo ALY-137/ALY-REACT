@@ -27,6 +27,9 @@ class Development extends Component {
   };
 
   componentDidMount() {
+
+    window.addEventListener('beforeunload', this.handleBeforeUnload);
+    
     const animationCompleted2 = localStorage.getItem("animationCompleted2");
 
     if (animationCompleted2 === "true") {
@@ -35,6 +38,14 @@ class Development extends Component {
       this.checkAnimationCompletion();
     }
   }
+
+  componentWillUnmount() {
+    window.removeEventListener('beforeunload2', this.handleBeforeUnload);
+  }
+
+  handleBeforeUnload = () => {
+    localStorage.removeItem("animationCompleted2");
+  };
 
 
   render() {

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { verificaUser } from './components/Banco/init-firebase';
-import {jwtDecode} from 'jwt-decode'; // Correção na importação
+import { jwtDecode } from 'jwt-decode';
 import './App.css';
 
 import violet from './components/Layout/home';
@@ -20,6 +20,7 @@ function App() {
 
   const [user, setUser] = useState(null);
   const [mostrarLogin, setMostrarLogin] = useState(false);
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
   function handleCallbackResponse(response) {
     const userObject = jwtDecode(response.credential);
@@ -46,7 +47,7 @@ function App() {
     // Armazenar usuário no localStorage
     localStorage.setItem('user', JSON.stringify(userObject));
 
-    layout(); 
+    layout();
 
     switch (rotaAtual) {
       case '/':
@@ -75,12 +76,12 @@ function App() {
 
     window.google.accounts.id.renderButton(
       document.getElementById("signInDiv"), {
-        theme: "outline", 
+        theme: "outline",
         size: "large",
-        type:"icon",
-        shape:"rectangular",
-        text:"$ {button.text}",
-        locale:"pt-BR"
+        type: "icon",
+        shape: "rectangular",
+        text: "$ {button.text}",
+        locale: "pt-BR"
       }
     );
 
@@ -107,7 +108,7 @@ function App() {
 
       verificaUser(camp, idGoogle);
 
-      layout(); 
+      layout();
 
       switch (rotaAtual) {
         case '/':
@@ -127,7 +128,19 @@ function App() {
       }
     }
 
-  }, []);
+    // Adicionar listener de resize
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth);
+      console.log("Window resized! New width: " + window.innerWidth);
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    // Limpar o listener de resize ao desmontar o componente
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [rotaAtual]);
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -136,17 +149,17 @@ function App() {
     return () => clearTimeout(timeoutId);
   }, []);
 
-  return ( 
-    <div> 
-      <Estrutura />
-      <div id='login' className={`containerLogin ${mostrarLogin ? 'fadeIn' : ''}`}> 
+  return (
+    <div>
+      <Estrutura windowWidth={windowWidth} />
+      <div id='login' className={`containerLogin ${mostrarLogin ? 'fadeIn' : ''}`}>
         <div id='iconsLogin'>
           <img src='/logoNeon.png' id='logoLogin' />
           <p id='logoTxt'>ALY-137©</p>
           <p id='textoLogin'>EMBARQUE COM O GOOGLE</p>
-          <div id="signInDiv"></div> 
+          <div id="signInDiv"></div>
         </div>
-        <p id='rodapeLogin'>ALY-137© <AnoAtualizado /></p>  
+        <p id='rodapeLogin'>ALY-137© <AnoAtualizado /></p>
       </div>
       <p id="fullName"></p>
       <p id="sub"></p>
@@ -155,10 +168,10 @@ function App() {
       <p id="email"></p>
       <p id="verifiedEmail"></p>
       <img id="picture" />
-    </div>                      
+    </div>
   );
 }
 
-export { idGoogle }; 
+export { idGoogle };
 export { nomeCompleto };
 export default App;

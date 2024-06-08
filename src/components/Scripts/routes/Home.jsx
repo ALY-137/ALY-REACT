@@ -16,26 +16,33 @@ class Home extends Component {
     const intervalId = setInterval(async () => {
       const loaded = await anima3();
       if (loaded) {
-        
         clearInterval(intervalId);
         this.setState({ loading: false });
         localStorage.setItem("animationCompleted1", "true");
         console.log("Animação concluída!");
-
       }
     }, 2000); // Verifica a cada 2 segundos (2000 milissegundos)
   };
 
   componentDidMount() {
+    window.addEventListener('beforeunload', this.handleBeforeUnload);
+
     const animationCompleted1 = localStorage.getItem("animationCompleted1");
 
     if (animationCompleted1 === "true") {
       this.setState({ loading: false });
-    
     } else {
       this.checkAnimationCompletion();
     }
   }
+
+  componentWillUnmount() {
+    window.removeEventListener('beforeunload', this.handleBeforeUnload);
+  }
+
+  handleBeforeUnload = () => {
+    localStorage.removeItem("animationCompleted1");
+  };
 
   render() {
     const { loading } = this.state;

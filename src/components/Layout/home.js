@@ -67,12 +67,6 @@ export function violet(){
         aba.style.display = 'none';
 
 
-
-
-
-
-
-
         var estilo = document.getElementById('fundo');
         estilo.classList.remove('fundoEstiloDev');
         estilo.classList.remove('fundoEstiloDesign');
@@ -125,6 +119,8 @@ export function violet(){
 
 
     // CHAMA FUNÇÃO MATRIX DA HOME
+
+    
 
     theMatrixHome(alyAlt,alyLar);   
    

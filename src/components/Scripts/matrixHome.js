@@ -640,6 +640,7 @@ export function anima3() {
                     console.log("Animação terminada");
                    
                     resolve(true); 
+              
                     
                     break;
                 }
