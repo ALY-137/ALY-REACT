@@ -30,6 +30,16 @@ class Development extends Component {
 
     window.addEventListener('beforeunload', this.handleBeforeUnload);
 
+    // Verifica se todas as animações foram redefinidas ao carregar a página
+    const isPageReloaded = sessionStorage.getItem("isPageReloaded");
+
+    if (!isPageReloaded) {
+      localStorage.removeItem("animationCompleted1");
+      localStorage.removeItem("animationCompleted2");
+      localStorage.removeItem("animationCompleted3");
+      sessionStorage.setItem("isPageReloaded", "true");
+    }
+
     const animationCompleted2 = localStorage.getItem("animationCompleted2");
 
     if (animationCompleted2 === "true") {
@@ -44,9 +54,8 @@ class Development extends Component {
   }
 
   handleBeforeUnload = () => {
-    localStorage.removeItem("animationCompleted2");
+    sessionStorage.removeItem("isPageReloaded");
   };
-
 
   render() {
     const { loading } = this.state;

@@ -10,7 +10,6 @@ class Design extends Component {
 
   state = {
     loading: true,
-  
   };
 
   checkAnimationCompletion = async () => {
@@ -22,7 +21,6 @@ class Design extends Component {
         localStorage.setItem("animationCompleted3", "true");
         console.log("Animação concluída!");
 
-       
       }
     }, 2000); // Verifica a cada 2 segundos (2000 milissegundos)
   };
@@ -31,11 +29,20 @@ class Design extends Component {
 
     window.addEventListener('beforeunload', this.handleBeforeUnload);
 
+    // Verifica se todas as animações foram redefinidas ao carregar a página
+    const isPageReloaded = sessionStorage.getItem("isPageReloaded");
+
+    if (!isPageReloaded) {
+      localStorage.removeItem("animationCompleted1");
+      localStorage.removeItem("animationCompleted2");
+      localStorage.removeItem("animationCompleted3");
+      sessionStorage.setItem("isPageReloaded", "true");
+    }
+
     const animationCompleted3 = localStorage.getItem("animationCompleted3");
 
     if (animationCompleted3 === "true") {
       this.setState({ loading: false });
-      
     } else {
       this.checkAnimationCompletion();
     }
@@ -46,7 +53,7 @@ class Design extends Component {
   }
 
   handleBeforeUnload = () => {
-    localStorage.removeItem("animationCompleted3");
+    sessionStorage.removeItem("isPageReloaded");
   };
 
   render() {

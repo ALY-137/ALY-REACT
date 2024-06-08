@@ -27,6 +27,16 @@ class Home extends Component {
   componentDidMount() {
     window.addEventListener('beforeunload', this.handleBeforeUnload);
 
+    // Verifica se todas as animações foram redefinidas ao carregar a página
+    const isPageReloaded = sessionStorage.getItem("isPageReloaded");
+
+    if (!isPageReloaded) {
+      localStorage.removeItem("animationCompleted1");
+      localStorage.removeItem("animationCompleted2");
+      localStorage.removeItem("animationCompleted3");
+      sessionStorage.setItem("isPageReloaded", "true");
+    }
+
     const animationCompleted1 = localStorage.getItem("animationCompleted1");
 
     if (animationCompleted1 === "true") {
@@ -41,7 +51,7 @@ class Home extends Component {
   }
 
   handleBeforeUnload = () => {
-    localStorage.removeItem("animationCompleted1");
+    sessionStorage.removeItem("isPageReloaded");
   };
 
   render() {

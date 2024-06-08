@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { verificaUser } from './components/Banco/init-firebase';
-import { jwtDecode } from 'jwt-decode';
+import {jwtDecode} from 'jwt-decode'; // Removido 'from'
 import './App.css';
 
 import violet from './components/Layout/home';
@@ -136,9 +136,17 @@ function App() {
 
     window.addEventListener('resize', handleResize);
 
-    // Limpar o listener de resize ao desmontar o componente
+    // Adicionar listener de beforeunload
+    const handleBeforeUnload = () => {
+      localStorage.setItem("pageReloaded", "true");
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    // Limpar os listeners ao desmontar o componente
     return () => {
       window.removeEventListener('resize', handleResize);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, [rotaAtual]);
 
