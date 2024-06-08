@@ -29,7 +29,7 @@ class Development extends Component {
   componentDidMount() {
 
     window.addEventListener('beforeunload', this.handleBeforeUnload);
-    
+
     const animationCompleted2 = localStorage.getItem("animationCompleted2");
 
     if (animationCompleted2 === "true") {
@@ -40,7 +40,7 @@ class Development extends Component {
   }
 
   componentWillUnmount() {
-    window.removeEventListener('beforeunload2', this.handleBeforeUnload);
+    window.removeEventListener('beforeunload', this.handleBeforeUnload);
   }
 
   handleBeforeUnload = () => {
