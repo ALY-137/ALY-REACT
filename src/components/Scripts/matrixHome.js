@@ -6,7 +6,6 @@
 /////////////////////////////////////////////
 
 
-
 const largura = window.innerWidth;
 const altura = window.innerHeight;
 
@@ -20,7 +19,6 @@ var resultado;
 
 function realocaChuvasTxt(altura){
 
- 
     if(altura<400){
         resultado = (altura/100) * 58;
         resultado = -(alyAlt - resultado);
@@ -31,6 +29,11 @@ function realocaChuvasTxt(altura){
 
 return resultado;    
 }
+
+function centralizaNome() {
+    var elemento = document.getElementById('chuvaHome3');
+    elemento.style.marginLeft = '10px'; 
+  }
 
 
 
@@ -630,7 +633,7 @@ export function anima3() {
 
                 temporizadorF3[j] += 1;
 
-                if (temporizadorF3[j] > (numLin / 2) * 5) {
+                if (temporizadorF3[j] > (numLin / 2) * 8) {
                     clearInterval(tempAnima3);
 
                    
@@ -666,9 +669,5 @@ function start3() {
     tempAnima3 = setInterval(async () => await anima3(), 80);  
 }
 
-function centralizaNome() {
-    var elemento = document.getElementById('chuvaHome3');
-    elemento.style.marginLeft = '10px'; 
-  }
 
 export default theMatrixHome;

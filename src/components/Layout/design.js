@@ -8,13 +8,10 @@ export function pink(){
     var alyAlt;
     var alyLar;
 
-
-
-    
-    if(larSreen>1000){
-        alyLar = 1000;
+    if(larSreen> altSreen *0.618){
+        alyLar = altSreen *0.618;
         alyAlt = (altSreen/100)*35;
-    }else{
+}else{
         
         if(larSreen>400){
 

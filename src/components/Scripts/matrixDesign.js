@@ -653,7 +653,7 @@ export async function anima3() {
 
             temporizadorF3[j] += 1;
 
-            if (temporizadorF3[j] > (numLin/2) * 5) {
+            if (temporizadorF3[j] > (numLin/2) * 8) {
                 
     
                 clearInterval(tempAnima3);
