@@ -6,6 +6,7 @@ import Contato from "../../Layout/Objects/Containers/Home/Contato";
 import Rodape from "../../Layout/Rodape/Rodape";
 import Loading from "../../Layout/Objects/Objetos/Carregamentos/Loading";
 import { anima3 } from "../matrixHome";
+import violet from "../../Layout/home";
 
 class Home extends Component {
   state = {
@@ -25,6 +26,8 @@ class Home extends Component {
   };
 
   componentDidMount() {
+
+
     window.addEventListener('beforeunload', this.handleBeforeUnload);
 
     // Verifica se todas as animações foram redefinidas ao carregar a página
@@ -59,17 +62,21 @@ class Home extends Component {
 
     return (
       <div className="conteudoAbas">
+       
         {loading ? (
           <Loading />
         ) : (
-          <>
+          <> 
+           
             <BoasVindas />
             <Comandante />
             <MissoesHome />
             <Contato />
             <Rodape estilo="rodapeEstiloHome" />
+             
           </>
         )}
+     
       </div>
     );
   }

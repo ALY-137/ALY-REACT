@@ -16,12 +16,6 @@
 
 
 
-
-
-
-
-
-
 .conteudoEstiloDev{
   background-color: #080110;
 }
@@ -553,7 +547,7 @@ body{
   background-color: rgba(0, 0, 255, 0); 
   transition: all ease 3s;
   margin-top: 0px;
-  margin-left: 10px;
+  margin-left: 0px;
 }
 
 .caseDesign{

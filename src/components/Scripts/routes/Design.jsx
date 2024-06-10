@@ -61,16 +61,20 @@ class Design extends Component {
 
     return (
       <div className='conteudoAbas'>
+         
+  
         {loading ? (
           <Loading />
         ) : (
           <>
+
             <AcademiaDesign />
             <HabilidadesDesign />
             <MissoesDesign />
             <Rodape estilo='rodapeEstiloDesign' />
           </>
         )}
+   
       </div>
     );
   }

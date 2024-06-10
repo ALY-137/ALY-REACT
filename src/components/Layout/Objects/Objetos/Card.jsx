@@ -2,7 +2,30 @@ import React, { useEffect, useRef } from 'react';
 import './objetos.css';
 import CheckHabilidades from './CheckHabilidades';
 
-function Card({ classStatusIN, classStatusAI, classStatusPS, classStatusVSHome, imgCard, classStatusVS, classStatusC, classStatusVB, atividade, criador, nomeDescricao, data, descricao, imagem, cardDescricaoDiv, cardNome, nome, cardContainerDesktop, cardCabecalho, cardImagem, cardDescricao, idNome }) {
+function Card({ classStatusIN, 
+                classStatusAI,
+                classStatusPS, 
+                classStatusVSHome, 
+                imgCard, 
+                classStatusVS, 
+                classStatusC, 
+                classStatusVB, 
+                atividade, 
+                criador, 
+                nomeDescricao, 
+                data, 
+                descricao, 
+                imagem, 
+                cardDescricaoDiv, 
+                cardNome, 
+                nome, 
+                cardContainerDesktop, 
+                cardCabecalho, 
+                cardImagem, 
+                cardDescricao, 
+                idNome,
+                linkExterno }) {
+
     const cardRef = useRef(null);
 
     useEffect(() => {
@@ -54,6 +77,12 @@ function Card({ classStatusIN, classStatusAI, classStatusPS, classStatusVSHome, 
                     {descricao && <p className='txtDescricao'> {descricao}</p>}
                     {atividade && criador && <p className='txtTitulo'>  [ {atividade} ] por {criador}.</p>}
                     {data && <p className='txtTitulo'>  [ PERÍODO ] {data}.</p>}
+                    {linkExterno && (
+                        <p className='txtTitulo'>
+                        <a href={linkExterno} target="_blank" rel="noopener noreferrer">[ LINK ]</a>
+                        </p>
+                    )}
+
                 </div>
             </div>
         </div>

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, ScrollRestoration } from 'react-router-dom';
 import { verificaUser } from './components/Banco/init-firebase';
-import {jwtDecode} from 'jwt-decode'; // Removido 'from'
+
 import './App.css';
 
 import violet from './components/Layout/home';
@@ -23,6 +23,8 @@ function App() {
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
   function handleCallbackResponse(response) {
+    const { jwtDecode } = require('jwt-decode');
+   
     const userObject = jwtDecode(response.credential);
     console.log(userObject);
     setUser(userObject);
@@ -176,6 +178,7 @@ function App() {
       <p id="email"></p>
       <p id="verifiedEmail"></p>
       <img id="picture" />
+     
     </div>
   );
 }

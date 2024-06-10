@@ -72,7 +72,6 @@ export function violet(){
         estilo.classList.remove('fundoEstiloDesign');
         estilo.classList.add('fundoEstiloHome');
 
-
         estilo = document.getElementById('conteudo');
         estilo.classList.remove('conteudoEstiloDev');
         estilo.classList.remove('conteudoEstiloDesign');
@@ -93,7 +92,6 @@ export function violet(){
 
        texto.classList.add('numNeutroHome');
 
-
        texto = document.getElementById('txtAbaHome');
        texto.classList.remove('numNeutroDesign');
        texto.classList.remove('numBrilhaDesign');
@@ -112,20 +110,11 @@ export function violet(){
 
        texto.classList.add('numNeutroHome');  
 
-    
-
-
-
-
 
     // CHAMA FUNÇÃO MATRIX DA HOME
 
-    
-
     theMatrixHome(alyAlt,alyLar);   
    
-
-
 }
 
 export default violet;

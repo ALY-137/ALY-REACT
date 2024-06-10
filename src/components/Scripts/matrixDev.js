@@ -285,6 +285,7 @@ function caiemV(vetor,tamanho){
 function comecoMBV(){
     if(numMensBV%2===0){
     comeco = sequenciaemV[numMensBV-1];
+
     }else{
     comeco = sequenciaemV[numMensBV-2];
     };
@@ -370,6 +371,7 @@ function enviaNome(){
 
         if(numNome%2===0){
             comeco1 = sequenciaemV1[numNome-1];
+            centralizaNome();
         }else{
             comeco1 = sequenciaemV1[numNome-2];
         };
@@ -666,5 +668,11 @@ function start3() {
     }
     tempAnima3 = setInterval(async () => await anima3(), 80);  
 }
+
+function centralizaNome() {
+    var elemento = document.getElementById('chuvaDev3');
+    elemento.style.marginLeft = '10px'; 
+  }
+
 
 export default theMatrixDev;

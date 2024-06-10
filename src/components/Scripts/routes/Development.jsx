@@ -62,12 +62,13 @@ class Development extends Component {
     return (
       
       <div className='conteudoAbas'>
+        
 
         {loading ? (
           <Loading />
         ):(
           <>
-          
+    
           <AcademiaDev />
           <HabilidadesDev />
           <MissoesDev />
@@ -75,6 +76,7 @@ class Development extends Component {
           <Rodape estilo='rodapeEstiloDev' />
         </>
         )}
+     
       </div>
     );
   }

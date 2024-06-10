@@ -23,6 +23,7 @@ function MissoesHome(){
                 data='2022'
                 atividade='DESENVOLVIMENTO E DESIGN'
                 criador='SAVANNA OLIVEIRA'
+                linkExterno='https://marketplace.visualstudio.com/items?itemName=Cyberpink.cyberpink-theme'
                 imagem='./home/cyberpink.png'
                 
 
