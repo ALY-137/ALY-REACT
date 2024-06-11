@@ -30,6 +30,14 @@ class Development extends Component {
 
     window.addEventListener('beforeunload', this.handleBeforeUnload);
 
+    
+    // Restaurar a posição de rolagem ao montar o componente
+    const savedScrollPosition = sessionStorage.getItem('scrollPosition');
+    if (savedScrollPosition) {
+      const conteudoAbas = document.querySelector('.conteudoAbas');
+      conteudoAbas.scrollTop = parseInt(savedScrollPosition, 600);
+    }
+
     // Verifica se todas as animações foram redefinidas ao carregar a página
     const isPageReloaded = sessionStorage.getItem("isPageReloaded");
 
@@ -55,6 +63,13 @@ class Development extends Component {
 
   handleBeforeUnload = () => {
     sessionStorage.removeItem("isPageReloaded");
+  };
+
+  saveScrollPosition = () => {
+    const conteudoAbas = document.querySelector('.conteudoAbas');
+    if (conteudoAbas) {
+      sessionStorage.setItem('scrollPosition', conteudoAbas.scrollTop);
+    }
   };
 
   render() {

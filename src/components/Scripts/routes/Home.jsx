@@ -6,7 +6,6 @@ import Contato from "../../Layout/Objects/Containers/Home/Contato";
 import Rodape from "../../Layout/Rodape/Rodape";
 import Loading from "../../Layout/Objects/Objetos/Carregamentos/Loading";
 import { anima3 } from "../matrixHome";
-import violet from "../../Layout/home";
 
 class Home extends Component {
   state = {
@@ -26,9 +25,14 @@ class Home extends Component {
   };
 
   componentDidMount() {
-
-
     window.addEventListener('beforeunload', this.handleBeforeUnload);
+
+    // Restaurar a posição de rolagem ao montar o componente
+    const savedScrollPosition = sessionStorage.getItem('scrollPosition');
+    if (savedScrollPosition) {
+      const conteudoAbas = document.querySelector('.conteudoAbas');
+      conteudoAbas.scrollTop = parseInt(savedScrollPosition, 10);
+    }
 
     // Verifica se todas as animações foram redefinidas ao carregar a página
     const isPageReloaded = sessionStorage.getItem("isPageReloaded");
@@ -51,10 +55,20 @@ class Home extends Component {
 
   componentWillUnmount() {
     window.removeEventListener('beforeunload', this.handleBeforeUnload);
+    
+    // Armazenar a posição de rolagem ao desmontar o componente
+    this.saveScrollPosition();
   }
 
   handleBeforeUnload = () => {
     sessionStorage.removeItem("isPageReloaded");
+  };
+
+  saveScrollPosition = () => {
+    const conteudoAbas = document.querySelector('.conteudoAbas');
+    if (conteudoAbas) {
+      sessionStorage.setItem('scrollPosition', conteudoAbas.scrollTop);
+    }
   };
 
   render() {
@@ -62,21 +76,17 @@ class Home extends Component {
 
     return (
       <div className="conteudoAbas">
-       
         {loading ? (
           <Loading />
         ) : (
-          <> 
-           
+          <>
             <BoasVindas />
             <Comandante />
             <MissoesHome />
             <Contato />
             <Rodape estilo="rodapeEstiloHome" />
-             
           </>
         )}
-     
       </div>
     );
   }
