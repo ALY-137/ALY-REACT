@@ -1,6 +1,7 @@
 import theMatrixHome from "../Scripts/matrixHome";
 
 export function violet(){
+    
 
         const larSreen = window.innerWidth;
         const altSreen = window.innerHeight;
@@ -8,26 +9,30 @@ export function violet(){
         var alyAlt;
         var alyLar;
 
-        if(larSreen> altSreen *0.618){
-                alyLar = altSreen *0.618;
-                alyAlt = (altSreen/100)*35;
+        if(larSreen>1000){
+
+            alyAlt = (altSreen/100)*35;
+            alyLar = alyAlt * 1.618;
+    
         }else{
-                
-                if(larSreen>400){
-        
-                    if(altSreen>400){
-                        alyLar = larSreen;
-                        alyAlt = (altSreen/100)*35;
-                    }else{
-                        alyLar = larSreen;
-                        alyAlt = (altSreen/100)*80;
-                    }
-                    
+            
+            if(larSreen>400){
+    
+                if(altSreen>400){            
+                    alyAlt = (altSreen/100)*35;
+                    alyLar = alyAlt * 1.618;
                 }else{
-                    alyLar = larSreen;
-                    alyAlt = larSreen*0.618;
-                }   
+                    console.log(larSreen);
+                    alyAlt = (altSreen/100)*80;
+                    alyLar = alyAlt * 1.618;
+
+                }
                 
+            }else{
+                alyLar = larSreen;
+                alyAlt = larSreen*0.618;
+            }   
+            
         }
 
         var abaDesign = document.getElementById('abaHome');
@@ -113,6 +118,7 @@ export function violet(){
 
     // CHAMA FUNÇÃO MATRIX DA HOME
 
+   
     theMatrixHome(alyAlt,alyLar);   
    
 }

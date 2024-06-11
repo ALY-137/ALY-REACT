@@ -9,20 +9,23 @@ const altSreen = window.innerHeight;
 var alyAlt;
 var alyLar;
 
-    
-if(larSreen> altSreen *0.618){
-    alyLar = altSreen *0.618;
+if(larSreen>1000){
+
     alyAlt = (altSreen/100)*35;
+    alyLar = alyAlt * 1.618;
+
 }else{
     
     if(larSreen>400){
 
-        if(altSreen>400){
-            alyLar = larSreen;
+        if(altSreen>400){            
             alyAlt = (altSreen/100)*35;
+            alyLar = alyAlt * 1.618;
         }else{
-            alyLar = larSreen;
+            console.log(larSreen);
             alyAlt = (altSreen/100)*80;
+            alyLar = alyAlt * 1.618;
+
         }
         
     }else{

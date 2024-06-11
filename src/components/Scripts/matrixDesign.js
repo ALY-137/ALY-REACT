@@ -658,18 +658,14 @@ export async function anima3() {
     
                 clearInterval(tempAnima3);
 
-                
-  
-
                 var recebe = document.getElementById("chuvaDesign2");
                 recebe.style.marginTop = `${realocaChuvasTxt(altura,largura)}px`;
                 recebe = document.getElementById("chuvaDesign3");
                 recebe.style.marginTop = `${realocaChuvasTxt(altura,largura)}px`;
                     
+                resolve(true);
 
-               resolve(true);
-
-               break;
+                break;
                 
   
             }
