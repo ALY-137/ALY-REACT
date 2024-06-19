@@ -2,9 +2,9 @@ import NewRouteComponent from '../../Scripts/routes/NewRouteComponent';
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Route, Switch, Link } from 'react-router-dom';
 
-import home from '../home';
-import blue from '../dev';
-import pink from '../design';
+import home from '../violet';
+import blue from '../blue';
+import pink from '../pink';
 
 
 

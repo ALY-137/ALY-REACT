@@ -32,7 +32,8 @@ function Estrutura() {
         
         <Outlet />
       </div>
-    </div>
+      
+      </div>
   );
 }
 

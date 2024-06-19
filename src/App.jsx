@@ -4,9 +4,10 @@ import { verificaUser } from './components/Banco/init-firebase';
 
 import './App.css';
 
-import violet from './components/Layout/home';
-import blue from './components/Layout/dev';
-import pink from './components/Layout/design';
+import violet from './components/Layout/violet';
+import blue from './components/Layout/blue';
+import pink from './components/Layout/pink';
+
 import layout from './components/Layout/layout';
 import Estrutura from './components/Layout/Estrutura';
 import AnoAtualizado from './components/Scripts/data/AnoAtualizado';
