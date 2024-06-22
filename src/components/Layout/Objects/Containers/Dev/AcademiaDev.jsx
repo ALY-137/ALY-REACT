@@ -71,19 +71,13 @@ function AcademiaDev(){
                 classStatusJAVA='checkIconAtivo'
                 classStatusJS='checkIconAtivo'
 
-                          
-                           
-                        
-                        
-                        
 
                 />
    
 
             <EstiloContainerBot />
     
-    
-    
+
             </div>
     
             )

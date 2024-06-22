@@ -2,6 +2,8 @@ import './objetos.css';
 
 
 function CheckHabilidades({classStatusAI,
+                           classStatusCSS,
+                           classStatusHTML,
                            classStatusJAVA,
                            classStatusJS,
                            classStatusPS,
@@ -14,6 +16,7 @@ function CheckHabilidades({classStatusAI,
 
         return(
             <div className='checkBoxHab'>
+
               {classStatusIFRS && <img className={classStatusIFRS} src='./dev/ifrs.png' alt="imagem"/>}
               {classStatusVB && <img className={classStatusVB} src='./dev/vb.png' alt="imagem"/>}
               {classStatusC && <img className={classStatusC} src='./dev/c.png' alt="imagem"/>}
@@ -24,6 +27,9 @@ function CheckHabilidades({classStatusAI,
               {classStatusIN && <img className={classStatusIN} src='./design/in.png' alt="imagem"/>}
               {classStatusJAVA && <img className={classStatusJAVA} src='./dev/java.png' alt="imagem"/>}
               {classStatusJS && <img className={classStatusJS} src='./dev/js.png' alt="imagem"/>}
+              {classStatusHTML && <img className={classStatusHTML} src='./dev/html.png' alt="imagem"/>}
+              {classStatusCSS && <img className={classStatusCSS} src='./dev/css.png' alt="imagem"/>}
+            
             </div>
         )
 }

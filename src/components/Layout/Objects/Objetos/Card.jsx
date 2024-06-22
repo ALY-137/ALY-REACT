@@ -3,6 +3,8 @@ import './objetos.css';
 import CheckHabilidades from './CheckHabilidades';
 
 function Card({ classStatusIN, 
+                classStatusCSS, 
+                classStatusHTML, 
                 classStatusJAVA, 
                 classStatusJS,
                 classStatusAI,
@@ -78,6 +80,8 @@ function Card({ classStatusIN,
                         classStatusIFRS={classStatusIFRS}
                         classStatusJAVA={classStatusJAVA}
                         classStatusJS={classStatusJS}
+                        classStatusHTML={classStatusHTML}
+                        classStatusCSS={classStatusCSS}
                     />
                     {nomeDescricao && <p className='txtTituloPri'> [ {nomeDescricao} ] </p>}
                     {descricao && <p className='txtDescricao'> {descricao}</p>}
