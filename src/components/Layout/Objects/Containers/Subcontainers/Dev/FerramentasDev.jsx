@@ -56,8 +56,10 @@ function FerramentasDev(){
                     <BoxSub xp='5' nome='REACT JS' icon='./dev/react.png' styleBox='boxSubDev' Style='Dev' xpBoxSub='xpBoxSubDev'/>
                     <BoxSub xp='5' nome='VS CODE' icon='./dev/vscode.png' styleBox='boxSubDev' Style='Dev' xpBoxSub='xpBoxSubDev'/>
                     <BoxSub xp='5' nome='GITHUB' icon='./dev/git.png' styleBox='boxSubDev' Style='Dev' xpBoxSub='xpBoxSubDev'/>
-                    <BoxSub xp='2' nome='NODE JS' icon='./dev/node.png' styleBox='boxSubDev' Style='Dev' xpBoxSub='xpBoxSubDev'/>
-
+                    <BoxSub xp='3' nome='NODE JS' icon='./dev/node.png' styleBox='boxSubDev' Style='Dev' xpBoxSub='xpBoxSubDev'/>
+                    <BoxSub xp='5' nome='HTML' icon='./dev/html.png' styleBox='boxSubDev' Style='Dev' xpBoxSub='xpBoxSubDev'/>
+                    <BoxSub xp='5' nome='CSS' icon='./dev/css.png' styleBox='boxSubDev' Style='Dev' xpBoxSub='xpBoxSubDev'/>
+                
                 </motion.div>
 
 

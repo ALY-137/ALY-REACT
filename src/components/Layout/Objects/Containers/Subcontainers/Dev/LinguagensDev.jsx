@@ -58,8 +58,7 @@ function LinguagensDev(){
                     <BoxSub xp='2' nome='JAVA' icon='./dev/java.png' styleBox='boxSubDev' Style='Dev' xpBoxSub='xpBoxSubDev'/>
                     <BoxSub xp='4' nome='C' icon='./dev/c.png' styleBox='boxSubDev' Style='Dev' xpBoxSub='xpBoxSubDev'/>
                     <BoxSub xp='5' nome='JAVASCRIPT' icon='./dev/js.png' styleBox='boxSubDev' Style='Dev' xpBoxSub='xpBoxSubDev'/>
-                    <BoxSub xp='5' nome='HTML' icon='./dev/html.png' styleBox='boxSubDev' Style='Dev' xpBoxSub='xpBoxSubDev'/>
-                    <BoxSub xp='5' nome='CSS' icon='./dev/css.png' styleBox='boxSubDev' Style='Dev' xpBoxSub='xpBoxSubDev'/>
+   
 
                 </motion.div>
 

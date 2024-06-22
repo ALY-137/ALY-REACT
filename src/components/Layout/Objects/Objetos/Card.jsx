@@ -3,6 +3,8 @@ import './objetos.css';
 import CheckHabilidades from './CheckHabilidades';
 
 function Card({ classStatusIN, 
+                classStatusJAVA, 
+                classStatusJS,
                 classStatusAI,
                 classStatusPS, 
                 classStatusVSHome, 
@@ -24,7 +26,8 @@ function Card({ classStatusIN,
                 cardImagem, 
                 cardDescricao, 
                 idNome,
-                linkExterno }) {
+                linkExterno,
+                classStatusIFRS }) {
 
     const cardRef = useRef(null);
 
@@ -72,6 +75,9 @@ function Card({ classStatusIN,
                         classStatusVSHome={classStatusVSHome}
                         classStatusPS={classStatusPS}
                         classStatusAI={classStatusAI}
+                        classStatusIFRS={classStatusIFRS}
+                        classStatusJAVA={classStatusJAVA}
+                        classStatusJS={classStatusJS}
                     />
                     {nomeDescricao && <p className='txtTituloPri'> [ {nomeDescricao} ] </p>}
                     {descricao && <p className='txtDescricao'> {descricao}</p>}

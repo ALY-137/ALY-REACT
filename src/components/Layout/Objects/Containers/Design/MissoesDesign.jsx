@@ -38,13 +38,8 @@ function MissoesDesign(){
                 imgCard='imgCardDesign'
                 
 
-                classStatusC='imgCheckHabiliOff'
-                classStatusVB='imgCheckHabiliOff'
-                classStatusVS='imgCheckHabiliOff'  
-                classStatusVSHome='imgCheckHabiliOff'
-                classStatusIN='imgCheckHabiliOff'  
-                classStatusPS='imgCheckHabiliAtivo'
-                classStatusAI='imgCheckHabiliAtivo'
+                classStatusPS='checkIconAtivo'
+                classStatusAI='checkIconAtivo'
                 
             />
 

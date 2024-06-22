@@ -66,13 +66,17 @@ function AcademiaDev(){
                 imgCard='imgCardDev'
                 
                 
-                classStatusC='imgCheckHabiliAtivo'
-                classStatusVB='imgCheckHabiliOff'
-                classStatusVS='imgCheckHabiliOff'
-                classStatusVSHome='imgCheckHabiliOff'
-                classStatusPS='imgCheckHabiliOff'
-                classStatusAI='imgCheckHabiliOff'
-                classStatusIN='imgCheckHabiliOff'
+                classStatusC='checkIconAtivo'
+                classStatusIFRS='checkIconAtivo'
+                classStatusJAVA='checkIconAtivo'
+                classStatusJS='checkIconAtivo'
+
+                          
+                           
+                        
+                        
+                        
+
                 />
    
 

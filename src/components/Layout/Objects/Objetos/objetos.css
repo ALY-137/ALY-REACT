@@ -252,15 +252,9 @@
     width: 95%;
 }
 
-.imgCheckHabiliOff{
-    height: 20px;
-    width: 20px;
-    margin-left: 10px;
-    margin-top: 10px;
-    display: none;
-}
 
-.imgCheckHabiliAtivo{
+
+.checkIconAtivo{
     height: 20px;
     width: 20px;
     margin-left: 10px;

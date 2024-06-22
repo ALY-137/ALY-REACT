@@ -49,13 +49,9 @@ function MissoesDev(){
                 imgCard='imgCardDev'
                 
                 
-                classStatusC='imgCheckHabiliOff'
-                classStatusVB='imgCheckHabiliAtivo'
-                classStatusVS='imgCheckHabiliOff'
-                classStatusVSHome='imgCheckHabiliOff'
-                classStatusPS='imgCheckHabiliOff'
-                classStatusAI='imgCheckHabiliOff'
-                classStatusIN='imgCheckHabiliOff'
+                //Icones Ativos
+                classStatusVB='checkIconAtivo'
+
                 />
    
 
@@ -78,14 +74,11 @@ function MissoesDev(){
                 cardDescricao='cardDescricaoDev' 
                 imgCard='imgCardDev'
                
+                
+                //Icones Ativos
+                classStatusC='checkIconAtivo'
+                classStatusVS='checkIconAtivo'
 
-                classStatusC='imgCheckHabiliAtivo'
-                classStatusVB='imgCheckHabiliOff'
-                classStatusVS='imgCheckHabiliAtivo'
-                classStatusVSHome='imgCheckHabiliOff'
-                classStatusPS='imgCheckHabiliOff'
-                classStatusAI='imgCheckHabiliOff'
-                classStatusIN='imgCheckHabiliOff'
           />
 
 

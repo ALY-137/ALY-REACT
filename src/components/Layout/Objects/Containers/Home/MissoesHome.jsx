@@ -39,13 +39,9 @@ function MissoesHome(){
                 
 
                 
-                classStatusC='imgCheckHabiliOff'
-                classStatusVB='imgCheckHabiliOff'
-                classStatusVS='imgCheckHabiliOff'  
-                classStatusVSHome='imgCheckHabiliAtivo'  
-                classStatusPS='imgCheckHabiliOff'
-                classStatusAI='imgCheckHabiliOff'
-                classStatusIN='imgCheckHabiliOff'
+                // Icones Ativos
+                classStatusVSHome='checkIconAtivo'  
+    
                 
             />
 
