@@ -64,9 +64,9 @@ function Formularios() {
         <button onClick={() => deleteForm(formulario)}>
           Excluir Formulário
         </button>
-        <button onClick={() => toggleExpand(null)}>
-          Voltar para a Lista de Formulários
-        </button>
+
+        <div className='back' onClick={() => toggleExpand(null)}> ❮ </div>
+
       </div>
     );
   };
@@ -233,7 +233,7 @@ function Formularios() {
   };
 
   return (
-    <div>
+    <div className='pageMenu'>
       {expandedForm ? (
         <>
           {renderExpandedForm(expandedForm)}

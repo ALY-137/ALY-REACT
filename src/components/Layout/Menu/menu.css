@@ -1,0 +1,81 @@
+.openMenu {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    height: 100vh;
+    z-index: 35;
+    backdrop-filter: blur(10px);
+    background: rgba(0, 0, 0, 0.5);
+    overflow: scroll;
+    position: relative;
+
+}
+
+.mostra {
+    display: flex;
+    flex-direction: column;
+}
+
+.oculta {
+    display: none;
+}
+
+.back {
+    margin: 10px;
+    cursor: pointer;
+    text-decoration: none;
+    color: inherit;
+    position: absolute;
+    top: 10px;
+    left: 10px;
+}
+
+/* Classe criada para fixar o fundo do layout quando menu abrir */
+.scroll-lock {
+    overflow: hidden;
+}
+
+#gavetaUsers, #gavetaForms, .gavetaItem {
+    margin: 10px 0;
+    cursor: pointer;
+    position: relative;
+    font-size: 18px;
+    transition: all 0.3s ease;
+}
+
+#gavetaUsers:hover, #gavetaForms:hover, .gavetaItem:hover {
+    font-size: 22px;
+}
+
+.gavetaItem::before, #gavetaUsers::before, #gavetaForms::before,
+.gavetaItem::after, #gavetaUsers::after, #gavetaForms::after {
+    content: '❯';
+    position: absolute;
+    opacity: 0; /* Initially hidden */
+    transition: all 0.3s ease;
+}
+
+.gavetaItem::before, #gavetaUsers::before, #gavetaForms::before {
+    left: -30px;
+}
+
+.gavetaItem::after, #gavetaUsers::after, #gavetaForms::after {
+    right: -30px;
+    content: '❮';
+}
+
+.gavetaItem:hover::before, #gavetaUsers:hover::before, #gavetaForms:hover::before,
+.gavetaItem:hover::after, #gavetaUsers:hover::after, #gavetaForms:hover::after {
+    opacity: 1; /* Show on hover */
+}
+
+.pageMenu{
+  
+    position: absolute;
+    top: 50px;
+    left: 10px;
+    width: 100%;
+    margin: 0px;
+
+}

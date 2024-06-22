@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import firebase from 'firebase/app';
 import 'firebase/firestore';
 
+import './users.css' ;
+
 function Users() {
     const [usuarios, setUsuarios] = useState([]);
   
@@ -28,17 +30,18 @@ function Users() {
     }, []);
   
     return (
-      <div>
-        <h2>CADASTROS</h2>
-        <ul>
-          {usuarios.map((usuario) => (
-            <li key={usuario.id}>
-              <img src={usuario.picGoogle} alt={`Foto de ${usuario.nomeGoogle}`} />
-              <p>{usuario.nomeGoogle}</p>
-              <p>Data de Cadastro: {usuario.data.toDate().toLocaleDateString()}</p>
-            </li>
-          ))}
-        </ul>
+      <div className='pageMenu'> 
+   
+              <h2>CADASTROS</h2>
+                 {usuarios.map((usuario) => (
+                  <div key={usuario.id}>
+                    <img src={usuario.picGoogle} alt={`Foto de ${usuario.nomeGoogle}`} />
+                    <p>{usuario.nomeGoogle}</p>
+                    <p>Data de Cadastro: {usuario.data.toDate().toLocaleDateString()}</p>
+                  </div>
+                ))}
+             
+   
       </div>
     );
   }
