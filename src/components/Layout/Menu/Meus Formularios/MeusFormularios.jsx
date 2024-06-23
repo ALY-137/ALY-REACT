@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import firebase from 'firebase/app';
 import 'firebase/firestore';
 import { idGoogle, nomeCompleto } from '../../../../App.jsx';
-import './formularios.css';
 
-function Formularios() {
+import '../Formularios/formularios.css';
+
+function MeusFormularios() {
   const [formularios, setFormularios] = useState([]);
   const [resposta, setResposta] = useState('');
   const [expandedForm, setExpandedForm] = useState(null);
@@ -35,7 +36,7 @@ function Formularios() {
     }
 
     return (
-      <div className='pageMenu'>
+      <div>
         <div className='contentPageDetForm'>
           <p>{formulario.nomeCompletoGoogle}</p>
           <p><strong>ID:</strong> {formulario.usuarioId}</p>
@@ -51,7 +52,6 @@ function Formularios() {
           </ul>
         </div>
         <div className="back-detail" onClick={() => toggleExpand(null)}> ❮❮ </div>
-       
         <div className='boxResposta'>
           <div>
             <input
@@ -75,70 +75,35 @@ function Formularios() {
   useEffect(() => {
     const carregarFormularios = async () => {
       try {
-        const usersCollection = firebase.firestore().collection('users');
-        const usersSnapshot = await usersCollection.get();
+        const userDoc = await firebase.firestore().collection('users').doc(idGoogle).get();
+        if (!userDoc.exists) {
+          console.error('Usuário não encontrado');
+          return;
+        }
 
-        const listeners = usersSnapshot.docs.map((userDoc) => {
-          if (userDoc.id === idGoogle && idGoogle !== '113891358948396359936') {
-            return userDoc.ref.collection('formularios').onSnapshot((formulariosSnapshot) => {
-              const listaFormularios = formulariosSnapshot.docs.map((formDoc) => {
-                return {
-                  usuarioId: userDoc.id,
-                  formId: formDoc.id,
-                  nomeCompletoGoogle: userDoc.data().nomeCompletoGoogle,
-                  assunto: formDoc.data().assunto,
-                  data: formDoc.data().data.toDate().toLocaleDateString('pt-BR'),
-                  mensagem: formDoc.data().mensagem,
-                  respostas: [],
-                };
-              });
+        const formulariosCollection = userDoc.ref.collection('formularios');
+        const formulariosSnapshot = await formulariosCollection.get();
 
-              setFormularios(listaFormularios);
-            });
-          } else {
-            const listeners = usersSnapshot.docs.map((userDoc) => {
-              const user = userDoc.data();
-              const formulariosCollection = userDoc.ref.collection('formularios');
-
-              return formulariosCollection.onSnapshot((formulariosSnapshot) => {
-                const listaFormularios = formulariosSnapshot.docs.map((formDoc) => {
-                  return {
-                    usuarioId: userDoc.id,
-                    formId: formDoc.id,
-                    nomeCompletoGoogle: userDoc.data().nomeCompletoGoogle,
-                    assunto: formDoc.data().assunto,
-                    data: formDoc.data().data.toDate().toLocaleDateString('pt-BR'),
-                    mensagem: formDoc.data().mensagem,
-                    respostas: [],
-                  };
-                });
-
-                setFormularios((prevFormularios) => {
-                  const updatedFormularios = prevFormularios.filter(
-                    (prevForm) => prevForm.usuarioId !== userDoc.id
-                  );
-
-                  return [...updatedFormularios, ...listaFormularios];
-                });
-              });
-            });
-          }
-
-          return null;
+        const listaFormularios = formulariosSnapshot.docs.map((formDoc) => {
+          return {
+            usuarioId: idGoogle,
+            formId: formDoc.id,
+            nomeCompletoGoogle: userDoc.data().nomeCompletoGoogle,
+            assunto: formDoc.data().assunto,
+            data: formDoc.data().data.toDate().toLocaleDateString('pt-BR'),
+            mensagem: formDoc.data().mensagem,
+            respostas: [],
+          };
         });
 
-        return () => {
-          listeners.forEach((listener) => {
-            listener();
-          });
-        };
+        setFormularios(listaFormularios);
       } catch (error) {
         console.error('Erro ao carregar formulários:', error);
       }
     };
 
     carregarFormularios();
-  }, [idGoogle, resposta]);
+  }, [idGoogle]);
 
   useEffect(() => {
     const carregarRespostasExpandidas = async () => {
@@ -241,7 +206,7 @@ function Formularios() {
         </>
       ) : (
         <ul>
-          <h2 className='tituloPageMenu'>MENSAGENS</h2>
+          <h2 className='tituloPageMenu'>MEUS FORMULÁRIOS</h2>
           <div className='contentPageMenu'>
             {formularios.map((formulario) => (
               <div className='boxItemForm' key={`${formulario.usuarioId}-${formulario.formId}`}>
@@ -268,4 +233,4 @@ function Formularios() {
   );
 }
 
-export default Formularios;
+export default MeusFormularios;

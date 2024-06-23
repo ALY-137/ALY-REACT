@@ -7,17 +7,25 @@
     padding-left: 20px;
     line-height: 0.5;
     font-size: 15px;
-
 }
 
 .contentPageDetForm{
+    flex: 1;
     margin-top: 60px;
     margin-right: 45px;
-   
-    height: 77vh;
     overflow-x: hidden;
     text-align: left;
     margin-left: 40px;
+}
+    
+.boxResposta{
+    height: 60px;
+    text-align: center;
+    width: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .boxResposta{
@@ -29,4 +37,11 @@
 
 .iconOpenForm{
     cursor: pointer;
+}
+
+.pageMenu {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    position: relative;
 }

@@ -5,15 +5,6 @@ import Menu from "./Menu/Menu";
 import { seforAdm } from "../Scripts/verificações/verificaAdm";
 
 function Estrutura() {
-  function openMenu() {
-    document.getElementById('Menu').classList.remove('oculta');
-    document.getElementById('Menu').classList.add('openMenu');
-
-    // Retorna para o estado normal de rolamento do conteúdo da página.
-    document.getElementById('fundo').classList.add('scroll-lock');
-    document.getElementById('cardProfile').classList.add('scroll-lock');
-    document.getElementById('conteudo').classList.add('scroll-lock');
-  }
 
   return (
     <div id="fundo">
@@ -23,10 +14,7 @@ function Estrutura() {
         <div id="MatrixDesign"></div>
         <div id="MatrixDev"></div>
         <div id="MatrixHome"></div>
-   
-
-          <div id='menuId' className='menuIcon' onClick={openMenu}> ㆔ </div>
-   
+        
       </div>
       <div id="conteudo">
         <Navbar />

@@ -1,53 +1,63 @@
 import React, { useState } from "react";
 import Formularios from "./Formularios/Formularios";
+import MeusFormularios from "./Meus Formularios/MeusFormularios";
 import Users from "./Users/Users";
 import { seforAdm } from "../../Scripts/verificações/verificaAdm";
 import './menu.css';
 
 function Menu() {
-    const [selectedOption, setSelectedOption] = useState("gavetaForms");
+    const [selectedOption, setSelectedOption] = useState(null);
+    const [menuOpen, setMenuOpen] = useState(false);
+    const [showForms, setShowForms] = useState(false);
+    const [showUsers, setShowUsers] = useState(false);
+    const [showMyForms, setShowMyForms] = useState(false);
 
     function closeMenu() {
-        document.getElementById('Menu').classList.add('oculta');
-        document.getElementById('Menu').classList.remove('openMenu');
-
-        //Fixa rolagem do conteúdo da página.
+        setMenuOpen(false);
+        
         document.getElementById('fundo').classList.remove('scroll-lock');
         document.getElementById('cardProfile').classList.remove('scroll-lock');
         document.getElementById('conteudo').classList.remove('scroll-lock');
     }
 
+    function openMenu() {
+        setMenuOpen(true);
+        document.getElementById('fundo').classList.add('scroll-lock');
+        document.getElementById('cardProfile').classList.add('scroll-lock');
+        document.getElementById('conteudo').classList.add('scroll-lock');
+      
+    }
+
     function abrirForms() {
-        document.getElementById('Gavetas').classList.add('oculta');
-        document.getElementById('Gavetas').classList.remove('mostra');
-        document.getElementById('Forms').classList.add('mostra');
-        document.getElementById('Forms').classList.remove('oculta');
+        setShowForms(true);
+        setShowUsers(false);
     }
 
     function fecharForms() {
-        document.getElementById('Gavetas').classList.remove('oculta');
-        document.getElementById('Gavetas').classList.add('mostra');
-        document.getElementById('Forms').classList.remove('mostra');
-        document.getElementById('Forms').classList.add('oculta');
+        setShowForms(false);
     }
 
     function abrirUsers() {
-        document.getElementById('Gavetas').classList.add('oculta');
-        document.getElementById('Gavetas').classList.remove('mostra');
-        document.getElementById('Users').classList.add('mostra');
-        document.getElementById('Users').classList.remove('oculta');
+        setShowUsers(true);
+        setShowForms(false);
     }
 
     function fecharUsers() {
-        document.getElementById('Gavetas').classList.add('mostra');
-        document.getElementById('Gavetas').classList.remove('oculta');
-        document.getElementById('Users').classList.add('oculta');
-        document.getElementById('Users').classList.remove('mostra');
+        setShowUsers(false);
     }
 
     function logoff() {
         window.location.reload(true);
         localStorage.clear();
+    }
+
+    function abrirMyForms() {
+        setShowMyForms(true);
+        setShowUsers(false);
+    }
+
+    function fecharMyForms() {
+        setShowMyForms(false);
     }
 
     const handleMouseEnter = (option) => {
@@ -56,46 +66,74 @@ function Menu() {
 
     return (
         <div>
-            <div id="Menu" className="oculta">
+            <div id="Menu" className={menuOpen ? 'openMenu' : 'oculta'}>
                 <div onClick={closeMenu} className='back'> ❮ </div>
-                <div id='Gavetas' className="mostra">
+                <div id='Gavetas' className={showMyForms || showForms || showUsers ? 'oculta' : 'mostra'}>
                     {seforAdm() && (
                         <div
                             onClick={abrirUsers}
                             id="gavetaUsers"
-                            className={`gavetaOption ${selectedOption === 'gavetaUsers' ? 'highlight' : ''}`}
+                            className={`gavetaOption ${selectedOption === null ? 'highlight' : ''}`}
                             onMouseEnter={() => handleMouseEnter('gavetaUsers')}
                         >
                             USERS
                         </div>
                     )}
+                    {seforAdm() && (
+                        <div
+                            onClick={abrirForms}
+                            id="gavetaForms"
+                            className={`gavetaOption ${selectedOption === null ? 'highlight' : ''}`}
+                            onMouseEnter={() => handleMouseEnter('gavetaForms')}
+                        >
+                            MENSAGENS
+                        </div>
+                    )}
+                        
                     <div
-                        onClick={abrirForms}
+                        onClick={abrirMyForms}
                         id="gavetaForms"
-                        className={`gavetaOption ${selectedOption === 'gavetaForms' ? 'highlight' : ''}`}
+                        className={`gavetaOption ${selectedOption === null ? 'highlight' : ''}`}
                         onMouseEnter={() => handleMouseEnter('gavetaForms')}
                     >
-                        MENSAGENS
+                        MINHAS MENSAGENS
                     </div>
+
+
                     <div
                         onClick={logoff}
-                        className={`gavetaOption ${selectedOption === 'logoff' ? 'highlight' : ''}`}
+                        className={`gavetaOption ${selectedOption === null ? 'highlight' : ''}`}
                         onMouseEnter={() => handleMouseEnter('logoff')}
                     >
                         ENCERRAR
                     </div>
+
+                
+
+
                 </div>
-                <div id='Forms' className='oculta'>
-                    <div className="back" onClick={fecharForms}>❮</div>
-                    <Formularios />
-                </div>
-                <div id='Users' className='oculta'>
-                    <div className='back' onClick={fecharUsers}>❮</div>
-                    <Users />
-                </div>
+                {showForms && (
+                    <div id='Forms'>
+                        <div className="back" onClick={fecharForms}>❮</div>
+                        <Formularios />
+                    </div>
+                )}
+                {showUsers && (
+                    <div id='Users'>
+                        <div className='back' onClick={fecharUsers}>❮</div>
+                        <Users />
+                    </div>
+                )}
+                {showMyForms && (
+                    <div id='Forms'>
+                        <div className="back" onClick={fecharMyForms}>❮</div>
+                        <MeusFormularios />
+                    </div>
+                )}
             </div>
+            {!menuOpen && <p id='menuId' className='menuIcon' onClick={openMenu}>㆔</p>}
         </div>
-    )
+    );
 }
 
 export default Menu;
