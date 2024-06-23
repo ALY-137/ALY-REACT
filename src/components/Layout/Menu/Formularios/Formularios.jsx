@@ -35,7 +35,7 @@ function Formularios() {
     }
 
     return (
-      <div className='pageMenu'>
+      <div className='pageForms'>
         <div className='contentPageDetForm'>
           <p>{formulario.nomeCompletoGoogle}</p>
           <p><strong>ID:</strong> {formulario.usuarioId}</p>
@@ -234,15 +234,15 @@ function Formularios() {
   };
 
   return (
-    <div className='pageMenu'>
+    <div className='pageForms'>
       {expandedForm ? (
         <>
           {renderExpandedForm(expandedForm)}
         </>
       ) : (
         <ul>
-          <h2 className='tituloPageMenu'>MENSAGENS</h2>
-          <div className='contentPageMenu'>
+          <h2 className='titulopageForms'>MENSAGENS</h2>
+          <div className='contentpageForms'>
             {formularios.map((formulario) => (
               <div className='boxItemForm' key={`${formulario.usuarioId}-${formulario.formId}`}>
                 <p> {formulario.nomeCompletoGoogle}</p>
