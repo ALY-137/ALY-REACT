@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import firebase from 'firebase/app';
 import 'firebase/firestore';
+import { idGoogle, nomeCompleto } from '../../../../App.jsx';
 
-import { idGoogle, nomeCompleto } from '../../../../App.jsx'
+import './formularios.css';
 
 function Formularios() {
   const [formularios, setFormularios] = useState([]);
@@ -25,7 +26,7 @@ function Formularios() {
     return respostasSnapshot.docs.map((respostaDoc) => ({
       nomeGoogle: respostaDoc.data().nomeGoogle,
       resposta: respostaDoc.data().resposta,
-      data: respostaDoc.data().data,
+      data: respostaDoc.data().data.toDate().toLocaleDateString('pt-BR'),
     }));
   };
 
@@ -36,37 +37,37 @@ function Formularios() {
 
     return (
       <div>
-        <p>{formulario.nomeCompletoGoogle}</p>
-        <p><strong>ID:</strong> {formulario.usuarioId}</p>
-        <p><strong>Data de envio:</strong> {formulario.data?.toDate().toLocaleDateString()}</p>
-        <p><strong>Mensagem:</strong> {formulario.mensagem}</p>
-        <p><strong>Discussões:</strong></p>
-        <ul>
-          {expandedFormRespostas.map((resposta, index) => (
-            <li key={index}>
-              {resposta.nomeGoogle} <br />
-              {resposta.resposta} - {resposta.data.toLocaleString()}
-            </li>
-          ))}
-        </ul>
-        <div>
-          <input
-            type="text"
-            placeholder="Digite sua resposta..."
-            value={resposta}
-            onChange={(e) => setResposta(e.target.value)}
-          />
-          <button onClick={() => enviarResposta(formulario.usuarioId, formulario.formId)}>
-            Enviar Resposta
+        <div className='contentPageDetForm'>
+          <p>{formulario.nomeCompletoGoogle}</p>
+          <p><strong>ID:</strong> {formulario.usuarioId}</p>
+          <p><strong>Mensagem:</strong> {formulario.mensagem}</p>
+          <p><strong>Discussões:</strong></p>
+          <ul>
+            {expandedFormRespostas.map((resposta, index) => (
+              <li key={index}>
+                {resposta.nomeGoogle} <br />
+                {resposta.resposta} - {resposta.data}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="back-detail" onClick={() => toggleExpand(null)}> ❮❮ </div>
+        <div className='boxResposta'>
+          <div>
+            <input
+              type="text"
+              placeholder="Digite sua resposta..."
+              value={resposta}
+              onChange={(e) => setResposta(e.target.value)}
+            />
+            <button onClick={() => enviarResposta(formulario.usuarioId, formulario.formId)}>
+              Enviar Resposta
+            </button>
+          </div>
+          <button onClick={() => deleteForm(formulario)}>
+            Excluir Formulário
           </button>
         </div>
-
-        <button onClick={() => deleteForm(formulario)}>
-          Excluir Formulário
-        </button>
-
-        <div className='back' onClick={() => toggleExpand(null)}> ❮ </div>
-
       </div>
     );
   };
@@ -86,7 +87,7 @@ function Formularios() {
                   formId: formDoc.id,
                   nomeCompletoGoogle: userDoc.data().nomeCompletoGoogle,
                   assunto: formDoc.data().assunto,
-                  data: formDoc.data().data,
+                  data: formDoc.data().data.toDate().toLocaleDateString('pt-BR'),
                   mensagem: formDoc.data().mensagem,
                   respostas: [],
                 };
@@ -106,7 +107,7 @@ function Formularios() {
                     formId: formDoc.id,
                     nomeCompletoGoogle: userDoc.data().nomeCompletoGoogle,
                     assunto: formDoc.data().assunto,
-                    data: formDoc.data().data,
+                    data: formDoc.data().data.toDate().toLocaleDateString('pt-BR'),
                     mensagem: formDoc.data().mensagem,
                     respostas: [],
                   };
@@ -172,7 +173,7 @@ function Formularios() {
 
       const novaResposta = {
         resposta: resposta,
-        data: new Date(),
+        data: new Date().toLocaleDateString('pt-BR'),
         idGoogle: idGoogleValue,
         nomeGoogle: nomeGoogleValue,
       };
@@ -240,16 +241,19 @@ function Formularios() {
         </>
       ) : (
         <ul>
-          <h2>Formulários</h2>
-          {formularios.map((formulario) => (
-            <li key={`${formulario.usuarioId}-${formulario.formId}`}>
-              <p><strong>Nome:</strong> {formulario.nomeCompletoGoogle}</p>
-              <p><strong>Assunto:</strong> {formulario.assunto}</p>
-              <button onClick={() => toggleExpand(formulario)}>
-                Detalhes
-              </button>
-            </li>
-          ))}
+          <h2 className='tituloPageMenu'>MENSAGENS</h2>
+          <div className='contentPageMenu'>
+            {formularios.map((formulario) => (
+              <div className='boxItemForm' key={`${formulario.usuarioId}-${formulario.formId}`}>
+                <p> {formulario.nomeCompletoGoogle}</p>
+                <p><strong>Assunto:</strong> {formulario.assunto}</p>
+                <p><strong>Data de envio:</strong> {formulario.data}</p>
+                <div className='iconOpenForm' onClick={() => toggleExpand(formulario)}>
+                  <p><strong> 🗨 CHAT </strong></p> 
+                </div>
+              </div>
+            ))}
+          </div>
         </ul>
       )}
 

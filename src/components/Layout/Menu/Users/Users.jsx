@@ -32,14 +32,21 @@ function Users() {
     return (
       <div className='pageMenu'> 
    
-              <h2>CADASTROS</h2>
-                 {usuarios.map((usuario) => (
-                  <div key={usuario.id}>
-                    <img src={usuario.picGoogle} alt={`Foto de ${usuario.nomeGoogle}`} />
-                    <p>{usuario.nomeGoogle}</p>
-                    <p>Data de Cadastro: {usuario.data.toDate().toLocaleDateString()}</p>
+              <h2 className='tituloPageMenu'>CADASTROS</h2>
+                
+                  <div className='contentPageMenu'>
+                        {usuarios.map((usuario) => (
+                        <div key={usuario.id}>
+                          <img src={usuario.picGoogle} alt={`Foto de ${usuario.nomeGoogle}`} />
+                          <p>{usuario.nomeGoogle}</p>
+                          <p>Data de Cadastro: {usuario.data.toDate().toLocaleDateString()}</p>
+                        </div>
+                      ))}
+
+
                   </div>
-                ))}
+                
+                 
              
    
       </div>

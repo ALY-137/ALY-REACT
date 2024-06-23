@@ -23,9 +23,10 @@ function Estrutura() {
         <div id="MatrixDesign"></div>
         <div id="MatrixDev"></div>
         <div id="MatrixHome"></div>
-        {seforAdm() && (
+   
+
           <div id='menuId' className='menuIcon' onClick={openMenu}> ㆔ </div>
-        )}
+   
       </div>
       <div id="conteudo">
         <Navbar />
