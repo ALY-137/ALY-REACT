@@ -60,13 +60,13 @@ function Formularios() {
               value={resposta}
               onChange={(e) => setResposta(e.target.value)}
             />
-            <button onClick={() => enviarResposta(formulario.usuarioId, formulario.formId)}>
+            <div className='buttonEnviarResp' onClick={() => enviarResposta(formulario.usuarioId, formulario.formId)}>
               Enviar Resposta
-            </button>
+            </div>
           </div>
-          <button onClick={() => deleteForm(formulario)}>
+          <div buttonExcluirForm onClick={() => deleteForm(formulario)}>
             Excluir Formulário
-          </button>
+          </div>
         </div>
       </div>
     );
