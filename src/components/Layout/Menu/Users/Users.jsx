@@ -34,7 +34,7 @@ function Users() {
    
               <h2 className='tituloPageMenu'>CADASTROS</h2>
                 
-                  <div className='contentPageMenu'>
+                  <div className='contentPageDetForm'>
                         {usuarios.map((usuario) => (
                         <div key={usuario.id}>
                           <img src={usuario.picGoogle} alt={`Foto de ${usuario.nomeGoogle}`} />

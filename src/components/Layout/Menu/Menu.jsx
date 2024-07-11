@@ -73,7 +73,7 @@ function Menu() {
                         <div
                             onClick={abrirUsers}
                             id="gavetaUsers"
-                            className={`gavetaOption ${selectedOption === null ? 'highlight' : ''}`}
+                            className={`gavetaOption ${selectedOption === null ? '' : ''}`}
                             onMouseEnter={() => handleMouseEnter('gavetaUsers')}
                         >
                             USERS
@@ -83,7 +83,7 @@ function Menu() {
                         <div
                             onClick={abrirForms}
                             id="gavetaForms"
-                            className={`gavetaOption ${selectedOption === null ? 'highlight' : ''}`}
+                            className={`gavetaOption ${selectedOption === null ? '' : ''}`}
                             onMouseEnter={() => handleMouseEnter('gavetaForms')}
                         >
                             MENSAGENS
@@ -93,7 +93,7 @@ function Menu() {
                     <div
                         onClick={abrirMyForms}
                         id="gavetaForms"
-                        className={`gavetaOption ${selectedOption === null ? 'highlight' : ''}`}
+                        className={`gavetaOption ${selectedOption === null ? '' : ''}`}
                         onMouseEnter={() => handleMouseEnter('gavetaForms')}
                     >
                         MINHAS MENSAGENS
@@ -102,7 +102,7 @@ function Menu() {
 
                     <div
                         onClick={logoff}
-                        className={`gavetaOption ${selectedOption === null ? 'highlight' : ''}`}
+                        className={`gavetaOption ${selectedOption === null ? '' : ''}`}
                         onMouseEnter={() => handleMouseEnter('logoff')}
                     >
                         ENCERRAR

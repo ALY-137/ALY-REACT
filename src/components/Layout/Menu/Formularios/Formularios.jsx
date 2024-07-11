@@ -3,6 +3,7 @@ import firebase from 'firebase/app';
 import 'firebase/firestore';
 import { idGoogle, nomeCompleto } from '../../../../App.jsx';
 import './formularios.css';
+import '../menu.css';
 
 function Formularios() {
   const [formularios, setFormularios] = useState([]);
@@ -35,7 +36,7 @@ function Formularios() {
     }
 
     return (
-      <div className='pageForms'>
+      <div className='pageContentForms'>
         <div className='contentPageDetForm'>
           <p>{formulario.nomeCompletoGoogle}</p>
           <p><strong>ID:</strong> {formulario.usuarioId}</p>
@@ -54,18 +55,18 @@ function Formularios() {
        
         <div className='boxResposta'>
           <div>
-            <input
+            <input className='imputResposta'
               type="text"
               placeholder="Digite sua resposta..."
               value={resposta}
               onChange={(e) => setResposta(e.target.value)}
             />
             <div className='buttonEnviarResp' onClick={() => enviarResposta(formulario.usuarioId, formulario.formId)}>
-              Enviar Resposta
+            ✔
             </div>
           </div>
-          <div buttonExcluirForm onClick={() => deleteForm(formulario)}>
-            Excluir Formulário
+          <div className='buttonExcluirForm' onClick={() => deleteForm(formulario)}>
+          🗑
           </div>
         </div>
       </div>
@@ -234,15 +235,15 @@ function Formularios() {
   };
 
   return (
-    <div className='pageForms'>
+    <div className='pageContentForms'>
       {expandedForm ? (
         <>
           {renderExpandedForm(expandedForm)}
         </>
       ) : (
         <ul>
-          <h2 className='titulopageForms'>MENSAGENS</h2>
-          <div className='contentpageForms'>
+          <h2 className='tituloPageMenu'>MENSAGENS</h2>
+          <div className='contentPageDetForm'>
             {formularios.map((formulario) => (
               <div className='boxItemForm' key={`${formulario.usuarioId}-${formulario.formId}`}>
                 <p> {formulario.nomeCompletoGoogle}</p>
