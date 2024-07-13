@@ -28,13 +28,14 @@
 
 @media (max-width: 768px) {
     .contentPageDetForm {
+        min-height: calc(100dvh - 140px); 
         max-width: calc(100%);
         max-height: calc(100dvh - 140px); /* Subtrai a altura da .boxResposta */
     }
 }
 
 .boxResposta {
-    position: fixed; /* Fixa a div na posição */
+    position: relative;
     bottom: 0; /* Alinha a div ao fundo da viewport */
     width: 100%;
     display: flex;
