@@ -2,12 +2,13 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    min-height: 100vh; /* Altura mínima igual à altura da viewport */
+    min-height: 100dvh; /* Altura mínima igual à altura da viewport */
     width: 100%;
     background-color: rgb(0, 0, 0);
     box-sizing: border-box; /* Inclui padding e border no tamanho total da div */
     overflow-x: hidden; /* Impede a rolagem horizontal */
     margin-top: 35px;
+
 }
 
 .contentPageDetForm {
@@ -15,7 +16,7 @@
     background-color: rgb(0, 0, 0);
     width: 100%; /* Ajusta para ocupar toda a largura disponível */
     max-width: calc(100% - 0px); /* Largura máxima para respeitar as margens da página */
-    max-height: calc(100vh - 140px); /* Altura máxima para a página menos margens e outros elementos */
+    max-height: calc(100dvh - 140px); /* Altura máxima para a página menos margens e outros elementos */
     overflow-y: auto; /* Permite rolagem vertical quando necessário */
     padding: 0px; /* Adiciona padding interno */
     box-sizing: border-box;
@@ -28,7 +29,7 @@
 @media (max-width: 768px) {
     .contentPageDetForm {
         max-width: calc(100%);
-        max-height: calc(100vh - 140px); /* Subtrai a altura da .boxResposta */
+        max-height: calc(100dvh - 140px); /* Subtrai a altura da .boxResposta */
     }
 }
 
