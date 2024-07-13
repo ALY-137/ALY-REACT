@@ -15,7 +15,7 @@
     background-color: rgb(0, 0, 0);
     width: 100%; /* Ajusta para ocupar toda a largura disponível */
     max-width: calc(100% - 0px); /* Largura máxima para respeitar as margens da página */
-    max-height: calc(100vh - 110px); /* Altura máxima para a página menos margens e outros elementos */
+    max-height: calc(100vh - 140px); /* Altura máxima para a página menos margens e outros elementos */
     overflow-y: auto; /* Permite rolagem vertical quando necessário */
     padding: 0px; /* Adiciona padding interno */
     box-sizing: border-box;
@@ -27,7 +27,8 @@
 
 @media (max-width: 768px) {
     .contentPageDetForm {
-        max-width: calc(100% ); /* Ajuste para dispositivos menores */
+        max-width: calc(100%);
+        max-height: calc(100vh - 140px); /* Subtrai a altura da .boxResposta */
     }
 }
 
@@ -39,9 +40,7 @@
     align-items: center;
     height: 80px;
     padding: 10px; /* Adiciona padding interno */
-
     box-sizing: border-box;
-
     margin: 0; /* Remove a margem para garantir alinhamento com o fundo */
     margin-bottom: 45px;
  
