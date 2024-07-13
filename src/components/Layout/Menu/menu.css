@@ -16,25 +16,26 @@
 }
 
 .back {
-    margin: 10px;
+    margin: 0px;
     cursor: pointer;
     text-decoration: none;
     color: inherit;
     position: absolute;
-    top: 10px;
+    top: 0px;
     left: 10px;
     font-size: 25px;
     z-index: 37; /* Z-index padrão para botões de voltar */
 }
 
 .tituloPageMenu {
-    margin: 10px;
+    margin: 0px;
     text-decoration: none;
     color: inherit;
     position: absolute;
-    top: 6px;
+    top: 9px;
     left: 30px;
     margin-bottom: 200px;
+    font-size: 15px;
 }
 
 .mostra {
@@ -95,12 +96,13 @@
 }
 
 .back-detail {
-    margin: 10px;
+    margin: 0px;
     cursor: pointer;
     text-decoration: none;
     color: inherit;
     position: absolute;
-    top: 10px;
+    top: 11px;
     left: 30px;
     z-index: 38; /* Z-index maior para sobrepor */
+    font-size: 22px;    
 }

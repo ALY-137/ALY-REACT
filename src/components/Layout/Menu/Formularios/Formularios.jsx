@@ -54,19 +54,20 @@ function Formularios() {
         <div className="back-detail" onClick={() => toggleExpand(null)}> ❮❮ </div>
        
         <div className='boxResposta'>
-          <div>
-            <input className='imputResposta'
-              type="text"
-              placeholder="Digite sua resposta..."
-              value={resposta}
-              onChange={(e) => setResposta(e.target.value)}
-            />
+          <input
+            type="text"
+            className='inputResposta'
+            placeholder="Digite sua resposta..."
+            value={resposta}
+            onChange={(e) => setResposta(e.target.value)}
+          />
+          <div className="buttonWrapper">
             <div className='buttonEnviarResp' onClick={() => enviarResposta(formulario.usuarioId, formulario.formId)}>
-            ✔
+              ✔
             </div>
-          </div>
-          <div className='buttonExcluirForm' onClick={() => deleteForm(formulario)}>
-          🗑
+            <div className='buttonExcluirForm' onClick={() => deleteForm(formulario)}>
+              🗑
+            </div>
           </div>
         </div>
       </div>
@@ -246,11 +247,11 @@ function Formularios() {
           <div className='contentPageDetForm'>
             {formularios.map((formulario) => (
               <div className='boxItemForm' key={`${formulario.usuarioId}-${formulario.formId}`}>
-                <p> {formulario.nomeCompletoGoogle}</p>
+                <p>{formulario.nomeCompletoGoogle}</p>
                 <p><strong>Assunto:</strong> {formulario.assunto}</p>
                 <p><strong>Data de envio:</strong> {formulario.data}</p>
                 <div className='iconOpenForm' onClick={() => toggleExpand(formulario)}>
-                  <p><strong> 🗨 CHAT </strong></p> 
+                  <p><strong> 🗨 CHAT </strong></p>
                 </div>
               </div>
             ))}
