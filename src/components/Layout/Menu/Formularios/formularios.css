@@ -53,10 +53,8 @@
     align-items: center;
     height: 80px;
     padding: 10px; /* Adiciona padding interno */
-
     margin: 0; /* Remove a margem para garantir alinhamento com o fundo */
     margin-bottom: 65px;
- 
 }
 
 .iconOpenForm {
