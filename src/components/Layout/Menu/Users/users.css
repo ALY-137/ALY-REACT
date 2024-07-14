@@ -1,5 +1,11 @@
 .contentPageUsers{
-    margin-top: 60px;
-    margin-right: 45px;
-    background-color: blue;
+    position: absolute;
+    left: 0px;
+    bottom: 28px;
+    top:0px;
+    right:0px;
+    margin-top: 40px;
+    overflow-y: auto;
+    text-align: left;
+    margin-left: 10px;
 }

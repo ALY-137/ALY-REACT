@@ -5,7 +5,7 @@
     justify-content: center;
     align-items: center;
     text-align: center;
-    height: 100dvh;
+    height: 100vh; /* Ajuste conforme necessário */
     z-index: 35; /* Z-index para o menu aberto */
     backdrop-filter: blur(10px);
     background-color: rgb(0, 0, 0);
@@ -15,16 +15,33 @@
     overflow-y: hidden;
 }
 
+.headMenu {
+    display: flex;
+    align-items: center; /* Alinha verticalmente no centro */
+    width: 100%; /* Garante que ocupe a largura total disponível */
+    position: fixed; /* Fixa a div no topo */
+    top: 0; /* Posiciona no topo */
+    padding: 5px; /* Adiciona padding para espaçamento interno */
+    z-index: 40; /* Z-index para sobrepor outros elementos */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* Adiciona sombra para destaque */
+}
+
 .back {
-    margin: 0px;
     cursor: pointer;
     text-decoration: none;
+    margin-left: 10px;
     color: inherit;
-    position: absolute;
-    top: 0px;
-    left: 10px;
-    font-size: 25px;
+    font-size: 10px;
     z-index: 37; /* Z-index padrão para botões de voltar */
+    flex: 0 1 auto; /* Flexbox item que ocupa espaço conforme necessário */
+}
+
+.pageAtual {
+    flex: 1 1 auto; /* Flexbox item que ocupa o espaço restante */
+    text-align: center; /* Centraliza o texto */
+    font-size: 15px; /* Ajusta o tamanho da fonte conforme necessário */
+    margin-left: 10px; /* Espaço entre os itens */
+    text-align: left;
 }
 
 .tituloPageMenu {
@@ -80,7 +97,6 @@
 .gavetaOption.highlight,
 .gavetaOption:hover {
     font-size: 1.2em;
-
 }
 
 .gavetaOption.highlight::before,
@@ -105,4 +121,5 @@
     left: 30px;
     z-index: 38; /* Z-index maior para sobrepor */
     font-size: 22px;    
+
 }

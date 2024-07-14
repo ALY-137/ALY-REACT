@@ -11,10 +11,13 @@ function Menu() {
     const [showForms, setShowForms] = useState(false);
     const [showUsers, setShowUsers] = useState(false);
     const [showMyForms, setShowMyForms] = useState(false);
+    const [backText, setBackText] = useState("SAIR");
+    const [atualTxt, setAtualTxt] = useState("MENU");
+    const [backAction, setBackAction] = useState(() => closeMenu);
+    const [expandedForm, setExpandedForm] = useState(null);
 
     function closeMenu() {
         setMenuOpen(false);
-        
         document.getElementById('fundo').classList.remove('scroll-lock');
         document.getElementById('cardProfile').classList.remove('scroll-lock');
         document.getElementById('conteudo').classList.remove('scroll-lock');
@@ -25,25 +28,55 @@ function Menu() {
         document.getElementById('fundo').classList.add('scroll-lock');
         document.getElementById('cardProfile').classList.add('scroll-lock');
         document.getElementById('conteudo').classList.add('scroll-lock');
-      
     }
 
     function abrirForms() {
         setShowForms(true);
         setShowUsers(false);
+        setShowMyForms(false);
+        setExpandedForm(null);
+        setBackText("MENU");
+        setAtualTxt("MENSAGENS");
+        setBackAction(() => closeForms);
     }
 
-    function fecharForms() {
+    function closeForms() {
         setShowForms(false);
+        setBackText("SAIR");
+        setAtualTxt("MENU");
+        setBackAction(() => closeMenu);
     }
 
     function abrirUsers() {
         setShowUsers(true);
         setShowForms(false);
+        setShowMyForms(false);
+        setBackText("MENU");
+        setAtualTxt("USUARIOS");
+        setBackAction(() => closeUsers);
     }
 
-    function fecharUsers() {
+    function closeUsers() {
         setShowUsers(false);
+        setBackText("SAIR");
+        setAtualTxt("MENU");
+        setBackAction(() => closeMenu);
+    }
+
+    function abrirMyForms() {
+        setShowMyForms(true);
+        setShowUsers(false);
+        setShowForms(false);
+        setBackText("MENU");
+        setAtualTxt("MINHAS MENSAGENS");
+        setBackAction(() => closeMyForms);
+    }
+
+    function closeMyForms() {
+        setShowMyForms(false);
+        setBackText("SAIR");
+        setAtualTxt("MENU");
+        setBackAction(() => closeMenu);
     }
 
     function logoff() {
@@ -51,23 +84,32 @@ function Menu() {
         localStorage.clear();
     }
 
-    function abrirMyForms() {
-        setShowMyForms(true);
-        setShowUsers(false);
-    }
-
-    function fecharMyForms() {
-        setShowMyForms(false);
-    }
-
     const handleMouseEnter = (option) => {
         setSelectedOption(option);
+    };
+
+    const handleExpandForm = (form) => {
+        setExpandedForm(form);
+        setBackText("MENSAGENS");
+        setAtualTxt(form.nomeCompletoGoogle);
+        setBackAction(() => closeExpandedForm);
+    };
+
+    const closeExpandedForm = () => {
+        setExpandedForm(null);
+        setBackText("MENU");
+        setAtualTxt("MENSAGENS");
+        setBackAction(() => closeForms);
     };
 
     return (
         <div>
             <div id="Menu" className={menuOpen ? 'openMenu' : 'oculta'}>
-                <div onClick={closeMenu} className='back'> ❮ </div>
+                <div className="headMenu">
+                    <div onClick={backAction} className='back'> ❮ {backText} </div>
+                    <div className="pageAtual"> / {atualTxt} </div>
+                </div>
+                
                 <div id='Gavetas' className={showMyForms || showForms || showUsers ? 'oculta' : 'mostra'}>
                     {seforAdm() && (
                         <div
@@ -99,7 +141,6 @@ function Menu() {
                         MINHAS MENSAGENS
                     </div>
 
-
                     <div
                         onClick={logoff}
                         className={`gavetaOption ${selectedOption === null ? '' : ''}`}
@@ -107,26 +148,28 @@ function Menu() {
                     >
                         ENCERRAR
                     </div>
-
-                
-
-
                 </div>
                 {showForms && (
                     <div id='Forms'>
-                        <div className="back" onClick={fecharForms}>❮</div>
-                        <Formularios />
+                        <Formularios 
+                            setBackText={setBackText} 
+                            setAtualTxt={setAtualTxt} 
+                            closeForms={closeForms} 
+                            handleExpandForm={handleExpandForm}
+                            expandedForm={expandedForm}
+                            closeExpandedForm={closeExpandedForm}
+                        />
                     </div>
                 )}
                 {showUsers && (
                     <div id='Users'>
-                        <div className='back' onClick={fecharUsers}>❮</div>
+
                         <Users />
                     </div>
                 )}
                 {showMyForms && (
                     <div id='Forms'>
-                        <div className="back" onClick={fecharMyForms}>❮</div>
+
                         <MeusFormularios />
                     </div>
                 )}

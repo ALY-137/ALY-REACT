@@ -5,13 +5,12 @@ import { idGoogle, nomeCompleto } from '../../../../App.jsx';
 import './formularios.css';
 import '../menu.css';
 
-function Formularios() {
+function Formularios({ setBackText, setAtualTxt, closeForms, handleExpandForm, expandedForm, closeExpandedForm }) {
   const [formularios, setFormularios] = useState([]);
   const [resposta, setResposta] = useState('');
-  const [expandedForm, setExpandedForm] = useState(null);
+  const [expandedFormRespostas, setExpandedFormRespostas] = useState([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [formToDelete, setFormToDelete] = useState(null);
-  const [expandedFormRespostas, setExpandedFormRespostas] = useState([]);
 
   const carregarRespostas = async (usuarioId, formId) => {
     const respostasCollection = firebase.firestore()
@@ -35,9 +34,12 @@ function Formularios() {
       return null;
     }
 
+    setBackText("MENSAGENS");
+    setAtualTxt(formulario.nomeCompletoGoogle);
+
     return (
-      <div className='pageContentForms'>
-        <div className='contentPageDetForm'>
+      <div className='contentPageDetForm'>
+        <div className='contentChat'>
           <p>{formulario.nomeCompletoGoogle}</p>
           <p><strong>ID:</strong> {formulario.usuarioId}</p>
           <p><strong>Mensagem:</strong> {formulario.mensagem}</p>
@@ -51,8 +53,7 @@ function Formularios() {
             ))}
           </ul>
         </div>
-        <div className="back-detail" onClick={() => toggleExpand(null)}> ❮❮ </div>
-       
+
         <div className='boxResposta'>
           <input
             type="text"
@@ -60,6 +61,11 @@ function Formularios() {
             placeholder="Digite sua resposta..."
             value={resposta}
             onChange={(e) => setResposta(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                enviarResposta(formulario.usuarioId, formulario.formId);
+              }
+            }}
           />
           <div className="buttonWrapper">
             <div className='buttonEnviarResp' onClick={() => enviarResposta(formulario.usuarioId, formulario.formId)}>
@@ -80,67 +86,50 @@ function Formularios() {
         const usersCollection = firebase.firestore().collection('users');
         const usersSnapshot = await usersCollection.get();
 
-        const listeners = usersSnapshot.docs.map((userDoc) => {
-          if (userDoc.id === idGoogle && idGoogle !== '113891358948396359936') {
-            return userDoc.ref.collection('formularios').onSnapshot((formulariosSnapshot) => {
-              const listaFormularios = formulariosSnapshot.docs.map((formDoc) => {
-                return {
-                  usuarioId: userDoc.id,
-                  formId: formDoc.id,
-                  nomeCompletoGoogle: userDoc.data().nomeCompletoGoogle,
-                  assunto: formDoc.data().assunto,
-                  data: formDoc.data().data.toDate().toLocaleDateString('pt-BR'),
-                  mensagem: formDoc.data().mensagem,
-                  respostas: [],
-                };
-              });
+        const listaFormularios = [];
 
-              setFormularios(listaFormularios);
+        for (const userDoc of usersSnapshot.docs) {
+          if (userDoc.id === idGoogle) {
+            const formulariosCollection = userDoc.ref.collection('formularios');
+            const formulariosSnapshot = await formulariosCollection.get();
+
+            formulariosSnapshot.docs.forEach((formDoc) => {
+              listaFormularios.push({
+                usuarioId: userDoc.id,
+                formId: formDoc.id,
+                nomeCompletoGoogle: userDoc.data().nomeCompletoGoogle,
+                assunto: formDoc.data().assunto,
+                data: formDoc.data().data.toDate().toLocaleDateString('pt-BR'),
+                mensagem: formDoc.data().mensagem,
+                respostas: [],
+              });
             });
           } else {
-            const listeners = usersSnapshot.docs.map((userDoc) => {
-              const user = userDoc.data();
-              const formulariosCollection = userDoc.ref.collection('formularios');
+            const formulariosCollection = userDoc.ref.collection('formularios');
+            const formulariosSnapshot = await formulariosCollection.get();
 
-              return formulariosCollection.onSnapshot((formulariosSnapshot) => {
-                const listaFormularios = formulariosSnapshot.docs.map((formDoc) => {
-                  return {
-                    usuarioId: userDoc.id,
-                    formId: formDoc.id,
-                    nomeCompletoGoogle: userDoc.data().nomeCompletoGoogle,
-                    assunto: formDoc.data().assunto,
-                    data: formDoc.data().data.toDate().toLocaleDateString('pt-BR'),
-                    mensagem: formDoc.data().mensagem,
-                    respostas: [],
-                  };
-                });
-
-                setFormularios((prevFormularios) => {
-                  const updatedFormularios = prevFormularios.filter(
-                    (prevForm) => prevForm.usuarioId !== userDoc.id
-                  );
-
-                  return [...updatedFormularios, ...listaFormularios];
-                });
+            formulariosSnapshot.docs.forEach((formDoc) => {
+              listaFormularios.push({
+                usuarioId: userDoc.id,
+                formId: formDoc.id,
+                nomeCompletoGoogle: userDoc.data().nomeCompletoGoogle,
+                assunto: formDoc.data().assunto,
+                data: formDoc.data().data.toDate().toLocaleDateString('pt-BR'),
+                mensagem: formDoc.data().mensagem,
+                respostas: [],
               });
             });
           }
+        }
 
-          return null;
-        });
-
-        return () => {
-          listeners.forEach((listener) => {
-            listener();
-          });
-        };
+        setFormularios(listaFormularios);
       } catch (error) {
         console.error('Erro ao carregar formulários:', error);
       }
     };
 
     carregarFormularios();
-  }, [idGoogle, resposta]);
+  }, []);
 
   useEffect(() => {
     const carregarRespostasExpandidas = async () => {
@@ -196,8 +185,12 @@ function Formularios() {
     }
   };
 
-  const toggleExpand = (formId) => {
-    setExpandedForm((prevForm) => (prevForm === formId ? null : formId));
+  const toggleExpand = (formulario) => {
+    if (expandedForm && expandedForm.formId === formulario.formId) {
+      closeExpandedForm();
+    } else {
+      handleExpandForm(formulario);
+    }
   };
 
   const deleteForm = (formulario) => {
@@ -227,7 +220,7 @@ function Formularios() {
         )
       );
 
-      setExpandedForm(null);
+      closeExpandedForm();
       setConfirmDelete(false);
       setFormToDelete(null);
     } catch (error) {
@@ -236,15 +229,14 @@ function Formularios() {
   };
 
   return (
-    <div className='pageContentForms'>
+    <div>
       {expandedForm ? (
         <>
           {renderExpandedForm(expandedForm)}
         </>
       ) : (
         <ul>
-          <h2 className='tituloPageMenu'>MENSAGENS</h2>
-          <div className='contentPageDetForm'>
+          <div className='pageContentForms'>
             {formularios.map((formulario) => (
               <div className='boxItemForm' key={`${formulario.usuarioId}-${formulario.formId}`}>
                 <p>{formulario.nomeCompletoGoogle}</p>
@@ -260,10 +252,12 @@ function Formularios() {
       )}
 
       {confirmDelete && formToDelete && (
-        <div>
+        <div className='excluirForm'>
           <p>Tem certeza que deseja excluir este formulário?</p>
-          <button onClick={confirmDeleteForm}>Sim</button>
-          <button onClick={() => { setConfirmDelete(false); setFormToDelete(null); }}>Não</button>
+          <div className='buttonsExcluir'>
+            <button onClick={confirmDeleteForm}>Sim</button>
+            <button onClick={() => { setConfirmDelete(false); setFormToDelete(null); }}>Não</button>
+          </div>
         </div>
       )}
     </div>

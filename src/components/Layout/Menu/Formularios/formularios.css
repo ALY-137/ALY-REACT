@@ -1,60 +1,42 @@
 .pageContentForms {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    min-width: 100%;
-    min-height: 100dvh; /* Altura mínima igual à altura da viewport */
-    width: 100%;
-    background-color: rgb(0, 0, 0);
-    box-sizing: border-box; /* Inclui padding e border no tamanho total da div */
-    overflow-x: hidden; /* Impede a rolagem horizontal */
-    margin-top: 35px;
-
-}
-
-.contentPageDetForm {
+    position: absolute;
+    left: 0px;
+    bottom: 28px;
+    top:0px;
+    right:0px;
+    margin-top: 40px;
+    overflow-y: auto;
     text-align: left;
-    background-color: rgb(0, 0, 0);
-    width: 100%; /* Ajusta para ocupar toda a largura disponível */
-    max-width: calc(100% - 0px); /* Largura máxima para respeitar as margens da página */
-    max-height: calc(100dvh - 140px); /* Altura máxima para a página menos margens e outros elementos */
-    overflow-y: auto; /* Permite rolagem vertical quando necessário */
-    padding: 0px; /* Adiciona padding interno */
-    box-sizing: border-box;
-    border-radius: 5px; /* Bordas arredondadas */
-    min-width: calc(100% - 0px);
-    word-wrap: break-word; /* Quebra o texto quando atinge o limite da div */
-    word-break: break-word; /* Quebra as palavras longas */
+    margin-left: 10px;
+
+}
+.contentPageDetForm{
+    position: absolute;
+    left: 0px;
+    bottom: 28px;
+    top:0px;
+    right:0px;
+    margin-top: 40px;
+}
+.contentChat {
+    height: calc(100% - 80px);
+    overflow-y: auto;
+    text-align: left;
+    margin-left: 10px;
+    margin-bottom: 0px;
 }
 
-@media (min-width: 768px) {
-    .contentPageDetForm {
-        min-height: calc(100dvh - 140px); 
-        min-width: calc(100%);
-        max-width: calc(100%);
-        max-height: calc(100dvh - 140px); /* Subtrai a altura da .boxResposta */
-    }
-}
-
-@media (max-width: 1000px) {
-    .contentPageDetForm {
-        min-height: calc(100dvh - 140px); 
-        min-width: calc(100%);
-        max-width: calc(100%);
-        max-height: calc(100dvh - 140px); /* Subtrai a altura da .boxResposta */
-    }
-}
 
 .boxResposta {
-    position: relative;
+    position: absolute;
     bottom: 0; /* Alinha a div ao fundo da viewport */
     width: 100%;
     display: flex;
     align-items: center;
     height: 80px;
     padding: 10px; /* Adiciona padding interno */
+    box-sizing: border-box;
     margin: 0; /* Remove a margem para garantir alinhamento com o fundo */
-    margin-bottom: 65px;
 }
 
 .iconOpenForm {
@@ -96,4 +78,24 @@
     box-sizing: border-box;
     padding: 5px; /* Padding interno para texto */
     margin-right: 10px;
+}
+
+.excluirForm{
+    background-color: #000000;
+    left: 0px;
+    bottom: 0px;
+    top:0px;
+    right:0px;
+    position: absolute;
+    display: flex;
+    flex-direction: column; /* Organiza os itens em coluna */
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    z-index: 50;
+}
+.buttonsExcluir{
+width: 100%;
+display: block;
+
 }
