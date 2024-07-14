@@ -33,7 +33,7 @@
     width: 100%;
     display: flex;
     align-items: center;
-    height: 80px;
+    height: 120px;
     padding: 10px; /* Adiciona padding interno */
     box-sizing: border-box;
     margin: 0; /* Remove a margem para garantir alinhamento com o fundo */
