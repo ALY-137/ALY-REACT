@@ -19,7 +19,7 @@
     margin-top: 40px;
 }
 .contentChat {
-    height: calc(100% - 85px);
+    height: calc(100% - 8px);
     overflow-y: auto;
     overflow-x: hidden;
     text-align: left;
@@ -39,7 +39,7 @@
     height: 80px;
     padding: 10px; /* Adiciona padding interno */
     box-sizing: border-box;
-    margin-bottom: 0px; /* Remove a margem para garantir alinhamento com o fundo */
+    margin-bottom: 10px; /* Remove a margem para garantir alinhamento com o fundo */
 }
 
 .iconOpenForm {
