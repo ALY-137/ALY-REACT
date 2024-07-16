@@ -21,9 +21,11 @@
 .contentChat {
     height: calc(100% - 80px);
     overflow-y: auto;
+    overflow-x: hidden;
     text-align: left;
     margin-left: 10px;
     margin-bottom: 0px;
+    word-wrap: break-word;
 }
 
 
@@ -33,10 +35,10 @@
     width: 100%;
     display: flex;
     align-items: center;
-    height: 120px;
+    height: 80px;
     padding: 10px; /* Adiciona padding interno */
     box-sizing: border-box;
-    margin: 0; /* Remove a margem para garantir alinhamento com o fundo */
+    margin-bottom: 15px; /* Remove a margem para garantir alinhamento com o fundo */
 }
 
 .iconOpenForm {

@@ -184,7 +184,7 @@
   margin-top: 0px;
   overflow-x: hidden;
   background-image: url(../public/backConteudo.png);
-  height: 100vh;
+  height: 100dvh;
 }
 
 
@@ -860,7 +860,7 @@ body{
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 100vh;
+  height: 100dvh;
 }
 
 #logoTxt{
