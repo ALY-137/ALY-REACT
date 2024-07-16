@@ -19,10 +19,7 @@ function Login(){
             
             />
 
-
         </div>
-
-
     )
 }
 

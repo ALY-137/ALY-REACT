@@ -19,13 +19,14 @@
     margin-top: 40px;
 }
 .contentChat {
-    height: calc(100% - 80px);
+    height: calc(100% - 85px);
     overflow-y: auto;
     overflow-x: hidden;
     text-align: left;
     margin-left: 10px;
     margin-bottom: 0px;
     word-wrap: break-word;
+    margin-top: 5px;
 }
 
 
@@ -38,7 +39,7 @@
     height: 80px;
     padding: 10px; /* Adiciona padding interno */
     box-sizing: border-box;
-    margin-bottom: 15px; /* Remove a margem para garantir alinhamento com o fundo */
+    margin-bottom: 0px; /* Remove a margem para garantir alinhamento com o fundo */
 }
 
 .iconOpenForm {
@@ -80,6 +81,7 @@
     box-sizing: border-box;
     padding: 5px; /* Padding interno para texto */
     margin-right: 10px;
+
 }
 
 .excluirForm{

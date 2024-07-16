@@ -11,7 +11,7 @@ function Menu() {
     const [showForms, setShowForms] = useState(false);
     const [showUsers, setShowUsers] = useState(false);
     const [showMyForms, setShowMyForms] = useState(false);
-    const [backText, setBackText] = useState("SAIR");
+    const [backText, setBackText] = useState("VOLTAR");
     const [atualTxt, setAtualTxt] = useState("MENU");
     const [backAction, setBackAction] = useState(() => closeMenu);
     const [expandedForm, setExpandedForm] = useState(null);
@@ -42,7 +42,7 @@ function Menu() {
 
     function closeForms() {
         setShowForms(false);
-        setBackText("SAIR");
+        setBackText("VOLTAR");
         setAtualTxt("MENU");
         setBackAction(() => closeMenu);
     }
@@ -58,7 +58,7 @@ function Menu() {
 
     function closeUsers() {
         setShowUsers(false);
-        setBackText("SAIR");
+        setBackText("VOLTAR");
         setAtualTxt("MENU");
         setBackAction(() => closeMenu);
     }
@@ -74,7 +74,7 @@ function Menu() {
 
     function closeMyForms() {
         setShowMyForms(false);
-        setBackText("SAIR");
+        setBackText("VOLTAR");
         setAtualTxt("MENU");
         setBackAction(() => closeMenu);
     }

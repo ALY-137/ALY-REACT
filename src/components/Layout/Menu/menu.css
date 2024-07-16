@@ -16,28 +16,31 @@
 }
 
 .headMenu {
-    margin: 5px;
+    margin: 0px;
     display: flex;
     align-items: center; /* Alinha verticalmente no centro */
     width: 100%; /* Garante que ocupe a largura total disponível */
     position: fixed; /* Fixa a div no topo */
     top: 0; /* Posiciona no topo */
-    padding: 0px; /* Adiciona padding para espaçamento interno */
+    padding: 5px; /* Adiciona padding para espaçamento interno */
     z-index: 40; /* Z-index para sobrepor outros elementos */
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* Adiciona sombra para destaque */
+    background-color: rgba(255, 255, 255, 0.123);
+    
 }
 
 .back {
+    text-align: center;
     cursor: pointer;
     text-decoration: none;
     margin-left: 10px;
     color: inherit;
-    font-size: 14px;
+    font-size: 16px;
     z-index: 37; /* Z-index padrão para botões de voltar */
     flex: 0 1 auto; /* Flexbox item que ocupa espaço conforme necessário */
 }
 
 .pageAtual {
+    font-weight: bold;
     flex: 1 1 auto; /* Flexbox item que ocupa o espaço restante */
     text-align: center; /* Centraliza o texto */
     font-size: 24px; /* Ajusta o tamanho da fonte conforme necessário */
@@ -71,7 +74,7 @@
 
 .gavetaOption {
     position: relative;
-    padding: 15px; /* Aumenta o padding para melhor legibilidade */
+    padding: 5px; /* Aumenta o padding para melhor legibilidade */
     margin: 5px 0; /* Adiciona margem entre os itens */
 
     border-radius: 5px; /* Bordas arredondadas */
@@ -97,7 +100,8 @@
 
 .gavetaOption.highlight,
 .gavetaOption:hover {
-    font-size: 1.2em;
+    font-size: 1.7em;
+    font-weight: bold;
 }
 
 .gavetaOption.highlight::before,

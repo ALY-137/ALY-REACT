@@ -9,11 +9,8 @@ export const firebaseConfig = {
     messagingSenderId: "99960275074",
     appId: "1:99960275074:web:e2923f7e34a0c0c18c749b"
   };
-  
 
 export const db = firebase.initializeApp(firebaseConfig);
-
-  
 
 export const fazerContato = async (valor, assunto, mensagem) => {
   try {
