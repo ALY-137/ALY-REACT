@@ -13,6 +13,7 @@
     padding: 20px; /* Adiciona padding para espaçamento interno */
     margin: 0; /* Remove margin */
     overflow-y: hidden;
+    overflow-x: hidden;
 }
 
 .headMenu {
@@ -24,7 +25,7 @@
     top: 0; /* Posiciona no topo */
     padding: 5px; /* Adiciona padding para espaçamento interno */
     z-index: 40; /* Z-index para sobrepor outros elementos */
-    background-color: rgba(255, 255, 255, 0.123);
+    background-color: rgba(255, 255, 255, 0.075);
     
 }
 
