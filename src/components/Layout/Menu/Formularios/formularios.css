@@ -52,10 +52,9 @@
     gap: 10px; /* Espaçamento entre os botões */
 }
 
-.buttonEnviarResp,
-.buttonExcluirForm {
-    width: 25px; /* Aumenta a largura para melhor legibilidade */
-    height: 25px; /* Aumenta a altura para melhor legibilidade */
+.buttonEnviarResp{
+    width: 30px;
+    height: 60px;
     background-color: rgba(255, 255, 255, 0.582);
     color: #000000; /* Cor do texto para contraste */
     font-size: 16px; /* Aumenta o tamanho da fonte */
@@ -65,6 +64,22 @@
     border-radius: 5px; /* Bordas arredondadas */
     cursor: pointer;
     transition: background-color 0.2s ease;
+}
+
+.buttonExcluirForm {
+    width: 90px;
+
+    height: 25px; /* Aumenta a altura para melhor legibilidade */
+    background-color: rgba(255, 255, 255, 0.582);
+    color: #000000; /* Cor do texto para contraste */
+    font-size: 12px; /* Aumenta o tamanho da fonte */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 5px; /* Bordas arredondadas */
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    margin-top: 10px;
 }
 
 .buttonEnviarResp:hover,

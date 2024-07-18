@@ -40,8 +40,10 @@ function Formularios({ setBackText, setAtualTxt, closeForms, handleExpandForm, e
     return (
       <div className='contentPageDetForm'>
         <div className='contentChat'>
-          <p>{formulario.nomeCompletoGoogle}</p>
-          <p><strong>ID:</strong> {formulario.usuarioId}</p>
+          <div className='buttonExcluirForm' onClick={() => deleteForm(formulario)}>
+            🗑 EXCLUIR 
+          </div>
+
           <p><strong>Mensagem:</strong> {formulario.mensagem}</p>
           <p><strong>Discussões:</strong></p>
           <ul>
@@ -71,9 +73,7 @@ function Formularios({ setBackText, setAtualTxt, closeForms, handleExpandForm, e
             <div className='buttonEnviarResp' onClick={() => enviarResposta(formulario.usuarioId, formulario.formId)}>
               ✔
             </div>
-            <div className='buttonExcluirForm' onClick={() => deleteForm(formulario)}>
-              🗑
-            </div>
+        
           </div>
         </div>
       </div>
@@ -240,8 +240,10 @@ function Formularios({ setBackText, setAtualTxt, closeForms, handleExpandForm, e
             {formularios.map((formulario) => (
               <div className='boxItemForm' key={`${formulario.usuarioId}-${formulario.formId}`}>
                 <p>{formulario.nomeCompletoGoogle}</p>
+                <p><strong>ID:</strong> {formulario.usuarioId}</p>
                 <p><strong>Assunto:</strong> {formulario.assunto}</p>
                 <p><strong>Data de envio:</strong> {formulario.data}</p>
+                
                 <div className='iconOpenForm' onClick={() => toggleExpand(formulario)}>
                   <p><strong> 🗨 CHAT </strong></p>
                 </div>
