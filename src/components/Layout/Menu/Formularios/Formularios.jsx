@@ -37,6 +37,15 @@ function Formularios({ setBackText, setAtualTxt, closeForms, handleExpandForm, e
     setBackText("MENSAGENS");
     setAtualTxt(formulario.nomeCompletoGoogle);
 
+    const respostasAgrupadas = expandedFormRespostas.reduce((acc, resposta) => {
+      const dataResposta = resposta.data.toLocaleDateString('pt-BR');
+      if (!acc[dataResposta]) {
+        acc[dataResposta] = [];
+      }
+      acc[dataResposta].push(resposta);
+      return acc;
+    }, {});
+
     return (
       <div className='contentPageDetForm'>
         <div className='contentChat'>
@@ -47,11 +56,16 @@ function Formularios({ setBackText, setAtualTxt, closeForms, handleExpandForm, e
           <p><strong>Mensagem:</strong> {formulario.mensagem}</p>
           <p><strong>Discussões:</strong></p>
           <ul>
-            {expandedFormRespostas.map((resposta, index) => (
-              <li key={index}>
-                {resposta.nomeGoogle} <br />
-                {resposta.resposta} - {resposta.data.toLocaleDateString('pt-BR')} {resposta.data.toLocaleTimeString('pt-BR')}
-              </li>
+            {Object.keys(respostasAgrupadas).map((data) => (
+              <React.Fragment key={data}>
+                <li className='dataResposta'><strong>{data}</strong></li>
+                {respostasAgrupadas[data].map((resposta, index) => (
+                  <li key={index}>
+                    {resposta.nomeGoogle} <br />
+                    {resposta.resposta} - {resposta.data.toLocaleTimeString('pt-BR')}
+                  </li>
+                ))}
+              </React.Fragment>
             ))}
           </ul>
         </div>
@@ -73,7 +87,6 @@ function Formularios({ setBackText, setAtualTxt, closeForms, handleExpandForm, e
             <div className='buttonEnviarResp' onClick={() => enviarResposta(formulario.usuarioId, formulario.formId)}>
               ✔
             </div>
-        
           </div>
         </div>
       </div>

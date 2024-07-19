@@ -119,3 +119,19 @@ width: 100%;
 display: block;
 
 }
+
+ul {
+    list-style-type: none; /* Remove os pontos */
+    padding-left: 0; /* Remove o espaçamento à esquerda */
+  }
+  
+  li {
+    margin: 0; /* Remove a margem padrão dos itens da lista, se necessário */
+    padding: 0; /* Remove o preenchimento padrão dos itens da lista, se necessário */
+  }
+
+  .dataResposta{
+
+    font-size: 11px;
+    text-align: center;
+  }
