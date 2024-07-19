@@ -20,13 +20,13 @@ function Formularios({ setBackText, setAtualTxt, closeForms, handleExpandForm, e
       .doc(formId)
       .collection('respostas');
 
-    const respostasSnapshot = await respostasCollection.get();
+    const respostasSnapshot = await respostasCollection.orderBy('data').get();
 
     return respostasSnapshot.docs.map((respostaDoc) => ({
       nomeGoogle: respostaDoc.data().nomeGoogle,
       resposta: respostaDoc.data().resposta,
-      data: respostaDoc.data().data.toDate(), // Certificar que é um objeto Date
-    })).sort((a, b) => a.data - b.data); // Ordenar em ordem crescente por data e hora
+      data: respostaDoc.data().data.toDate(),
+    }));
   };
 
   const renderExpandedForm = (formulario) => {
@@ -37,37 +37,34 @@ function Formularios({ setBackText, setAtualTxt, closeForms, handleExpandForm, e
     setBackText("MENSAGENS");
     setAtualTxt(formulario.nomeCompletoGoogle);
 
-    const respostasAgrupadas = expandedFormRespostas.reduce((acc, resposta) => {
-      const dataResposta = resposta.data.toLocaleDateString('pt-BR');
-      if (!acc[dataResposta]) {
-        acc[dataResposta] = [];
-      }
-      acc[dataResposta].push(resposta);
-      return acc;
-    }, {});
-
     return (
       <div className='contentPageDetForm'>
         <div className='contentChat'>
           <div className='buttonExcluirForm' onClick={() => deleteForm(formulario)}>
-            🗑 EXCLUIR 
+            🗑 EXCLUIR
           </div>
 
           <p><strong>Mensagem:</strong> {formulario.mensagem}</p>
           <p><strong>Discussões:</strong></p>
-          <ul>
-            {Object.keys(respostasAgrupadas).map((data) => (
-              <React.Fragment key={data}>
-                <li className='dataResposta'><strong>{data}</strong></li>
-                {respostasAgrupadas[data].map((resposta, index) => (
-                  <li key={index}>
-                    {resposta.nomeGoogle} <br />
-                    {resposta.resposta} - {resposta.data.toLocaleTimeString('pt-BR')}
-                  </li>
-                ))}
-              </React.Fragment>
+          <div>
+            {expandedFormRespostas.map((resposta, index) => (
+
+              <div className='chat-container'>
+                <div className='dataResposta'>
+                  {index === 0 || expandedFormRespostas[index - 1].data.toDateString() !== resposta.data.toDateString() 
+                    ? resposta.data.toLocaleDateString('pt-BR') 
+                    : ''}
+                </div>
+                <div key={index} className={`resposta-item ${resposta.nomeGoogle === nomeCompleto ? 'resposta-enviada' : 'resposta-recebida'}`}>
+                
+                <div className='resposta-texto'>{resposta.resposta}</div>
+              </div>
+
+
+              </div>
+              
             ))}
-          </ul>
+          </div>
         </div>
 
         <div className='boxResposta'>
@@ -103,7 +100,7 @@ function Formularios({ setBackText, setAtualTxt, closeForms, handleExpandForm, e
 
         for (const userDoc of usersSnapshot.docs) {
           const formulariosCollection = userDoc.ref.collection('formularios');
-          const formulariosSnapshot = await formulariosCollection.get();
+          const formulariosSnapshot = await formulariosCollection.orderBy('data', 'desc').get();
 
           formulariosSnapshot.docs.forEach((formDoc) => {
             listaFormularios.push({
@@ -111,15 +108,12 @@ function Formularios({ setBackText, setAtualTxt, closeForms, handleExpandForm, e
               formId: formDoc.id,
               nomeCompletoGoogle: userDoc.data().nomeCompletoGoogle,
               assunto: formDoc.data().assunto,
-              data: formDoc.data().data.toDate(), // Certificar que é um objeto Date
+              data: formDoc.data().data.toDate(),
               mensagem: formDoc.data().mensagem,
               respostas: [],
-              ultimaResposta: formDoc.data().ultimaResposta ? formDoc.data().ultimaResposta.toDate() : null,
             });
           });
         }
-
-        listaFormularios.sort((a, b) => (b.ultimaResposta || b.data) - (a.ultimaResposta || a.data)); // Ordenar por última resposta ou data do formulário
 
         setFormularios(listaFormularios);
       } catch (error) {
@@ -154,34 +148,28 @@ function Formularios({ setBackText, setAtualTxt, closeForms, handleExpandForm, e
       const idGoogleValue = idGoogle;
       const nomeGoogleValue = nomeCompleto;
 
-      const novaRespostaData = new Date();
-
       await respostasCollection.add({
         resposta: resposta,
-        data: novaRespostaData,
+        data: new Date(),
         idGoogle: idGoogleValue,
         nomeGoogle: nomeGoogleValue,
       });
 
       const novaResposta = {
         resposta: resposta,
-        data: novaRespostaData,
+        data: new Date(),
         idGoogle: idGoogleValue,
         nomeGoogle: nomeGoogleValue,
       };
 
-      await formDoc.ref.update({ ultimaResposta: novaRespostaData });
-
-      setExpandedFormRespostas((prevRespostas) => [...prevRespostas, novaResposta].sort((a, b) => a.data - b.data));
+      setExpandedFormRespostas((prevRespostas) => [...prevRespostas, novaResposta]);
 
       setFormularios((prevFormularios) =>
-        prevFormularios
-          .map((formulario) =>
-            formulario.usuarioId === usuarioId && formulario.formId === formId
-              ? { ...formulario, respostas: [...formulario.respostas, novaResposta].sort((a, b) => a.data - b.data), ultimaResposta: novaRespostaData }
-              : formulario
-          )
-          .sort((a, b) => (b.ultimaResposta || b.data) - (a.ultimaResposta || a.data))
+        prevFormularios.map((formulario) =>
+          formulario.usuarioId === usuarioId && formulario.formId === formId
+            ? { ...formulario, respostas: [...formulario.respostas, novaResposta] }
+            : formulario
+        )
       );
 
       setResposta('');
@@ -247,8 +235,7 @@ function Formularios({ setBackText, setAtualTxt, closeForms, handleExpandForm, e
                 <p>{formulario.nomeCompletoGoogle}</p>
                 <p><strong>ID:</strong> {formulario.usuarioId}</p>
                 <p><strong>Assunto:</strong> {formulario.assunto}</p>
-                <p><strong>Data de envio:</strong> {formulario.data.toLocaleDateString('pt-BR')} {formulario.data.toLocaleTimeString('pt-BR')}</p>
-                
+                <p><strong>Data de envio:</strong> {formulario.data.toLocaleDateString('pt-BR')}</p>
                 <div className='iconOpenForm' onClick={() => toggleExpand(formulario)}>
                   <p><strong> 🗨 CHAT </strong></p>
                 </div>

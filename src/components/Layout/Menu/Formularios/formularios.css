@@ -1,35 +1,35 @@
 .pageContentForms {
     position: absolute;
-    left: 0px;
+    left: 0;
     bottom: 28px;
-    top:0px;
-    right:0px;
+    top: 0;
+    right: 0;
     margin-top: 40px;
     overflow-y: auto;
     text-align: left;
     margin-left: 10px;
     overflow-x: hidden;
-
 }
-.contentPageDetForm{
+
+.contentPageDetForm {
     position: absolute;
-    left: 0px;
+    left: 0;
     bottom: 28px;
-    top:0px;
-    right:0px;
+    top: 0;
+    right: 0;
     margin-top: 40px;
 }
+
 .contentChat {
     height: calc(100% - 100px);
     overflow-y: auto;
     overflow-x: hidden;
     text-align: left;
     margin-left: 10px;
-    margin-bottom: 0px;
+    margin-bottom: 0;
     word-wrap: break-word;
     margin-top: 5px;
 }
-
 
 .boxResposta {
     position: absolute;
@@ -52,7 +52,7 @@
     gap: 10px; /* Espaçamento entre os botões */
 }
 
-.buttonEnviarResp{
+.buttonEnviarResp {
     width: 30px;
     height: 60px;
     background-color: rgba(255, 255, 255, 0.582);
@@ -79,7 +79,6 @@
     cursor: pointer;
     transition: background-color 0.2s ease;
     margin-top: 10px;
-
 }
 
 .buttonEnviarResp:hover,
@@ -97,15 +96,14 @@
     box-sizing: border-box;
     padding: 5px; /* Padding interno para texto */
     margin-right: 10px;
-
 }
 
-.excluirForm{
+.excluirForm {
     background-color: #000000;
-    left: 0px;
-    bottom: 0px;
-    top:0px;
-    right:0px;
+    left: 0;
+    bottom: 0;
+    top: 0;
+    right: 0;
     position: absolute;
     display: flex;
     flex-direction: column; /* Organiza os itens em coluna */
@@ -114,24 +112,64 @@
     text-align: center;
     z-index: 50;
 }
-.buttonsExcluir{
-width: 100%;
-display: block;
 
+.buttonsExcluir {
+    width: 100%;
+    display: block;
 }
 
 ul {
     list-style-type: none; /* Remove os pontos */
     padding-left: 0; /* Remove o espaçamento à esquerda */
-  }
-  
-  li {
+}
+
+li {
     margin: 0; /* Remove a margem padrão dos itens da lista, se necessário */
     padding: 0; /* Remove o preenchimento padrão dos itens da lista, se necessário */
-  }
+}
 
-  .dataResposta{
-
+.dataResposta {
     font-size: 11px;
-    text-align: center;
-  }
+    text-align: center; /* Centraliza o texto da data */
+    margin-bottom: 5px; /* Espaçamento abaixo da data */
+    margin-right: 5px;
+    border-radius: 5px;
+}
+
+.resposta-item {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 5px; /* Espaçamento entre as respostas */
+    align-items: center; /* Alinha o item no centro do contêiner */
+}
+
+.resposta-enviada {
+    text-align: right; /* Alinha o texto à direita */
+    margin-right: 5px; /* Adiciona margem entre as respostas */
+    align-self: flex-end; /* Alinha o item à direita do contêiner */
+    border-radius: 5px;
+    padding: 5px;
+    max-width: 80%;
+    word-wrap: break-word;
+    word-break: break-all;
+    background-color: rgba(255, 255, 255, 0.062);
+}
+
+.resposta-recebida {
+    text-align: left; /* Alinha o texto à esquerda */
+    margin: 5px 0; /* Adiciona margem entre as respostas */
+    align-self: flex-start; /* Alinha o item à esquerda do contêiner */
+    border-radius: 5px;
+    padding: 5px;
+    max-width: 80%;
+    word-wrap: break-word;
+    word-break: break-all;
+    background-color: rgba(255, 255, 255, 0.062);
+}
+
+/* Adiciona estilo para garantir que as respostas fiquem alinhadas corretamente */
+.chat-container {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+}
