@@ -25,8 +25,8 @@ function Formularios({ setBackText, setAtualTxt, closeForms, handleExpandForm, e
     return respostasSnapshot.docs.map((respostaDoc) => ({
       nomeGoogle: respostaDoc.data().nomeGoogle,
       resposta: respostaDoc.data().resposta,
-      data: respostaDoc.data().data.toDate().toLocaleDateString('pt-BR'),
-    }));
+      data: respostaDoc.data().data.toDate(), // Certificar que é um objeto Date
+    })).sort((a, b) => a.data - b.data); // Ordenar em ordem crescente por data e hora
   };
 
   const renderExpandedForm = (formulario) => {
@@ -50,7 +50,7 @@ function Formularios({ setBackText, setAtualTxt, closeForms, handleExpandForm, e
             {expandedFormRespostas.map((resposta, index) => (
               <li key={index}>
                 {resposta.nomeGoogle} <br />
-                {resposta.resposta} - {resposta.data}
+                {resposta.resposta} - {resposta.data.toLocaleDateString('pt-BR')} {resposta.data.toLocaleTimeString('pt-BR')}
               </li>
             ))}
           </ul>
@@ -89,38 +89,24 @@ function Formularios({ setBackText, setAtualTxt, closeForms, handleExpandForm, e
         const listaFormularios = [];
 
         for (const userDoc of usersSnapshot.docs) {
-          if (userDoc.id === idGoogle) {
-            const formulariosCollection = userDoc.ref.collection('formularios');
-            const formulariosSnapshot = await formulariosCollection.get();
+          const formulariosCollection = userDoc.ref.collection('formularios');
+          const formulariosSnapshot = await formulariosCollection.get();
 
-            formulariosSnapshot.docs.forEach((formDoc) => {
-              listaFormularios.push({
-                usuarioId: userDoc.id,
-                formId: formDoc.id,
-                nomeCompletoGoogle: userDoc.data().nomeCompletoGoogle,
-                assunto: formDoc.data().assunto,
-                data: formDoc.data().data.toDate().toLocaleDateString('pt-BR'),
-                mensagem: formDoc.data().mensagem,
-                respostas: [],
-              });
+          formulariosSnapshot.docs.forEach((formDoc) => {
+            listaFormularios.push({
+              usuarioId: userDoc.id,
+              formId: formDoc.id,
+              nomeCompletoGoogle: userDoc.data().nomeCompletoGoogle,
+              assunto: formDoc.data().assunto,
+              data: formDoc.data().data.toDate(), // Certificar que é um objeto Date
+              mensagem: formDoc.data().mensagem,
+              respostas: [],
+              ultimaResposta: formDoc.data().ultimaResposta ? formDoc.data().ultimaResposta.toDate() : null,
             });
-          } else {
-            const formulariosCollection = userDoc.ref.collection('formularios');
-            const formulariosSnapshot = await formulariosCollection.get();
-
-            formulariosSnapshot.docs.forEach((formDoc) => {
-              listaFormularios.push({
-                usuarioId: userDoc.id,
-                formId: formDoc.id,
-                nomeCompletoGoogle: userDoc.data().nomeCompletoGoogle,
-                assunto: formDoc.data().assunto,
-                data: formDoc.data().data.toDate().toLocaleDateString('pt-BR'),
-                mensagem: formDoc.data().mensagem,
-                respostas: [],
-              });
-            });
-          }
+          });
         }
+
+        listaFormularios.sort((a, b) => (b.ultimaResposta || b.data) - (a.ultimaResposta || a.data)); // Ordenar por última resposta ou data do formulário
 
         setFormularios(listaFormularios);
       } catch (error) {
@@ -155,28 +141,34 @@ function Formularios({ setBackText, setAtualTxt, closeForms, handleExpandForm, e
       const idGoogleValue = idGoogle;
       const nomeGoogleValue = nomeCompleto;
 
+      const novaRespostaData = new Date();
+
       await respostasCollection.add({
         resposta: resposta,
-        data: new Date(),
+        data: novaRespostaData,
         idGoogle: idGoogleValue,
         nomeGoogle: nomeGoogleValue,
       });
 
       const novaResposta = {
         resposta: resposta,
-        data: new Date().toLocaleDateString('pt-BR'),
+        data: novaRespostaData,
         idGoogle: idGoogleValue,
         nomeGoogle: nomeGoogleValue,
       };
 
-      setExpandedFormRespostas((prevRespostas) => [...prevRespostas, novaResposta]);
+      await formDoc.ref.update({ ultimaResposta: novaRespostaData });
+
+      setExpandedFormRespostas((prevRespostas) => [...prevRespostas, novaResposta].sort((a, b) => a.data - b.data));
 
       setFormularios((prevFormularios) =>
-        prevFormularios.map((formulario) =>
-          formulario.usuarioId === usuarioId && formulario.formId === formId
-            ? { ...formulario, respostas: [...formulario.respostas, novaResposta] }
-            : formulario
-        )
+        prevFormularios
+          .map((formulario) =>
+            formulario.usuarioId === usuarioId && formulario.formId === formId
+              ? { ...formulario, respostas: [...formulario.respostas, novaResposta].sort((a, b) => a.data - b.data), ultimaResposta: novaRespostaData }
+              : formulario
+          )
+          .sort((a, b) => (b.ultimaResposta || b.data) - (a.ultimaResposta || a.data))
       );
 
       setResposta('');
@@ -242,7 +234,7 @@ function Formularios({ setBackText, setAtualTxt, closeForms, handleExpandForm, e
                 <p>{formulario.nomeCompletoGoogle}</p>
                 <p><strong>ID:</strong> {formulario.usuarioId}</p>
                 <p><strong>Assunto:</strong> {formulario.assunto}</p>
-                <p><strong>Data de envio:</strong> {formulario.data}</p>
+                <p><strong>Data de envio:</strong> {formulario.data.toLocaleDateString('pt-BR')} {formulario.data.toLocaleTimeString('pt-BR')}</p>
                 
                 <div className='iconOpenForm' onClick={() => toggleExpand(formulario)}>
                   <p><strong> 🗨 CHAT </strong></p>

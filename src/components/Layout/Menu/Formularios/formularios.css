@@ -68,7 +68,6 @@
 
 .buttonExcluirForm {
     width: 90px;
-
     height: 25px; /* Aumenta a altura para melhor legibilidade */
     background-color: rgba(255, 255, 255, 0.582);
     color: #000000; /* Cor do texto para contraste */
@@ -80,6 +79,7 @@
     cursor: pointer;
     transition: background-color 0.2s ease;
     margin-top: 10px;
+
 }
 
 .buttonEnviarResp:hover,
