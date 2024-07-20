@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import Formularios from "./Formularios/Formularios";
+import ListaFormularios from "./Formularios/ListaFormularios";
+import RespostasFormularios from "./Formularios/RespostasFormularios";
 import MeusFormularios from "./Meus Formularios/MeusFormularios";
 import Users from "./Users/Users";
 import { seforAdm } from "../../Scripts/verificações/verificaAdm";
@@ -151,25 +152,28 @@ function Menu() {
                 </div>
                 {showForms && (
                     <div id='Forms'>
-                        <Formularios 
-                            setBackText={setBackText} 
-                            setAtualTxt={setAtualTxt} 
-                            closeForms={closeForms} 
-                            handleExpandForm={handleExpandForm}
-                            expandedForm={expandedForm}
-                            closeExpandedForm={closeExpandedForm}
-                        />
+                        {!expandedForm ? (
+                            <ListaFormularios 
+                                setBackText={setBackText} 
+                                setAtualTxt={setAtualTxt} 
+                                closeForms={closeForms} 
+                                handleExpandForm={handleExpandForm}
+                            />
+                        ) : (
+                            <RespostasFormularios 
+                                formulario={expandedForm}
+                                closeExpandedForm={closeExpandedForm}
+                            />
+                        )}
                     </div>
                 )}
                 {showUsers && (
                     <div id='Users'>
-
                         <Users />
                     </div>
                 )}
                 {showMyForms && (
                     <div id='Forms'>
-
                         <MeusFormularios />
                     </div>
                 )}
