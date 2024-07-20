@@ -133,9 +133,12 @@ li {
 .dataResposta {
     font-size: 11px;
     text-align: center; /* Centraliza o texto da data */
-    margin-bottom: 5px; /* Espaçamento abaixo da data */
     margin-right: 5px;
     border-radius: 5px;
+    background-color: rgba(255, 255, 255, 0.034);
+    padding: 5px;
+    margin-bottom: 10px;
+    margin-top: 10px;
 }
 
 .resposta-item {
@@ -146,7 +149,6 @@ li {
 }
 
 .resposta-enviada {
-
     align-self: flex-end; /* Alinha o item à direita do contêiner */
     border-radius: 5px;
     max-width: 80%;
@@ -155,7 +157,6 @@ li {
     align-items: flex-end;
     text-align: right; /* Alinha o texto à esquerda */
     margin-right: 10px;
-
 }
 
 .resposta-recebida {
@@ -163,7 +164,6 @@ li {
     max-width: 80%;
     word-wrap: break-word;
     word-break: break-all;
-
 }
 
 /* Adiciona estilo para garantir que as respostas fiquem alinhadas corretamente */
@@ -191,4 +191,6 @@ li {
     padding: 10px;
 }
 
-
+.sem-foto .resposta-texto {
+    margin-left: 35px; /* Compensa a margem quando a foto não é exibida */
+}
