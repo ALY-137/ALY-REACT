@@ -22,10 +22,15 @@ function Formularios({ setBackText, setAtualTxt, closeForms, handleExpandForm, e
 
     const respostasSnapshot = await respostasCollection.orderBy('data').get();
 
+    const usersCollection = firebase.firestore().collection('users');
+    const userDoc = await usersCollection.doc(usuarioId).get();
+    const userData = userDoc.data();
+
     return respostasSnapshot.docs.map((respostaDoc) => ({
       nomeGoogle: respostaDoc.data().nomeGoogle,
       resposta: respostaDoc.data().resposta,
       data: respostaDoc.data().data.toDate(),
+      picGoogle: userData.picGoogle,
     }));
   };
 
@@ -48,21 +53,19 @@ function Formularios({ setBackText, setAtualTxt, closeForms, handleExpandForm, e
           <p><strong>Discussões:</strong></p>
           <div>
             {expandedFormRespostas.map((resposta, index) => (
-
-              <div className='chat-container'>
+              <div className='chat-container' key={index}>
                 <div className='dataResposta'>
                   {index === 0 || expandedFormRespostas[index - 1].data.toDateString() !== resposta.data.toDateString() 
                     ? resposta.data.toLocaleDateString('pt-BR') 
                     : ''}
                 </div>
-                <div key={index} className={`resposta-item ${resposta.nomeGoogle === nomeCompleto ? 'resposta-enviada' : 'resposta-recebida'}`}>
-                
-                <div className='resposta-texto'>{resposta.resposta}</div>
+                <div className={`resposta-item ${resposta.nomeGoogle === nomeCompleto ? 'resposta-enviada' : 'resposta-recebida'}`}>
+                  {resposta.nomeGoogle !== nomeCompleto && (
+                    <img className='fotoUsuario' src={resposta.picGoogle} alt="User" />
+                  )}
+                  <div className='resposta-texto'>{resposta.resposta}</div>
+                </div>
               </div>
-
-
-              </div>
-              
             ))}
           </div>
         </div>
