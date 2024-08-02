@@ -74,19 +74,15 @@ function Formularios({ setBackText, setAtualTxt, closeForms, handleExpandForm, e
           <input
             type="text"
             className='inputResposta'
-            placeholder="Digite sua resposta..."
+            placeholder="Digite sua resposta1..."
             value={resposta}
             onChange={(e) => setResposta(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                enviarResposta(formulario.usuarioId, formulario.formId);
-              }
-            }}
+            
           />
           <div className="buttonWrapper">
-            <div className='buttonEnviarResp' onClick={() => enviarResposta(formulario.usuarioId, formulario.formId)}>
+            <button className='buttonEnviarResp' onClick={() => enviarResposta(formulario.usuarioId, formulario.formId)}>
               ✔
-            </div>
+            </button>
           </div>
         </div>
       </div>
@@ -150,6 +146,8 @@ function Formularios({ setBackText, setAtualTxt, closeForms, handleExpandForm, e
 
       const idGoogleValue = idGoogle;
       const nomeGoogleValue = nomeCompleto;
+
+      console.log('Enviando resposta:', resposta); // Debug log
 
       await respostasCollection.add({
         resposta: resposta,

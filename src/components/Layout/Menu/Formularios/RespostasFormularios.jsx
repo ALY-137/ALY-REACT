@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import firebase from 'firebase/app';
 import 'firebase/firestore';
-import { nomeCompleto } from '../../../../App.jsx';
+import { nomeCompleto, idGoogle } from '../../../../App.jsx';
 import './formularios.css';
 
 function RespostasFormularios({ formulario, closeExpandedForm }) {
   const [resposta, setResposta] = useState('');
   const [expandedFormRespostas, setExpandedFormRespostas] = useState([]);
 
-  const carregarRespostas = async (usuarioId, formId) => {
+  const carregarRespostas = (usuarioId, formId) => {
     const respostasCollection = firebase.firestore()
       .collection('users')
       .doc(usuarioId)
@@ -16,47 +16,51 @@ function RespostasFormularios({ formulario, closeExpandedForm }) {
       .doc(formId)
       .collection('respostas');
 
-    const respostasSnapshot = await respostasCollection.orderBy('data').get();
-    const usersCollection = firebase.firestore().collection('users');
+    return respostasCollection.orderBy('data').onSnapshot(async (snapshot) => {
+      const usersCollection = firebase.firestore().collection('users');
+      const respostasComFotos = await Promise.all(
+        snapshot.docs.map(async (respostaDoc) => {
+          const respostaData = respostaDoc.data();
+          const userDoc = await usersCollection.doc(respostaData.idGoogle).get();
+          const userData = userDoc.data();
 
-    const respostasComFotos = await Promise.all(
-      respostasSnapshot.docs.map(async (respostaDoc) => {
-        const respostaData = respostaDoc.data();
-        const userDoc = await usersCollection.doc(respostaData.idGoogle).get();
-        const userData = userDoc.data();
+          return {
+            ...respostaData,
+            data: respostaData.data.toDate(),
+            picGoogle: userData.picGoogle,
+          };
+        })
+      );
 
-        return {
-          ...respostaData,
-          data: respostaData.data.toDate(),
-          picGoogle: userData.picGoogle,
-        };
-      })
-    );
-
-    return respostasComFotos;
+      setExpandedFormRespostas(respostasComFotos);
+    });
   };
 
   useEffect(() => {
-    const carregarRespostasExpandidas = async () => {
-      if (formulario) {
-        const respostaExpandida = await carregarRespostas(formulario.usuarioId, formulario.formId);
-        setExpandedFormRespostas(respostaExpandida);
+    let unsubscribe;
+    if (formulario) {
+      unsubscribe = carregarRespostas(formulario.usuarioId, formulario.formId);
+    }
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe(); // Para de ouvir quando o componente desmonta ou o formulário muda
       }
     };
-
-    carregarRespostasExpandidas();
   }, [formulario]);
 
   const enviarResposta = async (usuarioId, formId) => {
     try {
+      console.log("Enviando resposta...");
+
       const usersCollection = firebase.firestore().collection('users');
       const userDoc = await usersCollection.doc(usuarioId).get();
       const formulariosCollection = userDoc.ref.collection('formularios');
       const formDoc = await formulariosCollection.doc(formId).get();
       const respostasCollection = formDoc.ref.collection('respostas');
 
-      const idGoogleValue = firebase.auth().currentUser.uid;
-      const nomeGoogleValue = firebase.auth().currentUser.displayName;
+      const idGoogleValue = idGoogle;
+      const nomeGoogleValue = nomeCompleto;
 
       await respostasCollection.add({
         resposta: resposta,
@@ -64,16 +68,6 @@ function RespostasFormularios({ formulario, closeExpandedForm }) {
         idGoogle: idGoogleValue,
         nomeGoogle: nomeGoogleValue,
       });
-
-      const novaResposta = {
-        resposta: resposta,
-        data: new Date(),
-        idGoogle: idGoogleValue,
-        nomeGoogle: nomeGoogleValue,
-        picGoogle: firebase.auth().currentUser.photoURL,
-      };
-
-      setExpandedFormRespostas((prevRespostas) => [...prevRespostas, novaResposta]);
 
       setResposta('');
     } catch (error) {
@@ -84,7 +78,6 @@ function RespostasFormularios({ formulario, closeExpandedForm }) {
   return (
     <div className='contentPageDetForm'>
       <div className='contentChat'>
-       
         <p><strong>Mensagem:</strong> {formulario.mensagem}</p>
   
         <div>
@@ -123,9 +116,9 @@ function RespostasFormularios({ formulario, closeExpandedForm }) {
           }}
         />
         <div className="buttonWrapper">
-          <div className='buttonEnviarResp' onClick={() => enviarResposta(formulario.usuarioId, formulario.formId)}>
+          <button className='buttonEnviarResp' onClick={() => enviarResposta(formulario.usuarioId, formulario.formId)}>
             ✔
-          </div>
+          </button>
         </div>
       </div>
     </div>
