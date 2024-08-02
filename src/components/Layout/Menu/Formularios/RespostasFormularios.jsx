@@ -1,58 +1,52 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import firebase from 'firebase/app';
 import 'firebase/firestore';
-import { nomeCompleto, idGoogle } from '../../../../App.jsx';
+import { nomeCompleto } from '../../../../App.jsx';
 import './formularios.css';
+import { idGoogle } from '../../../../App.jsx';
 
 function RespostasFormularios({ formulario, closeExpandedForm }) {
   const [resposta, setResposta] = useState('');
   const [expandedFormRespostas, setExpandedFormRespostas] = useState([]);
-
-  const carregarRespostas = (usuarioId, formId) => {
-    const respostasCollection = firebase.firestore()
-      .collection('users')
-      .doc(usuarioId)
-      .collection('formularios')
-      .doc(formId)
-      .collection('respostas');
-
-    return respostasCollection.orderBy('data').onSnapshot(async (snapshot) => {
-      const usersCollection = firebase.firestore().collection('users');
-      const respostasComFotos = await Promise.all(
-        snapshot.docs.map(async (respostaDoc) => {
-          const respostaData = respostaDoc.data();
-          const userDoc = await usersCollection.doc(respostaData.idGoogle).get();
-          const userData = userDoc.data();
-
-          return {
-            ...respostaData,
-            data: respostaData.data.toDate(),
-            picGoogle: userData.picGoogle,
-          };
-        })
-      );
-
-      setExpandedFormRespostas(respostasComFotos);
-    });
-  };
+  const contentChatRef = useRef(null);
 
   useEffect(() => {
-    let unsubscribe;
-    if (formulario) {
-      unsubscribe = carregarRespostas(formulario.usuarioId, formulario.formId);
-    }
+    const unsubscribe = firebase.firestore()
+      .collection('users')
+      .doc(formulario.usuarioId)
+      .collection('formularios')
+      .doc(formulario.formId)
+      .collection('respostas')
+      .orderBy('data')
+      .onSnapshot(async (snapshot) => {
+        const usersCollection = firebase.firestore().collection('users');
+        const respostasComFotos = await Promise.all(
+          snapshot.docs.map(async (respostaDoc) => {
+            const respostaData = respostaDoc.data();
+            const userDoc = await usersCollection.doc(respostaData.idGoogle).get();
+            const userData = userDoc.data();
 
-    return () => {
-      if (unsubscribe) {
-        unsubscribe(); // Para de ouvir quando o componente desmonta ou o formulário muda
-      }
-    };
+            return {
+              ...respostaData,
+              data: respostaData.data.toDate(),
+              picGoogle: userData.picGoogle,
+            };
+          })
+        );
+        setExpandedFormRespostas(respostasComFotos);
+      });
+
+    return () => unsubscribe();
   }, [formulario]);
+
+  useEffect(() => {
+    if (contentChatRef.current) {
+      contentChatRef.current.scrollTop = contentChatRef.current.scrollHeight;
+    }
+  }, [expandedFormRespostas]);
 
   const enviarResposta = async (usuarioId, formId) => {
     try {
-      console.log("Enviando resposta...");
-
       const usersCollection = firebase.firestore().collection('users');
       const userDoc = await usersCollection.doc(usuarioId).get();
       const formulariosCollection = userDoc.ref.collection('formularios');
@@ -77,9 +71,8 @@ function RespostasFormularios({ formulario, closeExpandedForm }) {
 
   return (
     <div className='contentPageDetForm'>
-      <div className='contentChat'>
+      <div className='contentChat' ref={contentChatRef}>
         <p><strong>Mensagem:</strong> {formulario.mensagem}</p>
-  
         <div>
           {expandedFormRespostas.map((resposta, index) => {
             const mostrarFoto = resposta.nomeGoogle !== nomeCompleto && (index === 0 || expandedFormRespostas[index - 1].nomeGoogle !== resposta.nomeGoogle);
