@@ -21,14 +21,14 @@
 }
 
 .contentChat {
-    height: calc(100% - 100px);
+    height: calc(100% - 110px);
     overflow-y: auto;
     overflow-x: hidden;
     text-align: left;
     margin-left: 10px;
-    margin-bottom: 0;
+    margin-bottom: 0px;
     word-wrap: break-word;
-    margin-top: 5px;
+    margin-top: 15px;
 }
 
 .boxResposta {
@@ -53,7 +53,7 @@
 }
 
 .buttonEnviarResp {
-    width: 40px;
+    width: 50px;
     height: 60px;
     background-color: rgba(255, 255, 255, 0.582);
     color: #000000; /* Cor do texto para contraste */
@@ -91,13 +91,14 @@
 .inputResposta {
     flex-grow: 1; /* O input ocupa o espaço restante */
     height: 100%;
-    background-color: rgb(194, 194, 194);
+    background-color: rgb(209, 209, 209);
     color: #000000; /* Cor do texto para contraste */
     border: none; /* Remove borda padrão */
     border-radius: 5px; /* Bordas arredondadas */
     box-sizing: border-box;
     padding: 5px; /* Padding interno para texto */
     margin-right: 10px;
+    text-align:initial;
 }
 
 .excluirForm {

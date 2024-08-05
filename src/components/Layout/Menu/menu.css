@@ -8,7 +8,7 @@
     height: 100dvh; /* Ajuste conforme necessário */
     z-index: 35; /* Z-index para o menu aberto */
     backdrop-filter: blur(10px);
-    background-color: rgb(0, 0, 0);
+    background-color: rgba(0, 0, 0, 0.007);
     overflow: auto; /* Permite rolar o conteúdo */
     padding: 20px; /* Adiciona padding para espaçamento interno */
     margin: 0; /* Remove margin */
@@ -17,7 +17,6 @@
 }
 
 .headMenu {
-    margin: 0px;
     display: flex;
     align-items: center; /* Alinha verticalmente no centro */
     width: 100%; /* Garante que ocupe a largura total disponível */
@@ -26,6 +25,7 @@
     padding: 5px; /* Adiciona padding para espaçamento interno */
     z-index: 40; /* Z-index para sobrepor outros elementos */
     background-color: rgba(255, 255, 255, 0.075);
+    border-color: black;
     
 }
 

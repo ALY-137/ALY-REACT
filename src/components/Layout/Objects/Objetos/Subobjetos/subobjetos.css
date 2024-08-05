@@ -13,7 +13,7 @@
     height: 109px;
     margin-left: 10px;
     margin-right: 10px;
-    background-color: #080110;
+    background-color: #00010a;
     color: #abc9ff;
     align-items: center;
     border: 1px solid #0e62ff;
@@ -53,7 +53,7 @@
 }
 .xpBoxSubDev{
     height: 22px;
-    background-color: #00215e;
+    background-color: #0038a1;
     border-radius: 5px;
     display: flex;
     align-items: center;

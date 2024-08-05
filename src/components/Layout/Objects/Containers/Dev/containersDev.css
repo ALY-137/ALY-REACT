@@ -4,11 +4,11 @@
     border-style: double;
     border: 1px solid #0e62ff;
     margin-top: 70px;
-    background-image: url(../../../../../../public/back.png);
     text-align: center;
     border-left: none;
     border-right: none;
     transition: all ease 3s;
+    background-image: url(../../../../../../public/dev/backDentro.png); 
 }
 
 
@@ -44,12 +44,11 @@
     border-style: double;
     border: 1px solid #0e62ff;
     margin-top: -42px;
-    background-color: #080110;
     text-align: center;
     margin-left: auto;
     margin-right: auto;
     height: 91px;
-    background-image: url(../../../../../../public/back.png); 
+    background-image: url(../../../../../../public/dev/backDentro.png); 
     max-width: max-content;
 }
 
@@ -80,3 +79,4 @@
     line-height: 15px;
     color: #9a46fa;
 }
+

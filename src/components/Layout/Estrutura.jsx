@@ -2,7 +2,6 @@ import Navbar from "./Navbar/Navbar";
 import { Outlet, ScrollRestoration } from 'react-router-dom';
 import Menu from "./Menu/Menu";
 
-import { seforAdm } from "../Scripts/verificações/verificaAdm";
 
 function Estrutura() {
 
@@ -16,8 +15,9 @@ function Estrutura() {
         <div id="MatrixHome"></div>
         
       </div>
-      <div id="conteudo">
         <Navbar />
+      <div id="conteudo">
+      
         
         <Outlet />
       </div>

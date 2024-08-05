@@ -38,13 +38,8 @@ function FerramentasDev(){
                 <Faixa />
                 <Faixa />
                 <Faixa />
-           
-          
-   
                 <img className='canto3SubTit' src='/dev/cantoSubcontainer.png' alt="imagem"  /> 
-     
-
-                                                                               
+                                                                           
             </div>
         <div className='contentSubcontainersDev'>
 

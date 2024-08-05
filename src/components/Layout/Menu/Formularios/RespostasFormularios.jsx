@@ -46,6 +46,10 @@ function RespostasFormularios({ formulario, closeExpandedForm }) {
   }, [expandedFormRespostas]);
 
   const enviarResposta = async (usuarioId, formId) => {
+    if (resposta.trim() === '') {
+      return; // Não enviar se a resposta estiver vazia
+    }
+
     try {
       const usersCollection = firebase.firestore().collection('users');
       const userDoc = await usersCollection.doc(usuarioId).get();
