@@ -16,6 +16,7 @@
     color: #abc9ff;
     align-items: center;
     border: 1px solid #0e62ff;
+    padding: 3px;
 }
 
 .infosBoxSub{
@@ -49,15 +50,13 @@
 }
 .xpBoxSubDev{
     height: 22px;
-    background-color: #002364;
+    background-color: #041c4d;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 11px;
     width: 90px;
     letter-spacing: 5px;
-    margin: 3px;
-    margin-bottom: 3px;
 }
 
 .starXP{
