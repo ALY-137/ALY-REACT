@@ -6,7 +6,6 @@
     color: #ff8ccb;
     align-items: center;
     border: 1px solid #fb008a;
-    border-radius: 5px;
 }
 
 .boxSubDev{
@@ -17,11 +16,9 @@
     color: #abc9ff;
     align-items: center;
     border: 1px solid #0e62ff;
-    border-radius: 5px;
 }
 
 .infosBoxSub{
- 
     border-radius: 5px;
     width: 90px;
 }
@@ -42,7 +39,6 @@
 .xpBoxSubDesign{
     height: 22px;
     background-color: #57002e;
-    border-radius: 5px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -53,15 +49,15 @@
 }
 .xpBoxSubDev{
     height: 22px;
-    background-color: #0038a1;
-    border-radius: 5px;
+    background-color: #002364;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 11px;
     width: 90px;
     letter-spacing: 5px;
-    
+    margin: 3px;
+    margin-bottom: 3px;
 }
 
 .starXP{
