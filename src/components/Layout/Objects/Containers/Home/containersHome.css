@@ -4,7 +4,7 @@
     border-style: double;
     border: 1px solid #7e0eff;
     margin-top: 70px;
-    background-image: url(../../../../../../public/back.png);
+    background-image: url(../../../../../../public/home/backDentro.png);
     text-align: center;
     border-left: none;
     border-right: none;
@@ -60,7 +60,7 @@
     margin-left: auto;
     margin-right: auto;
     height: 91px;
-    background-image: url(../../../../../../public/back.png); 
+    background-image: url(../../../../../../public/home/backDentro.png); 
     max-width: max-content;
 }
 

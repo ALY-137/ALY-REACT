@@ -44,12 +44,11 @@
     border-style: double;
     border: 1px solid #fb008a;
     margin-top: -42px;
-    background-color: #080110;
     text-align: center;
     margin-left: auto;
     margin-right: auto;
     height: 91px;
-    background-image: url(../../../../../../public/back.png); 
+    background-image: url(../../../../../../public/design/backDentro.png); 
     max-width: max-content;
     
 }

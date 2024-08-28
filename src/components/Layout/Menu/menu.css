@@ -7,8 +7,8 @@
     text-align: center;
     height: 100dvh; /* Ajuste conforme necessário */
     z-index: 35; /* Z-index para o menu aberto */
-    backdrop-filter: blur(10px);
-    background-color: rgba(0, 0, 0, 0.007);
+    backdrop-filter: blur(0.1px);
+    background-color: rgba(0, 0, 0, 0);
     overflow: auto; /* Permite rolar o conteúdo */
     padding: 20px; /* Adiciona padding para espaçamento interno */
     margin: 0; /* Remove margin */

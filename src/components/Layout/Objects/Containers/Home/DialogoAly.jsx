@@ -11,7 +11,7 @@ function DialogoAly({texto}){
         <div className="containerHome">
 
         
-                <EstiloContainerTop tituloHome='ALY-137©' icon='./logo.png'/>
+                <EstiloContainerTop tituloHome='ALY-137' icon='./logo.png'/>
 
 
                 <p className='texto1'>{texto}</p>

@@ -6,17 +6,18 @@
     color: #ff8ccb;
     align-items: center;
     border: 1px solid #fb008a;
+    padding: 5px;
 }
 
 .boxSubDev{
     height: 109px;
     margin-left: 10px;
     margin-right: 10px;
-    background-color: #00010a;
+    background-color: #00010a;    
     color: #abc9ff;
     align-items: center;
     border: 1px solid #0e62ff;
-    padding: 3px;
+    padding: 5px;
 }
 
 .infosBoxSub{

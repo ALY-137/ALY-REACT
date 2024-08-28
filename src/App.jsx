@@ -166,7 +166,7 @@ function App() {
       <div id='login' className={`containerLogin ${mostrarLogin ? 'fadeIn' : ''}`}>
         <div id='iconsLogin'>
           <img src='/logoNeon.png' id='logoLogin' />
-          <p id='logoTxt'>ALY-137©</p>
+          <p id='logoTxt'>ALY-137</p>
           <p id='textoLogin'>EMBARQUE COM O GOOGLE</p>
           <div id="signInDiv"></div>
         </div>

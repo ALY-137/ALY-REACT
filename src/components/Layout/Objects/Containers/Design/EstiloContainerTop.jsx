@@ -7,8 +7,8 @@ function EstiloContainerTop({tituloDesign,icon}){
             
             <div className='topMidDesign'>
                 
-                <img className='cantoHead0' src='./design/cantoHeadTop.png' alt="imagem"   /> 
-                <img className='cantoHead3' src='./design/cantoHeadTop.png' alt="imagem"   /> 
+                <img className='cantoHead0' src='./design/canto.png' alt="imagem"   /> 
+                <img className='cantoHead3' src='./design/canto.png' alt="imagem"   /> 
                 <img className='cantoHead1' src='./design/cantoHead.png'  alt="imagem"  /> 
                 <img className='cantoHead2' src='./design/cantoHead.png' alt="imagem"   /> 
 

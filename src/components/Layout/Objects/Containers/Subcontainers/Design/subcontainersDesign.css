@@ -39,7 +39,7 @@
     height: 150px;
     border-top: none;
     border-bottom: none;
-    background-image: url(../../../../../../../public/backConteudo.png); 
+    background-color: #24001f;
     display: flex;
     align-items: center;
     justify-content: center;

@@ -9,7 +9,7 @@
     bottom: 0px;
     margin-top: 25px;
     border: 1px solid #0e62ff;
-    background-color: #020b1b;
+    background-image: url(../../../../public/dev/back.png);
 }
 
 .rodapeEstiloDesign{
@@ -23,7 +23,7 @@
     bottom: 0px;
     margin-top: 25px;
     border: 1px solid #fb008a;
-    background-color: #080110;
+    background-image: url(../../../../public/design/back.png);
 }
 
 .rodapeEstiloHome{
@@ -37,5 +37,5 @@
     bottom: 0px;
     margin-top: 25px;
     border: 1px solid #7e0eff;
-    background-color: #080110;
+    background-image: url(../../../../public/home/back.png);
  }
