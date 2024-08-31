@@ -1,14 +1,32 @@
+.boxItemConversa {
+
+    padding: 10px; /* Espaçamento interno */
+    margin-bottom: 10px; /* Espaçamento entre os itens */
+    background-color: #ffffff0c; /* Cor de fundo */
+}
+
+.boxItemContato {
+
+    padding: 10px; /* Espaçamento interno */
+    margin-bottom: 10px; /* Espaçamento entre os itens */
+    background-color: #ffffff0c; /* Cor de fundo */
+    cursor: pointer;
+  }
+  
+  
 .pageContentForms {
     position: absolute;
     left: 0;
     bottom: 28px;
     top: 0;
     right: 0;
-    margin-top: 40px;
+    margin-top: 55px;
     overflow-y: auto;
     text-align: left;
     margin-left: 10px;
     overflow-x: hidden;
+    margin-right:  10px;
+    margin-bottom: 15px;
 }
 
 .contentPageDetForm {
@@ -156,16 +174,19 @@ li {
     word-wrap: break-word;
     word-break: break-all;
     align-items: flex-end;
-    text-align: right; /* Alinha o texto à esquerda */
+    text-align: right; /* Alinha o texto à direita */
     margin-right: 10px;
 }
 
 .resposta-recebida {
+    align-self: flex-start; /* Alinha o item à esquerda do contêiner */
     text-align: left;
     max-width: 80%;
     word-wrap: break-word;
     word-break: break-all;
+    margin-left: 10px;
 }
+
 
 /* Adiciona estilo para garantir que as respostas fiquem alinhadas corretamente */
 .chat-container {
