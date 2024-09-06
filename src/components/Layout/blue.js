@@ -127,13 +127,7 @@ if(larSreen>1000){
         texto.classList.remove('numBrilhaHome');
 
         texto.classList.add('numBrilhaDev');
-
-
-
-
-
-
-              
+      
 
         
         theMatrixDev(alyAlt,alyLar);

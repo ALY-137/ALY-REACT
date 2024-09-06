@@ -3,21 +3,51 @@ import firebase from 'firebase/app';
 import 'firebase/firestore';
 import './formularios.css';
 
-function ListaContatos({ setBackText, setAtualTxt, handleExpandForm }) {
+function ListaContatos({ handleExpandForm }) {
   const [contatos, setContatos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    const fetchUserData = async (idGoogle) => {
+      try {
+        const userDoc = await firebase.firestore().collection('users').where('idGoogle', '==', idGoogle).get();
+        if (!userDoc.empty) {
+          const data = userDoc.docs[0].data();
+          return {
+            nome: data.nomeCompletoGoogle || 'Nome não disponível',
+            foto: data.picGoogle || 'default-user.jpg',
+          };
+        }
+      } catch (error) {
+        console.error('Erro ao buscar dados do usuário:', error);
+      }
+      return {
+        nome: 'Nome não disponível',
+        foto: 'default-user.jpg',
+      };
+    };
+
     const unsubscribe = firebase.firestore()
       .collection('contatos')
-      .orderBy('ultimaConversaData', 'desc') // Ordena pela data da última conversa em ordem decrescente
+      .orderBy('ultimaConversaData', 'desc')
       .onSnapshot(
-        (snapshot) => {
-          const listaContatos = snapshot.docs.map((contatoDoc) => ({
-            contatoId: contatoDoc.id,
-            nome: contatoDoc.data().nome || 'Nome não disponível',
-            ultimaConversaData: contatoDoc.data().ultimaConversaData?.toDate() || new Date(0), // Fallback para data mínima
+        async (snapshot) => {
+          const listaContatos = await Promise.all(snapshot.docs.map(async (contatoDoc) => {
+            const data = contatoDoc.data();
+            const [idRemetente, idDestinatario] = data.idContato.split('_');
+
+            const remetenteData = await fetchUserData(idRemetente);
+            const destinatarioData = await fetchUserData(idDestinatario);
+
+            return {
+              contatoId: contatoDoc.id,
+              fotoRemetente: remetenteData.foto,
+              fotoDestinatario: destinatarioData.foto,
+              nomeRemetente: remetenteData.nome,
+              nomeDestinatario: destinatarioData.nome,
+              ultimaConversaData: data.ultimaConversaData?.toDate() || new Date(0),
+            };
           }));
 
           setContatos(listaContatos);
@@ -30,7 +60,6 @@ function ListaContatos({ setBackText, setAtualTxt, handleExpandForm }) {
         }
       );
 
-    // Limpeza do listener ao desmontar o componente
     return () => unsubscribe();
   }, []);
 
@@ -43,9 +72,13 @@ function ListaContatos({ setBackText, setAtualTxt, handleExpandForm }) {
       <div className='pageContentForms'>
         {contatos.map((contato) => (
           <div className='boxItemContato' onClick={() => handleExpandForm(contato.contatoId)} key={contato.contatoId}>
-            <p><strong>ID do Contato:</strong> {contato.contatoId}</p>
-            <p><strong>Nome:</strong> {contato.nome}</p>
-            <p><strong>Última Conversa:</strong> {contato.ultimaConversaData.toLocaleDateString('pt-BR')}</p>
+              <div className='fotoContainer'>
+                <img src={contato.fotoRemetente} alt="Foto Remetente" className='fotoContato' />
+                <p> ◄-► </p>
+                <img src={contato.fotoDestinatario} alt="Foto Destinatário" className='fotoContato' />
+              </div>
+              <p>{contato.nomeRemetente} | {contato.nomeDestinatario}</p>         
+              <p>Último contato: {contato.ultimaConversaData.toLocaleDateString('pt-BR')}</p>
           </div>
         ))}
       </div>

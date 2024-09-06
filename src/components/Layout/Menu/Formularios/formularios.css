@@ -1,8 +1,58 @@
+.conversaHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .deleteButton {
+    background-color: rgb(131, 131, 131);
+    color: rgb(0, 0, 0);
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    padding: 4px 8px;
+  }
+  
+  .deleteButton:hover {
+    background-color: rgb(211, 211, 211);
+  }
+  
+
+.boxItemContato {
+    text-align: center; /* Centraliza todo o texto dentro de .boxItemContato */
+    margin-bottom: 20px; /* Espaçamento entre os itens de contato */
+    padding: 10px; /* Espaço interno para melhorar a estética */
+    border-radius: 8px; /* Canto arredondado */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Sombra suave para dar destaque */
+  }
+  
+  .fotoContainer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 10px; /* Espaçamento entre as fotos e o texto */
+  }
+  
+  .fotoContato {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+  
+  p {
+    margin: 5px 0; /* Margem para os parágrafos */
+  }
+  
+
+
 .boxItemConversa {
 
     padding: 10px; /* Espaçamento interno */
     margin-bottom: 10px; /* Espaçamento entre os itens */
     background-color: #ffffff0c; /* Cor de fundo */
+    cursor: pointer;
 }
 
 .boxItemContato {
