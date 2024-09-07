@@ -120,8 +120,8 @@ function Menu() {
                                 USERS
                             </div>
                         )}
-                        {seforAdm() && (
-                            <div
+                      
+                          <div
                                 onClick={abrirForms}
                                 id="gavetaForms"
                                 className={`gavetaOption ${selectedOption === 'gavetaForms' ? 'selected' : ''}`}
@@ -129,7 +129,6 @@ function Menu() {
                             >
                                 CONTATOS
                             </div>
-                        )}
                         <div
                             onClick={logoff}
                             className={`gavetaOption ${selectedOption === 'logoff' ? 'selected' : ''}`}

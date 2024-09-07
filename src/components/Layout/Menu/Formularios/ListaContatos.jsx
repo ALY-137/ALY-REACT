@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import firebase from 'firebase/app';
 import 'firebase/firestore';
 import './formularios.css';
+import { seforAdm } from '../../../Scripts/verificações/verificaAdm';
+import { idGoogle } from '../../../../App';
 
 function ListaContatos({ handleExpandForm }) {
   const [contatos, setContatos] = useState([]);
@@ -28,39 +30,46 @@ function ListaContatos({ handleExpandForm }) {
       };
     };
 
-    const unsubscribe = firebase.firestore()
-      .collection('contatos')
-      .orderBy('ultimaConversaData', 'desc')
-      .onSnapshot(
-        async (snapshot) => {
-          const listaContatos = await Promise.all(snapshot.docs.map(async (contatoDoc) => {
-            const data = contatoDoc.data();
-            const [idRemetente, idDestinatario] = data.idContato.split('_');
+    const fetchContatos = async () => {
+      let query = firebase.firestore().collection('contatos').orderBy('ultimaConversaData', 'desc');
 
-            const remetenteData = await fetchUserData(idRemetente);
-            const destinatarioData = await fetchUserData(idDestinatario);
+      try {
+        const snapshot = await query.get();
+        const listaContatos = await Promise.all(snapshot.docs.map(async (contatoDoc) => {
+          const data = contatoDoc.data();
+          const [idRemetente, idDestinatario] = data.idContato.split('_');
 
-            return {
-              contatoId: contatoDoc.id,
-              fotoRemetente: remetenteData.foto,
-              fotoDestinatario: destinatarioData.foto,
-              nomeRemetente: remetenteData.nome,
-              nomeDestinatario: destinatarioData.nome,
-              ultimaConversaData: data.ultimaConversaData?.toDate() || new Date(0),
-            };
-          }));
+          // Filtra os contatos que envolvem o usuário logado, caso ele não seja administrador
+          if (!seforAdm() && idGoogle !== idRemetente && idGoogle !== idDestinatario) {
+            return null; // Se não for admin e o contato não pertence ao usuário, ignore-o
+          }
 
-          setContatos(listaContatos);
-          setLoading(false);
-        },
-        (error) => {
-          setError('Erro ao carregar contatos.');
-          console.error('Erro ao carregar contatos:', error);
-          setLoading(false);
-        }
-      );
+          const remetenteData = await fetchUserData(idRemetente);
+          const destinatarioData = await fetchUserData(idDestinatario);
 
-    return () => unsubscribe();
+          return {
+            contatoId: contatoDoc.id,
+            fotoRemetente: remetenteData.foto,
+            fotoDestinatario: destinatarioData.foto,
+            nomeRemetente: remetenteData.nome,
+            nomeDestinatario: destinatarioData.nome,
+            ultimaConversaData: data.ultimaConversaData?.toDate() || new Date(0),
+          };
+        }));
+
+        // Remove contatos que não pertencem ao usuário logado quando ele não é admin
+        setContatos(listaContatos.filter(contato => contato !== null));
+        setLoading(false);
+      } catch (error) {
+        setError('Erro ao carregar contatos.');
+        console.error('Erro ao carregar contatos:', error);
+        setLoading(false);
+      }
+    };
+
+    fetchContatos();
+
+    return () => {}; // Cleanup se necessário
   }, []);
 
   return (
