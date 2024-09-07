@@ -87,11 +87,7 @@ if(larSreen>1000){
 
 
     
-        var estiloCont = document.getElementById('conteudo');
-        estiloCont.classList.remove('conteudoEstiloDesign');
-        estiloCont.classList.remove('conteudoEstiloHome');
-        estiloCont.classList.add('conteudoEstiloDev');  
-        
+
         
         // COR TEXTO PADRÃO PAGE
 

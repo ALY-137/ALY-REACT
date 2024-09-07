@@ -77,10 +77,6 @@ export function violet(){
         estilo.classList.remove('fundoEstiloDesign');
         estilo.classList.add('fundoEstiloHome');
 
-        estilo = document.getElementById('conteudo');
-        estilo.classList.remove('conteudoEstiloDev');
-        estilo.classList.remove('conteudoEstiloDesign');
-        estilo.classList.add('conteudoEstiloHome');   
 
         // COR TEXTO PADRÃO PAGE           
         estilo = document.body;

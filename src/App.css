@@ -16,15 +16,6 @@
 
 
 
-.conteudoEstiloDev{
-  background-image: url('/public/dev/back.png');
-}
-.conteudoEstiloDesign{
-  background-image: url('/public/design/back.png');
-}
-.conteudoEstiloHome{
-  background-image: url('/public/home/back.png');
-}
 
 
 ::-webkit-scrollbar{
@@ -182,9 +173,9 @@
   display: block;
   position: relative;
   margin-top: 0px;
-  overflow-x: hidden;
-  height: 100dvh;
+  height: 100%;
 }
+
 
 
 
