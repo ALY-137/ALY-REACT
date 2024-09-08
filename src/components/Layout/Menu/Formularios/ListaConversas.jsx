@@ -90,7 +90,11 @@ function ListaConversas({ conversaId, setBackText, setAtualTxt, handleExpandForm
       
       <div className='pageContentForms'>
         {conversas.map((conversa) => (
-          <div className='boxItemConversa' onClick={() => handleExpandForm(conversa.conversaId)} key={conversa.conversaId}>
+          <div className='boxItemConversa' onClick={() => {
+            handleExpandForm(conversa.conversaId);
+            setBackText('Voltar');
+            setAtualTxt(conversa.assunto);
+          }} key={conversa.conversaId}>
             <div className="conversaHeader">
               <p><strong>Assunto:</strong> {conversa.assunto}</p>
               <button

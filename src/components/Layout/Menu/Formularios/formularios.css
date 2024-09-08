@@ -19,7 +19,7 @@
   
 
 .boxItemContato {
-    text-align: center; /* Centraliza todo o texto dentro de .boxItemContato */
+    text-align: left; /* Centraliza todo o texto dentro de .boxItemContato */
     margin-bottom: 20px; /* Espaçamento entre os itens de contato */
     padding: 10px; /* Espaço interno para melhorar a estética */
     border-radius: 8px; /* Canto arredondado */
@@ -29,7 +29,7 @@
   .fotoContainer {
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: left;
     gap: 10px;
     margin-bottom: 10px; /* Espaçamento entre as fotos e o texto */
   }
@@ -40,15 +40,14 @@
     border-radius: 50%;
     object-fit: cover;
   }
-  
-  
+    
 
 
 .boxItemConversa {
 
     padding: 10px; /* Espaçamento interno */
     margin-bottom: 10px; /* Espaçamento entre os itens */
-    background-color: #ffffff1c; /* Cor de fundo */
+    background-color: #ffffff0c; /* Cor de fundo */
     cursor: pointer;
 }
 
@@ -56,8 +55,24 @@
 
     padding: 10px; /* Espaçamento interno */
     margin-bottom: 10px; /* Espaçamento entre os itens */
-    background-color: #ffffff1c; /* Cor de fundo */
+    background-color: #ffffff0c; /* Cor de fundo */
     cursor: pointer;
+    display: flex;
+   
+  }
+
+  .infosContato{
+    margin-left: 15px;
+  }
+  .nomesContatos{
+    font-weight: bold;
+    margin: 0px;
+ 
+  }
+  .dataContatos{
+   font-style:oblique;
+   font-size: 11px;
+   margin: 0px;
   }
   
   

@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import firebase from 'firebase/app';
 import 'firebase/firestore';
-import { nomeCompleto } from '../../../../App.jsx';
 import './formularios.css';
 import { idGoogle } from '../../../../App.jsx';
 import { enviarChat } from '../../../Banco/init-firebase.js';
@@ -28,11 +27,12 @@ function Chat({ contatoId, conversaId, closeExpandedForm }) {
               .doc(chatData.idRemetente)
               .get();
             const userData = userDoc.data();
-        
+
             return {
               ...chatData,
-              data: chatData.data ? chatData.data.toDate() : null, // Adicione verificação aqui
+              data: chatData.data ? chatData.data.toDate() : null,
               picGoogle: userData ? userData.picGoogle : null,
+              nomeGoogle: userData ? userData.nomeGoogle : null,
             };
           })
         );
@@ -52,20 +52,36 @@ function Chat({ contatoId, conversaId, closeExpandedForm }) {
     if (mensagem.trim() === '') {
       return; // Não enviar se a mensagem estiver vazia
     }
-
+  
     try {
+      // Enviar a mensagem no chat
       await enviarChat({
         idContato: contatoId,
         idConversa: conversaId,
         idRemetente: idGoogle,
         mensagem: mensagem,
       });
-
+  
+      // Atualizar o documento da conversa com a última mensagem e o timestamp
+      await firebase.firestore()
+        .collection('contatos')
+        .doc(contatoId)
+        .collection('conversas')
+        .doc(conversaId)
+        .set(
+          {
+            ultimaMensagem: mensagem,
+            timestampUltimaMensagem: firebase.firestore.FieldValue.serverTimestamp(),
+          },
+          { merge: true } // Merge para não substituir todo o documento
+        );
+  
       setMensagem(''); // Limpar a mensagem após o envio
     } catch (error) {
       console.error('Erro ao enviar mensagem:', error);
     }
   };
+  
 
   return (
     <div className='contentPageDetForm'>
@@ -73,13 +89,16 @@ function Chat({ contatoId, conversaId, closeExpandedForm }) {
         {chatMensagens.map((mensagem, index) => {
           const isSentByMe = mensagem.idRemetente === idGoogle;
           const mostrarFoto = !isSentByMe && (index === 0 || chatMensagens[index - 1].nomeGoogle !== mensagem.nomeGoogle);
+
           return (
             <div className='chat-container' key={index}>
-              {mensagem.data && (index === 0 || (chatMensagens[index - 1].data && chatMensagens[index - 1].data.toDateString() !== mensagem.data.toDateString())) ? (
+              {/* Exibe a data da mensagem, caso seja o primeiro chat do dia */}
+              {mensagem.data && (index === 0 || chatMensagens[index - 1].data?.toDateString() !== mensagem.data.toDateString()) ? (
                 <div className='dataResposta'>
                   {mensagem.data.toLocaleDateString('pt-BR')}
                 </div>
               ) : null}
+
               <div className={`resposta-item ${isSentByMe ? 'resposta-enviada' : 'resposta-recebida'} ${!mostrarFoto ? 'sem-foto' : ''}`}>
                 {!isSentByMe && mostrarFoto && (
                   <img className='fotoUsuario' src={mensagem.picGoogle} alt="User" />
@@ -99,7 +118,7 @@ function Chat({ contatoId, conversaId, closeExpandedForm }) {
           value={mensagem}
           onChange={(e) => setMensagem(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') {
+            if ( e.key === 'Enter') {
               handleEnviarChat();
             }
           }}

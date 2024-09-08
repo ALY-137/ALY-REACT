@@ -76,18 +76,30 @@ function ListaContatos({ handleExpandForm }) {
     <div>
       {loading && <p>Carregando contatos...</p>}
       {error && <p>{error}</p>}
-      {!loading && !error && contatos.length === 0 && <p>Não há contatos.</p>}
+      {!loading && !error && contatos.length == 0 && <p>Não há contatos.</p>}
       
       <div className='pageContentForms'>
         {contatos.map((contato) => (
           <div className='boxItemContato' onClick={() => handleExpandForm(contato.contatoId)} key={contato.contatoId}>
-              <div className='fotoContainer'>
-                <img src={contato.fotoRemetente} alt="Foto Remetente" className='fotoContato' />
-                <p> ◄-► </p>
-                <img src={contato.fotoDestinatario} alt="Foto Destinatário" className='fotoContato' />
-              </div>
-              <p>{contato.nomeRemetente} | {contato.nomeDestinatario}</p>         
-              <p>Último contato: {contato.ultimaConversaData.toLocaleDateString('pt-BR')}</p>
+            <div className='fotoContainer'>
+              {/* Se for admin, mostra tanto o remetente quanto o destinatário */}
+              {seforAdm() ? (
+                <>
+                  <img src={contato.fotoRemetente} alt="Foto Remetente" className='fotoContato' />
+                  <p> ◄--► </p>
+                </>
+              ) : null}
+              <img src={contato.fotoDestinatario} alt="Foto Destinatário" className='fotoContato' />
+            </div>
+
+            <div className='infosContato'>
+                <p className='nomesContatos'>
+                {/* Se for admin, mostra os dois nomes, caso contrário, só o nome do destinatário */}
+                {seforAdm() ? `${contato.nomeRemetente} | ${contato.nomeDestinatario}` : `${contato.nomeDestinatario}`}
+                </p>
+                <p className='dataContatos'>Último contato: {contato.ultimaConversaData.toLocaleDateString('pt-BR')}</p>
+            </div>
+            
           </div>
         ))}
       </div>
