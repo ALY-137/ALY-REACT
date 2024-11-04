@@ -2,7 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, ScrollRestoration } from 'react-router-dom';
 import { verificaUser } from './components/Banco/init-firebase';
 
+
+
 import './App.css';
+
 
 import violet from './components/Layout/violet';
 import blue from './components/Layout/blue';
@@ -18,6 +21,8 @@ let nomeCompleto;
 function App() {
   const location = useLocation();
   const rotaAtual = location.pathname;
+
+
 
   const [user, setUser] = useState(null);
   const [mostrarLogin, setMostrarLogin] = useState(false);
@@ -111,6 +116,8 @@ function App() {
 
       verificaUser(camp, idGoogle);
 
+      localStorage.setItem('idGoogle', idGoogle);
+
       layout();
 
       switch (rotaAtual) {
@@ -127,6 +134,8 @@ function App() {
         case '/design':
           pink();
           break;
+
+          
         default:
       }
     }
@@ -162,8 +171,12 @@ function App() {
 
   return (
     <div>
-      <Estrutura windowWidth={windowWidth} />
+
+  <Estrutura />
+
       <div id='login' className={`containerLogin ${mostrarLogin ? 'fadeIn' : ''}`}>
+      
+        
         <div id='iconsLogin'>
           <img src='/logoNeon.png' id='logoLogin' />
           <p id='logoTxt'>ALY-137</p>
@@ -179,7 +192,7 @@ function App() {
       <p id="email"></p>
       <p id="verifiedEmail"></p>
       <img id="picture" />
-     
+   
     </div>
   );
 }

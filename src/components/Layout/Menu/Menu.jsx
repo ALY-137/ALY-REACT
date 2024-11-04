@@ -1,181 +1,138 @@
-import React, { useState } from "react";
-import ListaContatos from "./Formularios/ListaContatos";
-import ListaConversas from "./Formularios/ListaConversas";
-import Chat from "./Formularios/Chat";
-import Users from "./Users/Users";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation, useParams, Outlet } from 'react-router-dom';
 import { seforAdm } from "../../Scripts/verificações/verificaAdm";
 import './menu.css';
+import { txtDefault } from "../layout";
 
-function Menu() {
-    const [selectedOption, setSelectedOption] = useState(null);
-    const [menuOpen, setMenuOpen] = useState(false);
-    const [showForms, setShowForms] = useState(false);
-    const [showUsers, setShowUsers] = useState(false);
+const larSreen = window.innerWidth;
+
+function Menu({ menuOpen, setMenuOpen }) { 
+    const [idGoogle, setIdGoogle] = useState(() => localStorage.getItem('idGoogle'));
+    const [backAction, setBackAction] = useState(() => closeMenu);
     const [backText, setBackText] = useState("VOLTAR");
     const [atualTxt, setAtualTxt] = useState("MENU");
-    const [backAction, setBackAction] = useState(() => closeMenu);
-    const [selectedContato, setSelectedContato] = useState(null);
-    const [selectedConversa, setSelectedConversa] = useState(null);
+    const navigate = useNavigate();
+    const location = useLocation();
+    const { contactId, conversationId } = useParams();
+
+
+  var menu;
+
+ 
+    useEffect(() => {
+    
+    // Fazer rota para login    
+    //    if (!idGoogle) {
+            // Se o idGoogle não estiver no localStorage, redirecionar para a página de login
+    //        navigate('/login');
+    //        return;
+    //    }
+
+
+        if (location.pathname ===`/menu/${idGoogle}`) {
+            setAtualTxt("MENU");
+            setBackText("VOLTAR");
+            setBackAction(() => closeMenu);
+
+            if(larSreen>1000){
+                    menu = document.getElementById('Menu')
+                    menu.style.width = `${1000-5}px`;
+
+            }
+            
+  
+
+        }
+
+        if (location.pathname === `/menu/${idGoogle}/users`) {
+            setAtualTxt("USERS");
+            setBackText("MENU");
+            setBackAction(() => closeUsers);
+   
+
+        } else if (location.pathname === `/menu/${idGoogle}/contatos`) {
+            setAtualTxt("CONTATOS");
+            setBackText("MENU");
+            setBackAction(() => closeContatos);
+
+
+        } else if (location.pathname.startsWith(`/menu/${idGoogle}/contatos/`) && !location.pathname.includes('/chat/')) {
+            setAtualTxt("CONVERSAS");
+            setBackText("CONTATOS");
+            setBackAction(() => closeConversas);
+
+
+        } else if (location.pathname.startsWith(`/menu/${idGoogle}/contatos/`) && location.pathname.includes('/chat/')) {
+            setAtualTxt("ASSUNTO");
+            setBackText("CONVERSAS");
+            setBackAction(() => closeChat);
+ 
+
+        }
+
+    }, [location.pathname, contactId, conversationId, navigate, setMenuOpen]);
 
     function closeMenu() {
-        setMenuOpen(false);
-        document.getElementById('fundo').classList.remove('scroll-lock');
-        document.getElementById('cardProfile').classList.remove('scroll-lock');
-        document.getElementById('conteudo').classList.remove('scroll-lock');
+        navigate('/');
     }
 
-    function openMenu() {
-        setMenuOpen(true);
-        document.getElementById('fundo').classList.add('scroll-lock');
-        document.getElementById('cardProfile').classList.add('scroll-lock');
-        document.getElementById('conteudo').classList.add('scroll-lock'); }
+    function abrirUsers() {
+        navigate(`/menu/${idGoogle}/users`);
+    }
 
+    function closeUsers() {
+        navigate(`/menu/${idGoogle}`);
+    }
 
-        function abrirForms() {
-            setShowForms(true);
-            setShowUsers(false);
-            setSelectedContato(null);
-            setSelectedConversa(null);
-            setBackText("MENU");
-            setAtualTxt("CONTATOS");
-            setBackAction(() => closeForms);
-        }
-        
-        function closeForms() {
-            setShowForms(false);
-            setBackText("VOLTAR");
-            setAtualTxt("MENU");
-            setBackAction(() => closeMenu);
-        }
-        
-        function abrirUsers() {
-            setShowUsers(true);
-            setShowForms(false);
-            setBackText("MENU");
-            setAtualTxt("USUÁRIOS");
-            setBackAction(() => closeUsers);
-        }
-        
-        function closeUsers() {
-            setShowUsers(false);
-            setBackText("VOLTAR");
-            setAtualTxt("MENU");
-            setBackAction(() => closeMenu);
-        }
-        
-        function logoff() {
-            localStorage.clear();
-            window.location.reload(true);
-        }
-        
-        const handleMouseEnter = (option) => {
-            setSelectedOption(option);
-        };
-        
-        const handleSelectContato = (contatoId) => {
-            setSelectedContato(contatoId);
-            setBackText("CONTATOS");
-            setAtualTxt("CONVERSAS");
-            setBackAction(() => closeSelectedContato);
-        };
-        
-        const handleSelectConversa = (conversaId) => {
-            setSelectedConversa(conversaId);
-            setBackText("CONVERSAS");
-            setAtualTxt("MENSAGENS");
-            setBackAction(() => closeSelectedConversa);
-        };
-        
-        const closeSelectedContato = () => {
-            setSelectedContato(null);
-            setSelectedConversa(null);
-            setBackText("MENU");
-            setAtualTxt("CONTATOS");
-            setBackAction(() => closeForms);
-        };
-        
-        const closeSelectedConversa = () => {
-            setSelectedConversa(null);
-            setBackText("CONTATOS");
-            setAtualTxt("CONVERSAS");
-            setBackAction(() => closeSelectedContato);
-        };
-        
-        return (
-            <div>
-                <div id="Menu" className={menuOpen ? 'openMenu' : 'oculta'}>
-                    <div className="headMenu">
-                        <div onClick={backAction} className='back'> ❮ {backText} </div>
-                        <div className="pageAtual"> / {atualTxt} </div>
-                    </div>
-                    
-                    <div id='Gavetas' className={showForms || showUsers ? 'oculta' : 'mostra'}>
-                        {seforAdm() && (
-                            <div
-                                onClick={abrirUsers}
-                                id="gavetaUsers"
-                                className={`gavetaOption ${selectedOption === 'gavetaUsers' ? 'selected' : ''}`}
-                                onMouseEnter={() => handleMouseEnter('gavetaUsers')}
-                            >
-                                USERS
-                            </div>
-                        )}
-                      
-                          <div
-                                onClick={abrirForms}
-                                id="gavetaForms"
-                                className={`gavetaOption ${selectedOption === 'gavetaForms' ? 'selected' : ''}`}
-                                onMouseEnter={() => handleMouseEnter('gavetaForms')}
-                            >
-                                CONTATOS
-                            </div>
-                        <div
-                            onClick={logoff}
-                            className={`gavetaOption ${selectedOption === 'logoff' ? 'selected' : ''}`}
-                            onMouseEnter={() => handleMouseEnter('logoff')}
-                        >
-                            ENCERRAR
-                        </div>
-                    </div>
-                    
-                    {showForms && (
-                        <div id='Forms'>
-                            {!selectedContato ? (
-                                <ListaContatos 
-                                    setBackText={setBackText} 
-                                    setAtualTxt={setAtualTxt} 
-                                    handleExpandForm={handleSelectContato}
-                                />
-                            ) : (
-                                !selectedConversa ? (
-                                    <ListaConversas
-                                        conversaId={selectedContato}
-                                        setBackText={setBackText}
-                                        setAtualTxt={setAtualTxt}
-                                        handleExpandForm={handleSelectConversa}
-                                    />
-                                ) : (
-                                    <Chat
-                                        contatoId={selectedContato}  // Passando contatoId para Chat
-                                        conversaId={selectedConversa}
-                                        setBackText={setBackText}
-                                        setAtualTxt={setAtualTxt}
-                                    />
-                                )
-                            )}
-                        </div>
-                    )}
-                    
-                    {showUsers && (
-                        <div id='Users'>
-                            <Users />
-                        </div>
-                    )}
+    function closeContatos() {
+        navigate(`/menu/${idGoogle}`);
+    }
+
+    function closeConversas() {
+        navigate(`/menu/${idGoogle}/contatos`);
+    }
+
+    function closeChat() {
+        navigate(`/menu/${idGoogle}/contatos/${contactId}`);
+    }
+
+    function logoff() {
+        localStorage.clear();
+        navigate('/');
+    }
+
+    function abrirContatos() {
+        navigate(`/menu/${idGoogle}/contatos`);
+    }
+
+    txtDefault();
+
+    return (
+        <div>
+            <div id="Menu" className={menuOpen ? 'mostra' : 'openMenu'}>
+                <div className="headMenu">
+                    <div onClick={backAction} className='back'> ❮ {backText} </div>
+                    <div className="pageAtual"> / {atualTxt} </div>
                 </div>
-                {!menuOpen && <p id='menuId' className='menuIcon' onClick={openMenu}>㆔</p>}
-            </div>
-        );
-    }
 
+                {/* Gavetas são ocultadas se o caminho não for o menu principal */}
+                <div id='Gavetas' className={
+                    location.pathname === `/menu/${idGoogle}`
+                    ? 'mostra' 
+                    : 'oculta'
+                }>
+                    {seforAdm() && (
+                        <div onClick={abrirUsers} id="gavetaUsers" className="gavetaOption">USERS</div>
+                    )}
+                    <div onClick={abrirContatos} id="gavetaForms" className="gavetaOption">CONTATOS</div>
+                    <div onClick={logoff} className="gavetaOption">ENCERRAR</div>
+                </div>
+
+                {/* Outlet será responsável por renderizar os componentes filhos com base na rota */}
+                <Outlet />
+            </div>
+        </div>
+    );
+}
 
 export default Menu;

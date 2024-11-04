@@ -18,20 +18,13 @@
   }
   
 
-.boxItemContato {
-    text-align: left; /* Centraliza todo o texto dentro de .boxItemContato */
-    margin-bottom: 20px; /* Espaçamento entre os itens de contato */
-    padding: 10px; /* Espaço interno para melhorar a estética */
-    border-radius: 8px; /* Canto arredondado */
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Sombra suave para dar destaque */
-  }
   
   .fotoContainer {
     display: flex;
     align-items: center;
     justify-content: left;
     gap: 10px;
-    margin-bottom: 10px; /* Espaçamento entre as fotos e o texto */
+
   }
   
   .fotoContato {
@@ -49,20 +42,22 @@
     margin-bottom: 10px; /* Espaçamento entre os itens */
     background-color: #ffffff0c; /* Cor de fundo */
     cursor: pointer;
+    
 }
 
 .boxItemContato {
 
     padding: 10px; /* Espaçamento interno */
     margin-bottom: 10px; /* Espaçamento entre os itens */
-    background-color: #ffffff0c; /* Cor de fundo */
+    background-color: #ffffff1a; /* Cor de fundo */
     cursor: pointer;
     display: flex;
-   
+    border-radius: 8px; /* Canto arredondado */
   }
 
   .infosContato{
     margin-left: 15px;
+  
   }
   .nomesContatos{
     font-weight: bold;

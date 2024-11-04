@@ -2,10 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import firebase from 'firebase/app';
 import 'firebase/firestore';
 import './formularios.css';
+import { useParams } from 'react-router-dom';
 import { idGoogle } from '../../../../App.jsx';
 import { enviarChat } from '../../../Banco/init-firebase.js';
 
-function Chat({ contatoId, conversaId, closeExpandedForm }) {
+function Chat({ closeExpandedForm }) {
+  const { contactId, conversationId } = useParams(); // Obtém contactId e conversationId da URL
   const [mensagem, setMensagem] = useState('');
   const [chatMensagens, setChatMensagens] = useState([]);
   const contentChatRef = useRef(null);
@@ -13,9 +15,9 @@ function Chat({ contatoId, conversaId, closeExpandedForm }) {
   useEffect(() => {
     const unsubscribe = firebase.firestore()
       .collection('contatos')
-      .doc(contatoId)
+      .doc(contactId) // Usa contactId
       .collection('conversas')
-      .doc(conversaId)
+      .doc(conversationId) // Usa conversationId
       .collection('chat')
       .orderBy('data')
       .onSnapshot(async (snapshot) => {
@@ -40,7 +42,7 @@ function Chat({ contatoId, conversaId, closeExpandedForm }) {
       });
 
     return () => unsubscribe();
-  }, [contatoId, conversaId]);
+  }, [contactId, conversationId]);
 
   useEffect(() => {
     if (contentChatRef.current) {
@@ -52,36 +54,20 @@ function Chat({ contatoId, conversaId, closeExpandedForm }) {
     if (mensagem.trim() === '') {
       return; // Não enviar se a mensagem estiver vazia
     }
-  
+
     try {
-      // Enviar a mensagem no chat
       await enviarChat({
-        idContato: contatoId,
-        idConversa: conversaId,
+        idContato: contactId, // Usa contactId
+        idConversa: conversationId, // Usa conversationId
         idRemetente: idGoogle,
         mensagem: mensagem,
       });
-  
-      // Atualizar o documento da conversa com a última mensagem e o timestamp
-      await firebase.firestore()
-        .collection('contatos')
-        .doc(contatoId)
-        .collection('conversas')
-        .doc(conversaId)
-        .set(
-          {
-            ultimaMensagem: mensagem,
-            timestampUltimaMensagem: firebase.firestore.FieldValue.serverTimestamp(),
-          },
-          { merge: true } // Merge para não substituir todo o documento
-        );
-  
+
       setMensagem(''); // Limpar a mensagem após o envio
     } catch (error) {
       console.error('Erro ao enviar mensagem:', error);
     }
   };
-  
 
   return (
     <div className='contentPageDetForm'>
@@ -118,7 +104,7 @@ function Chat({ contatoId, conversaId, closeExpandedForm }) {
           value={mensagem}
           onChange={(e) => setMensagem(e.target.value)}
           onKeyDown={(e) => {
-            if ( e.key === 'Enter') {
+            if (e.key === 'Enter') {
               handleEnviarChat();
             }
           }}

@@ -1,17 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react'; 
 import firebase from 'firebase/app';
 import 'firebase/firestore';
 import './formularios.css';
+import { useNavigate, useParams } from 'react-router-dom';
+import { idGoogle } from '../../../../App';
 
-function ListaConversas({ conversaId, setBackText, setAtualTxt, handleExpandForm }) {
+function ListaConversas({ setBackText, setAtualTxt, handleExpandForm }) {
   const [conversas, setConversas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const navigate = useNavigate();
+  const { contactId } = useParams(); // Obtém o contactId da URL
 
   useEffect(() => {
     const unsubscribe = firebase.firestore()
       .collection('contatos')
-      .doc(conversaId)
+      .doc(contactId)
       .collection('conversas')
       .orderBy('dataUltimaMensagem', 'desc')
       .onSnapshot(
@@ -33,12 +37,12 @@ function ListaConversas({ conversaId, setBackText, setAtualTxt, handleExpandForm
       );
 
     return () => unsubscribe();
-  }, [conversaId]);
+  }, [contactId]);
 
   const deleteChats = async (idConversa) => {
     const chatsRef = firebase.firestore()
       .collection('contatos')
-      .doc(conversaId)
+      .doc(contactId)
       .collection('conversas')
       .doc(idConversa)
       .collection('chats');
@@ -63,7 +67,7 @@ function ListaConversas({ conversaId, setBackText, setAtualTxt, handleExpandForm
       // Exclui a conversa
       await firebase.firestore()
         .collection('contatos')
-        .doc(conversaId)
+        .doc(contactId)
         .collection('conversas')
         .doc(idConversa)
         .delete();
@@ -74,12 +78,17 @@ function ListaConversas({ conversaId, setBackText, setAtualTxt, handleExpandForm
 
       // Verifica se não há mais conversas e exclui a coleção "contatos" se estiver vazia
       if (novasConversas.length === 0) {
-        await firebase.firestore().collection('contatos').doc(conversaId).delete();
+        await firebase.firestore().collection('contatos').doc(contactId).delete();
       }
     } catch (error) {
       console.error('Erro ao deletar a conversa e seus chats:', error);
       setError('Erro ao deletar a conversa e seus chats.');
     }
+  };
+
+  const handleConversaClick = (idConversa) => {
+    // Redireciona para a URL correta com o contactId e conversaId
+    navigate(`/menu/${idGoogle}/contatos/${contactId}/chat/${idConversa}`);
   };
 
   return (
@@ -90,11 +99,7 @@ function ListaConversas({ conversaId, setBackText, setAtualTxt, handleExpandForm
       
       <div className='pageContentForms'>
         {conversas.map((conversa) => (
-          <div className='boxItemConversa' onClick={() => {
-            handleExpandForm(conversa.conversaId);
-            setBackText('Voltar');
-            setAtualTxt(conversa.assunto);
-          }} key={conversa.conversaId}>
+          <div className='boxItemConversa' onClick={() => handleConversaClick(conversa.conversaId)} key={conversa.conversaId}>
             <div className="conversaHeader">
               <p><strong>Assunto:</strong> {conversa.assunto}</p>
               <button

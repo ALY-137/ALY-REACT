@@ -1,14 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect , useParams } from 'react';
+import { useNavigate } from 'react-router-dom';
 import firebase from 'firebase/app';
 import 'firebase/firestore';
 import './formularios.css';
 import { seforAdm } from '../../../Scripts/verificações/verificaAdm';
 import { idGoogle } from '../../../../App';
 
-function ListaContatos({ handleExpandForm }) {
+
+function ListaContatos() {
   const [contatos, setContatos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const navigate = useNavigate(); // Hook para navegação
+
+
+
 
   useEffect(() => {
     const fetchUserData = async (idGoogle) => {
@@ -49,6 +55,7 @@ function ListaContatos({ handleExpandForm }) {
 
           return {
             contatoId: contatoDoc.id,
+            conversaId: data.conversaId, // Capturando o conversaId do contato
             fotoRemetente: remetenteData.foto,
             fotoDestinatario: destinatarioData.foto,
             nomeRemetente: remetenteData.nome,
@@ -68,19 +75,31 @@ function ListaContatos({ handleExpandForm }) {
     };
 
     fetchContatos();
+  }, [idGoogle]); // Adiciona idGoogle como dependência
 
-    return () => {}; // Cleanup se necessário
-  }, []);
+  const handleChatRedirect = (contatoId) => {
+    // Redireciona para a conversa principal
+    navigate(`/menu/${idGoogle}/contatos/${contatoId}/chat/principal`);
+  };
+
+  const handleListarConversasRedirect = (contatoId) => {
+    // Redireciona para a lista de conversas
+    navigate(`/menu/${idGoogle}/contatos/${contatoId}`);
+  };
 
   return (
     <div>
       {loading && <p>Carregando contatos...</p>}
       {error && <p>{error}</p>}
-      {!loading && !error && contatos.length == 0 && <p>Não há contatos.</p>}
+      {!loading && !error && contatos.length === 0 && <p>Não há contatos.</p>}
       
       <div className='pageContentForms'>
         {contatos.map((contato) => (
-          <div className='boxItemContato' onClick={() => handleExpandForm(contato.contatoId)} key={contato.contatoId}>
+          <div
+            className='boxItemContato'
+            onClick={() => handleListarConversasRedirect(contato.contatoId)} // Redireciona para a lista de conversas
+            key={contato.contatoId}
+          >
             <div className='fotoContainer'>
               {/* Se for admin, mostra tanto o remetente quanto o destinatário */}
               {seforAdm() ? (
@@ -93,13 +112,23 @@ function ListaContatos({ handleExpandForm }) {
             </div>
 
             <div className='infosContato'>
-                <p className='nomesContatos'>
+              <p className='nomesContatos'>
                 {/* Se for admin, mostra os dois nomes, caso contrário, só o nome do destinatário */}
                 {seforAdm() ? `${contato.nomeRemetente} | ${contato.nomeDestinatario}` : `${contato.nomeDestinatario}`}
-                </p>
-                <p className='dataContatos'>Último contato: {contato.ultimaConversaData.toLocaleDateString('pt-BR')}</p>
+              </p>
+              <p className='dataContatos'>Último contato: {contato.ultimaConversaData.toLocaleDateString('pt-BR')}</p>
             </div>
-            
+
+            {/* Botão para redirecionar ao chat principal */}
+            <button
+              className='btnChat'
+              onClick={(e) => {
+                e.stopPropagation(); // Evita que o clique no botão acione o onClick do contato
+                handleChatRedirect(contato.contatoId); // Redireciona para a conversa principal
+              }}
+            >
+              Chat
+            </button>
           </div>
         ))}
       </div>

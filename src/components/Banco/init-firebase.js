@@ -1,5 +1,6 @@
 import firebase from "firebase/app";
 import 'firebase/firestore';
+import { idGoogle } from "../../App";
 
 export const firebaseConfig = {
     apiKey: "AIzaSyAhSNGCUOM_nRiVwtRmmPz9o6ciQA6lSYA",
@@ -80,41 +81,36 @@ export const enviarMensagem = async (idRemetente, idDestinatario, assunto, mensa
   try {
     const contatoRef = db.collection('contatos').doc(idContato);
 
-    // Cria ou atualiza o contato, incluindo o idContato como um campo
     await contatoRef.set({
-      idContato, // Adiciona o ID do contato como um campo
-      ultimaConversaData: firebase.firestore.FieldValue.serverTimestamp(), // Adiciona a data da última conversa
+      idContato,
+      ultimaConversaData: firebase.firestore.FieldValue.serverTimestamp(),
     }, { merge: true });
 
-    // Verifica se o assunto está vazio para usar o ID fixo da conversa principal
     if (!assunto) {
-      idConversa = 'conversa_principal';
+      idConversa = 'principal';
     } else {
       idConversa = criarIdChat();
     }
 
     const conversaRef = contatoRef.collection('conversas').doc(idConversa);
 
-    // Se a conversa principal já existir, não precisa recriar
     const conversaDoc = await conversaRef.get();
     if (!conversaDoc.exists) {
       await conversaRef.set({
-        assunto: assunto || 'Conversa Principal',
+        assunto: assunto || 'PRINCIPAL',
         data: firebase.firestore.FieldValue.serverTimestamp(),
-        idContato, // Adiciona o ID do contato como uma referência
-        idConversa, // Adiciona o ID da conversa como um campo
-        ultimaMensagem: mensagem, // Define a última mensagem
-        dataUltimaMensagem: firebase.firestore.FieldValue.serverTimestamp(), // Define o timestamp da última mensagem
+        idContato,
+        idConversa,
+        ultimaMensagem: mensagem,
+        dataUltimaMensagem: firebase.firestore.FieldValue.serverTimestamp(),
       });
     } else {
-      // Atualiza o campo da última mensagem e o timestamp se a conversa já existir
       await conversaRef.update({
         ultimaMensagem: mensagem,
         dataUltimaMensagem: firebase.firestore.FieldValue.serverTimestamp(),
       });
     }
 
-    // Adiciona a nova mensagem à subcoleção "chat"
     const idChat = criarIdChat();
     await conversaRef.collection('chat').doc(idChat).set({
       mensagem,
@@ -123,6 +119,7 @@ export const enviarMensagem = async (idRemetente, idDestinatario, assunto, mensa
       idConversa,
       idChat,
     });
+
 
     console.log('Mensagem enviada e conversa (principal ou nova) atualizada com sucesso!');
   } catch (error) {

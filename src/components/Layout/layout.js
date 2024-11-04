@@ -13,11 +13,19 @@ var cardProfile;
 var estilo;
 var abaDesign;
 
+var menuNavbar;
+
+var menu;
+
     // FUNÇÃO PROFILE É A PRIMEIRA FUNÇÃO EXECUTADA NO SISTEMA
     // EXECUTADA ASSIM QUE O SISTEMA CARREGAR
     // CRIA O LAYOUT PADRÃO DE TODO O SISTEMA
 
 export function layout(){
+
+
+
+ 
 
 
     // CRIA ESTILIZAÇÃO GERAL DO LAYOUT (FUNDO, CONTEÚDO, RODAPÉ E ETC...).
@@ -46,6 +54,9 @@ export function layout(){
 
         cabecalho = document.getElementById('cabecalho');
         cabecalho.style.width = `${1000-5}px`;
+
+        menuNavbar = document.getElementById('navbar-menu');
+        menuNavbar.style.width = `${1000-5}px`;
     
     }else{
 
@@ -115,9 +126,7 @@ export function layout(){
 
 
     
-    // COR TEXTO PADRÃO PAGE   
-    estilo = document.body;
-    estilo.style.color = '#7e0eff';
+    txtDefault();
 
     // GERENCIA ABAS
     abaDesign = document.getElementById('abaHome');
@@ -135,6 +144,13 @@ export function layout(){
     abaDesign.classList.remove('optionsAbasFocoDesign');
     abaDesign.classList.add('optionsAbasHome');
 
+
+}
+
+export function txtDefault(){
+    // COR TEXTO PADRÃO PAGE   
+estilo = document.body;
+estilo.style.color = '#ae6bfa';
 
 }
 

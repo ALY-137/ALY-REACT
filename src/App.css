@@ -164,6 +164,8 @@
   padding: 0px;
   display: flex;
   justify-content: center;
+
+
 }
 
 #conteudo{
@@ -886,4 +888,29 @@ body{
   z-index: 30;
 }
 
+#cardProfile, #conteudo, .pages-navbar {
+  display: block;
+  opacity: 1;
+  transition: opacity 0.3s ease-in-out;
+  margin-top: 10px;
+}
 
+.menu-navbar {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  background-color: #000000;
+  z-index: 1000;
+  height: 40px;
+
+  display: flex;
+  justify-content: center; /* Centraliza horizontalmente */
+  align-items: center; /* Centraliza verticalmente */
+}
+
+.menu-open #cardProfile,
+.menu-open #conteudo,
+.menu-open .pages-navbar {
+  opacity: 0;
+  pointer-events: none;
+}

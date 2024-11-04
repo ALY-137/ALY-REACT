@@ -14,8 +14,10 @@ function Comandante(){
                 <p className="subtitulo">SAVANNA OLIVEIRA</p>
                 
                 <p className='paragrafo'>
-                UMA PESQUISADORA QUE TEM COMO PRINCIPAIS CARACTERÍSTICAS A AUTENTICIDADE E A VERSATILIDADE EM REALIZAR SEUS OBJETIVOS. SEU FASCÍNIO PRECOCE POR TECNOLOGIAS A LEVOU A CRIAR SEU PRIMEIRO ALGORITMO ANTES MESMO DE INGRESSAR NA ACADEMIA. DETERMINADA EM EXERCER SUAS PAIXÕES, SE DESTACA UNINDO A PROGRAMAÇÃO COM SUA ESTÉTICA ÚNICA. COM DEDICAÇÃO CONTÍNUA AO ESTUDO, BUSCA EMPREGAR SEUS TALENTOS EM PROJETOS IMPACTANTES E SIGNIFICATIVOS PARA O CIBERESPAÇO.</p>
 
+                    Uma criadora marcada pela autenticidade e versatilidade em suas obras. Sua inclinação natural para automatizar tarefas a levou a explorar soluções criativas, mesmo antes de entrar na academia. Movida pela satisfação de proporcionar experiências a seus usuáries, combina programação com uma estética memorável, destacando-se por transformar suas ideias em projetos impactantes no ciberespaço. Com dedicação contínua ao estudo, busca aplicar seus talentos em iniciativas que deixam uma marca significativa no mundo digital.
+
+                </p>
             <EstiloContainerBot />
         </div>
 

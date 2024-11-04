@@ -115,7 +115,7 @@ export function violet(){
     // CHAMA FUNÇÃO MATRIX DA HOME
 
    
-    theMatrixHome(alyAlt,alyLar);   
+     theMatrixHome(alyAlt,alyLar);   
    
 }
 
