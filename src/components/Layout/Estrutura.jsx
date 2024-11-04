@@ -11,7 +11,6 @@ function Estrutura() {
   // Recupera o idGoogle do localStorage ao montar o componente
   const idGoogle = localStorage.getItem('idGoogle');
 
-
   // Alterna o estado do menu
   const toggleMenu = () => {
     setMenuOpen(prevState => !prevState); // Corrige o toggle para mudar o estado corretamente
@@ -31,18 +30,20 @@ function Estrutura() {
 
   return (
     <div id="fundo">
-      {/* Navbar para controlar o Menu. */}
-      <div id="navbar-menu" className="menu-navbar" style={{ textAlign: 'center' }}>
-        {/* Ícone de abrir menu centralizado. */}
-        <p onClick={toggleMenu} style={{ cursor: 'pointer' }}>㆔</p>
-      </div>
+      {/* Renderiza a barra de menu apenas se idGoogle tiver um valor */}
+      {idGoogle && (
+        <div id="navbar-menu" className="menu-navbar" style={{ textAlign: 'center' }}>
+          {/* Ícone de abrir menu centralizado */}
+          <p onClick={toggleMenu} style={{ cursor: 'pointer' }}>㆔</p>
+        </div>
+      )}
 
-      {/* Renderiza o Menu se estiver aberto. */}
+      {/* Renderiza o Menu se estiver aberto */}
       {menuOpen ? (
         <Menu menuOpen={menuOpen} setMenuOpen={setMenuOpen}/>
       ) : (
         <>
-          {/* Card Profile fica invisível se o menu estiver aberto. */}
+          {/* Card Profile fica invisível se o menu estiver aberto */}
           <div id="cardProfile" style={{ visibility: 'visible' }}>
             <img src="/imagens/imgHome/busto.png" id="imgBustoHome" alt="imagem" />
             <div id="MatrixDesign"></div>
@@ -50,10 +51,10 @@ function Estrutura() {
             <div id="MatrixHome"></div>
           </div>
 
-          {/* Navbar de Páginas. */}
+          {/* Navbar de Páginas */}
           <Navbar />
 
-          {/* Conteúdo renderizado via Outlet. */}
+          {/* Conteúdo renderizado via Outlet */}
           <div id="conteudo">
             <Outlet />
           </div>
