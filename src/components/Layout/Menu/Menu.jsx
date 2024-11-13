@@ -21,7 +21,7 @@ function Menu({ menuOpen, setMenuOpen }) {
  
     useEffect(() => {
     
-    // Fazer rota para login    
+    // Implementar rota para login    
     //    if (!idGoogle) {
             // Se o idGoogle não estiver no localStorage, redirecionar para a página de login
     //        navigate('/login');
@@ -35,12 +35,10 @@ function Menu({ menuOpen, setMenuOpen }) {
             setBackAction(() => closeMenu);
 
             if(larSreen>1000){
-                    menu = document.getElementById('Menu')
-                    menu.style.width = `${1000-5}px`;
+                   menu = document.getElementById('Menu')
+                   menu.style.width = `${1000-5}px`;
 
             }
-            
-  
 
         }
 

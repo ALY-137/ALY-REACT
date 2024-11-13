@@ -25,9 +25,6 @@ export function layout(){
 
 
 
- 
-
-
     // CRIA ESTILIZAÇÃO GERAL DO LAYOUT (FUNDO, CONTEÚDO, RODAPÉ E ETC...).
 
     fundo = document.getElementById('fundo');
@@ -99,16 +96,13 @@ export function layout(){
     
     cardProfile = document.getElementById("cardProfile");
     cardProfile.style.height = `${alyAlt}px`;
-    cardProfile.style.width = `${alyLar}px`;
-    
+    cardProfile.style.width = `${alyLar}px`; 
 
     // REDIMENSIONA CONTEÚDO
 
     conteudo = document.getElementById('conteudo');
     conteudo.style.width = `100%`;
 
-
-     
     if(larSreen>1000){
         cardProfile = document.getElementById("cardProfile");
         cardProfile.style.width = `${1000-4}px`;
@@ -117,15 +111,11 @@ export function layout(){
         cardProfile.style.width = `${larSreen-4}px`;
     }
 
-    
-
     estilo = document.getElementById('fundo');
     estilo.classList.remove('fundoEstiloDev');
     estilo.classList.remove('fundoEstiloDesign');
     estilo.classList.add('fundoEstiloHome');
-
-
-    
+ 
     txtDefault();
 
     // GERENCIA ABAS
@@ -143,7 +133,6 @@ export function layout(){
     abaDesign.classList.remove('optionsAbasFocoDev');
     abaDesign.classList.remove('optionsAbasFocoDesign');
     abaDesign.classList.add('optionsAbasHome');
-
 
 }
 

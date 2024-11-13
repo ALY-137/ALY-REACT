@@ -16,8 +16,7 @@
     overflow-x: hidden;
 
     /* Configurações para centralizar */
-    max-width: 1000px;
-    width: 100%; /* A largura ocupará até 1000px, dependendo da tela */
+
     margin-left: auto;
     margin-right: auto;
 }
