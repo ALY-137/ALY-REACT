@@ -15,7 +15,6 @@ var abaDesign;
 
 var menuNavbar;
 
-var menu;
 
     // FUNÇÃO PROFILE É A PRIMEIRA FUNÇÃO EXECUTADA NO SISTEMA
     // EXECUTADA ASSIM QUE O SISTEMA CARREGAR

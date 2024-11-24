@@ -3,13 +3,15 @@ import Menu from "./Menu/Menu"; // Componente do menu
 import Navbar from "./Navbar/Navbar"; // Navbar das páginas
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 
-function Estrutura() {
+function Estrutura({ onRender }) {
   const [menuOpen, setMenuOpen] = useState(false); // Estado do menu
   const location = useLocation();
   const navigate = useNavigate();
 
   // Recupera o idGoogle do localStorage ao montar o componente
   const idGoogle = localStorage.getItem('idGoogle');
+
+  console.log(idGoogle);
 
   // Alterna o estado do menu
   const toggleMenu = () => {
@@ -27,6 +29,13 @@ function Estrutura() {
       setMenuOpen(false); // Fecha o menu se a rota não for do menu.
     }
   }, [location, idGoogle]);
+
+  // Executa o callback onRender quando o componente for montado
+  useEffect(() => {
+    if (onRender) {
+      onRender(); // Notifica que o componente foi renderizado
+    }
+  }, [onRender]); // Dependência do onRender
 
   return (
     <div id="fundo">

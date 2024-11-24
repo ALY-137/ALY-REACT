@@ -1,11 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { useLocation, ScrollRestoration } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { verificaUser } from './components/Banco/init-firebase';
 
-
-
 import './App.css';
-
 
 import violet from './components/Layout/violet';
 import blue from './components/Layout/blue';
@@ -15,111 +12,66 @@ import layout from './components/Layout/layout';
 import Estrutura from './components/Layout/Estrutura';
 import AnoAtualizado from './components/Scripts/data/AnoAtualizado';
 
-let idGoogle;
-let nomeCompleto;
+let idGoogle = null; // Variável global para exportação
 
 function App() {
   const location = useLocation();
   const rotaAtual = location.pathname;
 
-
-
   const [user, setUser] = useState(null);
   const [mostrarLogin, setMostrarLogin] = useState(false);
-  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const [estruturaRenderizada, setEstruturaRenderizada] = useState(false); // Estado para rastrear a renderização
 
   function handleCallbackResponse(response) {
     const { jwtDecode } = require('jwt-decode');
-   
     const userObject = jwtDecode(response.credential);
-    console.log(userObject);
-    setUser(userObject);
-    document.getElementById('signInDiv').hidden = true;
-    window.given_name.textContent = userObject.given_name;
-    window.fullName.textContent = userObject.name;
-    window.sub.textContent = userObject.sub;
-    window.family_name.textContent = userObject.family_name;
-    window.email.textContent = userObject.email;
-    window.verifiedEmail.textContent = userObject.email_verified;
-    window.picture.setAttribute("src", userObject.picture);
 
-    const login = document.getElementById('login');
-    login.style.display = "none";
+    console.log(userObject);
+
+    idGoogle = userObject.sub;
+    localStorage.setItem('user', JSON.stringify(userObject));
+    localStorage.setItem('idGoogle', idGoogle);
+
+    setUser(userObject);
 
     const camp = 'idGoogle';
-    idGoogle = userObject.sub;
-    nomeCompleto = userObject.name;
-
     verificaUser(camp, idGoogle);
-
-    // Armazenar usuário no localStorage
-    localStorage.setItem('user', JSON.stringify(userObject));
-
-    layout();
-
-    switch (rotaAtual) {
-      case '/':
-      case '/home/':
-      case '/home':
-        violet();
-        break;
-      case '/development/':
-      case '/development':
-        blue();
-        break;
-      case '/design/':
-      case '/design':
-        pink();
-        break;
-      default:
-    }
   }
 
   useEffect(() => {
     // Inicialização do Google
     window.google.accounts.id.initialize({
       client_id: "99960275074-f5d0bnogv6a9oq1ui4pkrbou60ffh43f.apps.googleusercontent.com",
-      callback: handleCallbackResponse
+      callback: handleCallbackResponse,
     });
 
     window.google.accounts.id.renderButton(
-      document.getElementById("signInDiv"), {
-        theme: "outline",
-        size: "large",
-        type: "icon",
-        shape: "rectangular",
-        text: "$ {button.text}",
-        locale: "pt-BR"
+      document.getElementById('signInDiv'),
+      {
+        theme: 'outline',
+        size: 'large',
+        type: 'icon',
+        shape: 'rectangular',
+        text: '$ {button.text}',
+        locale: 'pt-BR',
       }
     );
 
-    // Verificar localStorage
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      const userObject = JSON.parse(storedUser);
-      setUser(userObject);
-      document.getElementById('signInDiv').hidden = true;
-      window.given_name.textContent = userObject.given_name;
-      window.fullName.textContent = userObject.name;
-      window.sub.textContent = userObject.sub;
-      window.family_name.textContent = userObject.family_name;
-      window.email.textContent = userObject.email;
-      window.verifiedEmail.textContent = userObject.email_verified;
-      window.picture.setAttribute("src", userObject.picture);
-
-      const login = document.getElementById('login');
-      login.style.display = "none";
+    // Recuperar idGoogle do localStorage
+    const storedIdGoogle = localStorage.getItem('idGoogle');
+    if (storedIdGoogle) {
+      idGoogle = storedIdGoogle;
+      const storedUser = JSON.parse(localStorage.getItem('user'));
+      setUser(storedUser);
 
       const camp = 'idGoogle';
-      idGoogle = userObject.sub;
-      nomeCompleto = userObject.name;
-
       verificaUser(camp, idGoogle);
+    }
+  }, []);
 
-      localStorage.setItem('idGoogle', idGoogle);
-
-      layout();
-
+  useEffect(() => {
+    if (idGoogle && estruturaRenderizada) {
+      layout(); // Chama layout apenas após Estrutura ser renderizado
       switch (rotaAtual) {
         case '/':
         case '/home/':
@@ -134,69 +86,39 @@ function App() {
         case '/design':
           pink();
           break;
-
-          
         default:
       }
     }
-
-    // Adicionar listener de resize
-    const handleResize = () => {
-      setWindowWidth(window.innerWidth);
-      console.log("Window resized! New width: " + window.innerWidth);
-    };
-
-    window.addEventListener('resize', handleResize);
-
-    // Adicionar listener de beforeunload
-    const handleBeforeUnload = () => {
-      localStorage.setItem("pageReloaded", "true");
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
-    // Limpar os listeners ao desmontar o componente
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, [rotaAtual]);
+  }, [idGoogle, rotaAtual, estruturaRenderizada]); // Inclui estruturaRenderizada como dependência
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       setMostrarLogin(true);
     }, 80);
+
     return () => clearTimeout(timeoutId);
   }, []);
 
   return (
     <div>
-
-  <Estrutura />
-
-      <div id='login' className={`containerLogin ${mostrarLogin ? 'fadeIn' : ''}`}>
-      
-        
-        <div id='iconsLogin'>
-          <img src='/logoNeon.png' id='logoLogin' />
-          <p id='logoTxt'>ALY-137</p>
-          <p id='textoLogin'>EMBARQUE COM O GOOGLE</p>
-          <div id="signInDiv"></div>
+      {!idGoogle ? (
+        <div id="login" className={`containerLogin ${mostrarLogin ? 'fadeIn' : ''}`}>
+          <div id="iconsLogin">
+            <img src="/logoNeon.png" id="logoLogin" />
+            <p id="logoTxt">ALY-137</p>
+            <p id="textoLogin">EMBARQUE COM O GOOGLE</p>
+            <div id="signInDiv"></div>
+          </div>
+          <p id="rodapeLogin">
+            ALY-137© <AnoAtualizado />
+          </p>
         </div>
-        <p id='rodapeLogin'>ALY-137© <AnoAtualizado /></p>
-      </div>
-      <p id="fullName"></p>
-      <p id="sub"></p>
-      <p id="given_name"></p>
-      <p id="family_name"></p>
-      <p id="email"></p>
-      <p id="verifiedEmail"></p>
-      <img id="picture" />
-   
+      ) : (
+        <Estrutura onRender={() => setEstruturaRenderizada(true)} /> // Passa o callback onRender
+      )}
     </div>
   );
 }
 
 export { idGoogle };
-export { nomeCompleto };
 export default App;
