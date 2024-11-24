@@ -19,7 +19,7 @@ function ListaContatos() {
   useEffect(() => {
     const fetchUserData = async (idGoogleCap) => {
       try {
-        const userDoc = await firebase.firestore().collection('users').where('idGoogleCap', '==', idGoogleCap).get();
+        const userDoc = await firebase.firestore().collection('users').where('idGoogle', '==', idGoogleCap).get();
         if (!userDoc.empty) {
           const data = userDoc.docs[0].data();
           return {
