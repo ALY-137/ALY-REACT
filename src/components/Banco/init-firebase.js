@@ -1,6 +1,6 @@
 import firebase from "firebase/app";
 import 'firebase/firestore';
-import { idGoogle } from "../../App";
+import { idGoogleCap, primeiroNomeCap , emailCap , picGoogleCap ,fullnameCap } from "../../App";
 
 export const firebaseConfig = {
     apiKey: "AIzaSyAhSNGCUOM_nRiVwtRmmPz9o6ciQA6lSYA",
@@ -143,12 +143,11 @@ export const verificaUser = async (campo, valor) => {
         });
       }
     } else {
-      var idGoogle = document.getElementById('sub').textContent;
-      var nomeGoogle = document.getElementById('given_name').textContent;
-      var emailGoogle = document.getElementById('email').textContent;
-      var picGoogle = document.getElementById('picture').src;
-      var nomeCompletoGoogle = document.getElementById('fullName').textContent;
-
+      var idGoogle = idGoogleCap;
+      var nomeGoogle = primeiroNomeCap;
+      var emailGoogle = emailCap;
+      var picGoogle = picGoogleCap;
+      var nomeCompletoGoogle = fullnameCap;
       let data = new Date();
     
       const user = firebase.firestore().collection("users");

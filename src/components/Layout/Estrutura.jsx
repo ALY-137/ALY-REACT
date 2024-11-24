@@ -3,32 +3,32 @@ import Menu from "./Menu/Menu"; // Componente do menu
 import Navbar from "./Navbar/Navbar"; // Navbar das páginas
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 
+
 function Estrutura({ onRender }) {
   const [menuOpen, setMenuOpen] = useState(false); // Estado do menu
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Recupera o idGoogle do localStorage ao montar o componente
-  const idGoogle = localStorage.getItem('idGoogle');
+  // Recupera o idGoogleCap do localStorage ao montar o componente
+  const idGoogleCap = localStorage.getItem('idGoogleCap');
 
-  console.log(idGoogle);
 
   // Alterna o estado do menu
   const toggleMenu = () => {
-    setMenuOpen(prevState => !prevState); // Corrige o toggle para mudar o estado corretamente
+    setMenuOpen(prevState => !prevState); // Altera o estado corretamente
     if (!menuOpen) {
-      navigate(`/menu/${idGoogle}`); // Navega para o menu ao abrir.
+      navigate(`/menu/${idGoogleCap}`); // Navega para o menu ao abrir
     }
   };
 
-  // Abre o menu automaticamente ao acessar a rota.
+  // Abre o menu automaticamente ao acessar a rota
   useEffect(() => {
-    if (location.pathname === `/menu/${idGoogle}`) {
+    if (location.pathname === `/menu/${idGoogleCap}`) {
       setMenuOpen(true);
     } else {
-      setMenuOpen(false); // Fecha o menu se a rota não for do menu.
+      setMenuOpen(false); // Fecha o menu se a rota não for do menu
     }
-  }, [location, idGoogle]);
+  }, [location, idGoogleCap]);
 
   // Executa o callback onRender quando o componente for montado
   useEffect(() => {
@@ -39,8 +39,8 @@ function Estrutura({ onRender }) {
 
   return (
     <div id="fundo">
-      {/* Renderiza a barra de menu apenas se idGoogle tiver um valor */}
-      {idGoogle && (
+      {/* Renderiza a barra de menu apenas se idGoogleCap tiver um valor */}
+      {idGoogleCap && (
         <div id="navbar-menu" className="menu-navbar" style={{ textAlign: 'center' }}>
           {/* Ícone de abrir menu centralizado */}
           <p onClick={toggleMenu} style={{ cursor: 'pointer' }}>㆔</p>
@@ -49,11 +49,11 @@ function Estrutura({ onRender }) {
 
       {/* Renderiza o Menu se estiver aberto */}
       {menuOpen ? (
-        <Menu menuOpen={menuOpen} setMenuOpen={setMenuOpen}/>
+        <Menu menuOpen={menuOpen} setMenuOpen={setMenuOpen} />
       ) : (
         <>
           {/* Card Profile fica invisível se o menu estiver aberto */}
-          <div id="cardProfile" style={{ visibility: 'visible' }}>
+          <div id="cardProfile" style={{ visibility: menuOpen ? 'hidden' : 'visible' }}>
             <img src="/imagens/imgHome/busto.png" id="imgBustoHome" alt="imagem" />
             <div id="MatrixDesign"></div>
             <div id="MatrixDev"></div>

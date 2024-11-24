@@ -4,7 +4,7 @@ import firebase from 'firebase/app';
 import 'firebase/firestore';
 import './formularios.css';
 import { seforAdm } from '../../../Scripts/verificações/verificaAdm';
-import { idGoogle } from '../../../../App';
+import { idGoogleCap } from '../../../../App';
 
 
 function ListaContatos() {
@@ -17,9 +17,9 @@ function ListaContatos() {
 
 
   useEffect(() => {
-    const fetchUserData = async (idGoogle) => {
+    const fetchUserData = async (idGoogleCap) => {
       try {
-        const userDoc = await firebase.firestore().collection('users').where('idGoogle', '==', idGoogle).get();
+        const userDoc = await firebase.firestore().collection('users').where('idGoogleCap', '==', idGoogleCap).get();
         if (!userDoc.empty) {
           const data = userDoc.docs[0].data();
           return {
@@ -46,7 +46,7 @@ function ListaContatos() {
           const [idRemetente, idDestinatario] = data.idContato.split('_');
 
           // Filtra os contatos que envolvem o usuário logado, caso ele não seja administrador
-          if (!seforAdm() && idGoogle !== idRemetente && idGoogle !== idDestinatario) {
+          if (!seforAdm() && idGoogleCap !== idRemetente && idGoogleCap !== idDestinatario) {
             return null; // Se não for admin e o contato não pertence ao usuário, ignore-o
           }
 
@@ -75,16 +75,16 @@ function ListaContatos() {
     };
 
     fetchContatos();
-  }, [idGoogle]); // Adiciona idGoogle como dependência
+  }, [idGoogleCap]); // Adiciona idGoogleCap como dependência
 
   const handleChatRedirect = (contatoId) => {
     // Redireciona para a conversa principal
-    navigate(`/menu/${idGoogle}/contatos/${contatoId}/chat/principal`);
+    navigate(`/menu/${idGoogleCap}/contatos/${contatoId}/chat/principal`);
   };
 
   const handleListarConversasRedirect = (contatoId) => {
     // Redireciona para a lista de conversas
-    navigate(`/menu/${idGoogle}/contatos/${contatoId}`);
+    navigate(`/menu/${idGoogleCap}/contatos/${contatoId}`);
   };
 
   return (

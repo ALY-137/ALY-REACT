@@ -3,7 +3,7 @@ import firebase from 'firebase/app';
 import 'firebase/firestore';
 import './formularios.css';
 import { useParams } from 'react-router-dom';
-import { idGoogle } from '../../../../App.jsx';
+import { idGoogleCap } from '../../../../App.jsx';
 import { enviarChat } from '../../../Banco/init-firebase.js';
 
 function Chat({ closeExpandedForm }) {
@@ -59,7 +59,7 @@ function Chat({ closeExpandedForm }) {
       await enviarChat({
         idContato: contactId, // Usa contactId
         idConversa: conversationId, // Usa conversationId
-        idRemetente: idGoogle,
+        idRemetente: idGoogleCap,
         mensagem: mensagem,
       });
 
@@ -73,7 +73,7 @@ function Chat({ closeExpandedForm }) {
     <div className='contentPageDetForm'>
       <div className='contentChat' ref={contentChatRef}>
         {chatMensagens.map((mensagem, index) => {
-          const isSentByMe = mensagem.idRemetente === idGoogle;
+          const isSentByMe = mensagem.idRemetente === idGoogleCap;
           const mostrarFoto = !isSentByMe && (index === 0 || chatMensagens[index - 1].nomeGoogle !== mensagem.nomeGoogle);
 
           return (

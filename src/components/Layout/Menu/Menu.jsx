@@ -7,7 +7,7 @@ import { txtDefault } from "../layout";
 const larSreen = window.innerWidth;
 
 function Menu({ menuOpen, setMenuOpen }) { 
-    const [idGoogle, setIdGoogle] = useState(() => localStorage.getItem('idGoogle'));
+    const [idGoogleCap, setIdGoogle] = useState(() => localStorage.getItem('idGoogleCap'));
     const [backAction, setBackAction] = useState(() => closeMenu);
     const [backText, setBackText] = useState("VOLTAR");
     const [atualTxt, setAtualTxt] = useState("MENU");
@@ -22,14 +22,14 @@ function Menu({ menuOpen, setMenuOpen }) {
     useEffect(() => {
     
     // Implementar rota para login    
-    //    if (!idGoogle) {
-            // Se o idGoogle não estiver no localStorage, redirecionar para a página de login
+    //    if (!idGoogleCap) {
+            // Se o idGoogleCap não estiver no localStorage, redirecionar para a página de login
     //        navigate('/login');
     //        return;
     //    }
 
 
-        if (location.pathname ===`/menu/${idGoogle}`) {
+        if (location.pathname ===`/menu/${idGoogleCap}`) {
             setAtualTxt("MENU");
             setBackText("VOLTAR");
             setBackAction(() => closeMenu);
@@ -42,25 +42,25 @@ function Menu({ menuOpen, setMenuOpen }) {
 
         }
 
-        if (location.pathname === `/menu/${idGoogle}/users`) {
+        if (location.pathname === `/menu/${idGoogleCap}/users`) {
             setAtualTxt("USERS");
             setBackText("MENU");
             setBackAction(() => closeUsers);
    
 
-        } else if (location.pathname === `/menu/${idGoogle}/contatos`) {
+        } else if (location.pathname === `/menu/${idGoogleCap}/contatos`) {
             setAtualTxt("CONTATOS");
             setBackText("MENU");
             setBackAction(() => closeContatos);
 
 
-        } else if (location.pathname.startsWith(`/menu/${idGoogle}/contatos/`) && !location.pathname.includes('/chat/')) {
+        } else if (location.pathname.startsWith(`/menu/${idGoogleCap}/contatos/`) && !location.pathname.includes('/chat/')) {
             setAtualTxt("CONVERSAS");
             setBackText("CONTATOS");
             setBackAction(() => closeConversas);
 
 
-        } else if (location.pathname.startsWith(`/menu/${idGoogle}/contatos/`) && location.pathname.includes('/chat/')) {
+        } else if (location.pathname.startsWith(`/menu/${idGoogleCap}/contatos/`) && location.pathname.includes('/chat/')) {
             setAtualTxt("ASSUNTO");
             setBackText("CONVERSAS");
             setBackAction(() => closeChat);
@@ -75,23 +75,23 @@ function Menu({ menuOpen, setMenuOpen }) {
     }
 
     function abrirUsers() {
-        navigate(`/menu/${idGoogle}/users`);
+        navigate(`/menu/${idGoogleCap}/users`);
     }
 
     function closeUsers() {
-        navigate(`/menu/${idGoogle}`);
+        navigate(`/menu/${idGoogleCap}`);
     }
 
     function closeContatos() {
-        navigate(`/menu/${idGoogle}`);
+        navigate(`/menu/${idGoogleCap}`);
     }
 
     function closeConversas() {
-        navigate(`/menu/${idGoogle}/contatos`);
+        navigate(`/menu/${idGoogleCap}/contatos`);
     }
 
     function closeChat() {
-        navigate(`/menu/${idGoogle}/contatos/${contactId}`);
+        navigate(`/menu/${idGoogleCap}/contatos/${contactId}`);
     }
 
     function logoff() {
@@ -100,7 +100,7 @@ function Menu({ menuOpen, setMenuOpen }) {
     }
 
     function abrirContatos() {
-        navigate(`/menu/${idGoogle}/contatos`);
+        navigate(`/menu/${idGoogleCap}/contatos`);
     }
 
     txtDefault();
@@ -115,7 +115,7 @@ function Menu({ menuOpen, setMenuOpen }) {
 
                 {/* Gavetas são ocultadas se o caminho não for o menu principal */}
                 <div id='Gavetas' className={
-                    location.pathname === `/menu/${idGoogle}`
+                    location.pathname === `/menu/${idGoogleCap}`
                     ? 'mostra' 
                     : 'oculta'
                 }>

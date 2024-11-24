@@ -12,7 +12,12 @@ import layout from './components/Layout/layout';
 import Estrutura from './components/Layout/Estrutura';
 import AnoAtualizado from './components/Scripts/data/AnoAtualizado';
 
-let idGoogle = null; // Variável global para exportação
+// Variáveis globais para exportação
+let idGoogleCap = null;
+let primeiroNomeCap = null;
+let emailCap = null;
+let picGoogleCap = null;
+let fullnameCap = null;
 
 function App() {
   const location = useLocation();
@@ -26,16 +31,19 @@ function App() {
     const { jwtDecode } = require('jwt-decode');
     const userObject = jwtDecode(response.credential);
 
-    console.log(userObject);
 
-    idGoogle = userObject.sub;
+
+    idGoogleCap = userObject.sub;
+    primeiroNomeCap = userObject.given_name; // Atualiza a variável global
+    emailCap = userObject.email;
+    picGoogleCap = userObject.picture;
+    fullnameCap = userObject.name;
+
     localStorage.setItem('user', JSON.stringify(userObject));
-    localStorage.setItem('idGoogle', idGoogle);
+    localStorage.setItem('idGoogleCap', idGoogleCap);
 
     setUser(userObject);
-
-    const camp = 'idGoogle';
-    verificaUser(camp, idGoogle);
+    verificaUser('idGoogleCap', idGoogleCap);
   }
 
   useEffect(() => {
@@ -57,20 +65,18 @@ function App() {
       }
     );
 
-    // Recuperar idGoogle do localStorage
-    const storedIdGoogle = localStorage.getItem('idGoogle');
+    // Recuperar idGoogleCap e primeiroNomeCap do localStorage
+    const storedIdGoogle = localStorage.getItem('idGoogleCap');
     if (storedIdGoogle) {
-      idGoogle = storedIdGoogle;
+      idGoogleCap = storedIdGoogle;
       const storedUser = JSON.parse(localStorage.getItem('user'));
+      primeiroNomeCap = storedUser?.given_name || null; // Atualiza a variável global
       setUser(storedUser);
-
-      const camp = 'idGoogle';
-      verificaUser(camp, idGoogle);
     }
   }, []);
 
   useEffect(() => {
-    if (idGoogle && estruturaRenderizada) {
+    if (idGoogleCap && estruturaRenderizada) {
       layout(); // Chama layout apenas após Estrutura ser renderizado
       switch (rotaAtual) {
         case '/':
@@ -89,7 +95,7 @@ function App() {
         default:
       }
     }
-  }, [idGoogle, rotaAtual, estruturaRenderizada]); // Inclui estruturaRenderizada como dependência
+  }, [idGoogleCap, rotaAtual, estruturaRenderizada]); // Inclui estruturaRenderizada como dependência
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -101,7 +107,7 @@ function App() {
 
   return (
     <div>
-      {!idGoogle ? (
+      {!idGoogleCap ? (
         <div id="login" className={`containerLogin ${mostrarLogin ? 'fadeIn' : ''}`}>
           <div id="iconsLogin">
             <img src="/logoNeon.png" id="logoLogin" />
@@ -114,11 +120,14 @@ function App() {
           </p>
         </div>
       ) : (
-        <Estrutura onRender={() => setEstruturaRenderizada(true)} /> // Passa o callback onRender
+        <Estrutura 
+          onRender={() => setEstruturaRenderizada(true)} 
+          primeiroNomeCap={primeiroNomeCap} // Passa o nome para o componente Estrutura
+        />
       )}
     </div>
   );
 }
 
-export { idGoogle };
+export { idGoogleCap, primeiroNomeCap ,emailCap , picGoogleCap , fullnameCap }; // Exporta ambas as variáveis globais
 export default App;

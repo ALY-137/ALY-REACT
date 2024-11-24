@@ -5,7 +5,7 @@ import EstiloContainerBot from './EstiloContainerBot';
 import { enviarMensagem } from '../../../../Banco/init-firebase';
 import { useState } from 'react';
 import { validarFormulario } from './validarForm';
-import { idGoogle } from '../../../../../App';
+import { idGoogleCap } from '../../../../../App';
 
 function Contato() {
   const [valorSelecionado, setValorSelecionado] = useState('');
@@ -15,7 +15,7 @@ function Contato() {
     var valor = validarFormulario();
 
     if (valor === 1) {
-      enviarMensagem(idGoogle, '113891358948396359936', valorSelecionado, valorTextarea);
+      enviarMensagem(idGoogleCap, '113891358948396359936', valorSelecionado, valorTextarea);
 
       let enviado = document.getElementById('contentForm');
       enviado.style.display = 'none';

@@ -5,7 +5,7 @@
 
 /////////////////////////////////////////////
 
-
+import { primeiroNomeCap } from "../../App";
 const largura = window.innerWidth;
 const altura = window.innerHeight;
 
@@ -15,6 +15,8 @@ const altura = window.innerHeight;
 var i;
 
 var resultado;
+
+
 
 
 function realocaChuvasTxt(altura){
@@ -348,8 +350,7 @@ function trocador(d) {
 
 function enviaNome(){ 
 
-    var nomeGoogle = document.getElementById('given_name');
-    nome = nomeGoogle.textContent;
+    nome = primeiroNomeCap;
 
    
 

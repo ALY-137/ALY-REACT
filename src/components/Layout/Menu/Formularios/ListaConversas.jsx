@@ -3,7 +3,7 @@ import firebase from 'firebase/app';
 import 'firebase/firestore';
 import './formularios.css';
 import { useNavigate, useParams } from 'react-router-dom';
-import { idGoogle } from '../../../../App';
+import { idGoogleCap } from '../../../../App';
 
 function ListaConversas({ setBackText, setAtualTxt, handleExpandForm }) {
   const [conversas, setConversas] = useState([]);
@@ -88,7 +88,7 @@ function ListaConversas({ setBackText, setAtualTxt, handleExpandForm }) {
 
   const handleConversaClick = (idConversa) => {
     // Redireciona para a URL correta com o contactId e conversaId
-    navigate(`/menu/${idGoogle}/contatos/${contactId}/chat/${idConversa}`);
+    navigate(`/menu/${idGoogleCap}/contatos/${contactId}/chat/${idConversa}`);
   };
 
   return (
