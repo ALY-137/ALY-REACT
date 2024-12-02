@@ -23,8 +23,13 @@ const LedControl = () => {
     };
  
     ws.onclose = () => {
-      console.log("Conexão encerrada.");
-      setConnectionStatus("Desconectado");
+      console.log("Conexão encerrada, tentando reconectar...");
+      setConnectionStatus("Reconectando...");
+      // Tentar reconectar após 2 segundos
+      setTimeout(() => {
+        const newWs = new WebSocket("wss://aly137.vercel.app/ledcontrol");
+        setSocket(newWs);
+      }, 2000);
     };
 
     setSocket(ws);
