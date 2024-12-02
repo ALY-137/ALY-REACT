@@ -6,7 +6,7 @@ import Contato from "../../Layout/Objects/Containers/Home/Contato";
 import Rodape from "../../Layout/Rodape/Rodape";
 import Loading from "../../Layout/Objects/Objetos/Carregamentos/Loading";
 import { anima3 } from "../matrixHome";
-import LedControl from "../leds/LedControl";
+
 
 class Home extends Component {
   state = {
@@ -85,7 +85,6 @@ class Home extends Component {
             <Comandante />
             <MissoesHome />
             <Contato />
-            <LedControl />
             <Rodape estilo="rodapeEstiloHome" />
            
           </>

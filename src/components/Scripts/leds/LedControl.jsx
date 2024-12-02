@@ -6,7 +6,7 @@ const LedControl = () => {
 
   useEffect(() => {
     // Inicializar conexão WebSocket
-    const ws = new WebSocket("ws://192.168.2.108:80/");
+    const ws = new WebSocket("ws://aly137.vercel.app/ledcontrol");
 
     ws.onopen = () => {
       setConnectionStatus("Conectado!");
@@ -53,7 +53,7 @@ const LedControl = () => {
           onClick={() => handleLedControl("ledEsq_on")}
           style={{ margin: "10px", padding: "10px 20px" }}
         >
-          ESQUEDA
+          ESQUERDA
         </button>
         <button
           onClick={() => handleLedControl("leds_off")}
