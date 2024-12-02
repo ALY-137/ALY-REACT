@@ -14,6 +14,8 @@ import ListaConversas from './components/Layout/Menu/Formularios/ListaConversas'
 import Users from './components/Layout/Menu/Users/Users';
 import Chat from './components/Layout/Menu/Formularios/Chat';
 
+import LedControl from './components/Scripts/leds/LedControl';
+
 const router = createBrowserRouter([
   {
     path: "/",
@@ -35,6 +37,10 @@ const router = createBrowserRouter([
       {
         path: "/design",
         element: <Design />
+      },
+      {
+        path: "/ledcontrol",
+        element: <LedControl />
       }
     ]
   },
