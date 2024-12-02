@@ -6,7 +6,7 @@ const LedControl = () => {
 
   useEffect(() => {
     // Inicializar conexão WebSocket
-    const ws = new WebSocket("wss://aly137.vercel.app/ledcontrol:80");
+    const ws = new WebSocket("wss://aly137.vercel.app/ledcontrol");
 
     ws.onopen = () => {
       setConnectionStatus("Conectado!");
