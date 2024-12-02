@@ -6,7 +6,7 @@ const LedControl = () => {
 
   useEffect(() => {
     // Inicializar conexão WebSocket
-    const ws = new WebSocket("ws://192.168.2.106:80");
+    const ws = new WebSocket("wss://192.168.2.106:443");
 
     ws.onopen = () => {
       setConnectionStatus("Conectado!");
@@ -27,7 +27,7 @@ const LedControl = () => {
       setConnectionStatus("Reconectando...");
       // Tentar reconectar após 2 segundos
       setTimeout(() => {
-        const newWs = new WebSocket("ws://192.168.2.106:80");
+        const newWs = new WebSocket("wss://192.168.2.106:443");
         setSocket(newWs);
       }, 2000);
     };
