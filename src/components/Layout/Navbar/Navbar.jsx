@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Route, Switch, Link } from 'react-router-dom';
-
-import home from '../violet';
-import blue from '../blue';
-import pink from '../pink';
+import Blue from '../Temas/CYBERPINK/Blue.jsx';
+import violet from '../Temas/CYBERPINK/violet.js';
+import pink from '../Temas/CYBERPINK/pink.js';
 
 const Navbar = ({ routes }) =>{
 
+  let skinLocal = localStorage.getItem('skinLocal');
+
+  
     window.addEventListener("scroll",function(){
         let header = document.getElementById("abas")
 
@@ -23,17 +25,18 @@ const Navbar = ({ routes }) =>{
 
           <div id="abas">
             
-                <Link onClick={blue} class="optionsAbas" id="abaDev" to='/development'> 
+                <Link onClick={Blue} className="optionsAbas" id="abaDev" to={`/${skinLocal}/development`}> 
                   <p id="txtAbaDev" className="numNeutroHome">DEV</p>            
                 </Link>  
 
-                <Link onClick={home} class="optionsAbasFoco" id="abaHome" to='/home'> 
+                <Link onClick={violet} className="optionsAbasFoco" id="abaHome" to={`/${skinLocal}/home`}> 
                   <p id="txtAbaHome" className="numBrilhaHome">CENTRAL</p>                
                 </Link>
 
-                <Link onClick={pink} class="optionsAbas" id="abaDesign" to='/design'>                          
+                <Link onClick={pink} className="optionsAbas" id="abaDesign"  to={`/${skinLocal}/design`}>                          
                   <p id="txtAbaDesign" className="numNeutroHome">DESIGN</p>                                         
                 </Link>
+
 
           </div>
           
@@ -42,5 +45,3 @@ const Navbar = ({ routes }) =>{
 )
 }
 export default Navbar;
-
-

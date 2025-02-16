@@ -6,6 +6,7 @@ import './users.css';
 
 function Users() {
   const [usuarios, setUsuarios] = useState([]);
+  console.log("Users!")
 
   useEffect(() => {
     const carregarUsuarios = async () => {

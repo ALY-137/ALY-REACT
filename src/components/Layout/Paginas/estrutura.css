@@ -1,0 +1,9 @@
+#fundo.menu-open #cardProfile,
+#fundo.menu-open #conteudo,
+#fundo.menu-open .layout-container {
+  display: none;
+}
+
+#fundo.menu-open {
+  background-color: #000; /* Cor de fundo para quando o menu estiver aberto */
+}

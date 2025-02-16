@@ -1,38 +1,30 @@
-import theMatrixHome from "../Scripts/matrixHome";
+import theMatrixHome from "../../../Scripts/matrixHome";
 
-export function violet(){
-    
-
+export function violet() {
         const larSreen = window.innerWidth;
         const altSreen = window.innerHeight;
+
 
         var alyAlt;
         var alyLar;
 
-        if(larSreen>1000){
-
-            alyAlt = (altSreen/100)*35;
+        if (larSreen > 1000) {
+            alyAlt = (altSreen / 100) * 35;
             alyLar = alyAlt * 1.618;
-    
-        }else{
-            
-            if(larSreen>400){
-    
-                if(altSreen>400){            
-                    alyAlt = (altSreen/100)*35;
+        } else {
+            if (larSreen > 400) {
+                if (altSreen > 400) {
+                    alyAlt = (altSreen / 100) * 35;
                     alyLar = alyAlt * 1.618;
-                }else{
+                } else {
                     console.log(larSreen);
-                    alyAlt = (altSreen/100)*80;
+                    alyAlt = (altSreen / 100) * 80;
                     alyLar = alyAlt * 1.618;
-
                 }
-                
-            }else{
+            } else {
                 alyLar = larSreen;
-                alyAlt = larSreen*0.618;
-            }   
-            
+                alyAlt = larSreen * 0.618;
+            }
         }
 
         var abaDesign = document.getElementById('abaHome');
@@ -50,7 +42,7 @@ export function violet(){
         abaDesign.classList.remove('optionsAbasDesign');
         abaDesign.classList.remove('optionsAbasFocoHome');
         abaDesign.classList.add('optionsAbasHome');
-        
+
         abaDesign = document.getElementById('abaDev');
         abaDesign.classList.remove('optionsAbasFocoDev');
         abaDesign.classList.remove('optionsAbasFocoDesign');
@@ -59,9 +51,7 @@ export function violet(){
         abaDesign.classList.remove('optionsAbasFocoHome');
         abaDesign.classList.add('optionsAbasHome');
 
-
         // MOSTRA/ESCONDE AS MATRIXES
-
         var aba = document.getElementById('MatrixHome');
         aba.style.display = 'block';
 
@@ -71,52 +61,40 @@ export function violet(){
         aba = document.getElementById('MatrixDesign');
         aba.style.display = 'none';
 
-
         var estilo = document.getElementById('fundo');
         estilo.classList.remove('fundoEstiloDev');
         estilo.classList.remove('fundoEstiloDesign');
         estilo.classList.add('fundoEstiloHome');
 
-
-        // COR TEXTO PADRÃO PAGE           
+        // COR TEXTO PADRÃO PAGE
         estilo = document.body;
         estilo.style.color = '#ae6bfa';
 
-       // TEXTO DAS ABAS
+        // TEXTO DAS ABAS
+        var texto = document.getElementById('txtAbaDesign');
+        texto.classList.remove('numNeutroDesign');
+        texto.classList.remove('numBrilhaDesign');
+        texto.classList.remove('numNeutroDev');
+        texto.classList.remove('numBrilhaDev');
+        texto.classList.add('numNeutroHome');
 
-       var texto = document.getElementById('txtAbaDesign');
-       texto.classList.remove('numNeutroDesign');
-       texto.classList.remove('numBrilhaDesign');
+        texto = document.getElementById('txtAbaHome');
+        texto.classList.remove('numNeutroDesign');
+        texto.classList.remove('numBrilhaDesign');
+        texto.classList.remove('numNeutroDev');
+        texto.classList.remove('numBrilhaDev');
+        texto.classList.add('numBrilhaHome');
 
-       texto.classList.remove('numNeutroDev');
-       texto.classList.remove('numBrilhaDev');
+        texto = document.getElementById('txtAbaDev');
+        texto.classList.remove('numNeutroDesign');
+        texto.classList.remove('numBrilhaDesign');
+        texto.classList.remove('numNeutroDev');
+        texto.classList.remove('numBrilhaDev');
+        texto.classList.add('numNeutroHome');
 
-       texto.classList.add('numNeutroHome');
-
-       texto = document.getElementById('txtAbaHome');
-       texto.classList.remove('numNeutroDesign');
-       texto.classList.remove('numBrilhaDesign');
-
-       texto.classList.remove('numNeutroDev');
-       texto.classList.remove('numBrilhaDev');
-
-       texto.classList.add('numBrilhaHome');
-
-       texto = document.getElementById('txtAbaDev');
-       texto.classList.remove('numNeutroDesign');
-       texto.classList.remove('numBrilhaDesign');
-
-       texto.classList.remove('numNeutroDev');
-       texto.classList.remove('numBrilhaDev');
-
-       texto.classList.add('numNeutroHome');  
-
-
-    // CHAMA FUNÇÃO MATRIX DA HOME
-
-   
-     theMatrixHome(alyAlt,alyLar);   
-   
+        // CHAMA FUNÇÃO MATRIX DA HOME
+         theMatrixHome(alyAlt, alyLar);
+    ;
 }
 
 export default violet;

@@ -1,8 +1,8 @@
-import theMatrixDev from "../Scripts/matrixDev";
 
-export function blue(){
+import theMatrixDev from "../../../Scripts/matrixDev";
 
-    
+function Blue(){
+ 
 const larSreen = window.innerWidth;
 const altSreen = window.innerHeight;
 
@@ -34,8 +34,7 @@ if(larSreen>1000){
     }   
     
 }
-    
-    
+ 
     // GERENCIA ABAS
 
     var abaDev = document.getElementById('abaDev');
@@ -62,8 +61,6 @@ if(larSreen>1000){
     abaDev.classList.remove('optionsAbasFocoDev');
     abaDev.classList.add('optionsAbasDev');
 
-
-
         // MOSTRA / ESCONDE MATRIXES
 
         abaDev = document.getElementById('MatrixDev');
@@ -76,17 +73,12 @@ if(larSreen>1000){
         abaDev.style.display = 'none';
 
 
-
         // ESTILIZA CARD
 
         var estilo = document.getElementById('fundo');
         estilo.classList.remove('fundoEstiloHome');
         estilo.classList.remove('fundoEstiloDesign');
         estilo.classList.add('fundoEstiloDev');
-
-
-
-    
 
         
         // COR TEXTO PADRÃO PAGE
@@ -130,4 +122,4 @@ if(larSreen>1000){
 
 }
 
-export default blue;
+export default Blue;

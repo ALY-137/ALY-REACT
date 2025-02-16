@@ -1,73 +1,53 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
-import App from './App';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { UserProvider } from './context/UserContext'; // ✅ Importando o UserProvider
 
-import Home from './components/Scripts/routes/Home';
-import Development from "./components/Scripts/routes/Development";
-import Design from "./components/Scripts/routes/Design";
+import App from './App';
 import Error from './components/Scripts/routes/Error';
 import Menu from './components/Layout/Menu/Menu';
 import ListaContatos from './components/Layout/Menu/Formularios/ListaContatos';
 import ListaConversas from './components/Layout/Menu/Formularios/ListaConversas';
 import Users from './components/Layout/Menu/Users/Users';
 import Chat from './components/Layout/Menu/Formularios/Chat';
+import Estrutura from './components/Layout/Paginas/Estrutura';
+import SkinsManager from './components/Layout/Skins/SkinsManager';
+import Development from './components/Scripts/routes/Development';
+import Home from './components/Scripts/routes/Home';
+import Design from './components/Scripts/routes/Design';
 
-import LedControl from './components/Scripts/leds/LedControl';
 
 const router = createBrowserRouter([
   {
     path: "/",
     element: <App />,
     errorElement: <Error />,
-    children: [
-      {
-        path: "/", 
-        element: <Home />
-      },
-      {
-        path: "/home", 
-        element: <Home />
-      },
-      {
-        path: "/development",
-        element: <Development />
-      },
-      {
-        path: "/design",
-        element: <Design />
-      },
-      {
-        path: "/ledcontrol",
-        element: <LedControl />
-      }
-    ]
   },
-  { 
-    path: '/menu/:userId', // Adiciona userId aqui para escopo de menu
+  {
+    path: "menu/:userId",
     element: <Menu />,
     children: [
-      {
-        path: "contatos", // Caminho para ListaContatos
-        element: <ListaContatos />
-      },
-      {
-        path: "contatos/:contactId", // Caminho para ListaConversas
-        element: <ListaConversas />
-      },
-      {
-        path: "contatos/:contactId/chat/:conversationId", // Caminho para Chat
-        element: <Chat />
-      },
-      {
-        path: "users", 
-        element: <Users />
-      }
-    ]
-  }
+      { path: "contatos", element: <ListaContatos /> },
+      { path: "contatos/:contactId", element: <ListaConversas /> },
+      { path: "contatos/:contactId/chat/:conversationId", element: <Chat /> },
+      { path: "users", element: <Users /> },
+      { path: "skins", element: <SkinsManager /> },
+    ],
+  },
+  {
+    path: ":skinsUsername",
+    element: <Estrutura />, //  Página principal
+    children: [
+      { path: "development", element: <Development /> },
+      { path: "home", element: <Home /> },
+      { path: "design", element: <Design /> },
+    ],
+  },
 ]);
 
 createRoot(document.getElementById("root")).render(
-  <RouterProvider router={router} />
+  <UserProvider> {/*  Agora o UserProvider engloba o RouterProvider */}
+    <RouterProvider router={router} />
+  </UserProvider>
 );

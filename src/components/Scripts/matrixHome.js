@@ -350,7 +350,7 @@ function trocador(d) {
 
 function enviaNome(){ 
 
-    nome = primeiroNomeCap;
+    nome =  localStorage.getItem('primeiroNomeCap');
 
    
 

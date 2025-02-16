@@ -1,4 +1,4 @@
-import theMatrixDesign from "../Scripts/matrixDesign";
+import theMatrixDesign from "../../../Scripts/matrixDesign";
 
 export function pink(){
     
@@ -123,6 +123,7 @@ export function pink(){
         texto.classList.remove('numBrilhaHome');
 
         texto.classList.add('numNeutroDesign');
+
 
         texto = document.getElementById('txtAbaDev');
         texto.classList.remove('numNeutroDev');

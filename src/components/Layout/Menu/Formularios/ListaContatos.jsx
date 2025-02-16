@@ -5,14 +5,14 @@ import 'firebase/firestore';
 import './formularios.css';
 import { seforAdm } from '../../../Scripts/verificações/verificaAdm';
 import { idGoogleCap } from '../../../../App';
-
+import { useUser } from '../../../../context/UserContext';
 
 function ListaContatos() {
   const [contatos, setContatos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate(); // Hook para navegação
-
+    const { usernameGlobal } = useUser();
 
 
 

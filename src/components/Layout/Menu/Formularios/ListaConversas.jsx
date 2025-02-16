@@ -4,6 +4,7 @@ import 'firebase/firestore';
 import './formularios.css';
 import { useNavigate, useParams } from 'react-router-dom';
 import { idGoogleCap } from '../../../../App';
+import { useUser } from '../../../../context/UserContext';
 
 function ListaConversas({ setBackText, setAtualTxt, handleExpandForm }) {
   const [conversas, setConversas] = useState([]);
@@ -11,6 +12,7 @@ function ListaConversas({ setBackText, setAtualTxt, handleExpandForm }) {
   const [error, setError] = useState(null);
   const navigate = useNavigate();
   const { contactId } = useParams(); // Obtém o contactId da URL
+ const { usernameGlobal } = useUser();
 
   useEffect(() => {
     const unsubscribe = firebase.firestore()

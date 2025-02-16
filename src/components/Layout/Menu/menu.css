@@ -1,38 +1,32 @@
-/* CSS para o menu */
 .openMenu {
     display: flex;
-    flex-direction: column; /* Organiza os itens em coluna */
+    flex-direction: column; 
     justify-content: center;
     align-items: center;
     text-align: center;
-    height: 100dvh; /* Ajuste conforme necessário */
-    z-index: 35; /* Z-index para o menu aberto */
+    height: 100dvh; 
+    z-index: 35; 
     backdrop-filter: blur(0.1px);
     background-color: rgba(0, 0, 0, 0);
-    overflow: auto; /* Permite rolar o conteúdo */
-    padding: 20px; /* Adiciona padding para espaçamento interno */
-    margin: 0; /* Remove margin */
+    overflow: auto; 
+    padding: 20px;
+    margin: 0; 
     overflow-y: hidden;
     overflow-x: hidden;
-
-    /* Configurações para centralizar */
-
     margin-left: auto;
     margin-right: auto;
 }
 
-
 .headMenu {
     display: flex;
-    align-items: center; /* Alinha verticalmente no centro */
-    width: 100%; /* Garante que ocupe a largura total disponível */
-    position: fixed; /* Fixa a div no topo */
-    top: 0; /* Posiciona no topo */
-    padding: 5px; /* Adiciona padding para espaçamento interno */
-    z-index: 20000; /* Z-index para sobrepor outros elementos */
+    align-items: center;
+    width: 100%;
+    position: fixed; 
+    top: 0; 
+    padding: 5px; 
+    z-index: 20000; 
     background-color: rgba(255, 255, 255, 0.075);
-    border-color: black;
-    
+    border-color: black;  
 }
 
 .back {
@@ -42,16 +36,16 @@
     margin-left: 10px;
     color: inherit;
     font-size: 16px;
-    z-index: 37; /* Z-index padrão para botões de voltar */
-    flex: 0 1 auto; /* Flexbox item que ocupa espaço conforme necessário */
+    z-index: 37; 
+    flex: 0 1 auto; 
 }
 
 .pageAtual {
     font-weight: bold;
-    flex: 1 1 auto; /* Flexbox item que ocupa o espaço restante */
-    text-align: center; /* Centraliza o texto */
-    font-size: 24px; /* Ajusta o tamanho da fonte conforme necessário */
-    margin-left: 10px; /* Espaço entre os itens */
+    flex: 1 1 auto; 
+    text-align: center; 
+    font-size: 24px; 
+    margin-left: 10px; 
     text-align: left;
 }
 
@@ -81,11 +75,10 @@
 
 .gavetaOption {
     position: relative;
-    padding: 5px; /* Aumenta o padding para melhor legibilidade */
-    margin: 5px 0; /* Adiciona margem entre os itens */
-
-    border-radius: 5px; /* Bordas arredondadas */
-    transition: font-size 0.3s ease, background-color 0.3s ease; /* Suaviza transições */
+    padding: 5px; 
+    margin: 5px 0;
+    border-radius: 5px; 
+    transition: font-size 0.3s ease, background-color 0.3s ease; 
     cursor: pointer;
 }
 
@@ -93,16 +86,16 @@
 .gavetaOption::after {
     content: '';
     position: absolute;
-    opacity: 0; /* Inicialmente invisível */
+    opacity: 0; 
     transition: opacity 0.3s ease;
 }
 
 .gavetaOption::before {
-    left: -20px; /* Espaço antes do texto */
+    left: -20px; 
 }
 
 .gavetaOption::after {
-    right: -20px; /* Espaço depois do texto */
+    right: -20px; 
 }
 
 .gavetaOption.highlight,
@@ -114,13 +107,13 @@
 .gavetaOption.highlight::before,
 .gavetaOption:hover::before {
     content: '❱';
-    opacity: 1; /* Torna visível ao passar o mouse */
+    opacity: 1; 
 }
 
 .gavetaOption.highlight::after,
 .gavetaOption:hover::after {
     content: '❰';
-    opacity: 1; /* Torna visível ao passar o mouse */
+    opacity: 1; 
 }
 
 .back-detail {
@@ -131,7 +124,24 @@
     position: absolute;
     top: 11px;
     left: 30px;
-    z-index: 38; /* Z-index maior para sobrepor */
+    z-index: 38;
     font-size: 22px;    
+}
+
+#MenuContainer{
+    
+        left: 0px;
+        right: 0px;
+        height: 100%;
+        width: 100%;
+        position: absolute; /* ABSOLUTE PARA DIV FICAR CENTRALIZADA */
+
+}
+
+@media (min-width: 1000px) {
+    #navbar-menu{
+        width: 1000px;
+
+    }
 
 }
