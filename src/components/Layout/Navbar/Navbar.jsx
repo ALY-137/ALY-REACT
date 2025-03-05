@@ -10,6 +10,7 @@ const Navbar = () => {
   const navigate = useNavigate();
   const { setRoutes } = useRoutesContext();
 
+  
   const fetchPages = async () => {
     try {
       if (!skinLocal) {
