@@ -17,6 +17,7 @@ let skinLocal = null;
 
 let skinLogado = JSON.parse(localStorage.getItem('skinLogado')) || false;
 
+
 const App = () => {
   txtDefault();
 
@@ -63,7 +64,7 @@ const App = () => {
         skinLogado = localStorage.getItem('skinLogado');
         localStorage.setItem('skinLocal', skinUser); // Armazenar username no localStorage
         skinLocal = localStorage.getItem('skinLocal');
-        console.log("User..." + skinUser);
+        localStorage.setItem('primeiroNomeCap',primeiroNomeCap);
       }
     } catch (error) {
       console.error('Erro ao buscar skins:', error);
@@ -93,10 +94,6 @@ const App = () => {
       idGoogleCap = storedIdGoogle;
       const storedUser = JSON.parse(localStorage.getItem('user'));
       primeiroNomeCap = storedUser?.given_name || null;
-
-      console.log(primeiroNomeCap);
-
-      localStorage.setItem('primeiroNomeCap',primeiroNomeCap);
       setUser(storedUser);
       fetchSkins();
     } else {
@@ -112,6 +109,9 @@ const App = () => {
     return () => clearTimeout(timeoutId);
   }, []);
 
+
+  
+  
   return (
     <div>
       {!idGoogleCap && location.pathname === '/' ? (

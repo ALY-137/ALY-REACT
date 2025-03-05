@@ -3,6 +3,7 @@ import { useNavigate, useLocation, useParams, Outlet } from "react-router-dom";
 import { seforAdm } from "../../Scripts/verificações/verificaAdm";
 import "./menu.css";
 import { txtDefault } from "../Temas/CYBERPINK/layout";
+import violet from '../Temas/CYBERPINK/violet.js';
 
 function Menu({ menuOpen, setMenuOpen  }) {
   const [idGoogleCap, setIdGoogle] = useState(() => localStorage.getItem('idGoogleCap'));
@@ -19,6 +20,7 @@ function Menu({ menuOpen, setMenuOpen  }) {
 
   function closeMenu() { 
     navigate(`/${skinLocal}/home`);
+   
     console.log(skinLocal);
   }
 

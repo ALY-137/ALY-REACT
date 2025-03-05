@@ -1,5 +1,5 @@
 import theMatrixHome from "../../../Scripts/matrixHome";
-
+import './cyberpink.css';
 export function violet() {
         const larSreen = window.innerWidth;
         const altSreen = window.innerHeight;
@@ -93,7 +93,7 @@ export function violet() {
         texto.classList.add('numNeutroHome');
 
         // CHAMA FUNÇÃO MATRIX DA HOME
-         theMatrixHome(alyAlt, alyLar);
+      //   theMatrixHome(alyAlt, alyLar);
     ;
 }
 

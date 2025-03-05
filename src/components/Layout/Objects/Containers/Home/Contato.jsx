@@ -1,7 +1,7 @@
 import './containersHome.css';
 import './contato.css';
-import EstiloContainerTop from './EstiloContainerTop';
-import EstiloContainerBot from './EstiloContainerBot';
+import EstiloContainerTop from '../EstiloContainerTop';
+import EstiloContainerBot from '../EstiloContainerBot';
 import { enviarMensagem } from '../../../../Banco/init-firebase';
 import { useState } from 'react';
 import { validarFormulario } from './validarForm';

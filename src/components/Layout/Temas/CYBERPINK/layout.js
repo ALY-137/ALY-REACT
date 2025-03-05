@@ -1,3 +1,5 @@
+import './cyberpink.css';
+
 const larSreen = window.innerWidth;
 const altSreen = window.innerHeight;
 
@@ -85,21 +87,7 @@ export function layout() {
 
         txtDefault();
 
-        // GERENCIA ABAS
-        abaDesign = document.getElementById('abaHome');
-        abaDesign.classList.remove('optionsAbasDev');
-        abaDesign.classList.remove('optionsAbasDesign');
-        abaDesign.classList.add('optionsAbasFocoHome');
 
-        abaDesign = document.getElementById('abaDesign');
-        abaDesign.classList.remove('optionsAbasFocoDev');
-        abaDesign.classList.remove('optionsAbasFocoDesign');
-        abaDesign.classList.add('optionsAbasHome');
-        
-        abaDesign = document.getElementById('abaDev');
-        abaDesign.classList.remove('optionsAbasFocoDev');
-        abaDesign.classList.remove('optionsAbasFocoDesign');
-        abaDesign.classList.add('optionsAbasHome');
     ;
 }
 

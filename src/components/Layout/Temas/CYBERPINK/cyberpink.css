@@ -1,0 +1,102 @@
+.optionsAbasHome{
+    height: 40px;
+    width: 50%;
+    border: 1px solid #7e0eff;
+    margin: auto;
+    margin-bottom: 0px;
+    z-index: 25;
+    transition: all ease 3s;
+    background-color: #04001c;
+  }
+  
+  .optionsAbasDev{
+    height: 40px;
+    width: 50%;
+    border: 1px solid #0e62ff;
+    margin: auto;
+    margin-bottom: 0px;
+    z-index: 25;  
+    transition: all ease 3s;
+    background-color: #010610;
+  }
+  
+  .optionsAbasDesign{
+    height: 40px;
+    width: 50%;
+    border: 1px solid #fb008a;
+    margin: auto;
+    margin-bottom: 0px;
+    z-index: 25;  
+    transition: all ease 3s;
+    background-color: #080110;
+  }
+  
+  .optionsAbasFocoHome{
+    height: 40px;
+    width: 51%;
+    border: 1px solid #7e0eff;
+    margin: auto;
+    z-index: 25;  
+    transition: all ease 3s;
+    background-color: #050035;
+  }
+  
+  .optionsAbasFocoDev{
+    height: 40px;
+    width: 51%;
+    border: 1px solid #0e62ff;
+    margin: auto;
+    z-index: 25;  
+    transition: all ease 3s;
+    background-color: #001030;
+  }
+  
+  .optionsAbasFocoDesign{
+    height: 40px;
+    width: 51%;
+    border: 1px solid #fb008a;
+    margin: auto;
+    z-index: 25;  
+    transition: all ease 3s;
+    background-color: #24001f;
+  }
+
+  #txtAbaDev{
+    font-size: 16px;
+    position: relative;  
+    transition: all ease 3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'DotGothic16', sans-serif;
+    letter-spacing: 3px;
+    margin-top: 8px;
+  }
+  
+  #txtAbaDesign{
+    font-size: 16px;
+    position: relative;  
+    transition: all ease 3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'DotGothic16', sans-serif;
+    letter-spacing: 3px;
+    margin-top: 8px;
+  }
+  
+  #txtAbaHome{
+    font-size: 16px;
+    position: relative;  
+    transition: all ease 3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'DotGothic16', sans-serif;
+    letter-spacing: 3px;
+    margin-top: 8px;
+  }
+
+  #abaDev,#abaHome,#abaDesign{
+    text-decoration: none;
+  }

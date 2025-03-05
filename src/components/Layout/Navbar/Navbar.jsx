@@ -1,47 +1,106 @@
-import React, { useState } from 'react';
-import { BrowserRouter as Router, Route, Switch, Link } from 'react-router-dom';
-import Blue from '../Temas/CYBERPINK/Blue.jsx';
-import violet from '../Temas/CYBERPINK/violet.js';
-import pink from '../Temas/CYBERPINK/pink.js';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { db } from '../../Banco/init-firebase.js';
+import { useRoutesContext } from '../../../context/RoutesContext.js';
+import Containers from '../Objects/Containers/Containers.jsx';
 
-const Navbar = ({ routes }) =>{
+const Navbar = () => {
+  const [pages, setPages] = useState([]);
+  const skinLocal = localStorage.getItem('skinLocal');
+  const navigate = useNavigate();
+  const { setRoutes } = useRoutesContext();
 
-  let skinLocal = localStorage.getItem('skinLocal');
+  const fetchPages = async () => {
+    try {
+      if (!skinLocal) {
+        throw new Error("skinLocal está vazio");
+      }
 
-  
-    window.addEventListener("scroll",function(){
-        let header = document.getElementById("abas")
+      const skinsSnapshot = await db.collectionGroup('skins')
+        .where('username', '==', skinLocal)
+        .get();
 
-        if(window.scrollY > 0){
-          header.classList.add('rolagem');
+      let pagesList = [];
+      for (const skinDoc of skinsSnapshot.docs) {
+        const pagesSnapshot = await skinDoc.ref.collection('paginas').get();
+        for (const pageDoc of pagesSnapshot.docs) {
+          const containersSnapshot = await pageDoc.ref.collection('containers').get();
+          const containersList = containersSnapshot.docs.map((doc) => ({
+            titulo: doc.data().titulo,
+            iconUrl: doc.data().iconUrl,
+          }));
+
+          pagesList.push({
+            nome: pageDoc.data().nome,
+            subTheme: pageDoc.data().subTheme,
+            className: pageDoc.data().className,
+            containers: containersList,
+            is_main: pageDoc.data().is_main 
+          });
         }
-        
-    })
+      }
 
+      return pagesList;
+    } catch (error) {
+      console.error('Erro ao buscar páginas:', error);
+      return [];
+    }
+  };
 
-   return(
+  const getMainPage = (pages) => {
+    return pages.find((page) => page.is_main === true);
+  };
 
-    <div id="cabecalho" >    
+  useEffect(() => {
+    if (skinLocal) {
+      const fetchPagesData = async () => {
+        const pagesData = await fetchPages();
+        setPages(pagesData);
 
-          <div id="abas">
-            
-                <Link onClick={Blue} className="optionsAbas" id="abaDev" to={`/${skinLocal}/development`}> 
-                  <p id="txtAbaDev" className="numNeutroHome">DEV</p>            
-                </Link>  
+        // Adiciona dinamicamente as rotas com base nas páginas e containers
+        const routes = pagesData.map((page) => ({
+          path: page.nome,
+          element: (
+            <div>
+              {page.containers.map((containers, index) => (
+                <Containers key={index} titulo={containers.titulo} iconUrl={containers.iconUrl} />
+              ))}
+            </div>
+          ),
+        }));
 
-                <Link onClick={violet} className="optionsAbasFoco" id="abaHome" to={`/${skinLocal}/home`}> 
-                  <p id="txtAbaHome" className="numBrilhaHome">CENTRAL</p>                
-                </Link>
+        // Adiciona dinamicamente as rotas ao roteador
+        setRoutes(routes);
+      };
 
-                <Link onClick={pink} className="optionsAbas" id="abaDesign"  to={`/${skinLocal}/design`}>                          
-                  <p id="txtAbaDesign" className="numNeutroHome">DESIGN</p>                                         
-                </Link>
+      fetchPagesData();
+    }
+  }, [skinLocal]);
 
+  useEffect(() => {
+    if (pages.length > 0) {
+      const mainPage = getMainPage(pages);
+      if (mainPage) {
+        navigate(`/${skinLocal}/${mainPage.nome}`);
+      }
+    }
+  }, [pages]);
 
-          </div>
-          
+  return (
+    <div id="cabecalho">
+      <div id="abas">
+        {pages.map((page, index) => (
+          <Link
+            key={index}
+            className="optionsAbasFocoHome"
+            to={`/${skinLocal}/${page.nome}`}
+          >
+            <p id={`txtAbaHome`} className="numBrilhaHome">{page.nome}</p>
+          </Link>
+        ))}
+      </div>
     </div>
+  );
+};
 
-)
-}
 export default Navbar;

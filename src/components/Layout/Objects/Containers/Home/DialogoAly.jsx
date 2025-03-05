@@ -1,6 +1,6 @@
 import './containersHome.css';
-import EstiloContainerTop from './EstiloContainerTop';
-import EstiloContainerBot from './EstiloContainerBot';
+import EstiloContainerTop from '../EstiloContainerTop';
+import EstiloContainerBot from '../EstiloContainerBot';
 import './dialogo.css'
 
 function DialogoAly({texto}){
