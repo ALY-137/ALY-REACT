@@ -59,6 +59,8 @@ const App = () => {
         setSkinSelecionada(true);
         const skinUser = skinsList[0].username;
         setUsername(skinUser);
+     
+
         localStorage.setItem('selectedTheme', skinsList[0].theme); // Persistir o tema no localStorage
         localStorage.setItem('skinLogado', true); // Altera estado de skinLogado para true
         skinLogado = localStorage.getItem('skinLogado');

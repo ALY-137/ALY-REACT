@@ -39,6 +39,7 @@
     z-index: 25;  
     transition: all ease 3s;
     background-color: #050035;
+    text-align: center;
   }
   
   .optionsAbasFocoDev{

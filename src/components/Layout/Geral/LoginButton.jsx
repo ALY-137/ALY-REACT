@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
+
 const LoginButton = () => {
   const idGoogleCap = JSON.parse(localStorage.getItem('idGoogleCap'));
 
@@ -9,7 +10,7 @@ const LoginButton = () => {
   }
 
   return (
-    <button>
+    <button className='loginButton'>
       <Link to="/"> LOGIN </Link>
     </button>
   );

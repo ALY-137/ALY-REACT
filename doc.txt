@@ -1,0 +1,21 @@
+Por que o React é chamado de biblioteca e não de framework?
+A diferença está na abordagem:
+
+Biblioteca: Dá ferramentas para resolver parte do problema (UI), mas deixa você escolher como combinar com outras ferramentas.
+Framework: Dá um conjunto completo de ferramentas e regras para estruturar toda a aplicação (como o Angular).
+
+06/03/2025
+
+
+🛠 Trabalhar com Design Ético e Sustentável
+Criar identidades visuais para empresas que realmente fazem a diferença (tecnologia open-source, energias renováveis, agricultura regenerativa).
+Desenvolver embalagens e materiais ecológicos, incentivando o design sustentável.
+Trabalhar com UX e UI focados na inclusão digital e acessibilidade.
+📌 Exemplo: Projetar uma interface para uma moeda digital comunitária sem fins lucrativos.
+
+
+🔄 5. Criar e Apoiar Alternativas ao Capitalismo
+Utilizar design estratégico para projetos de economia circular, onde nada é desperdiçado.
+Criar comunidades de designers e criativos que compartilham conhecimento gratuitamente.
+Trabalhar com design para autogestão, ajudando cooperativas a se organizarem melhor.
+📌 Exemplo: Criar um sistema de identidade visual para um banco comunitário que não cobra juros.

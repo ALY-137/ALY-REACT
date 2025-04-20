@@ -225,7 +225,8 @@
     margin-right: 10px;
     text-align: justify;
     line-height:12px;
-    letter-spacing: 2px;
+
+    font-family: monospace;
 }
 
 .txtTituloPri{
@@ -250,9 +251,13 @@
     min-width: none;
     text-align: right;
     width: 95%;
+    margin-top: 10px;    
 }
 
-
+.iconeAddOn{
+    height: 20px;
+    width: 20px;
+}
 
 .checkIconAtivo{
     height: 20px;
