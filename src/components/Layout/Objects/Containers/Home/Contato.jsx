@@ -26,8 +26,7 @@ function Contato() {
   };
 
   return (
-    <div className="Contato">
-      <EstiloContainerTop tituloHome='CONTATO' icon='./home/contato.png'/>
+    <div >
 
       <div id='form'>
         <div id='contentForm'>
@@ -52,7 +51,7 @@ function Contato() {
         </div>
       </div>
 
-      <EstiloContainerBot />    
+
     </div>
   );
 }
