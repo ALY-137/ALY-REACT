@@ -18,6 +18,8 @@ function Menu({ menuOpen, setMenuOpen  }) {
 
   const skinLocal = localStorage.getItem('skinLocal'); //Variavel local para guardar username dada a skin logada.
 
+  const skinLogadoUser = localStorage.getItem('skinLogadoUser'); // Obtém o nome de usuário da skin logada
+
   function closeMenu() { 
     navigate(`/${skinLocal}/home`);
    
@@ -29,23 +31,23 @@ function Menu({ menuOpen, setMenuOpen  }) {
   }
 
   function abrirSkins() {
-    navigate(`/menu/${idGoogleCap}/skins`);
+    navigate(`/menu/${skinLogadoUser}/skins`);
   }
 
   function abrirContatos() {
-    navigate(`/menu/${idGoogleCap}/contatos`);
+    navigate(`/menu/${skinLogadoUser}/contatos`);
   }
 
   function returnMenu() {
-    navigate(`/menu/${idGoogleCap}`);
+    navigate(`/menu/${skinLogadoUser}`);
   }
 
   function closeConversas() {
-    navigate(`/menu/${idGoogleCap}/contatos`);
+    navigate(`/menu/${skinLogadoUser}/contatos`);
   }
 
   function closeChat() {
-    navigate(`/menu/${idGoogleCap}/contatos/${contactId}`);
+    navigate(`/menu/${skinLogadoUser}/contatos/${contactId}`);
   }
 
   function logoff() {
@@ -56,7 +58,7 @@ function Menu({ menuOpen, setMenuOpen  }) {
 
   useEffect(() => {
     let menu;
-    if (location.pathname === `/menu/${idGoogleCap}`) {
+    if (location.pathname === `/menu/${skinLogadoUser}`) {
       setAtualTxt("MENU");
       setBackText("VOLTAR");
       setBackAction(() => closeMenu);
@@ -71,19 +73,19 @@ function Menu({ menuOpen, setMenuOpen  }) {
       setAtualTxt("USERS");
       setBackText("MENU");
       setBackAction(() => returnMenu);
-    } else if (location.pathname === `/menu/${idGoogleCap}/contatos`) {
+    } else if (location.pathname === `/menu/${skinLogadoUser}/contatos`) {
       setAtualTxt("CONTATOS");
       setBackText("MENU");
       setBackAction(() => returnMenu);
-    } else if (location.pathname === `/menu/${idGoogleCap}/skins`) {
+    } else if (location.pathname === `/menu/${skinLogadoUser}/skins`) {
       setAtualTxt("SKINS");
       setBackText("MENU");
       setBackAction(() => returnMenu);
-    } else if (location.pathname.startsWith(`/menu/${idGoogleCap}/contatos/`) && !location.pathname.includes('/chat/')) {
+    } else if (location.pathname.startsWith(`/menu/${skinLogadoUser}/contatos/`) && !location.pathname.includes('/chat/')) {
       setAtualTxt("CONVERSAS");
       setBackText("CONTATOS");
       setBackAction(() => closeConversas);
-    } else if (location.pathname.startsWith(`/menu/${idGoogleCap}/contatos/`) && location.pathname.includes('/chat/')) {
+    } else if (location.pathname.startsWith(`/menu/${skinLogadoUser}/contatos/`) && location.pathname.includes('/chat/')) {
       setAtualTxt("ASSUNTO");
       setBackText("CONVERSAS");
       setBackAction(() => closeChat);
@@ -101,7 +103,7 @@ function Menu({ menuOpen, setMenuOpen  }) {
       </div>
 
       <div id='Gavetas' className={
-        location.pathname === `/menu/${idGoogleCap}`
+        location.pathname === `/menu/${skinLogadoUser}`
           ? 'mostra'
           : 'oculta'
       }>

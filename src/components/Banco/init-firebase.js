@@ -20,8 +20,8 @@ if (!firebase.apps.length) {
 const db = firebase.firestore();
 
 // Função para criar ID único de conversa
-export const criarIdConversa = (idRemetente, idDestinatario) => {
-  const idsOrdenados = [idRemetente, idDestinatario].sort();
+export const criarIdConversa = (userRemetente, idDestinatario) => {
+  const idsOrdenados = [userRemetente, idDestinatario].sort();
   return `${idsOrdenados[0]}_${idsOrdenados[1]}`;
 };
 
@@ -31,7 +31,7 @@ export const criarIdChat = () => {
 };
 
 // Envia uma nova mensagem e atualiza a conversa
-export const enviarChat = async ({ idContato, idConversa, idRemetente, mensagem }) => {
+export const enviarChat = async ({ idContato, idConversa, userRemetente, mensagem }) => {
   try {
     const conversaRef = db
       .collection('contatos')
@@ -50,7 +50,7 @@ export const enviarChat = async ({ idContato, idConversa, idRemetente, mensagem 
     await conversaRef.collection('chat').doc(idChat).set({
       mensagem: mensagem,
       data: firebase.firestore.FieldValue.serverTimestamp(),
-      idRemetente: idRemetente,
+      userRemetente: userRemetente,
       idConversa: idConversa,
       idChat: idChat,
     });
@@ -71,8 +71,8 @@ export const enviarChat = async ({ idContato, idConversa, idRemetente, mensagem 
 };
 
 // Envia uma nova mensagem e cria uma nova conversa se necessário
-export const enviarMensagem = async (idRemetente, idDestinatario, assunto, mensagem) => {
-  const idContato = criarIdConversa(idRemetente, idDestinatario); 
+export const enviarMensagem = async (userRemetente, idDestinatario, assunto, mensagem) => {
+  const idContato = criarIdConversa(userRemetente, idDestinatario); 
   let idConversa;
 
   try {
@@ -108,7 +108,7 @@ export const enviarMensagem = async (idRemetente, idDestinatario, assunto, mensa
     await conversaRef.collection('chat').doc(idChat).set({
       mensagem,
       data: firebase.firestore.FieldValue.serverTimestamp(),
-      idRemetente,
+      userRemetente,
       idConversa,
       idChat,
     });

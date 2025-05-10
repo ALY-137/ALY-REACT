@@ -45,39 +45,38 @@ function Card({
     return () => window.removeEventListener('resize', resizeCard);
   }, []);
 
-  useEffect(() => {
-    const fetchAddOns = async () => {
-      try {
-        const addOnsSnapshot = await db
-          .collection('users')
-          .doc(id_user)
-          .collection('skins')
-          .doc(id_skin)
-          .collection('cards')
-          .doc(id)
-          .collection('addOnsRefs')
-          .get();
+ useEffect(() => {
+  const fetchAddOns = async () => {
+    try {
+      const addOnsSnapshot = await db
+        .collection('users')
+        .doc(id_user)
+        .collection('skins')
+        .doc(id_skin)
+        .collection('cards')
+        .doc(id)
+        .collection('addOnsRefs')
+        .get();
 
-        const promises = addOnsSnapshot.docs.map(async (docRef) => {
-          const id_add = docRef.data().id_add;
-          const addOnDoc = await db.collection('add_ons').doc(id_add).get();
-          if (addOnDoc.exists) {
-            return { id: addOnDoc.id, ...addOnDoc.data() };
-          }
-          return null;
-        });
+      const promises = addOnsSnapshot.docs.map(async (docRef) => {
+        const id_add = docRef.data().id_add;
+        const addOnDoc = await db.collection('add_ons').doc(id_add).get();
+        return addOnDoc.exists ? { id: addOnDoc.id, ...addOnDoc.data() } : null;
+      });
 
-        const resolvedAddOns = await Promise.all(promises);
-        setAddOns(resolvedAddOns.filter((a) => a !== null));
-      } catch (error) {
-        console.error('Erro ao buscar add-ons:', error);
-      }
-    };
-
-    if (id_user && id_skin && id && id_container) {
-      fetchAddOns();
+      const resolvedAddOns = await Promise.all(promises);
+      setAddOns(resolvedAddOns.filter(Boolean));
+    } catch (error) {
+      console.error('Erro ao buscar add-ons:', error);
     }
-  }, [id_user, id_skin, id_container, id]);
+  };
+
+  if (id_user && id_skin && id_container && id) {
+    fetchAddOns();
+  }
+}, [id_user, id_skin, id_container, id]);
+
+
 
   return (
     <div id={idNome} ref={cardRef} className={cardContainerDesktop}>
@@ -108,7 +107,7 @@ function Card({
           {data && <p className='txtTitulo'>  [ PERÍODO ] {data}.</p>}
           {linkExterno && (
             <p className='txtTitulo'>
-              <a href={linkExterno} target="_blank" rel="noopener noreferrer">[ LINK ]</a>
+              <a href={linkExterno} className='txtTituloLink' target="_blank" rel="noopener noreferrer">[ LINK ]</a>
             </p>
           )}
         </div>

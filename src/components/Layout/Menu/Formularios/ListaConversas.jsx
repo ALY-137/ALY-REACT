@@ -12,7 +12,8 @@ function ListaConversas({ setBackText, setAtualTxt, handleExpandForm }) {
   const [error, setError] = useState(null);
   const navigate = useNavigate();
   const { contactId } = useParams(); // Obtém o contactId da URL
- const { usernameGlobal } = useUser();
+  
+  const skinLogadoUser = localStorage.getItem('skinLogadoUser'); // Obtém o nome de usuário da skin logada
 
   useEffect(() => {
     const unsubscribe = firebase.firestore()
@@ -90,7 +91,7 @@ function ListaConversas({ setBackText, setAtualTxt, handleExpandForm }) {
 
   const handleConversaClick = (idConversa) => {
     // Redireciona para a URL correta com o contactId e conversaId
-    navigate(`/menu/${idGoogleCap}/contatos/${contactId}/chat/${idConversa}`);
+    navigate(`/menu/${skinLogadoUser}/contatos/${contactId}/chat/${idConversa}`);
   };
 
   return (

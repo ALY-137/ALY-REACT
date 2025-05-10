@@ -3,6 +3,7 @@ import { verificarESalvarskins } from '../../Banco/verificaSkins';
 import { db } from '../../Banco/init-firebase';
 import { idGoogleCap } from "../../../App";
 import { useNavigate } from 'react-router-dom';
+import { seforAdm } from '../../Scripts/verificações/verificaAdm';
 
 let skinLogado ;
   
@@ -17,6 +18,7 @@ const SkinsManager = () => {
   const [username, setUsername] = useState('');
   const [SkinSelecionada, setSkinSelecionada] = useState(false);
   
+
 
   const handleLogin = () => {  // Ao ser selecionado a skin na primeira navegação na pagina de origem define variável como true. Essa função é chamada dentro de uma função assíncrona.
     localStorage.setItem('skinLogado', true);
@@ -56,7 +58,17 @@ const SkinsManager = () => {
       const theme = 'CYBERPINK';
       await verificarESalvarskins(idGoogleCap, username, theme);
       setSkinSelecionada(true);
-      navigate(`/${username}/home`);
+
+      localStorage.setItem('skinLocal',username);
+      localStorage.setItem('skinLogadoUser',username);
+
+      //Nessa versão.
+        if(seforAdm(idGoogleCap)){
+          navigate(`/${username}/home`);
+        }else{
+          navigate(`/savannaoliveira/home`);
+        }
+
     } catch (error) {
       console.error('Erro ao criar skin padrão:', error);
     }
@@ -79,7 +91,10 @@ const SkinsManager = () => {
         setUsername('');
         setTheme('');
         setSkinSelecionada(true);
-        navigate(`/${username}/home`);
+
+      
+          navigate(`/${username}/home`);
+   
        
       } else {
         console.log('O nome de usuário da skin já existe.');
@@ -100,6 +115,9 @@ const SkinsManager = () => {
   
     // Salvando a skin selecionada no localStorage
     localStorage.setItem('skinLocal', username);
+
+    // Salvando skin locagada.
+    localStorage.setItem('skinLogadoUser', username);
     handleLogin();
   
     // Navegando para a nova página com o username como parâmetro

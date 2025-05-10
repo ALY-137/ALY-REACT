@@ -247,6 +247,29 @@
 
 }
 
+.txtTituloLink {
+
+    line-height: 11px;
+    font-weight: bold;
+    letter-spacing: 2px;
+    text-decoration: none;
+    color: #dec5ff; /* Cor inicial */
+}
+
+.txtTituloLink:visited {
+    color: purple;
+}
+
+.txtTituloLink:hover {
+    color: #dec5ff;
+    text-decoration: underline;
+}
+
+.txtTituloLink:active {
+    color: rgb(177, 136, 243);
+}
+
+
 .checkBoxHab{
     min-width: none;
     text-align: right;

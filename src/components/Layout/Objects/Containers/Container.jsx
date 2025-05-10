@@ -56,15 +56,15 @@ function Container({ titulo, iconUrl, id_container, id_skin, id_user }) {
 
       {/* Renderiza os Cards apenas se o id_container for diferente do que ativa o formulário */}
       {id_container !== "nZCPH3y6bkPSnJPSPaSZ" &&
-        cards.map((card) => (
-          <Card 
-            key={card.id} 
-            id_user={id_user} 
-            id_skin={id_skin} 
-            id_container={id_container} 
-            {...card} 
-          />
-        ))
+cards.map((card) => (
+  <Card 
+    key={`${card.id}_${id_container}`} 
+    id_user={id_user} 
+    id_skin={id_skin} 
+    id_container={id_container} 
+    {...card} 
+  />
+))
       }
 
       {/* Exibe o formulário Contato se o id_container for específico */}

@@ -3,6 +3,7 @@ import { useLocation, useNavigate, Outlet } from "react-router-dom";
 import Navbar from "../Navbar/Navbar";
 import { db } from "../../Banco/init-firebase";
 import LoginButton from "../Geral/LoginButton";
+import { seforAdm } from "../../Scripts/verificações/verificaAdm";
 
 // Função para definir o tema
 export const defineTheme = async (username, skins, setLayoutScript) => {
@@ -42,14 +43,35 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
   const urlUsername = pathname.split('/')[1];
   let skinLocal = null;
 
+
+
+  const skinLogadoUser = localStorage.getItem('skinLogadoUser');
+
   useEffect(() => {
-    if (urlUsername) {
+    if (urlUsername && seforAdm(idGoogleCap)) {
+      
       console.log(`URL username: ${urlUsername}`);
       localStorage.setItem('skinLocal', urlUsername);
       fetchSkins(urlUsername);
+
     } else {
-      skinLocal = localStorage.getItem('skinLocal');
-      fetchSkins(skinLocal);
+
+      if(seforAdm(idGoogleCap)){
+
+        skinLocal = localStorage.getItem('skinLocal');
+        console.log(`aaaaaaaaa skinLocal: ${skinLocal}`);
+        console.log(` ${idGoogleCap}`);
+        fetchSkins(skinLocal);
+      }else{
+
+        console.log(idGoogleCap);
+        localStorage.setItem('skinLocal','savannaoliveira');
+        skinLocal = localStorage.getItem('skinLocal');
+        fetchSkins(skinLocal);
+
+      }
+      
+
     }
   }, [urlUsername]);
 
@@ -123,14 +145,17 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
   const navigateMainPage = (paginas) => {
     const mainPage = paginas.find((pagina) => pagina.is_main === true);
 
-    console.log(mainPage);
+   
     skinLocal = localStorage.getItem('skinLocal');
+    console.log("!!"+mainPage); // PAGINA PRINCIPAL
+    console.log("!!"+skinLocal); // SKIN SELECIONADA
+
     if (mainPage && skinLocal) {
       console.log("Navegando para:", `/${skinLocal}/${mainPage.nome}`);
       navigate(`/${skinLocal}/${mainPage.nome}`);
     } else {
       console.log("Erro! Página principal não encontrada ou skinLocal não definido.");
-      navigate('/default'); // Página padrão
+
     }
   };
 
@@ -148,7 +173,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
 
   const toggleMenu = () => {
     setMenuOpen(!menuOpen);
-    navigate(menuOpen ? "/home" : `/menu/${idGoogleCap}`);
+    navigate(menuOpen ? "/home" : `/menu/${skinLogadoUser}`);
   };
 
   return (

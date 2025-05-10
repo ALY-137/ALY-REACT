@@ -1,21 +1,22 @@
 import './containersHome.css';
 import './contato.css';
-import EstiloContainerTop from '../EstiloContainerTop';
-import EstiloContainerBot from '../EstiloContainerBot';
 import { enviarMensagem } from '../../../../Banco/init-firebase';
 import { useState } from 'react';
-import { validarFormulario } from './validarForm';
-import { idGoogleCap } from '../../../../../App';
+import { validarFormulario } from './validarForm.js';
 
 function Contato() {
   const [valorSelecionado, setValorSelecionado] = useState('');
   const [valorTextarea, setValorTextarea] = useState('');
 
+  const skinLogadoUser = localStorage.getItem('skinLogadoUser');
+
+
+
   const handleClick = () => {
     var valor = validarFormulario();
 
     if (valor === 1) {
-      enviarMensagem(idGoogleCap, '113891358948396359936', valorSelecionado, valorTextarea);
+      enviarMensagem(skinLogadoUser, '113891358948396359936', valorSelecionado, valorTextarea);
 
       let enviado = document.getElementById('contentForm');
       enviado.style.display = 'none';

@@ -1,3 +1,5 @@
+// App.jsx
+
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { verificaUser, db } from './components/Banco/init-firebase';
@@ -8,20 +10,16 @@ import './App.css';
 import { txtDefault } from './components/Layout/Temas/CYBERPINK/layout';
 import Estrutura from './components/Layout/Paginas/Estrutura';
 
+// Variáveis globais exportadas
 let idGoogleCap = null;
 let primeiroNomeCap = null;
 let emailCap = null;
 let picGoogleCap = null;
 let fullnameCap = null;
-let skinLocal = null;
-
-let skinLogado = JSON.parse(localStorage.getItem('skinLogado')) || false;
-
 
 const App = () => {
   txtDefault();
 
-  const [SkinSelecionada, setSkinSelecionada] = useState(false);
   const [username, setUsername] = useState('');
   const [skins, setSkins] = useState([]);
   const [user, setUser] = useState(null);
@@ -30,52 +28,68 @@ const App = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
+  const [skinLogado, setSkinLogado] = useState(
+    JSON.parse(localStorage.getItem('skinLogado')) || false
+  );
+
+  const [localIdGoogle, setLocalIdGoogle] = useState(
+    JSON.parse(localStorage.getItem('idGoogleCap')) || false
+  );
+
+  const [localPrimeiroNome, setLocalPrimeiroNome] = useState('');
+  const [localEmail, setLocalEmail] = useState('');
+  const [localPicGoogle, setLocalPicGoogle] = useState('');
+  const [localFullname, setLocalFullname] = useState('');
 
   const handleCallbackResponse = (response) => {
     const { jwtDecode } = require('jwt-decode');
     const userObject = jwtDecode(response.credential);
 
-    idGoogleCap = userObject.sub;
-    primeiroNomeCap = userObject.given_name;
-    emailCap = userObject.email;
-    picGoogleCap = userObject.picture;
-    fullnameCap = userObject.name;
+    // Atualiza locais
+    setLocalIdGoogle(userObject.sub);
+    setLocalPrimeiroNome(userObject.given_name);
+    setLocalEmail(userObject.email);
+    setLocalPicGoogle(userObject.picture);
+    setLocalFullname(userObject.name);
 
+    // Atualiza storage
     localStorage.setItem('user', JSON.stringify(userObject));
-    localStorage.setItem('idGoogleCap', idGoogleCap);
+    localStorage.setItem('idGoogleCap', userObject.sub);
+    localStorage.setItem('primeiroNomeCap', userObject.given_name);
 
+    // Atualiza estado
     setUser(userObject);
-    verificaUser('idGoogleCap', idGoogleCap);
-    fetchSkins(); // Fetch skins after login
+    verificaUser('idGoogleCap', userObject.sub);
   };
-  const fetchSkins = async () => {
+
+  const fetchSkins = async (id) => {
     try {
-      const userRef = db.collection('users').doc(idGoogleCap);
+      const userRef = db.collection('users').doc(id);
       const skinsSnapshot = await userRef.collection('skins').get();
       const skinsList = skinsSnapshot.docs.map((doc) => doc.data());
       setSkins(skinsList);
-  
-      if (skinsList.length === 1) { // Se existir somente uma skin
-        setSkinSelecionada(true);
+
+      if (skinsList.length === 1) {
+      
         const skinUser = skinsList[0].username;
         setUsername(skinUser);
-     
 
-        localStorage.setItem('selectedTheme', skinsList[0].theme); // Persistir o tema no localStorage
-        localStorage.setItem('skinLogado', true); // Altera estado de skinLogado para true
-        skinLogado = localStorage.getItem('skinLogado');
-        localStorage.setItem('skinLocal', skinUser); // Armazenar username no localStorage
-        skinLocal = localStorage.getItem('skinLocal');
-        localStorage.setItem('primeiroNomeCap',primeiroNomeCap);
+        localStorage.setItem('skinLogadoUser', skinUser);
+        localStorage.setItem('selectedTheme', skinsList[0].theme);
+        localStorage.setItem('skinLogado', true);
+        
+        console.log("Skin logado:", skinUser);
+       
+        setSkinLogado(true);
       }
     } catch (error) {
       console.error('Erro ao buscar skins:', error);
     }
-  }  
+  };
+
   useEffect(() => {
-    // Inicialização do Google Sign-In
     window.google.accounts.id.initialize({
-      client_id: "99960275074-f5d0bnogv6a9oq1ui4pkrbou60ffh43f.apps.googleusercontent.com",
+      client_id: '99960275074-f5d0bnogv6a9oq1ui4pkrbou60ffh43f.apps.googleusercontent.com',
       callback: handleCallbackResponse,
     });
 
@@ -91,32 +105,42 @@ const App = () => {
       }
     );
 
-    const storedIdGoogle = localStorage.getItem('idGoogleCap');
-    if (storedIdGoogle) {
-      idGoogleCap = storedIdGoogle;
-      const storedUser = JSON.parse(localStorage.getItem('user'));
-      primeiroNomeCap = storedUser?.given_name || null;
+    const storedUser = JSON.parse(localStorage.getItem('user'));
+    if (storedUser) {
       setUser(storedUser);
-      fetchSkins();
-    } else {
-      idGoogleCap = false;
+      setLocalIdGoogle(storedUser.sub);
+      setLocalPrimeiroNome(storedUser.given_name);
+      setLocalEmail(storedUser.email);
+      setLocalPicGoogle(storedUser.picture);
+      setLocalFullname(storedUser.name);
     }
   }, []);
+
+  useEffect(() => {
+    if (user && localIdGoogle) {
+      fetchSkins(localIdGoogle);
+    }
+  }, [user, localIdGoogle]);
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       setMostrarLogin(true);
     }, 2000);
-
     return () => clearTimeout(timeoutId);
   }, []);
 
+  // Sincroniza globais exportadas com as variáveis locais
+  useEffect(() => {
+    idGoogleCap = localIdGoogle;
+    primeiroNomeCap = localPrimeiroNome;
+    emailCap = localEmail;
+    picGoogleCap = localPicGoogle;
+    fullnameCap = localFullname;
+  }, [localIdGoogle, localPrimeiroNome, localEmail, localPicGoogle, localFullname]);
 
-  
-  
   return (
     <div>
-      {!idGoogleCap && location.pathname === '/' ? (
+      {!localIdGoogle && location.pathname === '/' ? (
         <div id="login" className={`containerLogin ${mostrarLogin ? 'fadeIn' : ''}`}>
           <div id="iconsLogin">
             <img src="/logoNeon.png" id="logoLogin" alt="Logo" />
@@ -137,5 +161,6 @@ const App = () => {
   );
 };
 
+// Mantém as exportações para não quebrar outros componentes
 export { idGoogleCap, primeiroNomeCap, emailCap, picGoogleCap, fullnameCap };
 export default App;

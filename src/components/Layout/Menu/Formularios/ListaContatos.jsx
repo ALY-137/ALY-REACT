@@ -1,90 +1,105 @@
-import React, { useState, useEffect , useParams } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import firebase from 'firebase/app';
 import 'firebase/firestore';
 import './formularios.css';
 import { seforAdm } from '../../../Scripts/verificações/verificaAdm';
 import { idGoogleCap } from '../../../../App';
-import { useUser } from '../../../../context/UserContext';
+
 
 function ListaContatos() {
   const [contatos, setContatos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate(); // Hook para navegação
-    const { usernameGlobal } = useUser();
 
-
+  
+const skinLogadoUser = localStorage.getItem('skinLogadoUser'); // Obtém o nome de usuário da skin logada
 
   useEffect(() => {
-    const fetchUserData = async (idGoogleCap) => {
+ 
+    const fetchSkinDataByUsername = async (username) => {
       try {
-        const userDoc = await firebase.firestore().collection('users').where('idGoogle', '==', idGoogleCap).get();
-        if (!userDoc.empty) {
-          const data = userDoc.docs[0].data();
-          return {
-            nome: data.nomeCompletoGoogle || 'Nome não disponível',
-            foto: data.picGoogle || 'default-user.jpg',
-          };
+        const usersSnapshot = await firebase.firestore().collection('users').get();
+    
+        for (const userDoc of usersSnapshot.docs) {
+          const skinsSnapshot = await userDoc.ref
+            .collection('skins')
+            .where('username', '==', username)
+            .get();
+    
+          if (!skinsSnapshot.empty) {
+            const skinData = skinsSnapshot.docs[0].data();
+            return {
+              nome: skinData.username || 'Sem nome',
+              foto: skinData.iconSkin || 'default-user.jpg',
+            };
+          }
         }
       } catch (error) {
-        console.error('Erro ao buscar dados do usuário:', error);
+        console.error(`Erro ao buscar dados do usuário (${username}):`, error);
       }
+    
       return {
-        nome: 'Nome não disponível',
+        nome: username,
         foto: 'default-user.jpg',
       };
     };
+    
 
-    const fetchContatos = async () => {
-      let query = firebase.firestore().collection('contatos').orderBy('ultimaConversaData', 'desc');
+const fetchContatos = async () => {
+  let query = firebase.firestore().collection('contatos').orderBy('ultimaConversaData', 'desc');
 
-      try {
-        const snapshot = await query.get();
-        const listaContatos = await Promise.all(snapshot.docs.map(async (contatoDoc) => {
-          const data = contatoDoc.data();
-          const [idRemetente, idDestinatario] = data.idContato.split('_');
+  try {
+    const snapshot = await query.get();
 
-          // Filtra os contatos que envolvem o usuário logado, caso ele não seja administrador
-          if (!seforAdm() && idGoogleCap !== idRemetente && idGoogleCap !== idDestinatario) {
-            return null; // Se não for admin e o contato não pertence ao usuário, ignore-o
-          }
+    const listaContatos = await Promise.all(snapshot.docs.map(async (contatoDoc) => {
+      const data = contatoDoc.data();
+      const [idRemetente, idDestinatario] = data.idContato.split('_');
 
-          const remetenteData = await fetchUserData(idRemetente);
-          const destinatarioData = await fetchUserData(idDestinatario);
-
-          return {
-            contatoId: contatoDoc.id,
-            conversaId: data.conversaId, // Capturando o conversaId do contato
-            fotoRemetente: remetenteData.foto,
-            fotoDestinatario: destinatarioData.foto,
-            nomeRemetente: remetenteData.nome,
-            nomeDestinatario: destinatarioData.nome,
-            ultimaConversaData: data.ultimaConversaData?.toDate() || new Date(0),
-          };
-        }));
-
-        // Remove contatos que não pertencem ao usuário logado quando ele não é admin
-        setContatos(listaContatos.filter(contato => contato !== null));
-        setLoading(false);
-      } catch (error) {
-        setError('Erro ao carregar contatos.');
-        console.error('Erro ao carregar contatos:', error);
-        setLoading(false);
+      // Verificação de permissão para ver os contatos
+      if (!seforAdm() && skinLogadoUser !== idRemetente && skinLogadoUser !== idDestinatario) {
+        return null;
       }
-    };
+
+      const remetenteData = await fetchSkinDataByUsername(idRemetente);
+      const destinatarioData = await fetchSkinDataByUsername(idDestinatario);
+
+      return {
+        contatoId: contatoDoc.id,
+        conversaId: data.conversaId,
+        fotoRemetente: remetenteData.foto,
+        fotoDestinatario: destinatarioData.foto,
+        nomeRemetente: remetenteData.nome,
+        nomeDestinatario: destinatarioData.nome,
+        ultimaConversaData: data.ultimaConversaData?.toDate() || new Date(0),
+      };
+    }));
+
+    setContatos(listaContatos.filter(contato => contato !== null));
+    setLoading(false);
+  } catch (error) {
+    setError('Erro ao carregar contatos.');
+    console.error('Erro ao carregar contatos:', error);
+    setLoading(false);
+  }
+};
+
+
+
+
 
     fetchContatos();
-  }, [idGoogleCap]); // Adiciona idGoogleCap como dependência
+  }, [skinLogadoUser]); 
 
   const handleChatRedirect = (contatoId) => {
     // Redireciona para a conversa principal
-    navigate(`/menu/${idGoogleCap}/contatos/${contatoId}/chat/principal`);
+    navigate(`/menu/${skinLogadoUser}/contatos/${contatoId}/chat/principal`);
   };
 
   const handleListarConversasRedirect = (contatoId) => {
     // Redireciona para a lista de conversas
-    navigate(`/menu/${idGoogleCap}/contatos/${contatoId}`);
+    navigate(`/menu/${skinLogadoUser}/contatos/${contatoId}`);
   };
 
   return (
@@ -116,7 +131,7 @@ function ListaContatos() {
                 {/* Se for admin, mostra os dois nomes, caso contrário, só o nome do destinatário */}
                 {seforAdm() ? `${contato.nomeRemetente} | ${contato.nomeDestinatario}` : `${contato.nomeDestinatario}`}
               </p>
-              <p className='dataContatos'>Último contato: {contato.ultimaConversaData.toLocaleDateString('pt-BR')}</p>
+              <p className='dataContatos'> Último contato: {contato.ultimaConversaData.toLocaleDateString('pt-BR')} </p>
             </div>
 
             {/* Botão para redirecionar ao chat principal */}

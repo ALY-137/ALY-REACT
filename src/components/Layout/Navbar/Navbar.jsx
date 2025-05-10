@@ -12,107 +12,134 @@ const Navbar = () => {
   
 
   const fetchPages = async () => {
-    try {
-      if (!skinLocal) {
-        throw new Error("skinLocal está vazio");
-      }
+  try {
+    const skinsSnapshot = await db.collectionGroup('skins')
+      .where('username', '==', skinLocal)
+      .get();
 
-      // UTILIZANDO VARIAVEL LOCAL DO USERNAME DA SKIN BUSCO A SKIN ATUAL.
-      // FOI USADO COLLECTION GROUP PARA BUSCAR O UERNAME EM TODAS A COLEÇÕES COM O NOME SKINS NO BANCO DE DADOS.
-      
-      const skinsSnapshot = await db.collectionGroup('skins')
-        .where('username', '==', skinLocal)
-        .get();
+    let pagesList = [];
+    let skinId = null;
+    let userId = null;
 
+    for (const skinDoc of skinsSnapshot.docs) {
+      skinId = skinDoc.id;
+      userId = skinDoc.ref.path.split('/')[1]; // 'users/{userId}/skins/{skinId}'
 
-      let pagesList = [];
+      const pagesSnapshot = await skinDoc.ref.collection('paginas').get();
 
+      for (const pageDoc of pagesSnapshot.docs) {
+        const pageData = pageDoc.data();
 
-      // AQUI OBTEMOS O DOCUMENTO DE SKINS 
-      for (const skinDoc of skinsSnapshot.docs) {
-        const pagesSnapshot = await skinDoc.ref.collection('paginas').get();
+        const containerRefsSnapshot = await pageDoc.ref.collection('containerRefs').get();
+        const containerRefIds = containerRefsSnapshot.docs.map((doc) => doc.data().containerRefId);
 
-     
-        // JÁ SELECIONADO A SKIN ATUAL CAPTURA SEU IP E ATRIBUI A UMA VARIAVEL LOCAL.
-        localStorage.setItem('skinLocalId', skinDoc.id);
+        let containersList = [];
+        if (containerRefIds.length > 0) {
+          const containersSnapshot = await skinDoc.ref.collection('containers')
+            .where('id_container', 'in', containerRefIds)
+            .get();
 
-
-        for (const pageDoc of pagesSnapshot.docs) {
-          const pageData = pageDoc.data();
-    
-    
-          const containerRefsSnapshot = await pageDoc.ref.collection('containerRefs').get();
-          const containerRefIds = containerRefsSnapshot.docs.map((doc) => doc.data().containerRefId);
-
-    
-          let containersList = [];
-          if (containerRefIds.length > 0) {
-            const containersSnapshot = await skinDoc.ref.collection('containers')
-              .where('id_container', 'in', containerRefIds) 
-              .get();
-
-            containersList = containersSnapshot.docs.map((doc) => ({
-              titulo: doc.data().titulo,
-              iconUrl: doc.data().iconUrl,
-              id_container: doc.data().id_container,
-            }));
-          }
-
-          pagesList.push({
-            nome: pageData.nome,
-            is_main: pageData.is_main,
-            containers: containersList, 
-          });
+          containersList = containersSnapshot.docs.map((doc) => ({
+            titulo: doc.data().titulo,
+            iconUrl: doc.data().iconUrl,
+            id_container: doc.data().id_container,
+          }));
         }
+
+        pagesList.push({
+          nome: pageData.nome,
+          is_main: pageData.is_main,
+          containers: containersList,
+        });
+      }
+    }
+
+    return { pagesList, skinId, userId };
+  } catch (error) {
+    console.error('Erro ao buscar páginas:', error);
+    return { pagesList: [], skinId: null, userId: null };
+  }
+};
+
+
+ useEffect(() => {
+  if (skinLocal) {
+    const fetchPagesData = async () => {
+      const { pagesList, skinId, userId } = await fetchPages();
+
+      if (!userId || !skinId) {
+        console.error("Erro: IDs não foram carregados corretamente.");
+        return;
       }
 
-      
+      localStorage.setItem('skinLocalId', skinId);
+      localStorage.setItem('userLocalId', userId);
 
+      setPages(pagesList);
 
-      
-      return pagesList;
-    } catch (error) {
-      console.error('Erro ao buscar páginas:', error);
-      return [];
-    }
-  };
+      const routes = pagesList.map((page) => ({
+        path: page.nome,
+        element: (
+          <div>
+            {page.containers.map((container, index) => (
+              <Container
+                key={index}
+                titulo={container.titulo}
+                iconUrl={container.iconUrl}
+                id_container={container.id_container}
+                id_skin={skinId}
+                id_user={userId}
+              />
+            ))}
+          </div>
+        ),
+      }));
 
-  useEffect(() => {
-    if (skinLocal) {
-      
-      // CHAMA A VARIAVEL LOCAL PARA PASSAR COMO PROP PARA CARREGAR OS CONTAINERS.
-      const skinLocalId = localStorage.getItem('skinLocalId');
-      const userLocalId = localStorage.getItem('userLocalId');
-      if (!userLocalId) {
-        console.error('ID do usuário não encontrado no localStorage!');
-      } else {
-        console.log('ID do usuário recuperado:', userLocalId);
-      }
+      setRoutes(routes);
+    };
+
+    //  Chamada da função adicionada aqui
+    fetchPagesData();
+  }
+}, [skinLocal]);
+
     
 
-      const fetchPagesData = async () => {
-        const pagesData = await fetchPages();
-        setPages(pagesData);
+const fetchPagesData = async () => {
+  const { pagesList, skinId, userId } = await fetchPages();
 
-  
-    
-        const routes = pagesData.map((page) => ({
-          path: page.nome,
-          element: (
-            <div>
-              {page.containers.map((container, index) => (
-                <Container key={index} titulo={container.titulo} iconUrl={container.iconUrl} id_container={container.id_container} id_skin={skinLocalId} id_user={userLocalId} />
-              ))}
-            </div>
-          ),
-        }));
+  if (!userId || !skinId) {
+    console.error("Erro: IDs não foram carregados corretamente.");
+    return;
+  }
 
-        setRoutes(routes);
-      };
+  // Opcional: salvar localmente para futuras execuções
+  localStorage.setItem('skinLocalId', skinId);
+  localStorage.setItem('userLocalId', userId);
 
-      fetchPagesData();
-    }
-  }, [skinLocal]);
+  setPages(pagesList);
+
+  const routes = pagesList.map((page) => ({
+    path: page.nome,
+    element: (
+      <div>
+        {page.containers.map((container, index) => (
+          <Container
+            key={index}
+            titulo={container.titulo}
+            iconUrl={container.iconUrl}
+            id_container={container.id_container}
+            id_skin={skinId}
+            id_user={userId}
+          />
+        ))}
+      </div>
+    ),
+  }));
+
+  setRoutes(routes);
+};
+
 
   useEffect(() => {
     if (pages.length > 0) {

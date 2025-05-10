@@ -12,6 +12,9 @@ function Chat({ closeExpandedForm }) {
   const [chatMensagens, setChatMensagens] = useState([]);
   const contentChatRef = useRef(null);
 
+
+  const skinLogadoUser = localStorage.getItem('skinLogadoUser');
+
   useEffect(() => {
     const unsubscribe = firebase.firestore()
       .collection('contatos')
@@ -26,7 +29,7 @@ function Chat({ closeExpandedForm }) {
             const chatData = chatDoc.data();
             const userDoc = await firebase.firestore()
               .collection('users')
-              .doc(chatData.idRemetente)
+              .doc(chatData.userRemetente)
               .get();
             const userData = userDoc.data();
 
@@ -59,7 +62,7 @@ function Chat({ closeExpandedForm }) {
       await enviarChat({
         idContato: contactId, // Usa contactId
         idConversa: conversationId, // Usa conversationId
-        idRemetente: idGoogleCap,
+        userRemetente: skinLogadoUser,
         mensagem: mensagem,
       });
 
@@ -73,7 +76,7 @@ function Chat({ closeExpandedForm }) {
     <div className='contentPageDetForm'>
       <div className='contentChat' ref={contentChatRef}>
         {chatMensagens.map((mensagem, index) => {
-          const isSentByMe = mensagem.idRemetente === idGoogleCap;
+          const isSentByMe = mensagem.userRemetente === skinLogadoUser;
           const mostrarFoto = !isSentByMe && (index === 0 || chatMensagens[index - 1].nomeGoogle !== mensagem.nomeGoogle);
 
           return (
