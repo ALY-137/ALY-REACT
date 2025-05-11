@@ -5,6 +5,7 @@ import Card from '../Objetos/Card';
 import Contato from './Home/Contato';
 import { db } from '../../../Banco/init-firebase';
 import './containers.css';
+import BoasVindas from './Home/BoasVindas';
 
 function Container({ titulo, iconUrl, id_container, id_skin, id_user }) {
   const [cards, setCards] = useState([]);
@@ -54,6 +55,8 @@ function Container({ titulo, iconUrl, id_container, id_skin, id_user }) {
     <div className="containers">
       <EstiloContainerTop tituloHome={titulo} icon={iconUrl} />
 
+      {id_container === "SKY1GNMkI7muVq3vmHNw" && <BoasVindas />}
+
       {/* Renderiza os Cards apenas se o id_container for diferente do que ativa o formulário */}
       {id_container !== "nZCPH3y6bkPSnJPSPaSZ" &&
 cards.map((card) => (
@@ -69,6 +72,8 @@ cards.map((card) => (
 
       {/* Exibe o formulário Contato se o id_container for específico */}
       {id_container === "nZCPH3y6bkPSnJPSPaSZ" && <Contato />}
+
+
 
       <EstiloContainerBot />
     </div>

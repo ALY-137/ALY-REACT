@@ -32,6 +32,8 @@ export const verificarESalvarskins = async (userId, username, theme) => {
       theme: theme,
       is_main: is_main,
       data: firebase.firestore.FieldValue.serverTimestamp(),
+      //adiciona foto com url padrão
+      iconSkin: 'https://firebasestorage.googleapis.com/v0/b/teste-aa015.appspot.com/o/imagens%2Fthemes%2Fcyberpink%2Fviolet%2Fet.png?alt=media&token=4c09e6d5-5a0e-48d7-88ae-f56a9a5c1a5b' ,
     });
 
     // Adicionar a página principal (home)

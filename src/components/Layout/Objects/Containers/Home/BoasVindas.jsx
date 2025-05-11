@@ -3,7 +3,14 @@ import DialogoAly from "./DialogoAly";
 function BoasVindas(){
 
     return(
-        <DialogoAly texto="A tripulação da ALY (Algoritmic Laboratory of Yield) se dedica em gerar soluções em tecnologia e design. Sua especialidade consiste em utilizar lógica avançada e criatividade com o objetivo de tornar projetos de parceires mais rentáveis." /> 
+        
+
+        <DialogoAly 
+        
+        texto0='ALY-137 é um projeto autoral de desenvolvimento de software e design, criado como um laboratório experimental dedicado à criação de soluções algorítmicas e visuais. Neste espaço, você pode explorar um mapa de ideias, experimentos e criações.'
+
+        assinatura='  —  ALY-137: Algorithmic Lab for Yield  — ' /> 
+
     )
 }
 

@@ -3,7 +3,7 @@ import { useNavigate, useLocation, useParams, Outlet } from "react-router-dom";
 import { seforAdm } from "../../Scripts/verificações/verificaAdm";
 import "./menu.css";
 import { txtDefault } from "../Temas/CYBERPINK/layout";
-import violet from '../Temas/CYBERPINK/violet.js';
+
 
 function Menu({ menuOpen, setMenuOpen  }) {
   const [idGoogleCap, setIdGoogle] = useState(() => localStorage.getItem('idGoogleCap'));
@@ -20,11 +20,11 @@ function Menu({ menuOpen, setMenuOpen  }) {
 
   const skinLogadoUser = localStorage.getItem('skinLogadoUser'); // Obtém o nome de usuário da skin logada
 
+  
+
   function closeMenu() { 
-    navigate(`/${skinLocal}/home`);
-   
-    console.log(skinLocal);
-  }
+    navigate(`/${skinLogadoUser}/home`);
+    }
 
   function abrirUsers() {
     navigate(`/menu/${idGoogleCap}/users`);
@@ -33,7 +33,10 @@ function Menu({ menuOpen, setMenuOpen  }) {
   function abrirSkins() {
     navigate(`/menu/${skinLogadoUser}/skins`);
   }
-
+  function abrirAcessos() {
+    navigate(`/menu/${idGoogleCap}/acessos`);
+    console.log("abrindo acessos");
+  }
   function abrirContatos() {
     navigate(`/menu/${skinLogadoUser}/contatos`);
   }
@@ -56,23 +59,33 @@ function Menu({ menuOpen, setMenuOpen  }) {
     window.location.reload(); // Recarrega a página, impedindindo outras renderizações e permitindo que o botão de longin do google seja exibido novamente. 
   }
 
+  function resizeMenu(larSreen){
+    let menu = document.getElementById('MenuContainer');
+    if (larSreen > 1000) {
+      menu.style.width = `${1000 - 5}px`;
+    }
+  }
+
   useEffect(() => {
-    let menu;
+
+    resizeMenu(larSreen);
+
+
+    
     if (location.pathname === `/menu/${skinLogadoUser}`) {
       setAtualTxt("MENU");
       setBackText("VOLTAR");
-      setBackAction(() => closeMenu);
-
-      if (larSreen > 1000) {
-        menu = document.getElementById('MenuContainer');
-        menu.style.width = `${1000 - 5}px`;
-      }
+      setBackAction(() => closeMenu);      
     }
-
-    if (location.pathname === `/menu/${idGoogleCap}/users`) {
+ if (location.pathname === `/menu/${idGoogleCap}/users`) {
       setAtualTxt("USERS");
       setBackText("MENU");
+      setBackAction(() => returnMenu);  } 
+    else if (location.pathname === `/menu/${idGoogleCap}/acessos`) {
+      setAtualTxt("ACESSOS");
+      setBackText("MENU");
       setBackAction(() => returnMenu);
+  
     } else if (location.pathname === `/menu/${skinLogadoUser}/contatos`) {
       setAtualTxt("CONTATOS");
       setBackText("MENU");
@@ -94,6 +107,12 @@ function Menu({ menuOpen, setMenuOpen  }) {
 
   txtDefault();
 
+  if (!skinLogadoUser) {
+  navigate('/');
+  return null;
+}
+
+
   return (
 
     <div id="MenuContainer" className={menuOpen ? 'mostra' : 'openMenu'}>
@@ -108,7 +127,11 @@ function Menu({ menuOpen, setMenuOpen  }) {
           : 'oculta'
       }>
         {seforAdm() && (
-          <><div onClick={abrirUsers} id="gavetaUsers" className="gavetaOption">USERS</div><div onClick={abrirSkins} id="gavetaSkins" className="gavetaOption">GERENCIAR SKINS</div></>
+          <>
+          <div onClick={abrirUsers} id="gavetaUsers" className="gavetaOption">USERS</div>
+          <div onClick={abrirSkins} id="gavetaSkins" className="gavetaOption">GERENCIAR SKINS</div>
+          <div onClick={abrirAcessos} id="gavetaAcessos" className="gavetaOption">ACESSOS</div>
+          </>
         )}
         <div onClick={abrirContatos} id="gavetaForms" className="gavetaOption">CONTATOS</div>
        

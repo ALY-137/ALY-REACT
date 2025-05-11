@@ -28,19 +28,65 @@
     background-color: #080110;
     border: 1px solid #7e0eff;
     color: #ae6bfa;
-    padding: 3px;
+ height: 35px;
     cursor: pointer;
     outline: none;
     letter-spacing: 2px;
     font-family: 'DotGothic16', sans-serif;
  }
- select:focus option {
-    background-color: #080110;
-    color: #ae6bfa;
-    letter-spacing: 1px;
 
+#help:hover{
+    background-color: #0d001d;
+    color: #ab61ff;
+    letter-spacing: 2px;
+    transition: 0.3s;
+ }
+
+#help:active{
+    background-color: #1b003a;
+    color: #7e0eff;
+    letter-spacing: 2px;
+    transition: 0.3s;
+ }
+
+#help option:hover {
+  background-color: lightgray; /* Isso não terá efeito na maioria dos browsers */
+}
+
+ select:focus option {
+    background-color: #1d003d8e;
+    color: #983eff;
+    letter-spacing: 2px;
+ }
+
+ select:focus object{
+    background-color: #200044;
+    color: #983eff;
+    letter-spacing: 2px;
+    outline: none;
+    border: 1px solid #7e0eff;
+    font-family: 'DotGothic16', sans-serif;
  }
  
+#emailCamp{
+
+      width: 90%;
+      height: 30px;
+      margin-top: 15px;
+      background-color: #080110;
+      border: 1px solid #7e0eff;
+      color: #ae6bfa;
+      font-family: 'DotGothic16', sans-serif;
+      outline: none; 
+      letter-spacing: 2px;
+        resize: none;
+   
+   }
+   
+   input::placeholder {
+      color: #ae6bfa;
+}
+
  #helpMens{
     width: 90%; 
     height: 80px;
@@ -51,6 +97,8 @@
     font-family: 'DotGothic16', sans-serif;
     outline: none; 
     letter-spacing: 2px;
+      resize: none;
+  
  }
 
  textarea::placeholder {

@@ -4,19 +4,22 @@ import { enviarMensagem } from '../../../../Banco/init-firebase';
 import { useState } from 'react';
 import { validarFormulario } from './validarForm.js';
 
+
 function Contato() {
   const [valorSelecionado, setValorSelecionado] = useState('');
   const [valorTextarea, setValorTextarea] = useState('');
+    const [valorEmail, setValorEmail] = useState('');
 
   const skinLogadoUser = localStorage.getItem('skinLogadoUser');
 
+  const idGoogleCap = localStorage.getItem('idGoogleCap'); // USUÁRIO LOGADO
 
 
   const handleClick = () => {
     var valor = validarFormulario();
 
     if (valor === 1) {
-      enviarMensagem(skinLogadoUser, '113891358948396359936', valorSelecionado, valorTextarea);
+      enviarMensagem(skinLogadoUser, 'savannaoliveira', valorSelecionado, valorTextarea, valorEmail);
 
       let enviado = document.getElementById('contentForm');
       enviado.style.display = 'none';
@@ -31,7 +34,7 @@ function Contato() {
 
       <div id='form'>
         <div id='contentForm'>
-          <p id='formTitle'>Me conte como posso te ajudar?</p>
+          <p id='formTitle'>Como posso ajudar?</p>
 
           <select value={valorSelecionado} id='help' onChange={(e) => setValorSelecionado(e.target.value)}>
             <option value="" selected disabled>Assunto... </option>
@@ -42,7 +45,16 @@ function Contato() {
             <option value={'PROJETO ENCHENTES RS'}> - Projeto para suporte a pessoas atingidas pelas inundações no RS.</option>
           </select>
 
-          <textarea value={valorTextarea} id='helpMens' placeholder="Especifique aqui..." onChange={(e) => setValorTextarea(e.target.value)} ></textarea>
+  {!idGoogleCap ? ( 
+  <textarea
+    id='emailCamp'
+    placeholder=" E-mail..."
+    onChange={(e) => setValorEmail(e.target.value)}
+  />
+) : null}
+
+
+          <textarea value={valorTextarea} id='helpMens' placeholder=" Especifique aqui..." onChange={(e) => setValorTextarea(e.target.value)} ></textarea>
           <p id="mensagemErro" className="error"></p>
           <button type='submit' id='enviarMensagem' onClick={handleClick}> ENVIAR </button>
         </div>

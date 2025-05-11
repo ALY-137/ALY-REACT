@@ -185,7 +185,7 @@
     width: 95%;
     display:block;
     text-align: left;
-    color: #bc82ff;
+    color: #a657ff;
     overflow-x: scroll;
     border: 1px solid #7e0eff;
     background-color: #07000c;
@@ -226,7 +226,7 @@
     text-align: justify;
     line-height:12px;
 
-    font-family: monospace;
+    font-family: 'DotGothic16', sans-serif;
 }
 
 .txtTituloPri{
@@ -236,6 +236,7 @@
     font-weight: bold;
     letter-spacing: 2px;
     margin-top: -10px;
+    color: #ba7eff;
 
 }
 .txtTitulo{
@@ -244,6 +245,7 @@
     line-height:11px;
     font-weight: bold;
     letter-spacing: 2px;
+color: #ba7eff;
 
 }
 
@@ -253,7 +255,7 @@
     font-weight: bold;
     letter-spacing: 2px;
     text-decoration: none;
-    color: #dec5ff; /* Cor inicial */
+    color: #ba7eff; /* Cor inicial */
 }
 
 .txtTituloLink:visited {
@@ -262,7 +264,7 @@
 
 .txtTituloLink:hover {
     color: #dec5ff;
-    text-decoration: underline;
+
 }
 
 .txtTituloLink:active {

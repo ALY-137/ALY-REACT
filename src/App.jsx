@@ -9,6 +9,7 @@ import AnoAtualizado from './components/Scripts/data/AnoAtualizado';
 import './App.css';
 import { txtDefault } from './components/Layout/Temas/CYBERPINK/layout';
 import Estrutura from './components/Layout/Paginas/Estrutura';
+import Localiza from './components/Scripts/localiza/Localiza.jsx';
 
 // Variáveis globais exportadas
 let idGoogleCap = null;
@@ -40,6 +41,25 @@ const App = () => {
   const [localEmail, setLocalEmail] = useState('');
   const [localPicGoogle, setLocalPicGoogle] = useState('');
   const [localFullname, setLocalFullname] = useState('');
+
+    const [ip, setIp] = useState("");
+
+  useEffect(() => {
+    fetch("https://api.ipify.org?format=json")
+      .then((response) => response.json())
+      .then((data) => setIp(data.ip))
+      .catch((error) => console.error("Erro ao obter IP:", error));
+  }, []);
+
+    useEffect(() => {
+
+      localStorage.setItem('ip',ip);
+
+      console.log("IP:", ip);
+  
+   }, [ip]);
+
+
 
   const handleCallbackResponse = (response) => {
     const { jwtDecode } = require('jwt-decode');
@@ -140,8 +160,14 @@ const App = () => {
 
   return (
     <div>
+
       {!localIdGoogle && location.pathname === '/' ? (
+
+        
+  
         <div id="login" className={`containerLogin ${mostrarLogin ? 'fadeIn' : ''}`}>
+    <Localiza />
+   
           <div id="iconsLogin">
             <img src="/logoNeon.png" id="logoLogin" alt="Logo" />
             <p id="logoTxt">ALY-137</p>
@@ -162,5 +188,5 @@ const App = () => {
 };
 
 // Mantém as exportações para não quebrar outros componentes
-export { idGoogleCap, primeiroNomeCap, emailCap, picGoogleCap, fullnameCap };
+export { idGoogleCap, primeiroNomeCap, emailCap, picGoogleCap, fullnameCap  };
 export default App;

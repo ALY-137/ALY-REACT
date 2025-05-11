@@ -1,24 +1,14 @@
 import './containersHome.css';
-import EstiloContainerTop from '../EstiloContainerTop';
-import EstiloContainerBot from '../EstiloContainerBot';
 import './dialogo.css'
 
-function DialogoAly({texto}){
+function DialogoAly({texto0, assinatura}) {
 
     return(
 
-
         <div className="containerHome">
 
-        
-                <EstiloContainerTop tituloHome='ALY-137' icon='./logo.png'/>
-
-
-                <p className='texto1'>{texto}</p>
-
-
-                <EstiloContainerBot />
-
+                <p className='texto0'>{texto0}</p>
+                <p className='assinatura'>{assinatura}</p>
 
         </div>
 

@@ -71,7 +71,7 @@ export const enviarChat = async ({ idContato, idConversa, userRemetente, mensage
 };
 
 // Envia uma nova mensagem e cria uma nova conversa se necessário
-export const enviarMensagem = async (userRemetente, idDestinatario, assunto, mensagem) => {
+export const enviarMensagem = async (userRemetente, idDestinatario, assunto, mensagem, valorTextareaEmail) => {
   const idContato = criarIdConversa(userRemetente, idDestinatario); 
   let idConversa;
 
@@ -95,6 +95,7 @@ export const enviarMensagem = async (userRemetente, idDestinatario, assunto, men
         idContato,
         idConversa,
         ultimaMensagem: mensagem,
+        email: valorTextareaEmail,
         dataUltimaMensagem: firebase.firestore.FieldValue.serverTimestamp(),
       });
     } else {
@@ -113,7 +114,7 @@ export const enviarMensagem = async (userRemetente, idDestinatario, assunto, men
       idChat,
     });
 
-    console.log('Mensagem enviada e conversa (principal ou nova) atualizada com sucesso!');
+
   } catch (error) {
     console.error('Erro ao enviar mensagem:', error);
   }

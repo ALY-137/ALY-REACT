@@ -43,8 +43,6 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
   const urlUsername = pathname.split('/')[1];
   let skinLocal = null;
 
-
-
   const skinLogadoUser = localStorage.getItem('skinLogadoUser');
 
   useEffect(() => {
@@ -59,26 +57,26 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
       if(seforAdm(idGoogleCap)){
 
         skinLocal = localStorage.getItem('skinLocal');
-        console.log(`aaaaaaaaa skinLocal: ${skinLocal}`);
-        console.log(` ${idGoogleCap}`);
         fetchSkins(skinLocal);
       }else{
 
-        console.log(idGoogleCap);
-        localStorage.setItem('skinLocal','savannaoliveira');
-        skinLocal = localStorage.getItem('skinLocal');
-        fetchSkins(skinLocal);
+        if(!idGoogleCap && location.pathname.startsWith('/menu')) {
+          navigate('/');  
+        }else{
+          localStorage.setItem('skinLocal','savannaoliveira');
+          skinLocal = localStorage.getItem('skinLocal');
+          fetchSkins(skinLocal);
+        }        
 
       }
       
-
     }
   }, [urlUsername]);
 
   const fetchSkins = async (username) => {
     setIsLoading(true); // Inicia o carregamento
     try {
-      console.log(`Buscando skins para o usuário: ${username}`);
+  
       const usersSnapshot = await db.collection('users').get();
 
       if (usersSnapshot.empty) {
@@ -97,7 +95,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
 
         if (!skinsSnapshot.empty) {
           localId = userDoc.id; // ID do usuário associado às skins encontradas
-          console.log(`ID do usuário encontrado: ${localId}`);
+   
           localStorage.setItem('userLocalId',localId);
           setUserLocalId(localId); // Atualiza o estado do ID do usuário
 
@@ -126,8 +124,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
         return;
       }
 
-      console.log(`Skins encontradas: ${JSON.stringify(skinsList)}`);
-      console.log(`Páginas encontradas: ${JSON.stringify(pagesList)}`);
+
       setSkins(skinsList);
       setPages(pagesList);
       setUsername(username);
@@ -147,12 +144,12 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
 
    
     skinLocal = localStorage.getItem('skinLocal');
-    console.log("!!"+mainPage); // PAGINA PRINCIPAL
-    console.log("!!"+skinLocal); // SKIN SELECIONADA
+
 
     if (mainPage && skinLocal) {
       console.log("Navegando para:", `/${skinLocal}/${mainPage.nome}`);
       navigate(`/${skinLocal}/${mainPage.nome}`);
+      
     } else {
       console.log("Erro! Página principal não encontrada ou skinLocal não definido.");
 

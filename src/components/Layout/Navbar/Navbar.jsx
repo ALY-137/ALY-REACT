@@ -39,18 +39,23 @@ const Navbar = () => {
             .where('id_container', 'in', containerRefIds)
             .get();
 
-          containersList = containersSnapshot.docs.map((doc) => ({
-            titulo: doc.data().titulo,
-            iconUrl: doc.data().iconUrl,
-            id_container: doc.data().id_container,
-          }));
+      containersList = containersSnapshot.docs
+  .map((doc) => ({
+    titulo: doc.data().titulo,
+    iconUrl: doc.data().iconUrl,
+    id_container: doc.data().id_container,
+    order: doc.data().order ?? 0, // fallback para evitar undefined
+  }))
+  .sort((a, b) => a.order - b.order); //  ordena pela ordem definida
+
         }
 
         pagesList.push({
-          nome: pageData.nome,
-          is_main: pageData.is_main,
-          containers: containersList,
-        });
+  nome: pageData.nome,
+  is_main: pageData.is_main,
+  orderBy: pageData.orderBy || 'default', // guardar o tipo de ordenação
+  containers: containersList,
+});
       }
     }
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import './loginButton.css'; // Importa o CSS do botão
 
 
 const LoginButton = () => {
@@ -11,7 +12,8 @@ const LoginButton = () => {
 
   return (
     <button className='loginButton'>
-      <Link to="/"> LOGIN </Link>
+      <img className='imgLoginButton' src="https://firebasestorage.googleapis.com/v0/b/teste-aa015.appspot.com/o/imagens%2Fthemes%2Fcyberpink%2Fviolet%2Ffoguete.png?alt=media&token=19c205b6-b36f-49df-b336-4afc6565c9a5" alt="Login Icon" />
+      <Link className='txtLoginButton' to="/"> LOGIN </Link>
     </button>
   );
 };
