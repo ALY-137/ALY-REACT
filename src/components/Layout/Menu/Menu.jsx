@@ -23,8 +23,12 @@ function Menu({ menuOpen, setMenuOpen  }) {
   
 
   function closeMenu() { 
-    navigate(`/${skinLogadoUser}/home`);
+    if(seforAdm(idGoogleCap)){
+      navigate(`/${skinLogadoUser}/home`);
+    }else{
+      navigate(`/savannaoliveira/home`);
     }
+  }
 
   function abrirUsers() {
     navigate(`/menu/${idGoogleCap}/users`);

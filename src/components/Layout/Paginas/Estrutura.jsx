@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, Suspense ,useRef } from "react";
 import { useLocation, useNavigate, Outlet } from "react-router-dom";
 import Navbar from "../Navbar/Navbar";
 import { db } from "../../Banco/init-firebase";
@@ -38,6 +38,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
   const [userLocalId, setUserLocalId] = useState(null); // Estado para armazenar o ID do usuário
   const [isLoading, setIsLoading] = useState(false); // Gerenciar estado de carregamento
 
+
   const idGoogleCap = localStorage.getItem('idGoogleCap'); // USUÁRIO LOGADO
   const pathname = location.pathname;
   const urlUsername = pathname.split('/')[1];
@@ -45,30 +46,19 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
 
   const skinLogadoUser = localStorage.getItem('skinLogadoUser');
 
+  const [fechskinRep, setFechskinRep] = useState(false);
+
   useEffect(() => {
-    if (urlUsername && seforAdm(idGoogleCap)) {
+    if (urlUsername ==='savannaoliveira' && seforAdm(idGoogleCap)) {
       
       console.log(`URL username: ${urlUsername}`);
       localStorage.setItem('skinLocal', urlUsername);
       fetchSkins(urlUsername);
 
     } else {
-
-      if(seforAdm(idGoogleCap)){
-
-        skinLocal = localStorage.getItem('skinLocal');
-        fetchSkins(skinLocal);
-      }else{
-
-        if(!idGoogleCap && location.pathname.startsWith('/menu')) {
-          navigate('/');  
-        }else{
-          localStorage.setItem('skinLocal','savannaoliveira');
-          skinLocal = localStorage.getItem('skinLocal');
-          fetchSkins(skinLocal);
-        }        
-
-      }
+localStorage.setItem('skinLocal','savannaoliveira');
+      fetchSkins('savannaoliveira');
+       
       
     }
   }, [urlUsername]);
@@ -129,8 +119,9 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
       setPages(pagesList);
       setUsername(username);
 
-      // Navegar para a página principal após carregar as páginas
-      navigateMainPage(pagesList);
+  
+
+
 
     } catch (error) {
       console.error('Erro ao buscar skins:', error);
@@ -139,34 +130,42 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
     }
   };
 
-  const navigateMainPage = (paginas) => {
-    const mainPage = paginas.find((pagina) => pagina.is_main === true);
+const hasNavigatedRef = useRef(false);
 
-   
-    skinLocal = localStorage.getItem('skinLocal');
+const navigateMainPage = (paginas) => {
+  const mainPage = paginas.find((pagina) => pagina.is_main === true);
+  skinLocal = localStorage.getItem('skinLocal');
+
+  if (mainPage && skinLocal && !hasNavigatedRef.current) {
+    hasNavigatedRef.current = true;
+    navigate(`/${skinLocal}/${mainPage.nome}`);
+       
+  }
+};
 
 
-    if (mainPage && skinLocal) {
-      console.log("Navegando para:", `/${skinLocal}/${mainPage.nome}`);
-      navigate(`/${skinLocal}/${mainPage.nome}`);
-      
-    } else {
-      console.log("Erro! Página principal não encontrada ou skinLocal não definido.");
+useEffect(() => {
+  if (!Array.isArray(skins) || skins.length === 0 || !username || !hasNavigatedRef){
+    return;
+  }
 
-    }
-  };
+  const timeoutId = setTimeout(async () => {
+    await defineTheme(username, skins, setLayoutScript);
+    console.log("Tema definido com sucesso.");
 
-  useEffect(() => {
-    if (!Array.isArray(skins) || skins.length === 0 || !username) {
-      return;
-    }
+  
+  }, 1);
 
-    const timeoutId = setTimeout(() => {
-      defineTheme(username, skins, setLayoutScript);
-    }, 1);
+  return () => clearTimeout(timeoutId);
+}, [skins, username, hasNavigatedRef]);
 
-    return () => clearTimeout(timeoutId);
-  }, [skins, username]);
+
+useEffect(() => {
+  if (paginas.length > 0 && !hasNavigatedRef.current) {
+    navigateMainPage(paginas);
+  }
+}, [ paginas]);
+
 
   const toggleMenu = () => {
     setMenuOpen(!menuOpen);

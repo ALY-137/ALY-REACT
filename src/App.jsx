@@ -10,6 +10,7 @@ import './App.css';
 import { txtDefault } from './components/Layout/Temas/CYBERPINK/layout';
 import Estrutura from './components/Layout/Paginas/Estrutura';
 import Localiza from './components/Scripts/localiza/Localiza.jsx';
+import { seforAdm } from './components/Scripts/verificações/verificaAdm.js';
 
 // Variáveis globais exportadas
 let idGoogleCap = null;
@@ -92,7 +93,13 @@ const App = () => {
       if (skinsList.length === 1) {
       
         const skinUser = skinsList[0].username;
-        setUsername(skinUser);
+
+        if(seforAdm(idGoogleCap)){
+          setUsername(skinUser);
+        }else{
+          setUsername('savannaoliveira');
+        }
+        
 
         localStorage.setItem('skinLogadoUser', skinUser);
         localStorage.setItem('selectedTheme', skinsList[0].theme);
@@ -166,7 +173,6 @@ const App = () => {
         
   
         <div id="login" className={`containerLogin ${mostrarLogin ? 'fadeIn' : ''}`}>
-    <Localiza />
    
           <div id="iconsLogin">
             <img src="/logoNeon.png" id="logoLogin" alt="Logo" />
