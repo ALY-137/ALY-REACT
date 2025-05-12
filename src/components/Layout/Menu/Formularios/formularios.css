@@ -22,16 +22,17 @@
   .fotoContainer {
     display: flex;
     align-items: center;
-    justify-content: left;
+    justify-content: top;
     gap: 10px;
 
   }
   
   .fotoContato {
-    width: 50px;
-    height: 50px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
-    object-fit: cover;
+    margin-left: 10px;
+
   }
     
 
@@ -47,16 +48,22 @@
 
 .boxItemContato {
 
-    padding: 10px; /* Espaçamento interno */
+    padding: 5px; /* Espaçamento interno */
     margin-bottom: 10px; /* Espaçamento entre os itens */
+    margin-left: 10px;
+    margin-right: 10px;
     background-color: #ffffff1a; /* Cor de fundo */
     cursor: pointer;
     display: flex;
     border-radius: 8px; /* Canto arredondado */
+        
+    align-items: center;
   }
 
   .infosContato{
     margin-left: 15px;
+    margin-right: 10px;
+
   
   }
   .nomesContatos{
@@ -272,4 +279,14 @@ li {
 
 .sem-foto .resposta-texto {
     margin-left: 35px; /* Compensa a margem quando a foto não é exibida */
+}
+
+.btnChat{
+    width: 60px;
+    height: 60px;
+
+        display: flex;
+    align-items: center;
+    justify-content: left;
+ 
 }

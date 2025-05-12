@@ -135,15 +135,15 @@ const fetchContatos = async () => {
             </div>
 
             {/* Botão para redirecionar ao chat principal */}
-            <button
-              className='btnChat'
-              onClick={(e) => {
-                e.stopPropagation(); // Evita que o clique no botão acione o onClick do contato
-                handleChatRedirect(contato.contatoId); // Redireciona para a conversa principal
-              }}
-            >
-              Chat
-            </button>
+              <img
+                className='btnChat'
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleChatRedirect(contato.contatoId);
+                }} // Redireciona para o chat principal
+              src='https://firebasestorage.googleapis.com/v0/b/teste-aa015.appspot.com/o/imagens%2Fthemes%2Fcyberpink%2Fviolet%2Fchat.png?alt=media&token=663a432d-f916-4917-98b2-e90eacd65745'
+              alt='Abrir chat'
+            />
           </div>
         ))}
       </div>
