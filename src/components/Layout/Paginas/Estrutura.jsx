@@ -4,6 +4,7 @@ import Navbar from "../Navbar/Navbar";
 import { db } from "../../Banco/init-firebase";
 import LoginButton from "../Geral/LoginButton";
 import { seforAdm } from "../../Scripts/verificações/verificaAdm";
+import Acesso from "../../Scripts/acesso/Acesso";
 
 // Função para definir o tema
 export const defineTheme = async (username, skins, setLayoutScript) => {
@@ -180,6 +181,7 @@ useEffect(() => {
         ) : (
           <>
             {!idGoogleCap ? (
+            
               <div id="navbar-menu" style={{ textAlign: "center", display: menuOpen ? 'none' : 'block' }}>
                 <LoginButton />
               </div>
@@ -190,7 +192,8 @@ useEffect(() => {
                 </p>
               </div>
             )}
-            <div id="cardProfile" style={{ display: menuOpen ? 'none' : 'block' }}>
+            <div id="cardProfile" style={{ display: menuOpen ? 'none' : 'block' }}>  
+              <Acesso/>
               <img src="/imagens/imgHome/busto.png" id="imgBustoHome" alt="imagem" />
               <div id="MatrixDesign"></div>
               <div id="MatrixDev"></div>

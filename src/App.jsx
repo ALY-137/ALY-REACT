@@ -9,8 +9,9 @@ import AnoAtualizado from './components/Scripts/data/AnoAtualizado';
 import './App.css';
 import { txtDefault } from './components/Layout/Temas/CYBERPINK/layout';
 import Estrutura from './components/Layout/Paginas/Estrutura';
-import Localiza from './components/Scripts/localiza/Localiza.jsx';
+import Localiza from './components/Scripts/acesso/Acesso.jsx';
 import { seforAdm } from './components/Scripts/verificações/verificaAdm.js';
+import Acesso from './components/Scripts/acesso/Acesso.jsx';
 
 // Variáveis globais exportadas
 let idGoogleCap = null;
@@ -171,21 +172,25 @@ const App = () => {
       {!localIdGoogle && location.pathname === '/' ? (
 
         
-  
+ 
         <div id="login" className={`containerLogin ${mostrarLogin ? 'fadeIn' : ''}`}>
-   
-          <div id="iconsLogin">
-            <img src="/logoNeon.png" id="logoLogin" alt="Logo" />
-            <p id="logoTxt">ALY-137</p>
-            <p id="textoLogin">EMBARQUE COM O GOOGLE</p>
-            <div id="signInDiv"></div>
-          </div>
-          <p id="rodapeLogin">
-            ALY-137© <AnoAtualizado />
-          </p>
+           <Acesso/>
+            <div id="iconsLogin">
+              <img src="/logoNeon.png" id="logoLogin" alt="Logo" />
+              <p id="logoTxt">ALY-137</p>
+              <p id="textoLogin">EMBARQUE COM O GOOGLE</p>
+              <div id="signInDiv"></div>
+            </div>
+            <p id="rodapeLogin">
+                ALY-137© <AnoAtualizado />
+            </p>
         </div>
       ) : skinLogado ? (
-        <Estrutura username={username} skins={skins} />
+
+          <Estrutura username={username} skins={skins} />
+        
+ 
+        
       ) : (
         <SkinsManager />
       )}

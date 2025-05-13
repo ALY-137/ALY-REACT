@@ -16,6 +16,7 @@ import Chat from './components/Layout/Menu/Formularios/Chat';
 import Estrutura from './components/Layout/Paginas/Estrutura';
 import SkinsManager from './components/Layout/Skins/SkinsManager';
 import Navbar from './components/Layout/Navbar/Navbar';
+import ListaAcessos from './components/Scripts/acesso/ListaAcessos';
 
 const RouterComponent = () => {
   const { routes } = useRoutesContext();
@@ -35,6 +36,7 @@ const RouterComponent = () => {
         { path: "contatos/:contactId/chat/:conversationId", element: <Chat /> },
         { path: "users", element: <Users /> },
         { path: "skins", element: <SkinsManager /> },
+        { path: "acessos", element: <ListaAcessos /> },
       ],
     },
     {

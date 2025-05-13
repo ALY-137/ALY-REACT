@@ -3,23 +3,28 @@ import './contato.css';
 import { enviarMensagem } from '../../../../Banco/init-firebase';
 import { useState } from 'react';
 import { validarFormulario } from './validarForm.js';
+import Acesso from '../../../../Scripts/acesso/Acesso.jsx';
 
 
 function Contato() {
   const [valorSelecionado, setValorSelecionado] = useState('');
   const [valorTextarea, setValorTextarea] = useState('');
-    const [valorEmail, setValorEmail] = useState('');
+
 
   const skinLogadoUser = localStorage.getItem('skinLogadoUser');
 
   const idGoogleCap = localStorage.getItem('idGoogleCap'); // USUÁRIO LOGADO
 
+const [valorEmail, setValorEmail] = useState(''); // Adicionei esta linha para definir o estado do email
 
-  const handleClick = () => {
+const handleClick = () => {
     var valor = validarFormulario();
 
     if (valor === 1) {
       enviarMensagem(skinLogadoUser, 'savannaoliveira', valorSelecionado, valorTextarea, valorEmail);
+
+      
+              
 
       let enviado = document.getElementById('contentForm');
       enviado.style.display = 'none';
@@ -46,7 +51,7 @@ function Contato() {
           </select>
 
   {!idGoogleCap ? ( 
-  <textarea
+  <textarea value={valorEmail}
     id='emailCamp'
     placeholder=" E-mail..."
     onChange={(e) => setValorEmail(e.target.value)}
@@ -59,6 +64,7 @@ function Contato() {
           <button type='submit' id='enviarMensagem' onClick={handleClick}> ENVIAR </button>
         </div>
         <div id='containerSucesso'>
+          <Acesso valorEmail={valorEmail} />
           <p className='sucesso'>CONTATO REALIZADO COM SUCESSO!</p>
           <p className='descriSucesso'>Sua resposta será enviada em breve para seu endereço de e-mail. Confira sua caixa de entrada.</p>
         </div>

@@ -1,14 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import firebase from "firebase/app";
 import 'firebase/firestore';
-import { db } from '../../Banco/init-firebase'; // Importa o banco de dados Firestore
+import { db } from '../../Banco/init-firebase'; // Firestore
 
-function Localiza() {
+function Acesso({ valorEmail }) {
   const [dados, setDados] = useState(null);
+  const [jaEnviado, setJaEnviado] = useState(false);
 
-
-  // Declare a função corretamente aqui:
-  const enviarDadosParaBanco = async (idGoogleCap, skinLogadoUser, ip, country_name, region, city, org) => {
+  const enviarDadosParaBanco = async (idGoogleCap, skinLogadoUser, ip, country_name, region, city, org, valorEmail) => {
     try {
       const docRef = await db.collection('acessos').add({
         idGoogleCap,
@@ -18,8 +17,9 @@ function Localiza() {
         region,
         city,
         org,
-       data: firebase.firestore.FieldValue.serverTimestamp(),
-     
+        valorEmail,
+        data: firebase.firestore.FieldValue.serverTimestamp(),
+        visto: false,
       });
       console.log("Dados enviados com sucesso para o banco de dados:", docRef.id);
     } catch (error) {
@@ -41,19 +41,23 @@ function Localiza() {
       localStorage.setItem('region', dados.region);
       localStorage.setItem('city', dados.city);
       localStorage.setItem('org', dados.org);
-    }
-  }, [dados]);
 
-  useEffect(() => {
-    if (dados) {
       const idGoogleCap = localStorage.getItem('idGoogleCap');
       const skinLogadoUser = localStorage.getItem('skinLogadoUser');
       const { ip, country_name, region, city, org } = dados;
-      enviarDadosParaBanco(idGoogleCap, skinLogadoUser, ip, country_name, region, city, org);
-    }
-  }, [dados]);
 
- 
+
+if (!jaEnviado) {
+      enviarDadosParaBanco(idGoogleCap, skinLogadoUser, ip, country_name, region, city, org, valorEmail);
+  setJaEnviado(true);
 }
 
-export default Localiza;
+    }
+
+    
+  }, [dados, valorEmail]);
+
+  return null; // Não renderiza nada visível
+}
+
+export default Acesso;
