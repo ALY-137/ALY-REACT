@@ -195,7 +195,7 @@ useEffect(() => {
             )}
             <div id="cardProfile" style={{ display: menuOpen ? 'none' : 'block' }}>  
 
-          <Acesso />
+         
               
               <img src="/imagens/imgHome/busto.png" id="imgBustoHome" alt="imagem" />
               <div id="MatrixDesign"></div>

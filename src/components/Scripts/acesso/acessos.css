@@ -1,0 +1,23 @@
+.conteudoLista{
+    height: 100%;
+    width: 100%;
+    margin-top: 40px;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+h1{
+    font-size: 20px;
+    font-weight: bold;
+    margin: 0;
+    padding: 0;
+    margin-bottom: 5px;    
+    margin-top: 10px;
+}
+.cabecalho{
+    font-size: 11px;
+    font-weight: bold;
+}
+
+.linha{
+    font-size: 9px;
+}

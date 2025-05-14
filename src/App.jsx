@@ -44,22 +44,7 @@ const App = () => {
   const [localPicGoogle, setLocalPicGoogle] = useState('');
   const [localFullname, setLocalFullname] = useState('');
 
-    const [ip, setIp] = useState("");
 
-  useEffect(() => {
-    fetch("https://api.ipify.org?format=json")
-      .then((response) => response.json())
-      .then((data) => setIp(data.ip))
-      .catch((error) => console.error("Erro ao obter IP:", error));
-  }, []);
-
-    useEffect(() => {
-
-      localStorage.setItem('ip',ip);
-
-      console.log("IP:", ip);
-  
-   }, [ip]);
 
 
 

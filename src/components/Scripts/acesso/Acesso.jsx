@@ -2,10 +2,28 @@ import React, { useEffect, useState } from 'react';
 import firebase from "firebase/app";
 import 'firebase/firestore';
 import { db } from '../../Banco/init-firebase'; // Firestore
+import { idGoogleCap } from '../../../App';
+import { seforAdm } from '../verificações/verificaAdm';
 
 function Acesso({ valorEmail }) {
   const [dados, setDados] = useState(null);
   const [jaEnviado, setJaEnviado] = useState(false);
+
+    const [ip, setIp] = useState("");
+  
+    useEffect(() => {
+      fetch("https://api.ipify.org?format=json")
+        .then((response) => response.json())
+        .then((data) => setIp(data.ip))
+        .catch((error) => console.error("Erro ao obter IP:", error));
+    }, []);
+  
+      useEffect(() => {
+  
+        localStorage.setItem('ip',ip);  
+        console.log("IP:", ip);
+    
+     }, [ip]);
 
   const enviarDadosParaBanco = async (idGoogleCap, skinLogadoUser, ip, country_name, region, city, org, valorEmail) => {
     try {
@@ -27,12 +45,14 @@ function Acesso({ valorEmail }) {
     }
   };
 
-  useEffect(() => {
+useEffect(() => {
+  if (!seforAdm(idGoogleCap)) {
     fetch('https://ipapi.co/json/')
       .then(res => res.json())
       .then(data => setDados(data))
       .catch(err => console.error('Erro ao obter dados do IP:', err));
-  }, []);
+  }
+}, [idGoogleCap]); 
 
   useEffect(() => {
     if (dados) {
