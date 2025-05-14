@@ -56,6 +56,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
       localStorage.setItem('skinLocal', urlUsername);
       fetchSkins(urlUsername);
 
+      console.log(idGoogleCap);
     } else {
 localStorage.setItem('skinLocal','savannaoliveira');
       fetchSkins('savannaoliveira');
@@ -193,7 +194,9 @@ useEffect(() => {
               </div>
             )}
             <div id="cardProfile" style={{ display: menuOpen ? 'none' : 'block' }}>  
-              <Acesso/>
+
+          <Acesso />
+              
               <img src="/imagens/imgHome/busto.png" id="imgBustoHome" alt="imagem" />
               <div id="MatrixDesign"></div>
               <div id="MatrixDev"></div>

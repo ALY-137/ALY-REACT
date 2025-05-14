@@ -171,10 +171,12 @@ const App = () => {
 
       {!localIdGoogle && location.pathname === '/' ? (
 
-        
- 
         <div id="login" className={`containerLogin ${mostrarLogin ? 'fadeIn' : ''}`}>
-           <Acesso/>
+               
+             <Acesso />       
+
+                 
+                         
             <div id="iconsLogin">
               <img src="/logoNeon.png" id="logoLogin" alt="Logo" />
               <p id="logoTxt">ALY-137</p>
