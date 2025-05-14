@@ -102,7 +102,31 @@
 .gavetaOption:hover {
     font-size: 1.7em;
     font-weight: bold;
+  color: #e8d4ff;
+  text-shadow:
+  0 0 1px #7e0eff,
+  0 0 2px #7e0eff,
+  0 0 3px #7e0eff,
+  0 0 4px #7e0eff,
+  0 0 5px #7e0eff,
+  0 0 6px #7e0eff,
+  0 0 7px #7e0eff,
+  0 0 8px #7e0eff;
 }
+.gavetaOption.highlight, .gavetaOption:active {
+  
+    color: #e8d4ff;
+    text-shadow:
+    0 0 1px #7e0eff,
+    0 0 2px #7e0eff,
+    0 0 3px #7e0eff,
+    0 0 4px #7e0eff,
+    0 0 5px #7e0eff,
+    0 0 6px #7e0eff,
+    0 0 7px #7e0eff,
+    0 0 8px #7e0eff;
+}
+
 
 .gavetaOption.highlight::before,
 .gavetaOption:hover::before {
@@ -132,9 +156,10 @@
     
         left: 0px;
         right: 0px;
-        height: 100vmin;
-        width: 100vmin;
+        height: 100v;
+        width:100v;
         position: absolute; /* ABSOLUTE PARA DIV FICAR CENTRALIZADA */
+
 
 }
 
@@ -147,8 +172,10 @@
 }
 
 #Gavetas{
- position: absolute;
+  position: absolute;
   top: 50%;
-  transform: translateY(-50%);
-
+  left: 50%;
+  transform: translate(-50%, -50%); /* Centraliza no meio da tela */
+  padding: 1rem; /* opcional: adiciona espaço interno */
+  box-sizing: border-box;
 }  

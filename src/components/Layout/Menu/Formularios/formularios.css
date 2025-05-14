@@ -31,7 +31,6 @@
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    margin-left: 10px;
 
   }
     
@@ -48,7 +47,10 @@
 
 .boxItemContato {
 
-    padding: 5px; /* Espaçamento interno */
+    padding-left: 10px;
+    padding-right: 10px;
+    padding-bottom: 5px;
+    padding-top: 5px; /* Espaçamento interno */
     margin-bottom: 10px; /* Espaçamento entre os itens */
     margin-left: 10px;
     margin-right: 10px;
