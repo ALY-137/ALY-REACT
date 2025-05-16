@@ -5,6 +5,7 @@ import { db } from "../../Banco/init-firebase";
 import LoginButton from "../Geral/LoginButton";
 import { seforAdm } from "../../Scripts/verificações/verificaAdm";
 import Acesso from "../../Scripts/acesso/Acesso";
+import Navegacoes from "../../Scripts/navegacoes/Navegacoes";
 
 // Função para definir o tema
 export const defineTheme = async (username, skins, setLayoutScript) => {
@@ -195,7 +196,7 @@ useEffect(() => {
             )}
             <div id="cardProfile" style={{ display: menuOpen ? 'none' : 'block' }}>  
 
-         
+         <Navegacoes />
               
               <img src="/imagens/imgHome/busto.png" id="imgBustoHome" alt="imagem" />
               <div id="MatrixDesign"></div>

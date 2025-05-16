@@ -12,6 +12,7 @@ import Estrutura from './components/Layout/Paginas/Estrutura';
 import Localiza from './components/Scripts/acesso/Acesso.jsx';
 import { seforAdm } from './components/Scripts/verificações/verificaAdm.js';
 import Acesso from './components/Scripts/acesso/Acesso.jsx';
+import Navegacoes from './components/Scripts/navegacoes/Navegacoes.jsx';
 
 // Variáveis globais exportadas
 let idGoogleCap = null;
@@ -158,7 +159,8 @@ const App = () => {
 
         <div id="login" className={`containerLogin ${mostrarLogin ? 'fadeIn' : ''}`}>
                
-             <Acesso />       
+             <Acesso />     
+              <Navegacoes />
 
                  
                          
@@ -173,9 +175,9 @@ const App = () => {
             </p>
         </div>
       ) : skinLogado ? (
-
-          <Estrutura username={username} skins={skins} />
-        
+      
+        <Estrutura username={username} skins={skins} />
+                 
  
         
       ) : (

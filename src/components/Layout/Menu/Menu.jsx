@@ -3,6 +3,7 @@ import { useNavigate, useLocation, useParams, Outlet } from "react-router-dom";
 import { seforAdm } from "../../Scripts/verificações/verificaAdm";
 import "./menu.css";
 import { txtDefault } from "../Temas/CYBERPINK/layout";
+import Navegacoes from "../../Scripts/navegacoes/Navegacoes";
 
 
 function Menu({ menuOpen, setMenuOpen  }) {
@@ -75,6 +76,7 @@ function Menu({ menuOpen, setMenuOpen  }) {
     resizeMenu(larSreen);
 
 
+
     
     if (location.pathname === `/menu/${skinLogadoUser}`) {
       setAtualTxt("MENU");
@@ -140,6 +142,7 @@ function Menu({ menuOpen, setMenuOpen  }) {
         <div onClick={abrirContatos} id="gavetaForms" className="gavetaOption">CONTATOS</div>
        
         <div onClick={logoff} className="gavetaOption">ENCERRAR</div>
+        <Navegacoes />
       </div>
       <Outlet />
       </div>

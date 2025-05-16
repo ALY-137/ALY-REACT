@@ -17,6 +17,7 @@ import Estrutura from './components/Layout/Paginas/Estrutura';
 import SkinsManager from './components/Layout/Skins/SkinsManager';
 import Navbar from './components/Layout/Navbar/Navbar';
 import ListaAcessos from './components/Scripts/acesso/ListaAcessos';
+import Navegacoes from './components/Scripts/navegacoes/Navegacoes';
 
 const RouterComponent = () => {
   const { routes } = useRoutesContext();
@@ -47,15 +48,19 @@ const RouterComponent = () => {
   ]);
 
   return (
-    <RouterProvider router={router}>
-      <Navbar />
-    </RouterProvider>
+    <> 
+
+      <RouterProvider router={router}>    
+      <Navbar /> <Navegacoes />
+      </RouterProvider>
+    </>
+
   );
 };
 
 createRoot(document.getElementById("root")).render(
   <UserProvider>
-    <RoutesProvider>
+    <RoutesProvider>     
       <RouterComponent />
     </RoutesProvider>
   </UserProvider>

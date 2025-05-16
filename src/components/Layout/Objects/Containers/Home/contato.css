@@ -50,13 +50,15 @@
  }
 
 #help option:hover {
-  background-color: lightgray; /* Isso não terá efeito na maioria dos browsers */
+  background-color: rgb(58, 0, 134); /* Isso não terá efeito na maioria dos browsers */
 }
+
 
  select:focus option {
     background-color: #1d003d8e;
     color: #983eff;
     letter-spacing: 2px;
+     border: 1px solid #7e0eff;
  }
 
  select:focus object{

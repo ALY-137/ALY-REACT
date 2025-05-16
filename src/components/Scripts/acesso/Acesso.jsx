@@ -9,6 +9,8 @@ function Acesso({ valorEmail }) {
   const [dados, setDados] = useState(null);
   const [jaEnviado, setJaEnviado] = useState(false);
 
+  
+
     const [ip, setIp] = useState("");
   
     useEffect(() => {
@@ -25,25 +27,35 @@ function Acesso({ valorEmail }) {
     
      }, [ip]);
 
-  const enviarDadosParaBanco = async (idGoogleCap, skinLogadoUser, ip, country_name, region, city, org, valorEmail) => {
-    try {
-      const docRef = await db.collection('acessos').add({
-        idGoogleCap,
-        skinLogadoUser,
-        ip,
-        country_name,
-        region,
-        city,
-        org,
-        valorEmail,
-        data: firebase.firestore.FieldValue.serverTimestamp(),
-        visto: false,
-      });
-      console.log("Dados enviados com sucesso para o banco de dados:", docRef.id);
-    } catch (error) {
-      console.error("Erro ao enviar dados para o banco de dados:", error);
-    }
-  };
+  const enviarDadosParaBanco = async (
+  idGoogleCap,
+  skinLogadoUser,
+  ip,
+  country_name,
+  region,
+  city,
+  org,
+  valorEmail
+) => {
+  try {
+    const docRef = await db.collection('acessos').add({
+      idGoogleCap,
+      skinLogadoUser,
+      ip,
+      country_name,
+      region,
+      city,
+      org,
+      valorEmail: valorEmail ?? null, 
+      data: firebase.firestore.FieldValue.serverTimestamp(),
+      visto: false,
+    });
+    console.log("Dados enviados com sucesso para o banco de dados:", docRef.id);
+  } catch (error) {
+    console.error("Erro ao enviar dados para o banco de dados:", error);
+  }
+};
+
 
 useEffect(() => {
   if (!seforAdm(idGoogleCap)) {
