@@ -11,49 +11,45 @@ function Acesso({ valorEmail }) {
 
   
 
-    const [ip, setIp] = useState("");
-  
-    useEffect(() => {
-      fetch("https://api.ipify.org?format=json")
-        .then((response) => response.json())
-        .then((data) => setIp(data.ip))
-        .catch((error) => console.error("Erro ao obter IP:", error));
-    }, []);
-  
-      useEffect(() => {
-  
-        localStorage.setItem('ip',ip);  
-        console.log("IP:", ip);
-    
-     }, [ip]);
+  const [ip, setIp] = useState("");
+
+  useEffect(() => {
+    fetch("https://api.ipify.org?format=json")
+      .then((response) => response.json())
+      .then((data) => setIp(data.ip))
+      .catch((error) => console.error("Erro ao obter IP:", error));
+  }, []);
+
+  useEffect(() => {
+
+    localStorage.setItem('ip',ip);  
+    console.log("IP:", ip);
+
+  }, [ip]);
 
   const enviarDadosParaBanco = async (
-  idGoogleCap,
-  skinLogadoUser,
-  ip,
-  country_name,
-  region,
-  city,
-  org,
-  valorEmail
-) => {
-  try {
-    const docRef = await db.collection('acessos').add({
-      idGoogleCap,
-      skinLogadoUser,
-      ip,
-      country_name,
-      region,
-      city,
-      org,
-      valorEmail: valorEmail ?? null, 
-      data: firebase.firestore.FieldValue.serverTimestamp(),
-      visto: false,
-    });
-    console.log("Dados enviados com sucesso para o banco de dados:", docRef.id);
-  } catch (error) {
-    console.error("Erro ao enviar dados para o banco de dados:", error);
-  }
+    hash,
+    ip,
+    country_name,
+    region,
+    city,
+    org,
+  ) => {
+    try {
+      const docRef = await db.collection('acessos').add({
+        hash,
+        ip,
+        country_name,
+        region,
+        city,
+        org,
+        data: firebase.firestore.FieldValue.serverTimestamp(),
+        visto: false,
+      });
+      console.log("Dados enviados com sucesso para o banco de dados:", docRef.id);
+    } catch (error) {
+      console.error("Erro ao enviar dados para o banco de dados:", error);
+    }
 };
 
 
@@ -63,8 +59,8 @@ useEffect(() => {
       .then(res => res.json())
       .then(data => setDados(data))
       .catch(err => console.error('Erro ao obter dados do IP:', err));
-  }
-}, [idGoogleCap]); 
+    }
+  }, [idGoogleCap]); 
 
   useEffect(() => {
     if (dados) {
@@ -74,17 +70,17 @@ useEffect(() => {
       localStorage.setItem('city', dados.city);
       localStorage.setItem('org', dados.org);
 
-      const idGoogleCap = localStorage.getItem('idGoogleCap');
-      const skinLogadoUser = localStorage.getItem('skinLogadoUser');
+
+      const hash = localStorage.getItem('navegacaoHash');
       const { ip, country_name, region, city, org } = dados;
 
 
-if (!jaEnviado) {
-      enviarDadosParaBanco(idGoogleCap, skinLogadoUser, ip, country_name, region, city, org, valorEmail);
-  setJaEnviado(true);
-}
+  if (!jaEnviado) {
+        enviarDadosParaBanco( hash, ip, country_name, region, city, org);
+    setJaEnviado(true);
+  }
 
-    }
+}
 
     
   }, [dados, valorEmail]);

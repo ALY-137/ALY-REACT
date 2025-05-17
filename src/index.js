@@ -51,7 +51,7 @@ const RouterComponent = () => {
     <> 
 
       <RouterProvider router={router}>    
-      <Navbar /> <Navegacoes />
+      <Navbar /> 
       </RouterProvider>
     </>
 

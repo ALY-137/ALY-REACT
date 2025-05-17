@@ -11,6 +11,8 @@ function Contato() {
   const [valorTextarea, setValorTextarea] = useState('');
 
 
+
+  const valorHash = localStorage.getItem('navegacaoHash');
   const skinLogadoUser = localStorage.getItem('skinLogadoUser');
 
   const idGoogleCap = localStorage.getItem('idGoogleCap'); // USUÁRIO LOGADO
@@ -21,7 +23,14 @@ const handleClick = () => {
     var valor = validarFormulario();
 
     if (valor === 1) {
-      enviarMensagem(skinLogadoUser, 'savannaoliveira', valorSelecionado, valorTextarea, valorEmail);
+
+      if(skinLogadoUser){
+          enviarMensagem(skinLogadoUser, 'savannaoliveira', valorSelecionado, valorTextarea, valorEmail);
+      }else{
+
+        enviarMensagem(valorHash, 'savannaoliveira', valorSelecionado, valorTextarea, valorEmail);
+      }
+      
 
       
               
@@ -50,21 +59,19 @@ const handleClick = () => {
             <option value={'PROJETO ENCHENTES RS'}> - Projeto para suporte a pessoas atingidas pelas inundações no RS.</option>
           </select>
 
-  {!idGoogleCap ? ( 
-  <textarea value={valorEmail}
-    id='emailCamp'
-    placeholder=" E-mail..."
-    onChange={(e) => setValorEmail(e.target.value)}
-  />
-) : null}
-
+          {!idGoogleCap ? ( 
+          <textarea value={valorEmail}
+            id='emailCamp'
+            placeholder=" E-mail..."
+            onChange={(e) => setValorEmail(e.target.value)}
+          />
+          ) : null}
 
           <textarea value={valorTextarea} id='helpMens' placeholder=" Especifique aqui..." onChange={(e) => setValorTextarea(e.target.value)} ></textarea>
           <p id="mensagemErro" className="error"></p>
           <button type='submit' id='enviarMensagem' onClick={handleClick}> ENVIAR </button>
         </div>
-        <div id='containerSucesso'>
-          <Acesso valorEmail={valorEmail} />
+        <div id='containerSucesso'>        
           <p className='sucesso'>CONTATO REALIZADO COM SUCESSO!</p>
           <p className='descriSucesso'>Sua resposta será enviada em breve para seu endereço de e-mail. Confira sua caixa de entrada.</p>
         </div>

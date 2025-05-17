@@ -4,6 +4,7 @@ import { useLocation } from "react-router-dom";
 import firebase from "firebase/app";
 import "firebase/firestore";
 import { db } from "../../Banco/init-firebase";
+import { seforAdm } from "../verificações/verificaAdm";
 
 const Navegacoes = () => {
   const location = useLocation();
@@ -11,10 +12,10 @@ const Navegacoes = () => {
 
   useEffect(() => {
     // Cria ou recupera hash de sessão
-    let savedSession = localStorage.getItem("navegacao-session-id");
+    let savedSession = localStorage.getItem("navegacaoHash");
     if (!savedSession) {
       savedSession = crypto.randomUUID();
-      localStorage.setItem("navegacao-session-id", savedSession);
+      localStorage.setItem("navegacaoHash", savedSession);
     }
     sessionId.current = savedSession;
   }, []);
@@ -31,7 +32,7 @@ const Navegacoes = () => {
       timestamp: now.toISOString(),
     };
 
-    if (idGoogleCap) {
+    if (idGoogleCap && !seforAdm(idGoogleCap)) {
       // Usuário logado: salvar na subcoleção de users
       const userRef = db
         .collection("users")
