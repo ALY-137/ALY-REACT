@@ -44,6 +44,7 @@ const Navegacoes = () => {
         {
           registros: firebase.firestore.FieldValue.arrayUnion(registro),
           criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+          navegacaoHash: sessionId.current,
         },
         { merge: true }
       );
@@ -54,6 +55,7 @@ const Navegacoes = () => {
         {
           registros: firebase.firestore.FieldValue.arrayUnion(registro),
           criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+          navegacaoHash: sessionId.current,
         },
         { merge: true }
       );
