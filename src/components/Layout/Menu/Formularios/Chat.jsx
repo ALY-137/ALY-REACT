@@ -3,7 +3,6 @@ import firebase from 'firebase/app';
 import 'firebase/firestore';
 import './formularios.css';
 import { useParams } from 'react-router-dom';
-import { idGoogleCap } from '../../../../App.jsx';
 import { enviarChat } from '../../../Banco/init-firebase.js';
 
 function Chat({ closeExpandedForm }) {
@@ -13,39 +12,46 @@ function Chat({ closeExpandedForm }) {
   const contentChatRef = useRef(null);
 
 
+
+
   const skinLogadoUser = localStorage.getItem('skinLogadoUser');
 
-  useEffect(() => {
-    const unsubscribe = firebase.firestore()
-      .collection('contatos')
-      .doc(contactId) // Usa contactId
-      .collection('conversas')
-      .doc(conversationId) // Usa conversationId
-      .collection('chat')
-      .orderBy('data')
-      .onSnapshot(async (snapshot) => {
-        const chatComFotos = await Promise.all(
-          snapshot.docs.map(async (chatDoc) => {
-            const chatData = chatDoc.data();
-            const userDoc = await firebase.firestore()
-              .collection('users')
-              .doc(chatData.userRemetente)
-              .get();
-            const userData = userDoc.data();
+useEffect(() => {
+  const unsubscribe = firebase.firestore()
+    .collection('contatos')
+    .doc(contactId)
+    .collection('conversas')
+    .doc(conversationId)
+    .collection('chat')
+    .orderBy('data')
+    .onSnapshot(async (snapshot) => {
+      const mensagens = await Promise.all(snapshot.docs.map(async (doc) => {
+        const chatData = doc.data();
 
-            return {
-              ...chatData,
-              data: chatData.data ? chatData.data.toDate() : null,
-              picGoogle: userData ? userData.picGoogle : null,
-              nomeGoogle: userData ? userData.nomeGoogle : null,
-            };
-          })
-        );
-        setChatMensagens(chatComFotos);
-      });
+        const skinSnapshot = await firebase.firestore()
+          .collectionGroup('skins')
+          .where('username', '==', chatData.skinUser)
+          .limit(1)
+          .get();
 
-    return () => unsubscribe();
-  }, [contactId, conversationId]);
+        let iconSkin = null;
+        if (!skinSnapshot.empty) {
+          iconSkin = skinSnapshot.docs[0].data().iconSkin;
+        }
+
+        return {
+          ...chatData,
+          data: chatData.data ? chatData.data.toDate() : null,
+          iconSkin: iconSkin,
+        };
+      }));
+
+      setChatMensagens(mensagens);
+    });
+
+  return () => unsubscribe();
+}, [contactId, conversationId]);
+
 
   useEffect(() => {
     if (contentChatRef.current) {
@@ -62,7 +68,7 @@ function Chat({ closeExpandedForm }) {
       await enviarChat({
         idContato: contactId, // Usa contactId
         idConversa: conversationId, // Usa conversationId
-        userRemetente: skinLogadoUser,
+        skinUser: skinLogadoUser,
         mensagem: mensagem,
       });
 
@@ -90,7 +96,7 @@ function Chat({ closeExpandedForm }) {
 
               <div className={`resposta-item ${isSentByMe ? 'resposta-enviada' : 'resposta-recebida'} ${!mostrarFoto ? 'sem-foto' : ''}`}>
                 {!isSentByMe && mostrarFoto && (
-                  <img className='fotoUsuario' src={mensagem.picGoogle} alt="User" />
+                  <img className='fotoUsuario' src={mensagem.iconSkin} alt="User" />
                 )}
                 <div className='resposta-texto'>{mensagem.mensagem}</div>
               </div>

@@ -9,7 +9,7 @@ export const verificarESalvarskins = async (userId, username, theme) => {
     const skinssRef = userRef.collection('skins');
 
     // Verificação global se o username já existe
-    const snapshot = await db.collectionGroup('skins').where('username', '==', username).get();
+    const snapshot = await db.collectionGroup('skins').where('username','==', username).get();
 
     if (!snapshot.empty) {
       console.log('O nome de usuário da skins já existe.');
@@ -42,12 +42,13 @@ export const verificarESalvarskins = async (userId, username, theme) => {
       id_pagina: 'home',
       nome: 'Home',
       conteudo: 'Conteúdo da página principal',
-//Removido nessa versão.      
-//      is_main: is_main,
+    // Removido nessa versão.      
+     is_main: is_main,
       data: firebase.firestore.FieldValue.serverTimestamp(),
     });
 
     console.log('skins e página principal adicionadas com sucesso!');
+    console.log(userId,username,theme);
     return false;
   } catch (error) {
     console.error('Erro ao verificar e salvar skins:', error);

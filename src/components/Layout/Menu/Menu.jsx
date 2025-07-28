@@ -4,6 +4,7 @@ import { seforAdm } from "../../Scripts/verificações/verificaAdm";
 import "./menu.css";
 import { txtDefault } from "../Temas/CYBERPINK/layout";
 import Navegacoes from "../../Scripts/navegacoes/Navegacoes";
+import {db} from "../../Banco/init-firebase";
 
 
 function Menu({ menuOpen, setMenuOpen  }) {
@@ -71,45 +72,77 @@ function Menu({ menuOpen, setMenuOpen  }) {
     }
   }
 
-  useEffect(() => {
+function abrirPropriedades(){
+  navigate(`/menu/${idGoogleCap}/propriedades`);
+  console.log("abre propriedades");
+}
 
+useEffect(() => {
+  const atualizarTitulo = async () => {
     resizeMenu(larSreen);
+    const path = location.pathname;
 
-
-
-    
-    if (location.pathname === `/menu/${skinLogadoUser}`) {
+    if (path === `/menu/${idGoogleCap}/propriedades`) {
+      setAtualTxt("PROPRIEDADES");
+      setBackText("MENU");
+      setBackAction(() => returnMenu);
+    } else if (path === `/menu/${skinLogadoUser}`) {
       setAtualTxt("MENU");
       setBackText("VOLTAR");
-      setBackAction(() => closeMenu);      
-    }
- if (location.pathname === `/menu/${idGoogleCap}/users`) {
+      setBackAction(() => closeMenu);
+    } else if (path === `/menu/${idGoogleCap}/users`) {
       setAtualTxt("USERS");
       setBackText("MENU");
-      setBackAction(() => returnMenu);  } 
-    else if (location.pathname === `/menu/${idGoogleCap}/acessos`) {
+      setBackAction(() => returnMenu);
+    } else if (path === `/menu/${idGoogleCap}/acessos`) {
       setAtualTxt("ACESSOS");
       setBackText("MENU");
       setBackAction(() => returnMenu);
-  
-    } else if (location.pathname === `/menu/${skinLogadoUser}/contatos`) {
+    } else if (path === `/menu/${skinLogadoUser}/contatos`) {
       setAtualTxt("CONTATOS");
       setBackText("MENU");
       setBackAction(() => returnMenu);
-    } else if (location.pathname === `/menu/${skinLogadoUser}/skins`) {
+    } else if (path === `/menu/${skinLogadoUser}/skins`) {
       setAtualTxt("SKINS");
       setBackText("MENU");
       setBackAction(() => returnMenu);
-    } else if (location.pathname.startsWith(`/menu/${skinLogadoUser}/contatos/`) && !location.pathname.includes('/chat/')) {
+    } else if (path.startsWith(`/menu/${skinLogadoUser}/contatos/`) && !path.includes("/chat/")) {
       setAtualTxt("CONVERSAS");
       setBackText("CONTATOS");
       setBackAction(() => closeConversas);
-    } else if (location.pathname.startsWith(`/menu/${skinLogadoUser}/contatos/`) && location.pathname.includes('/chat/')) {
-      setAtualTxt("ASSUNTO");
-      setBackText("CONVERSAS");
-      setBackAction(() => closeChat);
+    } else if (path.includes("/chat/") && contactId) {
+      // 🔍 Buscar participantes da conversa
+      try {
+        const contatoRef = await db.collection("contatos").doc(contactId).get();
+        const contatoData = contatoRef.data();
+
+        if (contatoData) {
+          const skinRem = contatoData.skinRemetente;
+          const skinDest = contatoData.skinDestinatario;
+
+          const outroUsuario = skinRem === skinLogadoUser ? skinDest : skinRem;
+
+          setAtualTxt(`${outroUsuario.toUpperCase()}`);
+          setBackText("CONVERSAS");
+          setBackAction(() => closeChat);
+        } else {
+          setAtualTxt("CHAT");
+          setBackText("CONVERSAS");
+          setBackAction(() => closeChat);
+        }
+      } catch (err) {
+        console.error("Erro ao buscar contato:", err);
+        setAtualTxt("CHAT");
+        setBackText("CONVERSAS");
+        setBackAction(() => closeChat);
+      }
     }
-  }, [location.pathname, contactId, conversationId, navigate, setMenuOpen]);
+  };
+
+  atualizarTitulo();
+}, [location.pathname, contactId, conversationId]);
+
+
 
   txtDefault();
 
@@ -135,12 +168,13 @@ function Menu({ menuOpen, setMenuOpen  }) {
         {seforAdm() && (
           <>
           <div onClick={abrirUsers} id="gavetaUsers" className="gavetaOption">USERS</div>
-          <div onClick={abrirSkins} id="gavetaSkins" className="gavetaOption">GERENCIAR SKINS</div>
+          
           <div onClick={abrirAcessos} id="gavetaAcessos" className="gavetaOption">ACESSOS</div>
+          <div onClick={abrirSkins} id="gavetaSkins" className="gavetaOption">GERENCIAR SKINS</div>
           </>
         )}
         <div onClick={abrirContatos} id="gavetaForms" className="gavetaOption">CONTATOS</div>
-       
+        <div onClick={abrirPropriedades} id="gavetaPropriedades" className="gavetaOption">PROPRIEDADES</div>
         <div onClick={logoff} className="gavetaOption">ENCERRAR</div>
         <Navegacoes />
       </div>

@@ -22,7 +22,8 @@ const db = firebase.firestore();
 // Função para criar ID único de conversa
 export const criarIdConversa = (userRemetente, idDestinatario) => {
   const idsOrdenados = [userRemetente, idDestinatario].sort();
-  return `${idsOrdenados[0]}_${idsOrdenados[1]}`;
+  const numeroAleatorio = Math.floor(Math.random() * 100000); // número entre 0 e 99999
+  return `${idsOrdenados[0]}${numeroAleatorio}_${idsOrdenados[1]}`;
 };
 
 // Função para criar ID único de chat
@@ -70,9 +71,12 @@ export const enviarChat = async ({ idContato, idConversa, userRemetente, mensage
   }
 };
 
+
+
 // Envia uma nova mensagem e cria uma nova conversa se necessário
-export const enviarMensagem = async (userRemetente, idDestinatario, assunto, mensagem, valorTextareaEmail) => {
-  const idContato = criarIdConversa(userRemetente, idDestinatario); 
+export const enviarMensagem = async (skinLogado, idDestinatario, assunto, mensagem, valorTextareaEmail) => {
+  const contatoRef = db.collection('contatos').doc();
+  const idContato = contatoRef.id;
   let idConversa;
 
   try {
@@ -81,9 +85,13 @@ export const enviarMensagem = async (userRemetente, idDestinatario, assunto, men
     await contatoRef.set({
       idContato,
       ultimaConversaData: firebase.firestore.FieldValue.serverTimestamp(),
+      skinRemetente: skinLogado,
+      skinDestinatario: 'savannaoliveira',
     }, { merge: true });
 
     idConversa = !assunto ? 'principal' : criarIdChat();
+
+    console.log(skinLogado+"Aquiiii!");
 
     const conversaRef = contatoRef.collection('conversas').doc(idConversa);
 
@@ -109,7 +117,7 @@ export const enviarMensagem = async (userRemetente, idDestinatario, assunto, men
     await conversaRef.collection('chat').doc(idChat).set({
       mensagem,
       data: firebase.firestore.FieldValue.serverTimestamp(),
-      userRemetente,
+      skinUser: skinLogado,
       idConversa,
       idChat,
     });

@@ -5,7 +5,7 @@ import { idGoogleCap } from "../../../App";
 import { useNavigate } from 'react-router-dom';
 import { seforAdm } from '../../Scripts/verificações/verificaAdm';
 
-let skinLogado ;
+
   
 
 const SkinsManager = () => {
@@ -17,25 +17,24 @@ const SkinsManager = () => {
   const [skins, setSkins] = useState([]);
   const [username, setUsername] = useState('');
   const [SkinSelecionada, setSkinSelecionada] = useState(false);
-  
+
+  const [skinLogado, setSkinLogado] = useState(localStorage.getItem('skinLogado') === 'true');
+  const [trigger, setTrigger] = useState(0);
+
+  // Verifica se o usuário está logado ou se skin foi trocada então busca as skins
+  // É Usado uma trigger pra quando for trocada a skin(quando uma skin é excluida, por exemplo é carregado lista de skins novamente
+useEffect(() => {
+  if (idGoogleCap || skinLogado || trigger){
+    fetchSkins();
+    
+}}, [idGoogleCap , skinLogado , trigger]);
 
 
-  const handleLogin = () => {  // Ao ser selecionado a skin na primeira navegação na pagina de origem define variável como true. Essa função é chamada dentro de uma função assíncrona.
-    localStorage.setItem('skinLogado', true);
-  };
-
- skinLogado = localStorage.getItem('skinLogado'); // 
-
-
-  const generateCreativeUsername = () => {
-    const baseName = 'User';
-    const randomNum = Math.floor(Math.random() * 10000);
-    return `${baseName}${randomNum}`;
-  };
-
+  // Função para buscar skins do usuário
   const fetchSkins = async () => {
     try {
-      const userRef = db.collection('users').doc(idGoogleCap);
+      const idGoogleCapAqui = localStorage.getItem('idGoogleCap'); 
+      const userRef = db.collection('users').doc(idGoogleCapAqui);
       const skinsSnapshot = await userRef.collection('skins').get();
       const skinsList = skinsSnapshot.docs.map((doc) => doc.data());
       setSkins(skinsList);
@@ -45,40 +44,78 @@ const SkinsManager = () => {
         setUsername(creativeUsername);
         await handleCreateDefaultSkin(creativeUsername);
       } else {
-        setIsLoading(false); // Skins fetched successfully
+        setIsLoading(false); 
       }
     } catch (error) {
       console.error('Erro ao buscar skins:', error);
-      setIsLoading(false); // End loading state even if there's an error
+
+      console.log(idGoogleCap +"aqui");
+      setIsLoading(false); 
     }
   };
+
+  // Função para gerar username para skin
+  const generateCreativeUsername = () => {
+    const baseName = 'User';
+    const randomNum = Math.floor(Math.random() * 10000);
+    return `${baseName}${randomNum}`;
+  };
+
 
   const handleCreateDefaultSkin = async (username) => {
-    try {
-      const theme = 'CYBERPINK';
-      await verificarESalvarskins(idGoogleCap, username, theme);
-      setSkinSelecionada(true);
+  try {
+    const theme = 'CYBERPINK';
+    await verificarESalvarskins(idGoogleCap, username, theme);
+    setSkinSelecionada(true);
 
-      localStorage.setItem('skinLocal',username);
-      localStorage.setItem('skinLogadoUser',username);
+    localStorage.setItem('skinLocal', username);
+    localStorage.setItem('skinLogadoUser', username);
 
-      //Nessa versão.
-        if(seforAdm(idGoogleCap)){
-          navigate(`/${username}/home`);
-        }else{
-          navigate(`/savannaoliveira/home`);
-        }
+    setIsLoading(false); // <-- importante
 
-    } catch (error) {
-      console.error('Erro ao criar skin padrão:', error);
+    if (seforAdm(idGoogleCap)) {
+      navigate(`/${username}/home`);
+    } else {
+      navigate(`/savannaoliveira/home`);
     }
+  } catch (error) {
+    console.error('Erro ao criar skin padrão:', error);
+    setIsLoading(false); // <- para garantir
+  }
+};
+
+
+
+const handleLogin = () => {
+  localStorage.setItem('skinLogado', true);
+  setSkinLogado(true); // <-- Adicionado
+  setIsLoading(true);
+};
+
+
+
+useEffect(() => {
+  const verificarSkinLogada = () => {
+    const logado = localStorage.getItem('skinLogado') === 'true';
+    setSkinLogado(logado);
   };
 
-  useEffect(() => {
-    if (idGoogleCap) {
-      fetchSkins();
-    }
-  }, [idGoogleCap]);
+  verificarSkinLogada();
+
+  // Opcional: escutar alterações no localStorage (para mudanças externas)
+  window.addEventListener('storage', verificarSkinLogada);
+
+  return () => {
+    window.removeEventListener('storage', verificarSkinLogada);
+  };
+}, []);
+
+
+
+
+
+
+
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -93,7 +130,7 @@ const SkinsManager = () => {
         setSkinSelecionada(true);
 
       
-          navigate(`/${username}/home`);
+        navigate(`/${username}/home`);
    
        
       } else {
@@ -119,12 +156,52 @@ const SkinsManager = () => {
     // Salvando skin locagada.
     localStorage.setItem('skinLogadoUser', username);
     handleLogin();
+    
   
     // Navegando para a nova página com o username como parâmetro
     navigate(`/${username}/home`);
   };
 
-  
+
+const handleDeleteSkin = async (username) => {
+  const confirm = window.confirm(`Deseja excluir a skin "${username}" e todos os seus dados?`);
+  if (!confirm) return;
+
+  try {
+    const idGoogleCapAqui = localStorage.getItem('idGoogleCap');
+    const skinsRef = db.collection('users').doc(idGoogleCapAqui).collection('skins');
+
+    // Procura o documento com o campo 'username' igual ao username fornecido
+    const querySnapshot = await skinsRef.where('username', '==', username).get();
+
+    if (querySnapshot.empty) {
+      console.warn(`Nenhuma skin encontrada com username "${username}".`);
+      return;
+    }
+
+    const doc = querySnapshot.docs[0]; // Assumindo que username é único
+    const skinRef = doc.ref;
+
+    const subcolecoes = ['paginas', 'containers', 'cards'];
+
+    // Deleta os documentos de cada subcoleção
+    for (const nomeSub of subcolecoes) {
+      const subSnap = await skinRef.collection(nomeSub).get();
+      const deletePromises = subSnap.docs.map((doc) => doc.ref.delete());
+      await Promise.all(deletePromises);
+    }
+
+    // Deleta o documento da skin
+    await skinRef.delete();
+
+    // Atualiza a lista
+    setTrigger(prev => prev + 1);
+    console.log(`Skin "${username}" excluída com sucesso.`);
+  } catch (error) {
+    console.error(`Erro ao excluir a skin "${username}":`, error);
+  }
+};
+
 
   return (
     <div className="skins-manager">
@@ -133,17 +210,24 @@ const SkinsManager = () => {
       ) : (
         <div className="skins-container">
           <h2>Suas skins</h2>
-          <ul className="skins-list">
-            {skins.map((skinItem) => (
-              <li
-                key={skinItem.username}
-                onClick={() => handleClick(skinItem.username)}
-                className={selectedSkin === skinItem.username ? 'selected' : ''}
-              >
-                {skinItem.username} - {skinItem.theme || 'Sem tema'}
-              </li>
-            ))}
-          </ul>
+            <ul className="skins-list">
+              {skins.map((skinItem) => (
+                <li
+                  key={skinItem.username}
+                  className={selectedSkin === skinItem.username ? 'selected' : ''}
+                >
+                  <span onClick={() => handleClick(skinItem.username)} style={{ cursor: 'pointer' }}>
+                    {skinItem.username} - {skinItem.theme || 'Sem tema'}
+                  </span>
+                  <button
+                    onClick={() => handleDeleteSkin(skinItem.username)}
+                    style={{ marginLeft: '10px', color: 'red' }}
+                  >
+                    Excluir
+                  </button>
+                </li>
+              ))}
+            </ul>   
           {skinLogado && (
             <form onSubmit={handleSubmit} className="skins-form">
               <h2>Cadastrar Nova Skin</h2>

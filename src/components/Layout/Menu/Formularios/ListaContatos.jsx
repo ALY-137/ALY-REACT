@@ -17,79 +17,78 @@ function ListaContatos() {
 const skinLogadoUser = localStorage.getItem('skinLogadoUser'); // Obtém o nome de usuário da skin logada
 
   useEffect(() => {
- 
-    const fetchSkinDataByUsername = async (username) => {
-      try {
-        const usersSnapshot = await firebase.firestore().collection('users').get();
-    
-        for (const userDoc of usersSnapshot.docs) {
-          const skinsSnapshot = await userDoc.ref
-            .collection('skins')
-            .where('username', '==', username)
-            .get();
-    
-          if (!skinsSnapshot.empty) {
-            const skinData = skinsSnapshot.docs[0].data();
-            return {
-              nome: skinData.username || 'Sem nome',
-              foto: skinData.iconSkin || 'default-user.jpg',
-            };
+  
+      const fetchSkinDataByUsername = async (username) => {
+        try {
+          const usersSnapshot = await firebase.firestore().collection('users').get();
+      
+          for (const userDoc of usersSnapshot.docs) {
+            const skinsSnapshot = await userDoc.ref
+              .collection('skins')
+              .where('username', '==', username)
+              .get();
+      
+            if (!skinsSnapshot.empty) {
+              const skinData = skinsSnapshot.docs[0].data();
+              return {
+                nome: skinData.username || 'Sem nome',
+                foto: skinData.iconSkin || 'default-user.jpg',
+              };
+            }
           }
+        } catch (error) {
+          console.error(`Erro ao buscar dados do usuário (${username}):`, error);
         }
-      } catch (error) {
-        console.error(`Erro ao buscar dados do usuário (${username}):`, error);
-      }
-    
-      return {
-        nome: username,
-        foto: 'default-user.jpg',
+      
+        return {
+          nome: username,
+          foto: 'default-user.jpg',
+        };
       };
-    };
-    
+      
 
-const fetchContatos = async () => {
-  let query = firebase.firestore().collection('contatos').orderBy('ultimaConversaData', 'desc');
+      const fetchContatos = async () => {
+        let query = firebase.firestore().collection('contatos').orderBy('ultimaConversaData', 'desc');
 
-  try {
-    const snapshot = await query.get();
+        try {
+          const snapshot = await query.get();
 
-    const listaContatos = await Promise.all(snapshot.docs.map(async (contatoDoc) => {
-      const data = contatoDoc.data();
-      const [idRemetente, idDestinatario] = data.idContato.split('_');
+          const listaContatos = await Promise.all(snapshot.docs.map(async (contatoDoc) => {
+            const data = contatoDoc.data();
+            const remetente = data.skinRemetente;
+            const destinatario = data.skinDestinatario;
 
-      // Verificação de permissão para ver os contatos
-      if (!seforAdm() && skinLogadoUser !== idRemetente && skinLogadoUser !== idDestinatario) {
-        return null;
-      }
 
-      const remetenteData = await fetchSkinDataByUsername(idRemetente);
-      const destinatarioData = await fetchSkinDataByUsername(idDestinatario);
+            // Verificação de permissão para ver os contatos
+            if (!seforAdm() && skinLogadoUser !== remetente && skinLogadoUser !== destinatario) {
+              return null;
+            }
 
-      return {
-        contatoId: contatoDoc.id,
-        conversaId: data.conversaId,
-        fotoRemetente: remetenteData.foto,
-        fotoDestinatario: destinatarioData.foto,
-        nomeRemetente: remetenteData.nome,
-        nomeDestinatario: destinatarioData.nome,
-        ultimaConversaData: data.ultimaConversaData?.toDate() || new Date(0),
+            const remetenteData = await fetchSkinDataByUsername(remetente);
+            const destinatarioData = await fetchSkinDataByUsername(destinatario);
+
+            return {
+              contatoId: contatoDoc.id,
+              conversaId: data.conversaId,
+              fotoRemetente: remetenteData.foto,
+              fotoDestinatario: destinatarioData.foto,
+              nomeRemetente: remetenteData.nome,
+              nomeDestinatario: destinatarioData.nome,
+              ultimaConversaData: data.ultimaConversaData?.toDate() || new Date(0),
+            };
+          }));
+
+          setContatos(listaContatos.filter(contato => contato !== null));
+          setLoading(false);
+        } catch (error) {
+          setError('Erro ao carregar contatos.');
+          console.error('Erro ao carregar contatos:', error);
+          setLoading(false);
+        }
       };
-    }));
-
-    setContatos(listaContatos.filter(contato => contato !== null));
-    setLoading(false);
-  } catch (error) {
-    setError('Erro ao carregar contatos.');
-    console.error('Erro ao carregar contatos:', error);
-    setLoading(false);
-  }
-};
 
 
-
-
-
-    fetchContatos();
+  fetchContatos();
   }, [skinLogadoUser]); 
 
   const handleChatRedirect = (contatoId) => {

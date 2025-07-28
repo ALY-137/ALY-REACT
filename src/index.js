@@ -17,7 +17,7 @@ import Estrutura from './components/Layout/Paginas/Estrutura';
 import SkinsManager from './components/Layout/Skins/SkinsManager';
 import Navbar from './components/Layout/Navbar/Navbar';
 import ListaAcessos from './components/Scripts/acesso/ListaAcessos';
-import Navegacoes from './components/Scripts/navegacoes/Navegacoes';
+import Propriedades from './components/Layout/Menu/Propriedades/Propriedades';
 
 const RouterComponent = () => {
   const { routes } = useRoutesContext();
@@ -38,6 +38,7 @@ const RouterComponent = () => {
         { path: "users", element: <Users /> },
         { path: "skins", element: <SkinsManager /> },
         { path: "acessos", element: <ListaAcessos /> },
+        { path: "propriedades", element: <Propriedades /> },
       ],
     },
     {

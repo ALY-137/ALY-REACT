@@ -11,7 +11,7 @@ function Users() {
   useEffect(() => {
     const carregarUsuarios = async () => {
       try {
-        const usersCollection = firebase.firestore().collection('users');
+        const usersCollection = firebase.firestore().collection('users').orderBy('data', 'desc');
         const usersSnapshot = await usersCollection.get();
 
         const listaUsuarios = usersSnapshot.docs.map((doc) => ({

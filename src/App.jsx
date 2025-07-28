@@ -44,11 +44,7 @@ const App = () => {
   const [localEmail, setLocalEmail] = useState('');
   const [localPicGoogle, setLocalPicGoogle] = useState('');
   const [localFullname, setLocalFullname] = useState('');
-
-
-
-
-
+  
   const handleCallbackResponse = (response) => {
     const { jwtDecode } = require('jwt-decode');
     const userObject = jwtDecode(response.credential);
@@ -86,8 +82,6 @@ const App = () => {
         }else{
           setUsername('savannaoliveira');
         }
-        
-
         localStorage.setItem('skinLogadoUser', skinUser);
         localStorage.setItem('selectedTheme', skinsList[0].theme);
         localStorage.setItem('skinLogado', true);
@@ -157,13 +151,9 @@ const App = () => {
 
       {!localIdGoogle && location.pathname === '/' ? (
 
-        <div id="login" className={`containerLogin ${mostrarLogin ? 'fadeIn' : ''}`}>
-               
+        <div id="login" className={`containerLogin ${mostrarLogin ? 'fadeIn' : ''}`}>   
              <Acesso />     
               <Navegacoes />
-
-                 
-                         
             <div id="iconsLogin">
               <img src="/logoNeon.png" id="logoLogin" alt="Logo" />
               <p id="logoTxt">ALY-137</p>

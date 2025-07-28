@@ -3,7 +3,7 @@ import './contato.css';
 import { enviarMensagem } from '../../../../Banco/init-firebase';
 import { useState } from 'react';
 import { validarFormulario } from './validarForm.js';
-import Acesso from '../../../../Scripts/acesso/Acesso.jsx';
+
 
 
 function Contato() {
@@ -25,15 +25,14 @@ const handleClick = () => {
     if (valor === 1) {
 
       if(skinLogadoUser){
-          enviarMensagem(skinLogadoUser, 'savannaoliveira', valorSelecionado, valorTextarea, valorEmail);
+        enviarMensagem(skinLogadoUser, 'savannaoliveira', valorSelecionado, valorTextarea, valorEmail);
       }else{
-
         enviarMensagem(valorHash, 'savannaoliveira', valorSelecionado, valorTextarea, valorEmail);
       }
-      
 
-      
-              
+
+
+
 
       let enviado = document.getElementById('contentForm');
       enviado.style.display = 'none';
@@ -59,7 +58,7 @@ const handleClick = () => {
             <option value={'PROJETO ENCHENTES RS'}> - Projeto para suporte a pessoas atingidas pelas inundações no RS.</option>
           </select>
 
-          {!idGoogleCap ? ( 
+          {!idGoogleCap ? (
           <textarea value={valorEmail}
             id='emailCamp'
             placeholder=" E-mail..."
@@ -71,7 +70,7 @@ const handleClick = () => {
           <p id="mensagemErro" className="error"></p>
           <button type='submit' id='enviarMensagem' onClick={handleClick}> ENVIAR </button>
         </div>
-        <div id='containerSucesso'>        
+        <div id='containerSucesso'>
           <p className='sucesso'>CONTATO REALIZADO COM SUCESSO!</p>
           <p className='descriSucesso'>Sua resposta será enviada em breve para seu endereço de e-mail. Confira sua caixa de entrada.</p>
         </div>
