@@ -82,12 +82,12 @@ const App = () => {
         }else{
           setUsername('savannaoliveira');
         }
+
         localStorage.setItem('skinLogadoUser', skinUser);
         localStorage.setItem('selectedTheme', skinsList[0].theme);
         localStorage.setItem('skinLogado', true);
         
-        console.log("Skin logado:", skinUser);
-       
+
         setSkinLogado(true);
       }
     } catch (error) {

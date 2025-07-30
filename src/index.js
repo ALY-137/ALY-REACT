@@ -18,6 +18,7 @@ import SkinsManager from './components/Layout/Skins/SkinsManager';
 import Navbar from './components/Layout/Navbar/Navbar';
 import ListaAcessos from './components/Scripts/acesso/ListaAcessos';
 import Propriedades from './components/Layout/Menu/Propriedades/Propriedades';
+import PaginasManager from './components/Layout/Paginas/PaginasManager';
 
 const RouterComponent = () => {
   const { routes } = useRoutesContext();
@@ -39,6 +40,7 @@ const RouterComponent = () => {
         { path: "skins", element: <SkinsManager /> },
         { path: "acessos", element: <ListaAcessos /> },
         { path: "propriedades", element: <Propriedades /> },
+        { path: "paginas", element:  <PaginasManager />},
       ],
     },
     {

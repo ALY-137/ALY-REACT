@@ -4,6 +4,7 @@ import { db } from '../../Banco/init-firebase';
 import { idGoogleCap } from "../../../App";
 import { useNavigate } from 'react-router-dom';
 import { seforAdm } from '../../Scripts/verificações/verificaAdm';
+import { buscarSkinLogada } from './buscaSkinLogada';
 
 
   
@@ -98,6 +99,8 @@ useEffect(() => {
   const verificarSkinLogada = () => {
     const logado = localStorage.getItem('skinLogado') === 'true';
     setSkinLogado(logado);
+
+
   };
 
   verificarSkinLogada();
@@ -201,6 +204,16 @@ const handleDeleteSkin = async (username) => {
     console.error(`Erro ao excluir a skin "${username}":`, error);
   }
 };
+  useEffect(() => {
+    const carregarSkinLogada = async () => {
+      const skin = await buscarSkinLogada();
+      if (skin) {
+        console.log('Skin logada:', skin);
+      }
+    };
+
+    carregarSkinLogada();
+  }, []); 
 
 
   return (

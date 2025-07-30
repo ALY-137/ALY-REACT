@@ -42,7 +42,7 @@ export const verificarESalvarskins = async (userId, username, theme) => {
       id_pagina: 'home',
       nome: 'Home',
       conteudo: 'Conteúdo da página principal',
-    // Removido nessa versão.      
+    // Removido nessa versão.
      is_main: is_main,
       data: firebase.firestore.FieldValue.serverTimestamp(),
     });

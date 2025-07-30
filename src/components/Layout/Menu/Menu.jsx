@@ -72,17 +72,25 @@ function Menu({ menuOpen, setMenuOpen  }) {
     }
   }
 
-function abrirPropriedades(){
-  navigate(`/menu/${idGoogleCap}/propriedades`);
-  console.log("abre propriedades");
-}
+  function abrirPropriedades(){
+    navigate(`/menu/${idGoogleCap}/propriedades`);
+  }
+
+  function abrirPaginas(){
+    navigate(`/menu/${idGoogleCap}/paginas`);
+    console.log("abre paginas");
+  }
 
 useEffect(() => {
   const atualizarTitulo = async () => {
     resizeMenu(larSreen);
     const path = location.pathname;
 
-    if (path === `/menu/${idGoogleCap}/propriedades`) {
+    if (path === `/menu/${idGoogleCap}/paginas`) {
+      setAtualTxt("PAGINAS");
+      setBackText("MENU");
+      setBackAction(() => returnMenu);
+    } else if (path === `/menu/${idGoogleCap}/propriedades`) {
       setAtualTxt("PROPRIEDADES");
       setBackText("MENU");
       setBackAction(() => returnMenu);
@@ -171,6 +179,7 @@ useEffect(() => {
           
           <div onClick={abrirAcessos} id="gavetaAcessos" className="gavetaOption">ACESSOS</div>
           <div onClick={abrirSkins} id="gavetaSkins" className="gavetaOption">GERENCIAR SKINS</div>
+          <div onClick={abrirPaginas} id="gavetaPaginas" className="gavetaOption">GERENCIAR PAGINAS</div>
           </>
         )}
         <div onClick={abrirContatos} id="gavetaForms" className="gavetaOption">CONTATOS</div>
