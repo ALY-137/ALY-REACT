@@ -30,15 +30,18 @@ function ListaAcessos() {
           <tr className='cabecalho'>
             <th>Data</th>
             <th>País</th>
+            <th>Cidade</th>
+            <th>Bairro</th>
+            <th>Logradouro</th>
             <th>Email</th>
-            <th>IP</th>
-
-    {/* <th>ID</th>   */}
-
-            <th>Visto</th>           
             
-            <th>Região</th>
-            <th>Org</th>
+      
+
+
+                    
+            
+           <th>IP</th><th>Visto</th>   
+            <th>Org</th> <th>Região</th>
             
             
           </tr>
@@ -51,7 +54,8 @@ function ListaAcessos() {
                   ? new Date(acesso.data.seconds * 1000).toLocaleString()
                   : '—'}
               </td>
-              <td>{acesso.country_name}</td>
+              <td>{acesso.country}</td>
+              <td>{acesso.city}</td><td>{acesso.bairro}</td><td>{acesso.logradouro || '—'}</td>
               <td>{acesso.valorEmail || '—'}</td>
               <td>{acesso.ip}</td>
             {/*  <td>{acesso.id}</td>   */}

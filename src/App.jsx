@@ -13,6 +13,7 @@ import Localiza from './components/Scripts/acesso/Acesso.jsx';
 import { seforAdm } from './components/Scripts/verificações/verificaAdm.js';
 import Acesso from './components/Scripts/acesso/Acesso.jsx';
 import Navegacoes from './components/Scripts/navegacoes/Navegacoes.jsx';
+import {buscarSkinLogada} from './components/Layout/Skins/buscarSkinLogada.jsx';
 
 // Variáveis globais exportadas
 let idGoogleCap = null;
@@ -145,6 +146,17 @@ const App = () => {
     picGoogleCap = localPicGoogle;
     fullnameCap = localFullname;
   }, [localIdGoogle, localPrimeiroNome, localEmail, localPicGoogle, localFullname]);
+
+    useEffect(() => {
+    const carregarSkinLogada = async () => {
+      const skin = await buscarSkinLogada();
+      if (skin) {
+        console.log('Skin logada:', skin);
+      }
+    };
+
+    carregarSkinLogada();
+  }, []); 
 
   return (
     <div>

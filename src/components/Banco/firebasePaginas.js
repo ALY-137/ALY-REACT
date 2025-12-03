@@ -65,3 +65,15 @@ export const updateOrdemPaginas = async (userId, skinId, paginasOrdenadas) => {
 
   await batch.commit();
 };
+
+export async function deletePagina(idGoogleCap, skinLogadaId, paginaId) {
+  const ref = db
+    .collection("users")
+    .doc(idGoogleCap)
+    .collection("skins")
+    .doc(skinLogadaId)
+    .collection("paginas")
+    .doc(paginaId);
+
+  await ref.delete();
+}

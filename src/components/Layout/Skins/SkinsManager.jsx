@@ -4,7 +4,7 @@ import { db } from '../../Banco/init-firebase';
 import { idGoogleCap } from "../../../App";
 import { useNavigate } from 'react-router-dom';
 import { seforAdm } from '../../Scripts/verificações/verificaAdm';
-import { buscarSkinLogada } from './buscaSkinLogada';
+import { buscarSkinLogada } from './buscarSkinLogada';
 
 
   
@@ -100,7 +100,6 @@ useEffect(() => {
     const logado = localStorage.getItem('skinLogado') === 'true';
     setSkinLogado(logado);
 
-
   };
 
   verificarSkinLogada();
@@ -112,11 +111,6 @@ useEffect(() => {
     window.removeEventListener('storage', verificarSkinLogada);
   };
 }, []);
-
-
-
-
-
 
 
 
@@ -147,6 +141,10 @@ useEffect(() => {
 
   const handleClick = async (username) => {
     if (selectedSkin === username) return;
+
+ 
+
+
   
     // Atualizando o estado antes de navegar
     setSelectedSkin(username);
@@ -159,7 +157,18 @@ useEffect(() => {
     // Salvando skin locagada.
     localStorage.setItem('skinLogadoUser', username);
     handleLogin();
-    
+
+
+    // Atualiza skin logada e atribui idSkinLogadaId
+      const carregarSkinLogada = async () => {
+      const skin = await buscarSkinLogada();
+      if (skin) {
+        console.log('Skin logada:', skin);
+      }
+    };
+
+    carregarSkinLogada();
+  
   
     // Navegando para a nova página com o username como parâmetro
     navigate(`/${username}/home`);
@@ -204,16 +213,6 @@ const handleDeleteSkin = async (username) => {
     console.error(`Erro ao excluir a skin "${username}":`, error);
   }
 };
-  useEffect(() => {
-    const carregarSkinLogada = async () => {
-      const skin = await buscarSkinLogada();
-      if (skin) {
-        console.log('Skin logada:', skin);
-      }
-    };
-
-    carregarSkinLogada();
-  }, []); 
 
 
   return (

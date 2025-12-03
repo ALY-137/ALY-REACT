@@ -38,12 +38,14 @@ export const verificarESalvarskins = async (userId, username, theme) => {
 
     // Adicionar a página principal (home)
     const paginasRef = skinssRef.doc(id_skins).collection('paginas');
-    await paginasRef.doc('home').set({
-      id_pagina: 'home',
+    const id = paginasRef.doc().id;
+    await paginasRef.doc(id).set({
+      ordem: 0,
+      id_pagina: id,
       nome: 'Home',
       conteudo: 'Conteúdo da página principal',
     // Removido nessa versão.
-     is_main: is_main,
+     is_main: true,
       data: firebase.firestore.FieldValue.serverTimestamp(),
     });
 
