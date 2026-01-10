@@ -1,60 +1,118 @@
 import firebase from "firebase/app";
-import 'firebase/firestore';
+import "firebase/firestore";
 
 const db = firebase.firestore();
 
-
+/* -------------------------------------------------------
+   PEGAR TODAS AS PÁGINAS DO USER
+------------------------------------------------------- */
 export const getPaginas = async (userId, skinId) => {
-  const paginasRef = db.collection('users').doc(userId)
-    .collection('skins').doc(skinId).collection('paginas');
+  const paginasRef = db
+    .collection("users")
+    .doc(userId)
+    .collection("paginas");
 
-  const snapshot = await paginasRef.orderBy('ordem').get();
-  return snapshot.docs.map(doc => doc.data());
+  const snapshot = await paginasRef
+    .where("skins_relacionadas", "array-contains", skinId)
+    .orderBy("ordem")
+    .get();
+
+  return snapshot.docs.map((doc) => ({
+    id_pagina: doc.id,
+    ...doc.data(),
+  }));
 };
 
-export const createPagina = async (userId, skinId, nome) => {
-  const paginasRef = db.collection('users').doc(userId).collection('skins').doc(skinId).collection('paginas');
 
-  const id = paginasRef.doc().id;
+/* -------------------------------------------------------
+   CRIAR PÁGINA
+   (pode receber 0, 1 ou várias skins)
+------------------------------------------------------- */
+export const createPagina = async (userId, nome, skins = []) => {
+  const paginasRef = db
+    .collection("users")
+    .doc(userId)
+    .collection("paginas");
 
+  const novaPaginaRef = paginasRef.doc();
+
+  // ordem é o total de páginas existentes
   const snapshot = await paginasRef.get();
-  const ordem = snapshot.size; // próxima posição
+  const ordem = snapshot.size;
 
-  await paginasRef.doc(id).set({
-    id_pagina: id,
+  // cria a página
+  await novaPaginaRef.set({
+    id_pagina: novaPaginaRef.id,
     nome: nome,
-    conteudo: '',
+    conteudo: "",
     is_main: false,
     ordem: ordem,
-    data: firebase.firestore.FieldValue.serverTimestamp()
+
+    // *** ALTERADO ***
+    skins_relacionadas: skins,      
+
+    data: firebase.firestore.FieldValue.serverTimestamp(),
   });
+
+  // atualizar cada skin
+  for (const skinId of skins) {
+    await db
+      .collection("users")
+      .doc(userId)
+      .collection("skins")
+      .doc(skinId)
+      .update({
+        paginas_relacionadas: firebase.firestore.FieldValue.arrayUnion(
+          novaPaginaRef.id
+        ),
+      });
+  }
+
+  return novaPaginaRef.id;
 };
 
-export const updatePaginaNome = async (userId, skinId, paginaId, novoNome) => {
-  const ref = db.collection('users').doc(userId)
-    .collection('skins').doc(skinId).collection('paginas').doc(paginaId);
+/* -------------------------------------------------------
+   ATUALIZAR NOME
+------------------------------------------------------- */
+export const updatePaginaNome = async (userId, paginaId, novoNome) => {
+  const ref = db
+    .collection("users")
+    .doc(userId)
+    .collection("paginas")
+    .doc(paginaId);
 
   await ref.update({ nome: novoNome });
 };
 
-export const setPaginaMain = async (userId, skinId, paginaId) => {
-  const paginasRef = db.collection('users').doc(userId)
-    .collection('skins').doc(skinId).collection('paginas');
+/* -------------------------------------------------------
+   DEFINIR PÁGINA PRINCIPAL
+------------------------------------------------------- */
+export const setPaginaMain = async (userId, paginaId) => {
+  const paginasRef = db
+    .collection("users")
+    .doc(userId)
+    .collection("paginas");
 
   const snapshot = await paginasRef.get();
   const batch = db.batch();
 
-  snapshot.forEach(doc => {
-    const ref = doc.ref;
-    batch.update(ref, { is_main: ref.id === paginaId });
+  snapshot.forEach((doc) => {
+    batch.update(doc.ref, {
+      is_main: doc.id === paginaId,
+    });
   });
 
   await batch.commit();
 };
 
-export const updateOrdemPaginas = async (userId, skinId, paginasOrdenadas) => {
-  const paginasRef = db.collection('users').doc(userId)
-    .collection('skins').doc(skinId).collection('paginas');
+/* -------------------------------------------------------
+   ATUALIZAR ORDEM
+------------------------------------------------------- */
+export const updateOrdemPaginas = async (userId, paginasOrdenadas) => {
+  const paginasRef = db
+    .collection("users")
+    .doc(userId)
+    .collection("paginas");
 
   const batch = db.batch();
 
@@ -66,14 +124,31 @@ export const updateOrdemPaginas = async (userId, skinId, paginasOrdenadas) => {
   await batch.commit();
 };
 
-export async function deletePagina(idGoogleCap, skinLogadaId, paginaId) {
-  const ref = db
-    .collection("users")
-    .doc(idGoogleCap)
-    .collection("skins")
-    .doc(skinLogadaId)
-    .collection("paginas")
-    .doc(paginaId);
+/* -------------------------------------------------------
+   EXCLUIR PÁGINA
+------------------------------------------------------- */
+export const deletePagina = async (userId, paginaId) => {
 
-  await ref.delete();
-}
+  // remover a página de todas as skins
+  const skinsSnap = await db
+    .collection("users")
+    .doc(userId)
+    .collection("skins")
+    .get();
+
+  for (const skin of skinsSnap.docs) {
+    await skin.ref.update({
+      paginas_relacionadas: firebase.firestore.FieldValue.arrayRemove(
+        paginaId
+      ),
+    });
+  }
+
+  // deletar o documento da página
+  await db
+    .collection("users")
+    .doc(userId)
+    .collection("paginas")
+    .doc(paginaId)
+    .delete();
+};

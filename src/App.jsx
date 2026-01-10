@@ -78,11 +78,9 @@ const App = () => {
       
         const skinUser = skinsList[0].username;
 
-        if(seforAdm(idGoogleCap)){
+
           setUsername(skinUser);
-        }else{
-          setUsername('savannaoliveira');
-        }
+     
 
         localStorage.setItem('skinLogadoUser', skinUser);
         localStorage.setItem('selectedTheme', skinsList[0].theme);
@@ -91,6 +89,7 @@ const App = () => {
 
         setSkinLogado(true);
       }
+     
     } catch (error) {
       console.error('Erro ao buscar skins:', error);
     }
@@ -151,7 +150,7 @@ const App = () => {
     const carregarSkinLogada = async () => {
       const skin = await buscarSkinLogada();
       if (skin) {
-        console.log('Skin logada:', skin);
+        console.log('Skin logadaA:', skin);
       }
     };
 
@@ -164,7 +163,9 @@ const App = () => {
       {!localIdGoogle && location.pathname === '/' ? (
 
         <div id="login" className={`containerLogin ${mostrarLogin ? 'fadeIn' : ''}`}>   
-             <Acesso />     
+
+        {/*   <Acesso />  */}
+               
               <Navegacoes />
             <div id="iconsLogin">
               <img src="/logoNeon.png" id="logoLogin" alt="Logo" />

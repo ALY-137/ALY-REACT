@@ -53,30 +53,36 @@ const skinLogadoUser = localStorage.getItem('skinLogadoUser'); // Obtém o nome 
         try {
           const snapshot = await query.get();
 
-          const listaContatos = await Promise.all(snapshot.docs.map(async (contatoDoc) => {
-            const data = contatoDoc.data();
-            const remetente = data.skinRemetente;
-            const destinatario = data.skinDestinatario;
+          const listaContatos = await Promise.all(
+  snapshot.docs.map(async (contatoDoc) => {
+    const data = contatoDoc.data();
+    const remetente = data.skinRemetente;
+    const destinatario = data.skinDestinatario;
 
+    // FILTRO PARA NÃO ADM
+    if (!seforAdm()) {
+      const userIsInvolved =
+        remetente === skinLogadoUser ||
+        destinatario === skinLogadoUser;
 
-            // Verificação de permissão para ver os contatos
-            if (!seforAdm() && skinLogadoUser !== remetente && skinLogadoUser !== destinatario) {
-              return null;
-            }
+      if (!userIsInvolved) return null;
+    }
 
-            const remetenteData = await fetchSkinDataByUsername(remetente);
-            const destinatarioData = await fetchSkinDataByUsername(destinatario);
+    const remetenteData = await fetchSkinDataByUsername(remetente);
+    const destinatarioData = await fetchSkinDataByUsername(destinatario);
 
-            return {
-              contatoId: contatoDoc.id,
-              conversaId: data.conversaId,
-              fotoRemetente: remetenteData.foto,
-              fotoDestinatario: destinatarioData.foto,
-              nomeRemetente: remetenteData.nome,
-              nomeDestinatario: destinatarioData.nome,
-              ultimaConversaData: data.ultimaConversaData?.toDate() || new Date(0),
-            };
-          }));
+    return {
+      contatoId: contatoDoc.id,
+      conversaId: data.conversaId,
+      fotoRemetente: remetenteData.foto,
+      fotoDestinatario: destinatarioData.foto,
+      nomeRemetente: remetenteData.nome,
+      nomeDestinatario: destinatarioData.nome,
+      ultimaConversaData: data.ultimaConversaData?.toDate() || new Date(0),
+    };
+  })
+);
+
 
           setContatos(listaContatos.filter(contato => contato !== null));
           setLoading(false);

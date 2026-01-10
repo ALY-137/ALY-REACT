@@ -1,122 +1,161 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from "react";
+import firebase from "firebase/app";
+import "firebase/firestore";
+
 import {
   getPaginas,
-  createPagina,
   updatePaginaNome,
   setPaginaMain,
   updateOrdemPaginas,
-  deletePagina // <-- ADICIONE ISSO no seu firebasePaginas
-} from './../../Banco/firebasePaginas';
+  deletePagina
+} from "./../../Banco/firebasePaginas";
 
-export default function GerenciarPaginas() {
+const db = firebase.firestore();
+
+export default function PaginasManager() {
   const [paginas, setPaginas] = useState([]);
   const [novoNome, setNovoNome] = useState("");
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState("");
 
-  const idGoogleCap = localStorage.getItem('idGoogleCap');
-  const skinLogadaId = localStorage.getItem('skinLogadaId');
+  const userId = localStorage.getItem("idGoogleCap");          // usuário logado
+  const skinId = localStorage.getItem("skinLogadoUser");  
+  const skinIdAtual = localStorage.getItem("skinIdAtual");     // skin aberta
 
   useEffect(() => {
     carregarPaginas();
   }, []);
 
+  /* ---------------------------------------
+        CARREGAR APENAS PÁGINAS DA SKIN
+  ----------------------------------------*/
   const carregarPaginas = async () => {
     setLoading(true);
+
     try {
-      const lista = await getPaginas(idGoogleCap, skinLogadaId);
+      const lista = await getPaginas(userId, skinIdAtual);
       setPaginas(lista);
+            console.log(userId);
+      console.log(skinIdAtual);
     } catch (e) {
-      setErro("Erro ao carregar páginas.");
       console.error(e);
+      setErro("Erro ao carregar páginas");
+
     }
+
     setLoading(false);
   };
 
+  /* ---------------------------------------
+        CRIAR PÁGINA JÁ RELACIONADA À SKIN
+  ----------------------------------------*/
   const adicionarPagina = async () => {
     if (!novoNome.trim()) return;
-    await createPagina(idGoogleCap, skinLogadaId, novoNome);
+
+    const paginasRef = db
+      .collection("users")
+      .doc(userId)
+      .collection("paginas");
+
+    const docRef = paginasRef.doc();
+
+    await docRef.set({
+      id_pagina: docRef.id,
+      nome: novoNome,
+      ordem: paginas.length,
+      is_main: false,
+      skins_relacionadas: [skinIdAtual],  // <<< ESSENCIAL
+      data: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
     setNovoNome("");
     carregarPaginas();
   };
 
-  // --- DEBOUNCE para atualizar nome ---
+  /* ---------------------------------------
+        ATUALIZAR NOME (DEBOUNCE)
+  ----------------------------------------*/
   const atualizarNome = useCallback(
     debounce(async (paginaId, nome) => {
-      await updatePaginaNome(idGoogleCap, skinLogadaId, paginaId, nome);
+      await updatePaginaNome(userId, paginaId, nome);
     }, 500),
     []
   );
 
+  /* ---------------------------------------
+        DEFINIR PÁGINA PRINCIPAL
+  ----------------------------------------*/
   const definirMain = async (paginaId) => {
-    await setPaginaMain(idGoogleCap, skinLogadaId, paginaId);
+    await setPaginaMain(userId, paginaId);
     carregarPaginas();
   };
 
-const excluirPagina = async (paginaId) => {
-  if (!window.confirm("Tem certeza que deseja excluir esta página?")) return;
+  /* ---------------------------------------
+        EXCLUIR
+  ----------------------------------------*/
+  const excluirPagina = async (paginaId) => {
+    if (!window.confirm("Excluir página?")) return;
 
-  await deletePagina(idGoogleCap, skinLogadaId, paginaId);
-  carregarPaginas();
-};
+    await deletePagina(userId, paginaId);
+    carregarPaginas();
+  };
 
-
+  /* ---------------------------------------
+        MOVER ORDEM
+  ----------------------------------------*/
   const mover = async (index, direcao) => {
-    const novaOrdem = [...paginas];
+    const nova = [...paginas];
     const novoIndex = index + direcao;
 
-    if (novoIndex < 0 || novoIndex >= novaOrdem.length) return;
+    if (novoIndex < 0 || novoIndex >= nova.length) return;
 
-    [novaOrdem[index], novaOrdem[novoIndex]] = [
-      novaOrdem[novoIndex], novaOrdem[index]
-    ];
+    [nova[index], nova[novoIndex]] = [nova[novoIndex], nova[index]];
 
-    await updateOrdemPaginas(idGoogleCap, skinLogadaId, novaOrdem);
-    setPaginas(novaOrdem);
+    await updateOrdemPaginas(userId, nova);
+    setPaginas(nova);
   };
 
   return (
     <div>
-      <h2>Gerenciar Páginas</h2>
+      <h2>Gerenciar Páginas da Skin</h2>
 
       <input
-        type="text"
         value={novoNome}
         onChange={(e) => setNovoNome(e.target.value)}
         placeholder="Nome da nova página"
       />
-      <button onClick={adicionarPagina}>Criar Página</button>
+
+      <button onClick={adicionarPagina}>Criar página</button>
 
       {loading && <p>Carregando...</p>}
       {erro && <p style={{ color: "red" }}>{erro}</p>}
 
       <ul>
-        {paginas.map((pagina, i) => (
-          <li key={pagina.id_pagina}>
+        {paginas.map((p, i) => (
+          <li key={p.id_pagina}>
             <input
-              defaultValue={pagina.nome}
+              defaultValue={p.nome}
               onChange={(e) =>
-                atualizarNome(pagina.id_pagina, e.target.value)
+                atualizarNome(p.id_pagina, e.target.value)
               }
             />
 
-            {pagina.is_main ? (
-              <strong> (Principal) </strong>
+            {p.is_main ? (
+              <b> (principal)</b>
             ) : (
-              <button onClick={() => definirMain(pagina.id_pagina)}>
-                Principal
+              <button onClick={() => definirMain(p.id_pagina)}>
+                tornar principal
               </button>
             )}
 
             <button onClick={() => mover(i, -1)}>↑</button>
             <button onClick={() => mover(i, 1)}>↓</button>
 
-            {/* --- BOTÃO DE EXCLUIR --- */}
             <button
-              onClick={() => excluirPagina(pagina.id_pagina)}
               style={{ color: "red" }}
+              onClick={() => excluirPagina(p.id_pagina)}
             >
-              Excluir
+              excluir
             </button>
           </li>
         ))}
@@ -125,10 +164,11 @@ const excluirPagina = async (paginaId) => {
   );
 }
 
+/* debounce utilitário */
 function debounce(func, delay) {
-  let timer;
+  let t;
   return (...args) => {
-    clearTimeout(timer);
-    timer = setTimeout(() => func(...args), delay);
+    clearTimeout(t);
+    t = setTimeout(() => func(...args), delay);
   };
 }

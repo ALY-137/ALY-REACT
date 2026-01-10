@@ -1,3 +1,5 @@
+import firebase from "firebase/app";
+import 'firebase/firestore';
 import React, { useState, useEffect } from 'react';
 import { verificarESalvarskins } from '../../Banco/verificaSkins';
 import { db } from '../../Banco/init-firebase';
@@ -176,14 +178,14 @@ useEffect(() => {
 
 
 const handleDeleteSkin = async (username) => {
-  const confirm = window.confirm(`Deseja excluir a skin "${username}" e todos os seus dados?`);
-  if (!confirm) return;
+  const confirmar = window.confirm(`Deseja excluir a skin "${username}"?`);
+  if (!confirmar) return;
 
   try {
     const idGoogleCapAqui = localStorage.getItem('idGoogleCap');
     const skinsRef = db.collection('users').doc(idGoogleCapAqui).collection('skins');
 
-    // Procura o documento com o campo 'username' igual ao username fornecido
+    // encontrar skin pelo username
     const querySnapshot = await skinsRef.where('username', '==', username).get();
 
     if (querySnapshot.empty) {
@@ -191,28 +193,33 @@ const handleDeleteSkin = async (username) => {
       return;
     }
 
-    const doc = querySnapshot.docs[0]; // Assumindo que username é único
-    const skinRef = doc.ref;
+    const skinDoc = querySnapshot.docs[0];
+    const skinRef = skinDoc.ref;
 
-    const subcolecoes = ['paginas', 'containers', 'cards'];
+    // remover skin do registro das paginas_relacionadas
+    const paginasRef = db.collection("users")
+      .doc(idGoogleCapAqui)
+      .collection("paginas");
 
-    // Deleta os documentos de cada subcoleção
-    for (const nomeSub of subcolecoes) {
-      const subSnap = await skinRef.collection(nomeSub).get();
-      const deletePromises = subSnap.docs.map((doc) => doc.ref.delete());
-      await Promise.all(deletePromises);
+    const paginasSnap = await paginasRef.get();
+
+    for (const pagina of paginasSnap.docs) {
+      await pagina.ref.update({
+        skins_relacionadas: firebase.firestore.FieldValue.arrayRemove(skinDoc.id)
+      });
     }
 
-    // Deleta o documento da skin
+    // deletar apenas a SKIN
     await skinRef.delete();
 
-    // Atualiza a lista
+    // atualizar lista
     setTrigger(prev => prev + 1);
     console.log(`Skin "${username}" excluída com sucesso.`);
   } catch (error) {
-    console.error(`Erro ao excluir a skin "${username}":`, error);
+    console.error(`Erro ao excluir skin "${username}":`, error);
   }
 };
+
 
 
   return (

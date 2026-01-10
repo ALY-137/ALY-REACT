@@ -13,8 +13,8 @@ function Chat({ closeExpandedForm }) {
 
 
 
-
   const skinLogadoUser = localStorage.getItem('skinLogadoUser');
+
 
 useEffect(() => {
   const unsubscribe = firebase.firestore()
@@ -28,9 +28,11 @@ useEffect(() => {
       const mensagens = await Promise.all(snapshot.docs.map(async (doc) => {
         const chatData = doc.data();
 
+
+
         const skinSnapshot = await firebase.firestore()
           .collectionGroup('skins')
-          .where('username', '==', chatData.skinUser)
+          .where('username', '==', chatData.userRemetente)
           .limit(1)
           .get();
 
@@ -45,6 +47,8 @@ useEffect(() => {
           iconSkin: iconSkin,
         };
       }));
+
+
 
       setChatMensagens(mensagens);
     });
@@ -65,12 +69,15 @@ useEffect(() => {
     }
 
     try {
+
       await enviarChat({
         idContato: contactId, // Usa contactId
         idConversa: conversationId, // Usa conversationId
-        skinUser: skinLogadoUser,
+        userRemetente: skinLogadoUser,
         mensagem: mensagem,
+
       });
+          console.log(skinLogadoUser+"Aquiiii 2!");
 
       setMensagem(''); // Limpar a mensagem após o envio
     } catch (error) {

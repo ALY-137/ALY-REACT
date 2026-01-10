@@ -68,6 +68,8 @@ export const enviarChat = async ({ idContato, idConversa, userRemetente, mensage
     console.log('Mensagem enviada com sucesso!');
   } catch (error) {
     console.error('Erro ao enviar chat:', error);
+
+    console.log(idContato, idConversa, userRemetente,mensagem)
   }
 };
 
@@ -117,7 +119,7 @@ export const enviarMensagem = async (skinLogado, idDestinatario, assunto, mensag
     await conversaRef.collection('chat').doc(idChat).set({
       mensagem,
       data: firebase.firestore.FieldValue.serverTimestamp(),
-      skinUser: skinLogado,
+      userRemetente: skinLogado,
       idConversa,
       idChat,
     });

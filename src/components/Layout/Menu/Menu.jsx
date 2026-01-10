@@ -25,11 +25,7 @@ function Menu({ menuOpen, setMenuOpen  }) {
   
 
   function closeMenu() { 
-    if(seforAdm(idGoogleCap)){
       navigate(`/${skinLogadoUser}/home`);
-    }else{
-      navigate(`/savannaoliveira/home`);
-    }
   }
 
   function abrirUsers() {

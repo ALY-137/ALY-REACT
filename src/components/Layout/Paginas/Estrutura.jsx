@@ -4,7 +4,7 @@ import Navbar from "../Navbar/Navbar";
 import { db } from "../../Banco/init-firebase";
 import LoginButton from "../Geral/LoginButton";
 import { seforAdm } from "../../Scripts/verificações/verificaAdm";
-import Acesso from "../../Scripts/acesso/Acesso";
+
 import Navegacoes from "../../Scripts/navegacoes/Navegacoes";
 
 // Função para definir o tema
@@ -47,91 +47,106 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
   let skinLocal = null;
 
   const skinLogadoUser = localStorage.getItem('skinLogadoUser');
+  const skinIdAtual = localStorage.getItem("skinIdAtual");  
 
   const [fechskinRep, setFechskinRep] = useState(false);
 
-  useEffect(() => {
-    if (urlUsername ==='savannaoliveira' && seforAdm(idGoogleCap)) {
-      
-      console.log(`URL username: ${urlUsername}`);
-      localStorage.setItem('skinLocal', urlUsername);
-      fetchSkins(urlUsername);
+useEffect(() => {
+  if (urlUsername) { // verifica se urlUsername não é vazio, null ou undefined
+    localStorage.setItem('skinLocal', urlUsername);
+    fetchSkins(urlUsername);
+  }else{
 
-      console.log(idGoogleCap);
-    } else {
-localStorage.setItem('skinLocal','savannaoliveira');
-      fetchSkins('savannaoliveira');
-       
-      
+    if(skinLogadoUser){
+      fetchSkins(skinLogadoUser);
+      localStorage.setItem('skinLocal', skinLogadoUser);
+    }else{
+      navigate('/');
     }
-  }, [urlUsername]);
+    
+  }
+}, [urlUsername]);
 
-  const fetchSkins = async (username) => {
-    setIsLoading(true); // Inicia o carregamento
-    try {
-  
-      const usersSnapshot = await db.collection('users').get();
 
-      if (usersSnapshot.empty) {
-        console.error('Nenhum usuário encontrado.');
-        alert('Usuário não encontrado. Verifique o username e tente novamente.');
-        return;
+const fetchSkins = async (username) => {
+  setIsLoading(true);
+
+  try {
+    // 1. Encontrar user baseado no username que está dentro das skins
+    const usersSnapshot = await db.collection("users").get();
+    let userId = null;
+    let skinId = null;
+
+    for (const userDoc of usersSnapshot.docs) {
+      const skinsSnap = await userDoc.ref
+        .collection("skins")
+        .where("username", "==", username)
+        .get();
+
+      if (!skinsSnap.empty) {
+        userId = userDoc.id;
+
+        // pegar a skin aberta
+        skinId = skinsSnap.docs[0].id;
+
+        break;
       }
-
-      let localId = null;
-      let skinsList = [];
-      let pagesList = [];
-
-      // Iterar sobre todos os documentos da coleção `users`
-      for (const userDoc of usersSnapshot.docs) {
-        const skinsSnapshot = await userDoc.ref.collection('skins').where('username', '==', username).get();
-
-        if (!skinsSnapshot.empty) {
-          localId = userDoc.id; // ID do usuário associado às skins encontradas
-   
-          localStorage.setItem('userLocalId',localId);
-          setUserLocalId(localId); // Atualiza o estado do ID do usuário
-
-          // Obter as skins e suas páginas
-          skinsList = skinsSnapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }));
-
-          for (const skinDoc of skinsSnapshot.docs) {
-            const pagesSnapshot = await skinDoc.ref.collection('paginas').get();
-            pagesList.push(
-              ...pagesSnapshot.docs.map((pageDoc) => ({
-                nome: pageDoc.data().nome,
-                is_main: pageDoc.data().is_main,
-              }))
-            );
-          }
-          break; // Parar a iteração após encontrar o usuário e suas skins
-        }
-      }
-
-      if (!localId) {
-        console.error('Nenhuma skin ou usuário correspondente encontrado.');
-        alert('Nenhuma skin ou usuário correspondente foi encontrado.');
-        return;
-      }
-
-
-      setSkins(skinsList);
-      setPages(pagesList);
-      setUsername(username);
-
-  
-
-
-
-    } catch (error) {
-      console.error('Erro ao buscar skins:', error);
-    } finally {
-      setIsLoading(false); // Finaliza o carregamento
     }
-  };
+
+    if (!userId || !skinId) {
+      alert("Nenhum usuário ou skin encontrada para esse username.");
+      navigate("/");
+      return;
+    }
+
+    localStorage.setItem("userLocalId", userId);
+    localStorage.setItem("skinIdAtual", skinId);
+
+    setUserLocalId(userId);
+
+    // 2. Buscar todas as skins do usuário
+    const skinsSnapshot = await db
+      .collection("users")
+      .doc(userId)
+      .collection("skins")
+      .get();
+
+    const skinsList = skinsSnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    // 3. Buscar somente as páginas RELACIONADAS A ESSA SKIN
+    const paginasSnapshot = await db
+      .collection("users")
+      .doc(userId)
+      .collection("paginas")
+      .where("skins_relacionadas", "array-contains", skinId)
+      .get();
+
+    const pagesList = paginasSnapshot.docs.map((pageDoc) => ({
+      id_pagina: pageDoc.id,
+      ...pageDoc.data(),
+    }));
+
+    console.log(pagesList);
+
+    // 4. Atualizar estados
+    setSkins(skinsList);
+    setPages(pagesList);
+    setUsername(username);
+
+
+    console.log(skinId + "    AQuiioO000000000");
+
+  } catch (error) {
+    console.error("Erro ao buscar skins e páginas:", error);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+
 
 const hasNavigatedRef = useRef(false);
 
