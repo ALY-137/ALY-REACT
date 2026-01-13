@@ -7,6 +7,8 @@ import { seforAdm } from "../../Scripts/verificações/verificaAdm";
 
 import Navegacoes from "../../Scripts/navegacoes/Navegacoes";
 
+import {getEspacosDaSkin} from "../../Banco/firebaseEspacos";
+
 // Função para definir o tema
 export const defineTheme = async (username, skins, setLayoutScript) => {
   const selectedSkinItem = skins.find((skin) => skin.username === username);
@@ -36,15 +38,18 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [skins, setSkins] = useState(propSkins || []);
   const [username, setUsername] = useState(propUsername || "");
-  const [paginas, setPages] = useState([]); // Passa as páginas para o componente Navbar
+  const [espacos, setPages] = useState([]); // Passa as páginas para o componente Navbar
   const [userLocalId, setUserLocalId] = useState(null); // Estado para armazenar o ID do usuário
   const [isLoading, setIsLoading] = useState(false); // Gerenciar estado de carregamento
 
+  
 
   const idGoogleCap = localStorage.getItem('idGoogleCap'); // USUÁRIO LOGADO
   const pathname = location.pathname;
   const urlUsername = pathname.split('/')[1];
-  let skinLocal = null;
+const skinLocal = username;
+
+
 
   const skinLogadoUser = localStorage.getItem('skinLogadoUser');
   const skinIdAtual = localStorage.getItem("skinIdAtual");  
@@ -116,24 +121,24 @@ const fetchSkins = async (username) => {
       ...doc.data(),
     }));
 
-    // 3. Buscar somente as páginas RELACIONADAS A ESSA SKIN
-    const paginasSnapshot = await db
-      .collection("users")
-      .doc(userId)
-      .collection("paginas")
-      .where("skins_relacionadas", "array-contains", skinId)
-      .get();
+    // 3. Buscar somente as ESPACOS RELACIONADOS A ESSA SKIN
+ 
 
-    const pagesList = paginasSnapshot.docs.map((pageDoc) => ({
-      id_pagina: pageDoc.id,
-      ...pageDoc.data(),
-    }));
 
-    console.log(pagesList);
+const pagesList = await getEspacosDaSkin({
+  userId,
+  skinId
+});
+
+setPages(Array.isArray(pagesList) ? pagesList : []);
+
+
+
+    console.log("pagesList recebido:", pagesList, Array.isArray(pagesList));
 
     // 4. Atualizar estados
     setSkins(skinsList);
-    setPages(pagesList);
+
     setUsername(username);
 
 
@@ -148,41 +153,27 @@ const fetchSkins = async (username) => {
 
 
 
-const hasNavigatedRef = useRef(false);
-
-const navigateMainPage = (paginas) => {
-  const mainPage = paginas.find((pagina) => pagina.is_main === true);
-  skinLocal = localStorage.getItem('skinLocal');
-
-  if (mainPage && skinLocal && !hasNavigatedRef.current) {
-    hasNavigatedRef.current = true;
-    navigate(`/${skinLocal}/${mainPage.nome}`);
-       
-  }
-};
 
 
 useEffect(() => {
-  if (!Array.isArray(skins) || skins.length === 0 || !username || !hasNavigatedRef){
+  if (!espacos.length || !username) return;
+
+  const mainPage = espacos.find(p => p.is_main === true);
+
+  if (!mainPage) {
+    console.warn("Nenhuma home encontrada");
     return;
   }
 
-  const timeoutId = setTimeout(async () => {
-    await defineTheme(username, skins, setLayoutScript);
-    console.log("Tema definido com sucesso.");
+  navigate(`/${username}/${mainPage.nome}`, { replace: true });
+}, [espacos, username]);
 
-  
-  }, 1);
-
-  return () => clearTimeout(timeoutId);
-}, [skins, username, hasNavigatedRef]);
 
 
 useEffect(() => {
-  if (paginas.length > 0 && !hasNavigatedRef.current) {
-    navigateMainPage(paginas);
-  }
-}, [ paginas]);
+  if (!username || !skins.length) return;
+  defineTheme(username, skins, setLayoutScript);
+}, [username, skins]);
 
 
   const toggleMenu = () => {
@@ -219,7 +210,7 @@ useEffect(() => {
               <div id="MatrixHome"></div>
             </div>
             <div style={{ display: menuOpen ? 'none' : 'block' }}>
-              <Navbar />
+              <Navbar pages={espacos}/>
             </div>
             <div id="conteudo">
               <Suspense fallback={<div>Carregando...</div>}>

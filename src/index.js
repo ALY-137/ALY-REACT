@@ -13,12 +13,12 @@ import ListaContatos from './components/Layout/Menu/Formularios/ListaContatos';
 import ListaConversas from './components/Layout/Menu/Formularios/ListaConversas';
 import Users from './components/Layout/Menu/Users/Users';
 import Chat from './components/Layout/Menu/Formularios/Chat';
-import Estrutura from './components/Layout/Paginas/Estrutura';
+import Estrutura from './components/Layout/Espacos/Estrutura';
 import SkinsManager from './components/Layout/Skins/SkinsManager';
 import Navbar from './components/Layout/Navbar/Navbar';
 import ListaAcessos from './components/Scripts/acesso/ListaAcessos';
 import Propriedades from './components/Layout/Menu/Propriedades/Propriedades';
-import PaginasManager from './components/Layout/Paginas/PaginasManager';
+import EspacoManager from './components/Layout/Espacos/EspacoManager';
 
 const RouterComponent = () => {
   const { routes } = useRoutesContext();
@@ -40,7 +40,7 @@ const RouterComponent = () => {
         { path: "skins", element: <SkinsManager /> },
         { path: "acessos", element: <ListaAcessos /> },
         { path: "propriedades", element: <Propriedades /> },
-        { path: "paginas", element:  <PaginasManager />},
+        { path: "espacos", element:  <EspacoManager />},
       ],
     },
     {

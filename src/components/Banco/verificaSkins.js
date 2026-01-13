@@ -43,13 +43,13 @@ export const verificarESalvarskins = async (userId, username, theme) => {
 
     // ─────────────────────────────────────────────
     // AGORA CRIA A PÁGINA PRINCIPAL EM:
-    // users/{userId}/paginas/{paginaId}
+    // users/{userId}/espacos/{espacoId}
     // ─────────────────────────────────────────────
-    const paginasRef = userRef.collection("paginas");
-    const id_pagina = paginasRef.doc().id;
+    const espacosRef = userRef.collection("espacos");
+    const id_espaco = espacosRef.doc().id;
 
-    await paginasRef.doc(id_pagina).set({
-      id_pagina,
+    await espacosRef.doc(id_espaco).set({
+      id_espaco,
       nome: "Home",
       conteudo: "Conteúdo da página principal",
       ordem: 0,

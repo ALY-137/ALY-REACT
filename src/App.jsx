@@ -8,7 +8,7 @@ import SkinsManager from './components/Layout/Skins/SkinsManager';
 import AnoAtualizado from './components/Scripts/data/AnoAtualizado';
 import './App.css';
 import { txtDefault } from './components/Layout/Temas/CYBERPINK/layout';
-import Estrutura from './components/Layout/Paginas/Estrutura';
+import Estrutura from './components/Layout/Espacos/Estrutura';
 import Localiza from './components/Scripts/acesso/Acesso.jsx';
 import { seforAdm } from './components/Scripts/verificações/verificaAdm.js';
 import Acesso from './components/Scripts/acesso/Acesso.jsx';
