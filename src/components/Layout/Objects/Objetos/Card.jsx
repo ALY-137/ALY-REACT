@@ -45,23 +45,30 @@ function Card({
     return () => window.removeEventListener('resize', resizeCard);
   }, []);
 
- useEffect(() => {
+useEffect(() => {
   const fetchAddOns = async () => {
     try {
-      const addOnsSnapshot = await db
-        .collection('users')
-        .doc(id_user)
-        .collection('skins')
-        .doc(id_skin)
-        .collection('cards')
-        .doc(id)
-        .collection('addOnsRefs')
-        .get();
+      // Referência modular para a coleção addOnsRefs
+      const addOnsRefsCol = collection(
+        db,
+        'users',
+        id_user,
+        'skins',
+        id_skin,
+        'cards',
+        id,
+        'addOnsRefs'
+      );
+
+      const addOnsSnapshot = await getDocs(addOnsRefsCol);
 
       const promises = addOnsSnapshot.docs.map(async (docRef) => {
         const id_add = docRef.data().id_add;
-        const addOnDoc = await db.collection('add_ons').doc(id_add).get();
-        return addOnDoc.exists ? { id: addOnDoc.id, ...addOnDoc.data() } : null;
+
+        const addOnDocRef = doc(db, 'add_ons', id_add);
+        const addOnDoc = await getDoc(addOnDocRef);
+
+        return addOnDoc.exists() ? { id: addOnDoc.id, ...addOnDoc.data() } : null;
       });
 
       const resolvedAddOns = await Promise.all(promises);

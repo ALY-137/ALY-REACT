@@ -6,6 +6,9 @@ import { txtDefault } from "../Temas/CYBERPINK/layout";
 import Navegacoes from "../../Scripts/navegacoes/Navegacoes";
 import {db} from "../../Banco/init-firebase";
 
+import { doc, getDoc } from "firebase/firestore";
+
+
 
 function Menu({ menuOpen, setMenuOpen  }) {
   const [idGoogleCap, setIdGoogle] = useState(() => localStorage.getItem('idGoogleCap'));
@@ -117,8 +120,10 @@ useEffect(() => {
     } else if (path.includes("/chat/") && contactId) {
       // 🔍 Buscar participantes da conversa
       try {
-        const contatoRef = await db.collection("contatos").doc(contactId).get();
-        const contatoData = contatoRef.data();
+     const contatoDocRef = doc(db, "contatos", contactId);
+const contatoSnap = await getDoc(contatoDocRef);
+const contatoData = contatoSnap.exists() ? contatoSnap.data() : null;
+
 
         if (contatoData) {
           const skinRem = contatoData.skinRemetente;

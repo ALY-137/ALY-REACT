@@ -1,22 +1,32 @@
 import React, { useEffect, useState } from 'react';
-import { db } from '../../Banco/init-firebase'; // Importa o banco de dados Firestore
+import { db } from '../../Banco/init-firebase'; // banco já configurado
+import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import './acessos.css'; // Importa o CSS para estilização
 
 function ListaAcessos() {
   const [acessos, setAcessos] = useState([]);
 
   useEffect(() => {
-    const unsubscribe = db.collection('acessos')
-      .orderBy('data', 'desc') // Ordena pela data mais recente
-      .onSnapshot(snapshot => {
+    // Criar query para ordenar por data desc
+    const acessosQuery = query(
+      collection(db, 'acessos'),
+      orderBy('data', 'desc')
+    );
+
+    // Inscrever no snapshot em tempo real
+    const unsubscribe = onSnapshot(
+      acessosQuery,
+      (snapshot) => {
         const acessosData = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         }));
         setAcessos(acessosData);
-      }, error => {
+      },
+      (error) => {
         console.error("Erro ao buscar acessos em tempo real:", error);
-      });
+      }
+    );
 
     // Cleanup do listener ao desmontar o componente
     return () => unsubscribe();
@@ -26,7 +36,7 @@ function ListaAcessos() {
     <div className='conteudoLista'>
       <h1>Lista de Acessos</h1>
       <table>
-        <thead >
+        <thead>
           <tr className='cabecalho'>
             <th>Data</th>
             <th>País</th>
@@ -34,16 +44,10 @@ function ListaAcessos() {
             <th>Bairro</th>
             <th>Logradouro</th>
             <th>Email</th>
-            
-      
-
-
-                    
-            
-           <th>IP</th><th>Visto</th>   
-            <th>Org</th> <th>Região</th>
-            
-            
+            <th>IP</th>
+            <th>Visto</th>
+            <th>Região</th>
+            <th>Org</th>
           </tr>
         </thead>
         <tbody>
@@ -54,14 +58,15 @@ function ListaAcessos() {
                   ? new Date(acesso.data.seconds * 1000).toLocaleString()
                   : '—'}
               </td>
-              <td>{acesso.country}</td>
-              <td>{acesso.city}</td><td>{acesso.bairro}</td><td>{acesso.logradouro || '—'}</td>
+              <td>{acesso.country || '—'}</td>
+              <td>{acesso.city || '—'}</td>
+              <td>{acesso.bairro || '—'}</td>
+              <td>{acesso.logradouro || '—'}</td>
               <td>{acesso.valorEmail || '—'}</td>
-              <td>{acesso.ip}</td>
-            {/*  <td>{acesso.id}</td>   */}
-              <td>{acesso.visto ? 'Sim' : 'Não'}</td>              
-              <td>{acesso.region}</td>
-              <td>{acesso.org}</td>          
+              <td>{acesso.ip || '—'}</td>
+              <td>{acesso.visto ? 'Sim' : 'Não'}</td>
+              <td>{acesso.region || '—'}</td>
+              <td>{acesso.org || '—'}</td>
             </tr>
           ))}
         </tbody>

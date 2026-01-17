@@ -1,61 +1,87 @@
-import firebase from "firebase/app";
-import "firebase/firestore";
+// verificaSkins.js
+import { 
+  getFirestore, 
+  doc, 
+  collection, 
+  setDoc, 
+  getDocs, 
+  query, 
+  where, 
+  serverTimestamp 
+} from "firebase/firestore";
+import { initializeApp } from "firebase/app";
 
+import {
+  idGoogleCap,
+  primeiroNomeCap,
+  emailCap,
+  picGoogleCap,
+  fullnameCap
+} from "../../App";
+
+// ===============================
+// CONFIG
+// ===============================
+const firebaseConfig = {
+  apiKey: "AIzaSyAhSNGCUOM_nRiVwtRmmPz9o6ciQA6lSYA",
+  authDomain: "teste-aa015.firebaseapp.com",
+  projectId: "teste-aa015",
+  storageBucket: "teste-aa015.appspot.com",
+  messagingSenderId: "99960275074",
+  appId: "1:99960275074:web:e2923f7e34a0c0c18c749b"
+};
+
+// ===============================
+// INIT
+// ===============================
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// ===============================
+// FUNÇÃO PARA VERIFICAR E CRIAR SKIN
+// ===============================
 export const verificarESalvarskins = async (userId, username, theme) => {
   try {
-    const db = firebase.firestore();
-    const userRef = db.collection("users").doc(userId);
-    const skinsRef = userRef.collection("skins");
+    const userRef = doc(db, "users", userId);
+    const skinsRef = collection(userRef, "skins");
 
-    // ─────────────────────────────────────────────
-    // VERIFICAR SE O USERNAME DA SKIN JÁ EXISTE
-    // ─────────────────────────────────────────────
-    const snapshot = await db
-      .collectionGroup("skins")
-      .where("username", "==", username)
-      .get();
+    // ── Verificar se a skin já existe
+    const q = query(collection(db, "users"), where("username", "==", username));
+    const snapshot = await getDocs(q);
 
     if (!snapshot.empty) {
       console.log("O nome de usuário da skin já existe.");
       return true;
     }
 
-    // ─────────────────────────────────────────────
-    // DEFINIR SE A SKIN SERÁ PRINCIPAL
-    // ─────────────────────────────────────────────
-    const allSkinsSnapshot = await skinsRef.get();
-    const is_main = allSkinsSnapshot.empty ? true : false;
+    // ── Definir se é a skin principal
+    const allSkinsSnapshot = await getDocs(skinsRef);
+    const is_main = allSkinsSnapshot.empty;
 
-    // ─────────────────────────────────────────────
-    // CRIAR A SKIN
-    // ─────────────────────────────────────────────
-    const id_skin = skinsRef.doc().id;
-
-    await skinsRef.doc(id_skin).set({
-      id_skin: id_skin,
-      username: username,
-      theme: theme,
-      is_main: is_main,
-      data: firebase.firestore.FieldValue.serverTimestamp(),
+    // ── Criar a skin
+    const id_skin = doc(skinsRef).id;
+    await setDoc(doc(skinsRef, id_skin), {
+      id_skin,
+      username,
+      theme,
+      is_main,
+      data: serverTimestamp(),
       iconSkin:
         "https://firebasestorage.googleapis.com/v0/b/teste-aa015.appspot.com/o/imagens%2Fthemes%2Fcyberpink%2Fviolet%2Fet.png?alt=media&token=4c09e6d5-5a0e-48d7-88ae-f56a9a5c1a5b",
     });
 
-    // ─────────────────────────────────────────────
-    // AGORA CRIA A PÁGINA PRINCIPAL EM:
-    // users/{userId}/espacos/{espacoId}
-    // ─────────────────────────────────────────────
-    const espacosRef = userRef.collection("espacos");
-    const id_espaco = espacosRef.doc().id;
+    // ── Criar a página principal
+    const espacosRef = collection(userRef, "espacos");
+    const id_espaco = doc(espacosRef).id;
 
-    await espacosRef.doc(id_espaco).set({
+    await setDoc(doc(espacosRef, id_espaco), {
       id_espaco,
       nome: "Home",
       conteudo: "Conteúdo da página principal",
       ordem: 0,
-      is_main: true, // agora salva aqui
-      skinOwner: id_skin, // opcional: vincular skin
-      data: firebase.firestore.FieldValue.serverTimestamp(),
+      is_main: true,
+      skinOwner: id_skin,
+      data: serverTimestamp(),
     });
 
     console.log("Skin e página principal criadas com sucesso!");

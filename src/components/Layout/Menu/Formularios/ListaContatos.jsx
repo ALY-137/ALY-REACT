@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import firebase from 'firebase/app';
-import 'firebase/firestore';
+
 import './formularios.css';
 import { seforAdm } from '../../../Scripts/verificações/verificaAdm';
 import { idGoogleCap } from '../../../../App';
+
+import { app } from '../../../Banco/init-firebase.js';
+import { getFirestore } from 'firebase/firestore';
+const db = getFirestore(app);
 
 
 function ListaContatos() {

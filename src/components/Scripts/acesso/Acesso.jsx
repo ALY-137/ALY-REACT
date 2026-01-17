@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import firebase from "firebase/app";
-import 'firebase/firestore';
-import { db } from '../../Banco/init-firebase';
 import { idGoogleCap } from '../../../App';
 import { seforAdm } from '../verificações/verificaAdm';
+import { db } from '../../Banco/init-firebase.js';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 function Acesso({ valorEmail }) {
   const [dados, setDados] = useState(null);
@@ -32,7 +31,6 @@ function Acesso({ valorEmail }) {
     }
   }, [idGoogleCap]);
 
-
   // --------------------------------
   // 2) BUSCAR ENDEREÇO VIA VIA CEP
   // --------------------------------
@@ -49,13 +47,12 @@ function Acesso({ valorEmail }) {
       .catch(err => console.error("Erro ao consultar ViaCEP:", err));
   };
 
-
   // ---------------------------------------------------------
   // 3) ENVIAR PARA O FIREBASE: IP + LOCALIZAÇÃO + ENDEREÇO
   // ---------------------------------------------------------
   const enviarDadosParaBanco = async (dadosIP, dadosEndereco) => {
     try {
-      const docRef = await db.collection('acessos').add({
+      const docRef = await addDoc(collection(db, 'acessos'), {
         hash: localStorage.getItem('navegacaoHash'),
 
         // IP who.is
@@ -72,7 +69,7 @@ function Acesso({ valorEmail }) {
         cidade: dadosEndereco?.localidade || "",
         uf: dadosEndereco?.uf || "",
 
-        data: firebase.firestore.FieldValue.serverTimestamp(),
+        data: serverTimestamp(),
         visto: false,
       });
 
@@ -83,18 +80,15 @@ function Acesso({ valorEmail }) {
     }
   };
 
-
   // --------------------------------------------------------------
   // 4) QUANDO TIVER DADOS DO IP + ENDEREÇO, ENVIA UMA ÚNICA VEZ
   // --------------------------------------------------------------
-useEffect(() => {
-  if (dados && endereco && !jaEnviado) {
-    enviarDadosParaBanco(dados, endereco);
-    setJaEnviado(true);
-  }
-}, [dados, endereco]);
-
-
+  useEffect(() => {
+    if (dados && endereco && !jaEnviado) {
+      enviarDadosParaBanco(dados, endereco);
+      setJaEnviado(true);
+    }
+  }, [dados, endereco, jaEnviado]);
 
   return null;
 }

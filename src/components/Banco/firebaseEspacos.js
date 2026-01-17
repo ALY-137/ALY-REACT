@@ -1,17 +1,24 @@
-import firebase from "firebase/app";
-import "firebase/firestore";
+import {
+  collection,
+  doc,
+  getDocs,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  writeBatch,
+  serverTimestamp,
+  arrayUnion,
+  arrayRemove,
+} from "firebase/firestore";
 
-const db = firebase.firestore();
+import { db } from "./init-firebase";
 
 /* -------------------------------------------------------
    PEGAR TODAS AS PÁGINAS DO USER
 ------------------------------------------------------- */
 export async function getEspacosDaSkin({ userId, skinId }) {
-  const snapshot = await db
-    .collection("users")
-    .doc(userId)
-    .collection("espacos")
-    .get();
+  const espacosRef = collection(db, "users", userId, "espacos");
+  const snapshot = await getDocs(espacosRef);
 
   return snapshot.docs
     .map(doc => doc.data())
@@ -22,49 +29,33 @@ export async function getEspacosDaSkin({ userId, skinId }) {
     .sort((a, b) => a.ordem - b.ordem);
 }
 
-
 /* -------------------------------------------------------
    CRIAR PÁGINA
-   (pode receber 0, 1 ou várias skins)
 ------------------------------------------------------- */
 export const createEspaco = async (userId, nome, skins = []) => {
-  const espacosRef = db
-    .collection("users")
-    .doc(userId)
-    .collection("espacos");
+  const espacosRef = collection(db, "users", userId, "espacos");
 
-  const novaEspacoRef = espacosRef.doc();
-
-  // ordem é o total de páginas existentes
-  const snapshot = await espacosRef.get();
+  const snapshot = await getDocs(espacosRef);
   const ordem = snapshot.size;
 
-  // cria a página
-  await novaEspacoRef.set({
+  const novaEspacoRef = doc(espacosRef);
+
+  await setDoc(novaEspacoRef, {
     id_espaco: novaEspacoRef.id,
-    nome: nome,
+    nome,
     conteudo: "",
     is_main: false,
-    ordem: ordem,
-
-    // *** ALTERADO ***
-    skins_relacionadas: skins,      
-
-    data: firebase.firestore.FieldValue.serverTimestamp(),
+    ordem,
+    skins_relacionadas: skins,
+    data: serverTimestamp(),
   });
 
-  // atualizar cada skin
+  // atualizar skins
   for (const skinId of skins) {
-    await db
-      .collection("users")
-      .doc(userId)
-      .collection("skins")
-      .doc(skinId)
-      .update({
-        espacos_relacionadas: firebase.firestore.FieldValue.arrayUnion(
-          novaEspacoRef.id
-        ),
-      });
+    const skinRef = doc(db, "users", userId, "skins", skinId);
+    await updateDoc(skinRef, {
+      espacos_relacionadas: arrayUnion(novaEspacoRef.id),
+    });
   }
 
   return novaEspacoRef.id;
@@ -74,30 +65,22 @@ export const createEspaco = async (userId, nome, skins = []) => {
    ATUALIZAR NOME
 ------------------------------------------------------- */
 export const updateEspacoNome = async (userId, espacoId, novoNome) => {
-  const ref = db
-    .collection("users")
-    .doc(userId)
-    .collection("espacos")
-    .doc(espacoId);
-
-  await ref.update({ nome: novoNome });
+  const ref = doc(db, "users", userId, "espacos", espacoId);
+  await updateDoc(ref, { nome: novoNome });
 };
 
 /* -------------------------------------------------------
    DEFINIR PÁGINA PRINCIPAL
 ------------------------------------------------------- */
 export const setEspacoMain = async (userId, espacoId) => {
-  const espacosRef = db
-    .collection("users")
-    .doc(userId)
-    .collection("espacos");
+  const espacosRef = collection(db, "users", userId, "espacos");
+  const snapshot = await getDocs(espacosRef);
 
-  const snapshot = await espacosRef.get();
-  const batch = db.batch();
+  const batch = writeBatch(db);
 
-  snapshot.forEach((doc) => {
-    batch.update(doc.ref, {
-      is_main: doc.id === espacoId,
+  snapshot.forEach((docSnap) => {
+    batch.update(docSnap.ref, {
+      is_main: docSnap.id === espacoId,
     });
   });
 
@@ -108,15 +91,10 @@ export const setEspacoMain = async (userId, espacoId) => {
    ATUALIZAR ORDEM
 ------------------------------------------------------- */
 export const updateOrdemEspacos = async (userId, espacosOrdenadas) => {
-  const espacosRef = db
-    .collection("users")
-    .doc(userId)
-    .collection("espacos");
-
-  const batch = db.batch();
+  const batch = writeBatch(db);
 
   espacosOrdenadas.forEach((espaco, index) => {
-    const ref = espacosRef.doc(espaco.id_espaco);
+    const ref = doc(db, "users", userId, "espacos", espaco.id_espaco);
     batch.update(ref, { ordem: index });
   });
 
@@ -127,27 +105,15 @@ export const updateOrdemEspacos = async (userId, espacosOrdenadas) => {
    EXCLUIR PÁGINA
 ------------------------------------------------------- */
 export const deleteEspaco = async (userId, espacoId) => {
-
-  // remover a página de todas as skins
-  const skinsSnap = await db
-    .collection("users")
-    .doc(userId)
-    .collection("skins")
-    .get();
+  const skinsRef = collection(db, "users", userId, "skins");
+  const skinsSnap = await getDocs(skinsRef);
 
   for (const skin of skinsSnap.docs) {
-    await skin.ref.update({
-      espacos_relacionadas: firebase.firestore.FieldValue.arrayRemove(
-        espacoId
-      ),
+    await updateDoc(skin.ref, {
+      espacos_relacionadas: arrayRemove(espacoId),
     });
   }
 
-  // deletar o documento da página
-  await db
-    .collection("users")
-    .doc(userId)
-    .collection("espacos")
-    .doc(espacoId)
-    .delete();
+  const espacoRef = doc(db, "users", userId, "espacos", espacoId);
+  await deleteDoc(espacoRef);
 };

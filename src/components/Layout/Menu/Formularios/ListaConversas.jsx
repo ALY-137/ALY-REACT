@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react'; 
-import firebase from 'firebase/app';
-import 'firebase/firestore';
 import './formularios.css';
 import { useNavigate, useParams } from 'react-router-dom';
 import { idGoogleCap } from '../../../../App';
 import { useUser } from '../../../../context/UserContext';
+
+import { app } from '../../../Banco/init-firebase.js';
+import { getFirestore } from 'firebase/firestore';
+const db = getFirestore(app);
 
 function ListaConversas({ setBackText, setAtualTxt, handleExpandForm }) {
   const [conversas, setConversas] = useState([]);

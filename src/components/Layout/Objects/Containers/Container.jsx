@@ -7,42 +7,53 @@ import { db } from '../../../Banco/init-firebase';
 import './containers.css';
 import BoasVindas from './Home/BoasVindas';
 
+// Importações específicas do Firebase v9
+import { collection, doc, getDoc, getDocs } from "firebase/firestore";
+
 function Container({ titulo, iconUrl, id_container, id_skin, id_user }) {
   const [cards, setCards] = useState([]);
 
   useEffect(() => {
     const fetchCards = async () => {
       try {
-        const cardRefsSnapshot = await db.collection('users')
-          .doc(id_user)
-          .collection('skins')
-          .doc(id_skin)
-          .collection('containers')
-          .doc(id_container)
-          .collection('cardRefs')
-          .get();
+        // Referência para a coleção cardRefs
+        const cardRefsCol = collection(
+          db,
+          "users",
+          id_user,
+          "skins",
+          id_skin,
+          "containers",
+          id_container,
+          "cardRefs"
+        );
+
+        const cardRefsSnapshot = await getDocs(cardRefsCol);
 
         const cardIds = cardRefsSnapshot.docs.map(doc => doc.data().id_card);
-
         console.log('Card IDs:', cardIds);
 
         const cardsData = [];
         for (const cardId of cardIds) {
-          const cardDoc = await db.collection('users')
-            .doc(id_user)
-            .collection('skins')
-            .doc(id_skin)
-            .collection('cards')
-            .doc(cardId)
-            .get();
+          const cardDocRef = doc(
+            db,
+            "users",
+            id_user,
+            "skins",
+            id_skin,
+            "cards",
+            cardId
+          );
+          const cardDoc = await getDoc(cardDocRef);
 
-          if (cardDoc.exists) {
+          if (cardDoc.exists()) {
             cardsData.push({ id: cardDoc.id, ...cardDoc.data() });
           }
         }
 
         console.log('Dados dos Cards:', cardsData);
         setCards(cardsData);
+
       } catch (error) {
         console.error('Erro ao buscar os cards:', error);
       }
@@ -59,21 +70,19 @@ function Container({ titulo, iconUrl, id_container, id_skin, id_user }) {
 
       {/* Renderiza os Cards apenas se o id_container for diferente do que ativa o formulário */}
       {id_container !== "nZCPH3y6bkPSnJPSPaSZ" &&
-cards.map((card) => (
-  <Card 
-    key={`${card.id}_${id_container}`} 
-    id_user={id_user} 
-    id_skin={id_skin} 
-    id_container={id_container} 
-    {...card} 
-  />
-))
+        cards.map((card) => (
+          <Card
+            key={`${card.id}_${id_container}`}
+            id_user={id_user}
+            id_skin={id_skin}
+            id_container={id_container}
+            {...card}
+          />
+        ))
       }
 
       {/* Exibe o formulário Contato se o id_container for específico */}
       {id_container === "nZCPH3y6bkPSnJPSPaSZ" && <Contato />}
-
-
 
       <EstiloContainerBot />
     </div>

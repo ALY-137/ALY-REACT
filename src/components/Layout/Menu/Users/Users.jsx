@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import firebase from 'firebase/app';
-import 'firebase/firestore';
+
+import { app } from '../../../Banco/init-firebase.js';
+import { getFirestore } from 'firebase/firestore';
+const db = getFirestore(app);
 
 import './users.css';
 

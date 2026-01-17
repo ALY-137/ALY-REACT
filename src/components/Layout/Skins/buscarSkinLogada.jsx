@@ -1,4 +1,5 @@
 import { db } from '../../Banco/init-firebase';
+import { collection, query, where, getDocs } from "firebase/firestore";
 
 export const buscarSkinLogada = async () => {
   const idGoogleCap = localStorage.getItem('idGoogleCap');
@@ -10,21 +11,27 @@ export const buscarSkinLogada = async () => {
   }
 
   try {
-    const skinsRef = db.collection('users').doc(idGoogleCap).collection('skins');
-    const snapshot = await skinsRef.where('username', '==', skinUsername).get();
+    // Referência da coleção de skins do usuário
+    const skinsCol = collection(db, 'users', idGoogleCap, 'skins');
+
+    // Cria a query filtrando pelo username da skin logada
+    const q = query(skinsCol, where('username', '==', skinUsername));
+
+    // Executa a query
+    const snapshot = await getDocs(q);
 
     if (snapshot.empty) {
       console.warn('Skin logada não encontrada.');
       return null;
     }
 
-    const doc = snapshot.docs[0];
-    const skinData = doc.data();
+    const docSnap = snapshot.docs[0];
+    const skinData = docSnap.data();
 
-    // Armazena o ID do documento em localStorage (ou use como quiser)
-    localStorage.setItem('skinLogadaId', doc.id);
+    // Armazena o ID do documento em localStorage
+    localStorage.setItem('skinLogadaId', docSnap.id);
 
-    return { id: doc.id, ...skinData };
+    return { id: docSnap.id, ...skinData };
   } catch (error) {
     console.error('Erro ao buscar skin logada:', error);
     return null;

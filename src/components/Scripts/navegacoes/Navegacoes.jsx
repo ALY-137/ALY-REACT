@@ -1,17 +1,23 @@
 // NavegacoesTracker.jsx
 import React, { useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
-import firebase from "firebase/app";
-import "firebase/firestore";
-import { db } from "../../Banco/init-firebase";
+
 import { seforAdm } from "../verificações/verificaAdm";
+
+import { db } from "../../Banco/init-firebase"; // já exporta db modular
+import {
+  doc,
+  setDoc,
+  arrayUnion,
+  serverTimestamp,
+} from "firebase/firestore";
 
 const Navegacoes = () => {
   const location = useLocation();
   const sessionId = useRef(null);
 
+  // Cria ou recupera hash de sessão
   useEffect(() => {
-    // Cria ou recupera hash de sessão
     let savedSession = localStorage.getItem("navegacaoHash");
     if (!savedSession) {
       savedSession = crypto.randomUUID();
@@ -32,34 +38,47 @@ const Navegacoes = () => {
       timestamp: now.toISOString(),
     };
 
-    if (idGoogleCap && !seforAdm(idGoogleCap)) {
-      // Usuário logado: salvar na subcoleção de users
-      const userRef = db
-        .collection("users")
-        .doc(idGoogleCap)
-        .collection("navegacoes_users")
-        .doc(sessionId.current);
+    const saveNavigation = async () => {
+      try {
+        if (idGoogleCap && !seforAdm(idGoogleCap)) {
+          // Usuário logado: salvar na subcoleção de users
+          const userRef = doc(
+            db,
+            "users",
+            idGoogleCap,
+            "navegacoes_users",
+            sessionId.current
+          );
 
-      userRef.set(
-        {
-          registros: firebase.firestore.FieldValue.arrayUnion(registro),
-          criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
-          navegacaoHash: sessionId.current,
-        },
-        { merge: true }
-      );
-    } else {
-      // Usuário não logado: salvar na coleção global
-      const anonRef = db.collection("navegacoes").doc(sessionId.current);
-      anonRef.set(
-        {
-          registros: firebase.firestore.FieldValue.arrayUnion(registro),
-          criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
-          navegacaoHash: sessionId.current,
-        },
-        { merge: true }
-      );
-    }
+          await setDoc(
+            userRef,
+            {
+              registros: arrayUnion(registro),
+              criadoEm: serverTimestamp(),
+              navegacaoHash: sessionId.current,
+            },
+            { merge: true }
+          );
+        } else {
+          // Usuário não logado: salvar na coleção global
+          const anonRef = doc(db, "navegacoes", sessionId.current);
+
+          await setDoc(
+            anonRef,
+            {
+              registros: arrayUnion(registro),
+              criadoEm: serverTimestamp(),
+              navegacaoHash: sessionId.current,
+            },
+            { merge: true }
+          );
+        }
+      } catch (error) {
+        console.error("Erro ao salvar navegação:", error);
+      }
+    };
+
+    saveNavigation();
   }, [location]);
 
   return null;

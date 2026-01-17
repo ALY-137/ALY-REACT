@@ -2,8 +2,11 @@
 
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+
 import { verificaUser, db } from './components/Banco/init-firebase';
-import 'firebase/firestore';
+import { collection, doc, getDocs } from 'firebase/firestore';
+
+
 import SkinsManager from './components/Layout/Skins/SkinsManager';
 import AnoAtualizado from './components/Scripts/data/AnoAtualizado';
 import './App.css';
@@ -67,33 +70,36 @@ const App = () => {
     verificaUser('idGoogleCap', userObject.sub);
   };
 
-  const fetchSkins = async (id) => {
-    try {
-      const userRef = db.collection('users').doc(id);
-      const skinsSnapshot = await userRef.collection('skins').get();
-      const skinsList = skinsSnapshot.docs.map((doc) => doc.data());
-      setSkins(skinsList);
+const fetchSkins = async (id) => {
+  try {
+    // Referência ao documento do usuário
+    const userRef = doc(db, 'users', id);
 
-      if (skinsList.length === 1) {
-      
-        const skinUser = skinsList[0].username;
+    // Referência à coleção de skins
+    const skinsCol = collection(userRef, 'skins');
 
+    // Busca todos os documentos da coleção
+    const skinsSnapshot = await getDocs(skinsCol);
 
-          setUsername(skinUser);
-     
+    const skinsList = skinsSnapshot.docs.map((doc) => doc.data());
+    setSkins(skinsList);
 
-        localStorage.setItem('skinLogadoUser', skinUser);
-        localStorage.setItem('selectedTheme', skinsList[0].theme);
-        localStorage.setItem('skinLogado', true);
-        
+    if (skinsList.length === 1) {
+      const skinUser = skinsList[0].username;
 
-        setSkinLogado(true);
-      }
-     
-    } catch (error) {
-      console.error('Erro ao buscar skins:', error);
+      setUsername(skinUser);
+
+      localStorage.setItem('skinLogadoUser', skinUser);
+      localStorage.setItem('selectedTheme', skinsList[0].theme);
+      localStorage.setItem('skinLogado', true);
+
+      setSkinLogado(true);
     }
-  };
+  } catch (error) {
+    console.error('Erro ao buscar skins:', error);
+  }
+};
+
 
   useEffect(() => {
     window.google.accounts.id.initialize({

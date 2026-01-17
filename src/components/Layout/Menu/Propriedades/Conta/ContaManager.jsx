@@ -1,11 +1,14 @@
 // Componente para excluir conta do usuário logado, exluindo dados da coleção  'users"
 import React, { useState, useEffect } from "react";
 import { useNavigate   } from "react-router-dom";
-import firebase from 'firebase/app';
-import 'firebase/firestore';
 
+import { app } from '../../../../Banco/init-firebase.js';
+import { getFirestore } from 'firebase/firestore';
+
+const db = getFirestore(app);
 
 function ContaManager() {
+
 
       const navigate = useNavigate();
   const excluirConta = async () => {
