@@ -169,26 +169,22 @@ const fetchSkins = async (id) => {
     carregarSkinLogada();
   }, []); 
 
-const handleLogin = (user) => {
-  // user vem direto do Firebase
-  console.log("Usuário logado:", user);
+const handleLogin = async () => {
+  try {
+    const result = await signInWithPopup(auth, provider);
+    const user = result.user;
+    console.log("Usuário logado:", user);
 
-  // atualiza estados locais
-  setLocalIdGoogle(user.uid);
-  setLocalPrimeiroNome(user.displayName.split(" ")[0]);
-  setLocalEmail(user.email);
-  setLocalPicGoogle(user.photoURL);
-  setLocalFullname(user.displayName);
-
-  localStorage.setItem("user", JSON.stringify(user));
-  localStorage.setItem("idGoogleCap", user.uid);
-  localStorage.setItem("primeiroNomeCap", user.displayName.split(" ")[0]);
-
-  setUser(user);
-
-  // cria/atualiza user no Firestore
-  verificaUser("idGoogleCap", user.uid);
+    onLogin(user);
+  } catch (error) {
+    if (error.code === "auth/popup-closed-by-user") {
+      console.log("O popup foi fechado antes de completar o login.");
+    } else {
+      console.error("Erro no login:", error);
+    }
+  }
 };
+
   return (
     <div>
 
