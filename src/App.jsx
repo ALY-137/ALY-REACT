@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-import { verificaUser, db } from './components/Banco/init-firebase';
+import { db } from './components/Banco/init-firebase';
 import { collection, doc, getDocs } from 'firebase/firestore';
 
 
@@ -17,6 +17,10 @@ import { seforAdm } from './components/Scripts/verificações/verificaAdm.js';
 import Acesso from './components/Scripts/acesso/Acesso.jsx';
 import Navegacoes from './components/Scripts/navegacoes/Navegacoes.jsx';
 import {buscarSkinLogada} from './components/Layout/Skins/buscarSkinLogada.jsx';
+
+import LoginGoogle from './components/Layout/Geral/LoginGoogle.jsx';
+
+import  {verificaUser ,auth}  from './components/Banco/init-firebase';
 
 // Variáveis globais exportadas
 let idGoogleCap = null;
@@ -48,27 +52,29 @@ const App = () => {
   const [localEmail, setLocalEmail] = useState('');
   const [localPicGoogle, setLocalPicGoogle] = useState('');
   const [localFullname, setLocalFullname] = useState('');
+
+
   
-  const handleCallbackResponse = (response) => {
-    const { jwtDecode } = require('jwt-decode');
-    const userObject = jwtDecode(response.credential);
+const handleCallbackResponse = (response) => {
+  const userObject = jwtDecode(response.credential);
 
-    // Atualiza locais
-    setLocalIdGoogle(userObject.sub);
-    setLocalPrimeiroNome(userObject.given_name);
-    setLocalEmail(userObject.email);
-    setLocalPicGoogle(userObject.picture);
-    setLocalFullname(userObject.name);
+  // Atualiza locais
+  setLocalIdGoogle(userObject.sub);
+  setLocalPrimeiroNome(userObject.given_name);
+  setLocalEmail(userObject.email);
+  setLocalPicGoogle(userObject.picture);
+  setLocalFullname(userObject.name);
 
-    // Atualiza storage
-    localStorage.setItem('user', JSON.stringify(userObject));
-    localStorage.setItem('idGoogleCap', userObject.sub);
-    localStorage.setItem('primeiroNomeCap', userObject.given_name);
+  // Atualiza storage
+  localStorage.setItem('user', JSON.stringify(userObject));
+  localStorage.setItem('idGoogleCap', userObject.sub);
+  localStorage.setItem('primeiroNomeCap', userObject.given_name);
 
-    // Atualiza estado
-    setUser(userObject);
-    verificaUser('idGoogleCap', userObject.sub);
-  };
+  // Atualiza estado
+  setUser(userObject);
+  verificaUser('idGoogleCap', userObject.sub);
+};
+
 
 const fetchSkins = async (id) => {
   try {
@@ -163,6 +169,26 @@ const fetchSkins = async (id) => {
     carregarSkinLogada();
   }, []); 
 
+const handleLogin = (user) => {
+  // user vem direto do Firebase
+  console.log("Usuário logado:", user);
+
+  // atualiza estados locais
+  setLocalIdGoogle(user.uid);
+  setLocalPrimeiroNome(user.displayName.split(" ")[0]);
+  setLocalEmail(user.email);
+  setLocalPicGoogle(user.photoURL);
+  setLocalFullname(user.displayName);
+
+  localStorage.setItem("user", JSON.stringify(user));
+  localStorage.setItem("idGoogleCap", user.uid);
+  localStorage.setItem("primeiroNomeCap", user.displayName.split(" ")[0]);
+
+  setUser(user);
+
+  // cria/atualiza user no Firestore
+  verificaUser("idGoogleCap", user.uid);
+};
   return (
     <div>
 
@@ -173,12 +199,13 @@ const fetchSkins = async (id) => {
         {/*   <Acesso />  */}
                
               <Navegacoes />
-            <div id="iconsLogin">
-              <img src="/logoNeon.png" id="logoLogin" alt="Logo" />
-              <p id="logoTxt">ALY-137</p>
-              <p id="textoLogin">EMBARQUE COM O GOOGLE</p>
-              <div id="signInDiv"></div>
-            </div>
+<div id="iconsLogin">
+  <img src="/logoNeon.png" id="logoLogin" alt="Logo" />
+  <p id="logoTxt">ALY-137</p>
+  <p id="textoLogin">EMBARQUE COM O GOOGLE</p>
+  <LoginGoogle onLogin={handleLogin} />
+</div>
+
             <p id="rodapeLogin">
                 ALY-137© <AnoAtualizado />
             </p>

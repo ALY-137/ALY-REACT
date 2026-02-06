@@ -1,121 +1,168 @@
-import React, { useState, useEffect } from 'react'; 
+import React, { useState, useEffect } from 'react';
 import './formularios.css';
 import { useNavigate, useParams } from 'react-router-dom';
-import { idGoogleCap } from '../../../../App';
-import { useUser } from '../../../../context/UserContext';
 
-import { app } from '../../../Banco/init-firebase.js';
-import { getFirestore } from 'firebase/firestore';
-const db = getFirestore(app);
+import {
+  collection,
+  doc,
+  query,
+  orderBy,
+  onSnapshot,
+  getDocs,
+  writeBatch,
+  deleteDoc
+} from 'firebase/firestore';
+
+import { db } from '../../../Banco/init-firebase.js';
 
 function ListaConversas({ setBackText, setAtualTxt, handleExpandForm }) {
   const [conversas, setConversas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
   const navigate = useNavigate();
-  const { contactId } = useParams(); // Obtém o contactId da URL
-  
-  const skinLogadoUser = localStorage.getItem('skinLogadoUser'); // Obtém o nome de usuário da skin logada
+  const { contactId } = useParams();
+  const skinLogadoUser = localStorage.getItem('skinLogadoUser');
 
   useEffect(() => {
-    const unsubscribe = firebase.firestore()
-      .collection('contatos')
-      .doc(contactId)
-      .collection('conversas')
-      .orderBy('dataUltimaMensagem', 'desc')
-      .onSnapshot(
-        (snapshot) => {
-          const listaConversas = snapshot.docs.map((conversaDoc) => ({
-            conversaId: conversaDoc.id,
-            assunto: conversaDoc.data().assunto || 'Sem assunto',
-            ultimaMensagem: conversaDoc.data().ultimaMensagem || 'Nenhuma mensagem',
-            data: conversaDoc.data().dataUltimaMensagem?.toDate(),
-          }));
-          setConversas(listaConversas);
-          setLoading(false);
-        },
-        (error) => {
-          setError('Erro ao carregar conversas.');
-          console.error('Erro ao carregar conversas:', error);
-          setLoading(false);
-        }
-      );
+    const conversasRef = collection(
+      db,
+      'contatos',
+      contactId,
+      'conversas'
+    );
+
+    const q = query(
+      conversasRef,
+      orderBy('dataUltimaMensagem', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const listaConversas = snapshot.docs.map((docSnap) => ({
+          conversaId: docSnap.id,
+          assunto: docSnap.data().assunto || 'Sem assunto',
+          ultimaMensagem:
+            docSnap.data().ultimaMensagem || 'Nenhuma mensagem',
+          data: docSnap.data().dataUltimaMensagem?.toDate(),
+        }));
+
+        setConversas(listaConversas);
+        setLoading(false);
+      },
+      (error) => {
+        console.error('Erro ao carregar conversas:', error);
+        setError('Erro ao carregar conversas.');
+        setLoading(false);
+      }
+    );
 
     return () => unsubscribe();
   }, [contactId]);
 
+  // 🔥 Exclui todos os chats da conversa
   const deleteChats = async (idConversa) => {
-    const chatsRef = firebase.firestore()
-      .collection('contatos')
-      .doc(contactId)
-      .collection('conversas')
-      .doc(idConversa)
-      .collection('chats');
+    const chatsRef = collection(
+      db,
+      'contatos',
+      contactId,
+      'conversas',
+      idConversa,
+      'chats'
+    );
 
-    const snapshot = await chatsRef.get();
-    const batch = firebase.firestore().batch();
+    const snapshot = await getDocs(chatsRef);
+    const batch = writeBatch(db);
 
-    snapshot.forEach(doc => {
-      batch.delete(doc.ref);
+    snapshot.docs.forEach((docSnap) => {
+      batch.delete(docSnap.ref);
     });
 
     await batch.commit();
   };
 
   const handleDelete = async (idConversa, event) => {
-    event.stopPropagation(); // Evita que o clique no botão se propague para o elemento pai
+    event.stopPropagation();
 
     try {
-      // Exclui todos os "chats" da subcoleção
+      // 1️⃣ Deleta os chats
       await deleteChats(idConversa);
 
-      // Exclui a conversa
-      await firebase.firestore()
-        .collection('contatos')
-        .doc(contactId)
-        .collection('conversas')
-        .doc(idConversa)
-        .delete();
+      // 2️⃣ Deleta a conversa
+      await deleteDoc(
+        doc(
+          db,
+          'contatos',
+          contactId,
+          'conversas',
+          idConversa
+        )
+      );
 
-      // Atualiza o estado das conversas
-      const novasConversas = conversas.filter(conversa => conversa.conversaId !== idConversa);
+      // 3️⃣ Atualiza estado local
+      const novasConversas = conversas.filter(
+        (c) => c.conversaId !== idConversa
+      );
       setConversas(novasConversas);
 
-      // Verifica se não há mais conversas e exclui a coleção "contatos" se estiver vazia
+      // 4️⃣ Se não sobrar conversa, remove o contato
       if (novasConversas.length === 0) {
-        await firebase.firestore().collection('contatos').doc(contactId).delete();
+        await deleteDoc(doc(db, 'contatos', contactId));
       }
     } catch (error) {
-      console.error('Erro ao deletar a conversa e seus chats:', error);
-      setError('Erro ao deletar a conversa e seus chats.');
+      console.error('Erro ao deletar conversa:', error);
+      setError('Erro ao deletar a conversa.');
     }
   };
 
   const handleConversaClick = (idConversa) => {
-    // Redireciona para a URL correta com o contactId e conversaId
-    navigate(`/menu/${skinLogadoUser}/contatos/${contactId}/chat/${idConversa}`);
+    navigate(
+      `/menu/${skinLogadoUser}/contatos/${contactId}/chat/${idConversa}`
+    );
   };
 
   return (
     <div>
       {loading && <p>Carregando conversas...</p>}
       {error && <p>{error}</p>}
-      {!loading && !error && conversas.length === 0 && <p>Não há conversas.</p>}
-      
-      <div className='pageContentForms'>
+      {!loading && !error && conversas.length === 0 && (
+        <p>Não há conversas.</p>
+      )}
+
+      <div className="pageContentForms">
         {conversas.map((conversa) => (
-          <div className='boxItemConversa' onClick={() => handleConversaClick(conversa.conversaId)} key={conversa.conversaId}>
+          <div
+            key={conversa.conversaId}
+            className="boxItemConversa"
+            onClick={() =>
+              handleConversaClick(conversa.conversaId)
+            }
+          >
             <div className="conversaHeader">
-              <p><strong>Assunto:</strong> {conversa.assunto}</p>
+              <p>
+                <strong>Assunto:</strong> {conversa.assunto}
+              </p>
               <button
                 className="deleteButton"
-                onClick={(event) => handleDelete(conversa.conversaId, event)}
+                onClick={(event) =>
+                  handleDelete(conversa.conversaId, event)
+                }
               >
                 Excluir
               </button>
             </div>
-            <p><strong>Última Mensagem:</strong> {conversa.ultimaMensagem}</p>
-            <p><strong>Data da Última Mensagem:</strong> {conversa.data?.toLocaleDateString('pt-BR') || 'Data não disponível'}</p>
+
+            <p>
+              <strong>Última Mensagem:</strong>{' '}
+              {conversa.ultimaMensagem}
+            </p>
+            <p>
+              <strong>Data da Última Mensagem:</strong>{' '}
+              {conversa.data
+                ? conversa.data.toLocaleDateString('pt-BR')
+                : 'Data não disponível'}
+            </p>
           </div>
         ))}
       </div>

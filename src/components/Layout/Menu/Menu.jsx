@@ -121,8 +121,8 @@ useEffect(() => {
       // 🔍 Buscar participantes da conversa
       try {
      const contatoDocRef = doc(db, "contatos", contactId);
-const contatoSnap = await getDoc(contatoDocRef);
-const contatoData = contatoSnap.exists() ? contatoSnap.data() : null;
+     const contatoSnap = await getDoc(contatoDocRef);
+     const contatoData = contatoSnap.exists() ? contatoSnap.data() : null;
 
 
         if (contatoData) {

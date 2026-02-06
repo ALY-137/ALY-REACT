@@ -2,7 +2,7 @@
   height: 40px;
   position: sticky;  
   z-index: 20;
-  transition: all ease 3s;
+  transition: opacity 0.3s ease, transform 0.3s ease;
   align-items: center;
   justify-content:space-between; 
   top:0px;
@@ -71,7 +71,7 @@
 
 #fundo{
   height: 0px;
-  transition: all ease 3s;
+  transition: opacity 0.3s ease, transform 0.3s ease;
   position: absolute; /* ABSOLUTE PARA DIV FICAR CENTRALIZADA */
   margin: auto;  
   top:0px;
@@ -84,30 +84,13 @@
   overflow-x: hidden;
 }
 
-#cardProfile{
+#cardProfile {
+  height: auto;
   position: relative;
-  margin: auto;
-  top:0px;
-  bottom:0px;
-  left:0px;
-  right:0px;
-  height: 0px;
-  background-repeat: no-repeat;
-  background-size: auto auto;
-  transition: all ease 3s;
-  padding: 0px;
-  display: flex;
-  justify-content: center;
 }
 
-#conteudo{
-  height: 0px;
-  transition: all ease 3s;
-  border-top:none;
-  display: block;
-  position: relative;
-  margin-top: 0px;
-  height: 100%;
+#conteudo {
+  min-height: 100vh;
 }
 
 .fundoEstiloDev{
@@ -259,7 +242,7 @@
   bottom: 0;
   height: 70%; 
   z-index: 3;
-  transition: all ease 3s;
+  transition: opacity 0.3s ease, transform 0.3s ease;
   position: absolute;
 }
 
@@ -398,7 +381,7 @@ body{
   right: 0;
   margin: auto;
   background-color: rgba(0, 0, 255, 0); 
-  transition: all ease 3s;
+  transition: opacity 0.3s ease, transform 0.3s ease;
   margin-top: 0px;
 }
 
@@ -411,7 +394,7 @@ body{
   right: 0;
   margin: auto;
   background-color: rgba(0, 0, 255, 0); 
-  transition: all ease 3s;
+  transition: opacity 0.3s ease, transform 0.3s ease;
   margin-top: 0px;
 }
 
@@ -448,7 +431,7 @@ body{
   right: 0;
   margin: auto;
   background-color: rgba(0, 0, 255, 0); 
-  transition: all ease 3s;
+  transition: opacity 0.3s ease, transform 0.3s ease;
   margin-top: 0px;
 }
 
@@ -461,7 +444,7 @@ body{
   right: 0;
   margin: auto;
   background-color: rgba(0, 0, 255, 0); 
-  transition: all ease 3s;
+  transition: opacity 0.3s ease, transform 0.3s ease;
   margin-top: 0px;
   margin-left: 0px;
 }
@@ -625,7 +608,7 @@ body{
   right: 0;
   margin: auto;
   background-color: rgba(0, 0, 255, 0); 
-  transition: all ease 3s;
+  transition: opacity 0.3s ease, transform 0.3s ease;
   margin-top: 0px;
 }
 
@@ -638,7 +621,7 @@ body{
   right: 0;
   margin: auto;
   background-color: rgba(0, 0, 255, 0); 
-  transition: all ease 3s;
+  transition: opacity 0.3s ease, transform 0.3s ease;
   margin-top: 0px;
 }
 
@@ -784,16 +767,10 @@ body{
 }
 
 .menu-navbar {
-  position: fixed;
-  top: 0;
-  width: 100%;
-  background-color: #000000;
-  z-index: 1000;
   height: 40px;
-
-  display: flex;
-  justify-content: center; /* Centraliza horizontalmente */
-  align-items: center; /* Centraliza verticalmente */
+  position: sticky;
+  top: 0;
+  z-index: 1000;
 }
 
 .menu-open #cardProfile,

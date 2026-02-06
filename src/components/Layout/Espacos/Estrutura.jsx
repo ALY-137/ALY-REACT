@@ -4,7 +4,7 @@ import Navbar from "../Navbar/Navbar";
 import LoginButton from "../Geral/LoginButton";
 import CriadorBloco from "../Blocos/CriadorBloco";
 import Navegacoes from "../../Scripts/navegacoes/Navegacoes";
-
+import { useAuth } from "../../../hooks/auth/useAuth";
 import { seforAdm } from "../../Scripts/verificações/verificaAdm";
 import { getEspacosDaSkin } from "../../Banco/firebaseEspacos";
 
@@ -41,6 +41,7 @@ export const defineTheme = async (username, skins, setLayoutScript) => {
 function Estrutura({ username: propUsername, skins: propSkins }) {
   const location = useLocation();
   const navigate = useNavigate();
+   const { user, loading } = useAuth();
 
   const [LayoutScript, setLayoutScript] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -55,6 +56,10 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
   const pathname = location.pathname;
   const urlUsername = pathname.split("/")[1];
   const skinLogadoUser = localStorage.getItem("skinLogadoUser");
+
+  const [podeCriarBloco, setPodeCriarBloco] = useState(false);
+
+
 
   // --------------------------
   // Carrega a skin e páginas
@@ -157,12 +162,30 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
   useEffect(() => {
     if (!username || !skins.length) return;
     defineTheme(username, skins, setLayoutScript);
+    
   }, [username, skins]);
 
   const toggleMenu = () => {
     setMenuOpen(!menuOpen);
     navigate(menuOpen ? "/home" : `/menu/${skinLogadoUser}`);
   };
+
+
+
+
+useEffect(() => {
+  if (!loading && user && username) {
+    setPodeCriarBloco(user.username === username);
+
+  }
+}, [user, loading, username]);
+
+useEffect(() => {
+  if (!loading) {
+    console.log("User carregado:", user);
+  }
+}, [user, loading]);
+
 
   return (
     <div id="fundo">
@@ -196,7 +219,15 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
             </div>
 
             <div id="conteudo">
-              <CriadorBloco onCreate={adicionarBloco} />
+{loading ? <div>Carregando usuário...</div> : null}
+{podeCriarBloco && <CriadorBloco onCreate={adicionarBloco} />}
+  
+  {blocos.map((bloco) => (
+    <div key={bloco.id} style={{ border: "1px solid #ccc", margin: "4px", padding: "4px" }}>
+      <strong>{bloco.tipo}</strong> - {bloco.id}
+    </div>
+  ))}
+              {'Eu estou sendo mostrado'}
               <Suspense fallback={<div>Carregando...</div>}>
                 <Outlet />
               </Suspense>

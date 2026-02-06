@@ -1,7 +1,16 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { app } from '../../../Banco/init-firebase.js';
-import { getFirestore } from 'firebase/firestore';
+import {
+  collection,
+  collectionGroup,
+  query,
+  where,
+  orderBy,
+  onSnapshot,
+  getDocs,
+  limit,getFirestore
+} from 'firebase/firestore';
 const db = getFirestore(app);
 
 import './formularios.css';

@@ -1,26 +1,27 @@
 import React, { useState, useEffect } from 'react';
 
-import { app } from '../../../Banco/init-firebase.js';
-import { getFirestore } from 'firebase/firestore';
-const db = getFirestore(app);
+import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { db } from '../../../Banco/init-firebase.js';
 
 import './users.css';
 
 function Users() {
   const [usuarios, setUsuarios] = useState([]);
-  console.log("Users!")
+  console.log("Users!");
 
   useEffect(() => {
     const carregarUsuarios = async () => {
       try {
-        const usersCollection = firebase.firestore().collection('users').orderBy('data', 'desc');
-        const usersSnapshot = await usersCollection.get();
+        const q = query(
+          collection(db, 'users'),
+          orderBy('data', 'desc')
+        );
+
+        const usersSnapshot = await getDocs(q);
 
         const listaUsuarios = usersSnapshot.docs.map((doc) => ({
           id: doc.id,
-          picGoogle: doc.data().picGoogle,
-          nomeGoogle: doc.data().nomeGoogle,
-          data: doc.data().data,
+          ...doc.data(),
         }));
 
         setUsuarios(listaUsuarios);
@@ -33,21 +34,27 @@ function Users() {
   }, []);
 
   return (
-
-      <div className='contentPageUsers'>
-        {usuarios.length > 0 ? (
-          usuarios.map((usuario) => (
-            <div key={usuario.id}>
-              <img src={usuario.picGoogle} alt={`Foto de ${usuario.nomeGoogle}`} />
-              <p>{usuario.nomeGoogle}</p>
-              <p>Data de Cadastro: {usuario.data.toDate().toLocaleDateString()}</p>
-            </div>
-          ))
-        ) : (
-          <p>Nenhum usuário encontrado.</p>
-        )}
-      </div>
-
+    <div className="contentPageUsers">
+      {usuarios.length > 0 ? (
+        usuarios.map((usuario) => (
+          <div key={usuario.id}>
+            <img
+              src={usuario.picGoogle}
+              alt={`Foto de ${usuario.nomeGoogle}`}
+            />
+            <p>{usuario.nomeGoogle}</p>
+            {usuario.data && (
+              <p>
+                Data de Cadastro:{' '}
+                {usuario.data.toDate().toLocaleDateString()}
+              </p>
+            )}
+          </div>
+        ))
+      ) : (
+        <p>Nenhum usuário encontrado.</p>
+      )}
+    </div>
   );
 }
 
