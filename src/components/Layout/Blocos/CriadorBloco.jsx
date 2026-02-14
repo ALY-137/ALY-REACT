@@ -72,6 +72,7 @@ export default function CriadorBloco({ espacoAtual, skinIdAtual, onCreate }) {
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState("");
   const [visibilidade, setVisibilidade] = useState("publico");
+  const [valorCompra, setValorCompra] = useState("");
 
   if (loading || !user || !espacoAtual) return null;
 
@@ -93,10 +94,29 @@ export default function CriadorBloco({ espacoAtual, skinIdAtual, onCreate }) {
 
   if (!podeCriar) return null;
 
+  const isExclusivoComprador = visibilidade === "exclusivo_comprador";
+
+  const parseValorCompraEmCentavos = (valorTexto) => {
+    const normalizado = String(valorTexto || "").replace(",", ".").trim();
+    if (!normalizado) return null;
+    const valorNumerico = Number(normalizado);
+    if (!Number.isFinite(valorNumerico) || valorNumerico <= 0) return null;
+    return Math.round(valorNumerico * 100);
+  };
+
   async function criarBloco() {
     if (!files.length) return alert("Selecione ao menos uma imagem");
     if (!espacoId) return alert("Espaco sem id valido.");
     if (!ownerUserId) return alert("Espaco sem ownerUserId valido.");
+
+    const precoCentavos = isExclusivoComprador
+      ? parseValorCompraEmCentavos(valorCompra)
+      : null;
+
+    if (isExclusivoComprador && !precoCentavos) {
+      alert("Informe um valor valido para bloco exclusivo de comprador.");
+      return;
+    }
 
     setEnviando(true);
     setErro("");
@@ -179,6 +199,8 @@ export default function CriadorBloco({ espacoAtual, skinIdAtual, onCreate }) {
         ownerUserId,
         skinOwner: espacoAtual.skinOwner || activeSkinId || null,
         visibilidade,
+        precoCentavos: precoCentavos || null,
+        moeda: precoCentavos ? "BRL" : null,
       };
 
       await setDoc(blocoRef, blocoPayload);
@@ -197,6 +219,7 @@ export default function CriadorBloco({ espacoAtual, skinIdAtual, onCreate }) {
       }
 
       setFiles([]);
+      setValorCompra("");
       alert("Bloco criado com sucesso!");
 
     } catch (err) {
@@ -229,6 +252,17 @@ export default function CriadorBloco({ espacoAtual, skinIdAtual, onCreate }) {
         <option value="exclusivo_assinante">Exclusivo assinante</option>
         <option value="exclusivo_comprador">Exclusivo comprador</option>
       </select>
+
+      {isExclusivoComprador && (
+        <input
+          type="number"
+          min="0.01"
+          step="0.01"
+          placeholder="Valor (R$)"
+          value={valorCompra}
+          onChange={(e) => setValorCompra(e.target.value)}
+        />
+      )}
 
       <button onClick={criarBloco} disabled={enviando}>
         {enviando ? "Enviando..." : "Criar bloco"}

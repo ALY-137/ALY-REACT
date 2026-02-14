@@ -10,6 +10,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { useAuth } from "../../../hooks/auth/useAuth";
 import { signOut } from "firebase/auth";
 import { auth } from "../../Banco/init-firebase";
+import CheckoutBlocoMercadoPago from "../Pagamentos/CheckoutBlocoMercadoPago";
 
 function Menu({ menuOpen }) {
   const { user, loading } = useAuth();
@@ -175,6 +176,8 @@ function Menu({ menuOpen }) {
         <div onClick={logoff} className="gavetaOption">ENCERRAR</div>
         <Navegacoes />
       </div>
+
+      <CheckoutBlocoMercadoPago skinLogadoUser={skinLogadoUser} />
 
       <Outlet />
      

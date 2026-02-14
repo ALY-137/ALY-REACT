@@ -10,7 +10,7 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
-import { deleteObject, getDownloadURL, ref } from "firebase/storage";
+import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
 
 import CriadorBloco from "../Blocos/CriadorBloco";
 import EditorBloco from "../Blocos/EditorBloco";
@@ -35,6 +35,84 @@ const normalizarListaImagens = (valor) => {
   }
   return [];
 };
+
+const formatarPreco = (precoCentavos, moeda = "BRL") => {
+  const valorNumerico = Number(precoCentavos);
+  if (!Number.isFinite(valorNumerico) || valorNumerico <= 0) return null;
+
+  try {
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: moeda || "BRL",
+    }).format(valorNumerico / 100);
+  } catch {
+    return `R$ ${(valorNumerico / 100).toFixed(2)}`;
+  }
+};
+
+const gerarNomeArquivoSeguro = (nome = "imagem") => {
+  const nomeLimpo = String(nome || "imagem")
+    .trim()
+    .replace(/[^\w.\-]/g, "_");
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${nomeLimpo || "imagem"}`;
+};
+
+async function gerarPreviewDesfocado(file) {
+  try {
+    const imageBitmap = await createImageBitmap(file);
+    const canvas = document.createElement("canvas");
+    canvas.width = imageBitmap.width;
+    canvas.height = imageBitmap.height;
+
+    const ctx = canvas.getContext("2d");
+    ctx.filter = "blur(30px)";
+    ctx.drawImage(imageBitmap, 0, 0, canvas.width, canvas.height);
+
+    if (typeof imageBitmap.close === "function") {
+      imageBitmap.close();
+    }
+
+    const blob = await new Promise((resolve) =>
+      canvas.toBlob(resolve, "image/webp", 0.75)
+    );
+
+    if (!blob) {
+      throw new Error("Falha ao gerar preview desfocado.");
+    }
+
+    return new File([blob], `preview-${Date.now()}.webp`, {
+      type: "image/webp",
+    });
+  } catch {
+    // Fallback seguro: nunca reutiliza arquivo original como preview.
+    const canvas = document.createElement("canvas");
+    canvas.width = 48;
+    canvas.height = 48;
+    const ctx = canvas.getContext("2d");
+
+    if (ctx) {
+      const gradient = ctx.createLinearGradient(0, 0, 48, 48);
+      gradient.addColorStop(0, "#2a2a2a");
+      gradient.addColorStop(1, "#5a5a5a");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 48, 48);
+      ctx.fillStyle = "rgba(255,255,255,0.16)";
+      ctx.fillRect(0, 20, 48, 8);
+    }
+
+    const blob = await new Promise((resolve) =>
+      canvas.toBlob(resolve, "image/webp", 0.7)
+    );
+
+    if (!blob) {
+      throw new Error("Falha ao gerar preview seguro.");
+    }
+
+    return new File([blob], `preview-seguro-${Date.now()}.webp`, {
+      type: "image/webp",
+    });
+  }
+}
 
 export default function EspacoPage() {
   const navigate = useNavigate();
@@ -559,16 +637,27 @@ export default function EspacoPage() {
     navigate(`/menu/${skinLogadoUser}/espacos`);
   };
 
-  const irParaCompra = () => {
+  const irParaCompra = (bloco = null) => {
     const skinLogadoUser = localStorage.getItem("skinLogadoUser");
     if (!skinLogadoUser) {
       alert("Selecione uma skin para comprar blocos.");
       return;
     }
+    if (bloco?.id) {
+      const returnTo = `${window.location.pathname}${window.location.search || ""}`;
+      const params = new URLSearchParams({
+        comprarBloco: bloco.id,
+        espacoId: espacoId || "",
+        ownerUserId: ownerUserId || "",
+        returnTo,
+      });
+      navigate(`/menu/${skinLogadoUser}?${params.toString()}`);
+      return;
+    }
     navigate(`/menu/${skinLogadoUser}`);
   };
 
-  const renderCtaRestricao = (tipoRestricao) => {
+  const renderCtaRestricao = (tipoRestricao, bloco = null) => {
     if (!currentUid) {
       return <LoginButton />;
     }
@@ -576,7 +665,12 @@ export default function EspacoPage() {
       return <button onClick={irParaAssinatura}>Assinar para desbloquear</button>;
     }
     if (tipoRestricao === "comprador") {
-      return <button onClick={irParaCompra}>Comprar para desbloquear</button>;
+      const precoFormatado = formatarPreco(bloco?.precoCentavos, bloco?.moeda || "BRL");
+      return (
+        <button onClick={() => irParaCompra(bloco)}>
+          {precoFormatado ? `Comprar por ${precoFormatado}` : "Comprar para desbloquear"}
+        </button>
+      );
     }
     return null;
   };
@@ -599,28 +693,192 @@ export default function EspacoPage() {
       ? doc(db, "blocos", bloco.id)
       : doc(db, "users", ownerUserId, "espacos", espacoId, "blocos", bloco.id);
 
-  const atualizarBloco = async (blocoId, updates) => {
+  const atualizarBloco = async (blocoId, updates = {}) => {
     const bloco = blocos.find((item) => item.id === blocoId);
-    if (!bloco) return;
+    if (!bloco) return false;
+    if (!ownerUserId || !espacoId) {
+      setErroAcaoBloco("Nao foi possivel atualizar: espaco invalido.");
+      return false;
+    }
 
     setErroAcaoBloco("");
     setBlocoEmAtualizacaoId(blocoId);
 
     try {
-      await updateDoc(getBlocoDocRef(bloco), updates);
+      const removerIndices = Array.isArray(updates.removerIndices)
+        ? [...new Set(updates.removerIndices.filter((item) => Number.isInteger(item) && item >= 0))]
+        : [];
+      const removerSet = new Set(removerIndices);
+      const novasImagens = Array.isArray(updates.novasImagens)
+        ? updates.novasImagens.filter(Boolean)
+        : [];
 
-      setBlocos((prev) =>
-        prev.map((item) => (item.id === blocoId ? { ...item, ...updates } : item))
+      const visibilidadeFinal = updates.visibilidade || bloco.visibilidade || "publico";
+      const isPublicoFinal = visibilidadeFinal === "publico";
+      const precoCentavos = Object.prototype.hasOwnProperty.call(updates, "precoCentavos")
+        ? updates.precoCentavos
+        : bloco.precoCentavos || null;
+      const moedaFinal = precoCentavos ? (updates.moeda || bloco.moeda || "BRL") : null;
+
+      const pathsOriginaisAntigos = normalizarListaImagens(bloco.imagensOriginaisPaths);
+      const pathsPreviewsAntigos = normalizarListaImagens(bloco.imagensPreviewPaths);
+      const urlsPublicasAntigas = normalizarListaImagens(bloco.imagensOriginaisPublicas).filter(isRenderableUrl);
+      const urlsPreviewsAntigas = normalizarListaImagens(bloco.imagensPreview).filter(isRenderableUrl);
+      const legadoAntigo = normalizarListaImagens(bloco.imagens).filter(isRenderableUrl);
+
+      const referenciasAntigas = Math.max(
+        pathsOriginaisAntigos.length,
+        pathsPreviewsAntigos.length,
+        urlsPublicasAntigas.length,
+        urlsPreviewsAntigas.length,
+        legadoAntigo.length
       );
 
-      // Visibilidade alterada muda caminhos de resolucao de imagem/preview.
-      if (Object.prototype.hasOwnProperty.call(updates, "visibilidade")) {
-        blockedOriginalPathsRef.current.clear();
-        blockedPreviewPathsRef.current.clear();
+      const pathsOriginaisMantidos = [];
+      const pathsPreviewsMantidos = [];
+      const urlsPublicasMantidas = [];
+      const urlsPreviewsMantidas = [];
+      const pathsParaExcluir = [];
+
+      for (let index = 0; index < referenciasAntigas; index += 1) {
+        const originalPath = pathsOriginaisAntigos[index];
+        const previewPath = pathsPreviewsAntigos[index];
+
+        if (removerSet.has(index)) {
+          if (originalPath) pathsParaExcluir.push(originalPath);
+          if (previewPath) pathsParaExcluir.push(previewPath);
+          continue;
+        }
+
+        if (originalPath) pathsOriginaisMantidos.push(originalPath);
+        if (previewPath) pathsPreviewsMantidos.push(previewPath);
+        if (urlsPublicasAntigas[index]) urlsPublicasMantidas.push(urlsPublicasAntigas[index]);
+        if (urlsPreviewsAntigas[index]) urlsPreviewsMantidas.push(urlsPreviewsAntigas[index]);
       }
+
+      const novosOriginaisPaths = [];
+      const novosPreviewPaths = [];
+      const novasPublicasUrls = [];
+      const novasPreviewUrls = [];
+
+      for (const arquivo of novasImagens) {
+        const nomeArquivo = gerarNomeArquivoSeguro(arquivo?.name || "imagem");
+        const originalPath = `users/${ownerUserId}/espacos/${espacoId}/blocos/${blocoId}/original/${nomeArquivo}`;
+        const originalRef = ref(storage, originalPath);
+
+        await uploadBytes(originalRef, arquivo);
+        novosOriginaisPaths.push(originalPath);
+
+        if (isPublicoFinal) {
+          try {
+            const urlPublica = await getDownloadURL(originalRef);
+            novasPublicasUrls.push(urlPublica);
+          } catch (err) {
+            console.warn("Falha ao obter URL publica do original:", err?.code, err?.message);
+          }
+          continue;
+        }
+
+        const previewFile = await gerarPreviewDesfocado(arquivo);
+        const previewPath = `users/${ownerUserId}/espacos/${espacoId}/blocos/${blocoId}/preview/${nomeArquivo}`;
+        const previewRef = ref(storage, previewPath);
+
+        await uploadBytes(previewRef, previewFile);
+        novosPreviewPaths.push(previewPath);
+
+        try {
+          const previewUrl = await getDownloadURL(previewRef);
+          novasPreviewUrls.push(previewUrl);
+        } catch (err) {
+          console.warn("Falha ao obter URL de preview:", err?.code, err?.message);
+        }
+      }
+
+      const imagensOriginaisPaths = [...pathsOriginaisMantidos, ...novosOriginaisPaths];
+      if (!imagensOriginaisPaths.length) {
+        throw new Error("O bloco precisa ter ao menos uma imagem.");
+      }
+
+      let imagensPreviewPaths = [];
+      let imagensOriginaisPublicas = [];
+      let imagensPreview = [];
+      let imagens = [];
+
+      if (isPublicoFinal) {
+        // Ao tornar publico, remove previews remotos antigos para evitar lixo no bucket.
+        pathsParaExcluir.push(...pathsPreviewsMantidos);
+
+        const urlsPublicas = [];
+        for (const path of imagensOriginaisPaths) {
+          try {
+            const url = await getDownloadURL(ref(storage, path));
+            urlsPublicas.push(url);
+          } catch (err) {
+            console.warn("Falha ao resolver URL publica do original:", path, err?.code);
+          }
+        }
+
+        imagensOriginaisPublicas = urlsPublicas.length
+          ? urlsPublicas
+          : [...urlsPublicasMantidas, ...novasPublicasUrls].filter(isRenderableUrl);
+        imagensPreviewPaths = [];
+        imagensPreview = [];
+        imagens = imagensOriginaisPublicas;
+      } else {
+        imagensPreviewPaths = [...pathsPreviewsMantidos, ...novosPreviewPaths];
+        imagensPreview = [...urlsPreviewsMantidas, ...novasPreviewUrls].filter(isRenderableUrl);
+        imagensOriginaisPublicas = [];
+        imagens = imagensPreview;
+      }
+
+      const payload = {
+        visibilidade: visibilidadeFinal,
+        precoCentavos: precoCentavos || null,
+        moeda: moedaFinal,
+        imagensOriginaisPaths,
+        imagensPreviewPaths,
+        imagensOriginaisPublicas,
+        imagensPreview,
+        imagens,
+      };
+
+      await updateDoc(getBlocoDocRef(bloco), payload);
+
+      const pathsExclusaoUnicos = [...new Set(pathsParaExcluir)].filter(
+        (path) => typeof path === "string" && path.includes("/")
+      );
+      for (const path of pathsExclusaoUnicos) {
+        try {
+          await deleteObject(ref(storage, path));
+        } catch (err) {
+          if (err?.code !== "storage/object-not-found") {
+            console.warn("Falha ao excluir imagem removida:", path, err?.message);
+          }
+        }
+      }
+
+      setBlocos((prev) =>
+        prev.map((item) => (item.id === blocoId ? { ...item, ...payload } : item))
+      );
+      setOriginaisPorBloco((prev) => {
+        const next = { ...prev };
+        delete next[blocoId];
+        return next;
+      });
+      setPreviewsPorBloco((prev) => {
+        const next = { ...prev };
+        delete next[blocoId];
+        return next;
+      });
+      backfilledPublicUrlsRef.current.delete(blocoId);
+      blockedOriginalPathsRef.current.clear();
+      blockedPreviewPathsRef.current.clear();
+      setReloadNonce((n) => n + 1);
+      return true;
     } catch (err) {
       console.error("Erro ao atualizar bloco:", err);
       setErroAcaoBloco(err?.message || "Falha ao atualizar bloco.");
+      return false;
     } finally {
       setBlocoEmAtualizacaoId(null);
     }
@@ -713,6 +971,10 @@ export default function EspacoPage() {
           const visivel = podeVerBloco(bloco);
           const bloqueado = !visivel;
           const tipoRestricao = tipoRestricaoBloco(bloco);
+          const precoCompradorFormatado =
+            tipoRestricao === "comprador" && currentUid
+              ? formatarPreco(bloco?.precoCentavos, bloco?.moeda || "BRL")
+              : null;
 
           const previewsDoc = normalizarListaImagens(bloco.imagensPreview).filter(isRenderableUrl);
           const previewsResolvidas = Array.isArray(previewsPorBloco[bloco.id])
@@ -726,6 +988,27 @@ export default function EspacoPage() {
             .filter(isRenderableUrl);
           const fallbackLegado = normalizarListaImagens(bloco.imagens);
           const imagensBloqueadas = previews;
+          const pathsOriginaisEditor = normalizarListaImagens(bloco.imagensOriginaisPaths);
+          const pathsPreviewEditor = normalizarListaImagens(bloco.imagensPreviewPaths);
+          const totalImagensEditor = Math.max(
+            pathsOriginaisEditor.length,
+            pathsPreviewEditor.length,
+            originalsAutorizadas.length,
+            originaisPublicas.length,
+            previews.length,
+            fallbackLegado.length
+          );
+          const imagensEditor = Array.from({ length: totalImagensEditor }, (_, index) => ({
+            index,
+            originalPath: pathsOriginaisEditor[index] || null,
+            previewPath: pathsPreviewEditor[index] || null,
+            displayUrl:
+              originalsAutorizadas[index] ||
+              originaisPublicas[index] ||
+              previews[index] ||
+              fallbackLegado[index] ||
+              null,
+          })).filter((item) => item.originalPath || item.previewPath || item.displayUrl);
 
           const imagensParaExibir = bloqueado
             ? imagensBloqueadas
@@ -762,6 +1045,12 @@ export default function EspacoPage() {
                 </div>
               )}
 
+              {!!precoCompradorFormatado && (
+                <p style={{ margin: "6px 0 8px" }}>
+                  Valor: <strong>{precoCompradorFormatado}</strong>
+                </p>
+              )}
+
               {bloqueado && !imagensParaExibir.length && (
                 <div
                   style={{
@@ -783,13 +1072,14 @@ export default function EspacoPage() {
               {bloqueado && (
                 <div style={{ marginTop: 8 }}>
                   <p>Conteudo restrito do bloco.</p>
-                  {renderCtaRestricao(tipoRestricao)}
+                  {renderCtaRestricao(tipoRestricao, bloco)}
                 </div>
               )}
 
               {podeGerenciar && (
                 <EditorBloco
                   bloco={bloco}
+                  imagensEditor={imagensEditor}
                   onSalvar={(updates) => atualizarBloco(bloco.id, updates)}
                   onExcluir={() => excluirBloco(bloco.id)}
                   salvando={blocoEmAtualizacaoId === bloco.id}
