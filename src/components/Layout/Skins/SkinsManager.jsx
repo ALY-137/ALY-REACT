@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { verificarESalvarskins } from '../../Banco/verificaSkins';
-import { seforAdm } from '../../Scripts/verificações/verificaAdm';
-import { buscarSkinLogada } from './buscarSkinLogada';
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+
+import { verificarESalvarskins } from "./verificaSkins";
+import { buscarSkinLogada } from "./buscarSkinLogada";
+
 import {
   collection,
   doc,
@@ -11,232 +12,270 @@ import {
   where,
   deleteDoc,
   updateDoc,
-  arrayRemove
-} from 'firebase/firestore';
-import { db } from '../../Banco/init-firebase.js';
+  arrayRemove,
+} from "firebase/firestore";
+
+import { db } from "../../Banco/init-firebase";
+import { THEMES } from "../Temas/themesRegistry";
+import { useAuth } from "../../../hooks/auth/useAuth";
 
 const SkinsManager = () => {
-  const [theme, setTheme] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [selectedSkin, setSelectedSkin] = useState('');
-  const [skins, setSkins] = useState([]);
-  const [username, setUsername] = useState('');
-  const [SkinSelecionada, setSkinSelecionada] = useState(false);
-  const [skinLogado, setSkinLogado] = useState(localStorage.getItem('skinLogado') === 'true');
-  const [trigger, setTrigger] = useState(0);
-
+  const { user, loading } = useAuth();
   const navigate = useNavigate();
 
-  // Verifica se o usuário está logado ou se skin foi trocada então busca as skins
-  useEffect(() => {
-    if (skinLogado || trigger) {
-      fetchSkins();
-    }
-  }, [skinLogado, trigger]);
+  const [skins, setSkins] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Busca skins do usuário
+  // criação
+  const [newUsername, setNewUsername] = useState("");
+  const [newTheme, setNewTheme] = useState("");
+
+  // edição
+  const [editingSkinId, setEditingSkinId] = useState(null);
+  const [editingTheme, setEditingTheme] = useState("");
+
+  // ─────────────────────────────
+  // BUSCAR SKINS
+  // ─────────────────────────────
+  useEffect(() => {
+    if (loading || !user?.uid) return;
+    fetchSkins();
+  }, [loading, user?.uid]);
+
   const fetchSkins = async () => {
-    try {
-      const idGoogleCap = localStorage.getItem('idGoogleCap');
-      const skinsCol = collection(db, 'users', idGoogleCap, 'skins');
-      const skinsSnapshot = await getDocs(skinsCol);
-
-      const skinsList = skinsSnapshot.docs.map(doc => doc.data());
-      setSkins(skinsList);
-
-      if (skinsList.length === 0) {
-        const creativeUsername = generateCreativeUsername();
-        setUsername(creativeUsername);
-        await handleCreateDefaultSkin(creativeUsername);
-      } else {
-        setIsLoading(false);
-      }
-    } catch (error) {
-      console.error('Erro ao buscar skins:', error);
-      setIsLoading(false);
-    }
-  };
-
-  const generateCreativeUsername = () => {
-    const baseName = 'User';
-    const randomNum = Math.floor(Math.random() * 10000);
-    return `${baseName}${randomNum}`;
-  };
-
-  const handleCreateDefaultSkin = async (username) => {
-    try {
-      const idGoogleCap = localStorage.getItem('idGoogleCap');
-      const theme = 'CYBERPINK';
-      await verificarESalvarskins(idGoogleCap, username, theme);
-
-      setSkinSelecionada(true);
-      localStorage.setItem('skinLocal', username);
-      localStorage.setItem('skinLogadoUser', username);
-      setIsLoading(false);
-
-      if (seforAdm(idGoogleCap)) {
-        navigate(`/${username}/home`);
-      } else {
-        navigate(`/savannaoliveira/home`);
-      }
-    } catch (error) {
-      console.error('Erro ao criar skin padrão:', error);
-      setIsLoading(false);
-    }
-  };
-
-  const handleLogin = () => {
-    localStorage.setItem('skinLogado', true);
-    setSkinLogado(true);
     setIsLoading(true);
-  };
-
-  // Escuta alterações no localStorage
-  useEffect(() => {
-    const verificarSkinLogada = () => {
-      const logado = localStorage.getItem('skinLogado') === 'true';
-      setSkinLogado(logado);
-    };
-
-    verificarSkinLogada();
-    window.addEventListener('storage', verificarSkinLogada);
-
-    return () => {
-      window.removeEventListener('storage', verificarSkinLogada);
-    };
-  }, []);
-
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    setIsLoading(true);
-
     try {
-      const idGoogleCap = localStorage.getItem('idGoogleCap');
-      const skinsExists = await verificarESalvarskins(idGoogleCap, username, theme);
+      await user.getIdToken();
+      const snap = await getDocs(
+        collection(db, "users", user.uid, "skins")
+      );
 
-      if (!skinsExists) {
-        console.log('Skin criada com sucesso');
-        await fetchSkins();
-        setUsername('');
-        setTheme('');
-        setSkinSelecionada(true);
-        navigate(`/${username}/home`);
-      } else {
-        console.log('O nome de usuário da skin já existe.');
-      }
-    } catch (error) {
-      console.error('Erro ao criar skin:', error);
+      setSkins(
+        snap.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        }))
+      );
+    } catch (e) {
+      console.error("Erro ao buscar skins:", e);
+    } finally {
       setIsLoading(false);
     }
   };
 
-  const handleClick = async (username) => {
-    if (selectedSkin === username) return;
+  // ─────────────────────────────
+  // PRIMEIRO ACESSO
+  // ─────────────────────────────
+  const handleCreateFirstSkin = async (themeId) => {
+    if (!user?.uid) return;
+    await user.getIdToken();
+    const username = `skin${Math.floor(Math.random() * 10000)}`;
 
-    setSelectedSkin(username);
-    setUsername(username);
-    setSkinSelecionada(true);
+  
+    await verificarESalvarskins(user.uid, username, themeId);
 
-    localStorage.setItem('skinLocal', username);
-    localStorage.setItem('skinLogadoUser', username);
-    handleLogin();
-
-    const skin = await buscarSkinLogada();
-    if (skin) console.log('Skin logada:', skin);
+    localStorage.setItem("targetUsername", username);
+    localStorage.setItem("skinLogadoUser", username);
+    localStorage.setItem("skinLogado", "true");
 
     navigate(`/${username}/home`);
   };
 
-  const handleDeleteSkin = async (username) => {
-    const confirmar = window.confirm(`Deseja excluir a skin "${username}"?`);
-    if (!confirmar) return;
+// ─────────────────────────────
+// CRIAR NOVA SKIN
+// ─────────────────────────────
+const [feedback, setFeedback] = useState(""); // estado para mensagens ao usuário
 
-    try {
-      const idGoogleCap = localStorage.getItem('idGoogleCap');
-      const skinsCol = collection(db, 'users', idGoogleCap, 'skins');
-      const q = query(skinsCol, where('username', '==', username));
-      const querySnapshot = await getDocs(q);
+const handleCreateSkin = async () => {
+  if (!newUsername || !newTheme) {
+    setFeedback("Preencha o nome da skin e selecione um tema.");
+    return;
+  }
+  if (!user?.uid) {
+    setFeedback("Usuário não autenticado.");
+    return;
+  }
 
-      if (querySnapshot.empty) {
-        console.warn(`Nenhuma skin encontrada com username "${username}".`);
-        return;
-      }
+  await user.getIdToken();
 
-      const skinDoc = querySnapshot.docs[0];
-      const skinRef = doc(db, 'users', idGoogleCap, 'skins', skinDoc.id);
+  // 🔹 Chama a função de verificação/criação
+  const resultado = await verificarESalvarskins(user.uid, newUsername, newTheme);
 
-      // remover skin do registro das paginas_relacionadas
-      const paginasCol = collection(db, 'users', idGoogleCap, 'paginas');
-      const paginasSnap = await getDocs(paginasCol);
+  if (!resultado.sucesso) {
+    // 🔹 Se username já existe ou deu erro
+    setFeedback(resultado.mensagem || "Não foi possível criar a skin.");
+    return;
+  }
 
-      for (const pagina of paginasSnap.docs) {
-        const paginaRef = doc(db, 'users', idGoogleCap, 'paginas', pagina.id);
-        await updateDoc(paginaRef, {
-          skins_relacionadas: arrayRemove(skinDoc.id)
-        });
-      }
+  // 🔹 Sucesso
+  setFeedback("");
+  setNewUsername("");
+  setNewTheme("");
+  fetchSkins();
+};
 
-      // deletar apenas a SKIN
-      await deleteDoc(skinRef);
 
-      // atualizar lista
-      setTrigger(prev => prev + 1);
-      console.log(`Skin "${username}" excluída com sucesso.`);
-    } catch (error) {
-      console.error(`Erro ao excluir skin "${username}":`, error);
-    }
+  // ─────────────────────────────
+  // TROCAR SKIN
+  // ─────────────────────────────
+  const handleSelectSkin = async (username) => {
+    localStorage.setItem("targetUsername", username);
+    localStorage.setItem("skinLogadoUser", username);
+    localStorage.setItem("skinLogado", "true");
+
+    await buscarSkinLogada();
+    navigate(`/${username}/home`);
   };
+
+  // ─────────────────────────────
+  // ALTERAR TEMA
+  // ─────────────────────────────
+  const handleUpdateTheme = async (skinId) => {
+    if (!editingTheme) return;
+
+    await updateDoc(
+      doc(db, "users", user.uid, "skins", skinId),
+      { theme: editingTheme }
+    );
+
+    setEditingSkinId(null);
+    setEditingTheme("");
+    fetchSkins();
+  };
+
+  // ─────────────────────────────
+  // EXCLUIR SKIN
+  // ─────────────────────────────
+  const handleDeleteSkin = async (skin) => {
+    if (!window.confirm(`Excluir "${skin.username}"?`)) return;
+
+    const paginasSnap = await getDocs(
+      collection(db, "users", user.uid, "paginas")
+    );
+
+    for (const pagina of paginasSnap.docs) {
+      await updateDoc(pagina.ref, {
+        skins_relacionadas: arrayRemove(skin.id),
+      });
+    }
+
+    await deleteDoc(
+      doc(db, "users", user.uid, "skins", skin.id)
+    );
+
+    fetchSkins();
+  };
+
+  // ─────────────────────────────
+  // RENDER
+  // ─────────────────────────────
+  if (loading || isLoading) return <p>Carregando...</p>;
+
+  // 🆕 PRIMEIRO ACESSO
+  if (skins.length === 0) {
+    return (
+      <div className="theme-picker">
+        <h2>Escolha seu tema</h2>
+
+        <div className="themes-grid">
+          {THEMES.map(theme => (
+            <button
+              key={theme.id}
+              onClick={() => handleCreateFirstSkin(theme.id)}
+            >
+              {theme.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="skins-manager">
-      {isLoading ? (
-        <p>Carregando...</p>
-      ) : (
-        <div className="skins-container">
-          <h2>Suas skins</h2>
-          <ul className="skins-list">
-            {skins.map((skinItem) => (
-              <li
-                key={skinItem.username}
-                className={selectedSkin === skinItem.username ? 'selected' : ''}
-              >
-                <span
-                  onClick={() => handleClick(skinItem.username)}
-                  style={{ cursor: 'pointer' }}
+      <h2>Gerenciar skins</h2>
+
+   <div className="create-skin">
+  <h3>Criar nova skin</h3>
+
+  <input
+    placeholder="Nome da skin"
+    value={newUsername.toLowerCase()}
+    onChange={e => setNewUsername(e.target.value)}
+  />
+
+  <select
+    value={newTheme}
+    onChange={e => setNewTheme(e.target.value)}
+  >
+    <option value="">Escolha o tema</option>
+    {THEMES.map(t => (
+      <option key={t.id} value={t.id}>
+        {t.label}
+      </option>
+    ))}
+  </select>
+
+  <button onClick={handleCreateSkin}>Criar</button>
+
+  {/* 🔹 Feedback para o usuário */}
+  {feedback && <p style={{ color: "red" }}>{feedback}</p>}
+</div>
+
+      {/* ───── LISTA ───── */}
+      <ul className="skins-list">
+        {skins.map(skin => (
+          <li key={skin.id}>
+            <strong
+              onClick={() => handleSelectSkin(skin.username)}
+              style={{ cursor: "pointer" }}
+            >
+              {skin.username}
+            </strong>
+
+            {editingSkinId === skin.id ? (
+              <>
+                <select
+                  value={editingTheme}
+                  onChange={e => setEditingTheme(e.target.value)}
                 >
-                  {skinItem.username} - {skinItem.theme || 'Sem tema'}
-                </span>
+                  <option value="">Tema</option>
+                  {THEMES.map(t => (
+                    <option key={t.id} value={t.id}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+
+                <button onClick={() => handleUpdateTheme(skin.id)}>
+                  Salvar
+                </button>
+                <button onClick={() => setEditingSkinId(null)}>
+                  Cancelar
+                </button>
+              </>
+            ) : (
+              <>
+                <span> — {skin.theme}</span>
                 <button
-                  onClick={() => handleDeleteSkin(skinItem.username)}
-                  style={{ marginLeft: '10px', color: 'red' }}
+                  onClick={() => {
+                    setEditingSkinId(skin.id);
+                    setEditingTheme(skin.theme);
+                  }}
+                >
+                  Alterar tema
+                </button>
+                <button
+                  onClick={() => handleDeleteSkin(skin)}
+                  style={{ color: "red" }}
                 >
                   Excluir
                 </button>
-              </li>
-            ))}
-          </ul>
-          {skinLogado && (
-            <form onSubmit={handleSubmit} className="skins-form">
-              <h2>Cadastrar Nova Skin</h2>
-              <input
-                type="text"
-                placeholder="Nome da skin"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-              />
-              <input
-                type="text"
-                placeholder="Tema da skin"
-                value={theme}
-                onChange={(e) => setTheme(e.target.value)}
-                required
-              />
-              <button type="submit">Cadastrar</button>
-            </form>
-          )}
-        </div>
-      )}
+              </>
+            )}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 };

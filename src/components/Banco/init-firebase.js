@@ -1,33 +1,32 @@
 import { initializeApp } from "firebase/app";
 import {
   getFirestore,
-  serverTimestamp,
   collection,
   doc,
   setDoc,
-  getDoc,
-  updateDoc,
   addDoc,
+  serverTimestamp,
   query,
   where,
-  getDocs
+  getDocs,
+  getDoc,
+  updateDoc
 } from "firebase/firestore";
-import { GoogleAuthProvider, signInWithPopu, getAuth } from "firebase/auth";
+
+import { getStorage } from "firebase/storage";
 
 import {
-  idGoogleCap,
-  primeiroNomeCap,
-  emailCap,
-  picGoogleCap,
-  fullnameCap
-} from "../../App";
+  getAuth,
+  GoogleAuthProvider
+} from "firebase/auth";
 
 // ===============================
 // CONFIG
 // ===============================
 const firebaseConfig = {
-  apiKey: "AIzaSyAhSNGCUOM_nRiVwtRmmPz9o6ciQA6lSYA",
+  apiKey: "AIzaSyCJMHDdf-GwLwyqKQLRWR8kkyWXDP2v02A",
   authDomain: "teste-aa015.firebaseapp.com",
+  databaseURL: "https://teste-aa015-default-rtdb.firebaseio.com",
   projectId: "teste-aa015",
   storageBucket: "teste-aa015.appspot.com",
   messagingSenderId: "99960275074",
@@ -37,14 +36,18 @@ const firebaseConfig = {
 // ===============================
 // INIT
 // ===============================
-const app = initializeApp(firebaseConfig);
+export const app = initializeApp(firebaseConfig);
 
 // ===============================
 // SERVICES
 // ===============================
 export const db = getFirestore(app);
 export const auth = getAuth(app);
+export const storage = getStorage(app);
 export const providerGoogle = new GoogleAuthProvider();
+
+
+
 
 // ===============================
 // HELPERS
@@ -148,37 +151,3 @@ export const enviarMensagem = async (
     }
   );
 };
-
-// ===============================
-// USER
-// ===============================
-export const verificaUser = async (campo, valor) => {
-  const q = query(collection(db, "users"), where(campo, "==", valor));
-  const snapshot = await getDocs(q);
-
-  if (!snapshot.empty) {
-    snapshot.forEach(async (docSnap) => {
-      await addDoc(collection(docSnap.ref, "logins"), {
-        data: serverTimestamp()
-      });
-    });
-  } else {
-    const userRef = doc(db, "users", idGoogleCap);
-
-    await setDoc(userRef, {
-      idGoogle: idGoogleCap,
-      nomeGoogle: primeiroNomeCap,
-      nomeCompletoGoogle: fullnameCap,
-      emailGoogle: emailCap,
-      picGoogle: picGoogleCap,
-      data: new Date(),
-      isAdmin: false
-    });
-
-    await addDoc(collection(userRef, "logins"), {
-      data: serverTimestamp()
-    });
-  }
-};
-
-export { app };

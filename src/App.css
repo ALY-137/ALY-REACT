@@ -779,3 +779,9 @@ body{
   opacity: 0;
   pointer-events: none;
 }
+
+.skins-manager,.theme-picker{
+
+  color: white;
+}
+

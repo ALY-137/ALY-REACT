@@ -1,68 +1,73 @@
 import React, { useEffect, useState } from 'react';
-import { idGoogleCap } from '../../../App';
-import { seforAdm } from '../verificações/verificaAdm';
-import { db } from '../../Banco/init-firebase.js';
+import { seforAdm } from '../verificacoes/verificaAdm';
+import { db, auth } from '../../Banco/init-firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 
-function Acesso({ valorEmail }) {
+function Acesso() {
   const [dados, setDados] = useState(null);
   const [endereco, setEndereco] = useState(null);
   const [jaEnviado, setJaEnviado] = useState(false);
+  const [user, setUser] = useState(null);
 
-  // --------------------------
-  // 1) BUSCAR IP E LOCALIZAÇÃO
-  // --------------------------
+  // 1️⃣ Aguarda autenticação
   useEffect(() => {
-    if (!seforAdm(idGoogleCap)) {
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // 2️⃣ Buscar IP (somente se user existir e NÃO for admin)
+  useEffect(() => {
+    if (!user) return;
+
+    if (!seforAdm(user)) {
       fetch("https://ipwho.is/")
         .then(res => res.json())
         .then(data => {
-          console.log("Dados IP whois:", data);
+          setDados(data);
 
-          setDados(data); // salva tudo
-
-          // se tiver postal (CEP)
           if (data.postal) {
             const cep = data.postal.replace(/\D/g, "");
             buscarEnderecoViaCEP(cep);
           }
         })
-        .catch(err => console.error("Erro ao consultar ipwho.is:", err));
+        .catch(err => console.error("Erro ipwho.is:", err));
     }
-  }, [idGoogleCap]);
+  }, [user]);
 
-  // --------------------------------
-  // 2) BUSCAR ENDEREÇO VIA VIA CEP
-  // --------------------------------
+  // 3️⃣ ViaCEP
   const buscarEnderecoViaCEP = (cep) => {
     fetch(`https://viacep.com.br/ws/${cep}/json/`)
       .then(res => res.json())
       .then(data => {
-        console.log("Endereço via CEP:", data);
-
-        if (!data.erro) {
-          setEndereco(data);
-        }
+        if (!data.erro) setEndereco(data);
       })
-      .catch(err => console.error("Erro ao consultar ViaCEP:", err));
+      .catch(err => console.error("Erro ViaCEP:", err));
   };
 
-  // ---------------------------------------------------------
-  // 3) ENVIAR PARA O FIREBASE: IP + LOCALIZAÇÃO + ENDEREÇO
-  // ---------------------------------------------------------
+  // 4️⃣ Enviar UMA vez
+  useEffect(() => {
+    if (dados && endereco && user && !jaEnviado) {
+      enviarDadosParaBanco(dados, endereco);
+      setJaEnviado(true);
+    }
+  }, [dados, endereco, user, jaEnviado]);
+
   const enviarDadosParaBanco = async (dadosIP, dadosEndereco) => {
     try {
-      const docRef = await addDoc(collection(db, 'acessos'), {
-        hash: localStorage.getItem('navegacaoHash'),
+      await addDoc(collection(db, 'acessos'), {
+        uid: user.uid,
+        hash: localStorage.getItem('navegacaoHash') || null,
 
-        // IP who.is
         ip: dadosIP.ip,
         country: dadosIP.country,
         region: dadosIP.region,
         city: dadosIP.city,
         org: dadosIP.connection?.org || "",
 
-        // Endereço ViaCEP
         cep: dadosEndereco?.cep || "",
         logradouro: dadosEndereco?.logradouro || "",
         bairro: dadosEndereco?.bairro || "",
@@ -73,24 +78,13 @@ function Acesso({ valorEmail }) {
         visto: false,
       });
 
-      console.log("Dados enviados para o banco:", docRef.id);
-
     } catch (error) {
-      console.error("Erro ao enviar ao banco:", error);
+      console.error("Erro ao enviar acesso:", error);
     }
   };
-
-  // --------------------------------------------------------------
-  // 4) QUANDO TIVER DADOS DO IP + ENDEREÇO, ENVIA UMA ÚNICA VEZ
-  // --------------------------------------------------------------
-  useEffect(() => {
-    if (dados && endereco && !jaEnviado) {
-      enviarDadosParaBanco(dados, endereco);
-      setJaEnviado(true);
-    }
-  }, [dados, endereco, jaEnviado]);
 
   return null;
 }
 
 export default Acesso;
+

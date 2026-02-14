@@ -14,7 +14,10 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "firestore:rules:deploy": "npx firebase-tools deploy --only firestore:rules",
+    "storage:rules:deploy": "npx firebase-tools deploy --only storage",
+    "firestore:emulators": "npx firebase-tools emulators:start --only firestore"
   },
   "browserslist": {
     "production": [

@@ -5,6 +5,7 @@ import './Error.css';
 const Error = () => {
     const location = useLocation();
     const rotaAtual = location.pathname;
+    const targetUsername = localStorage.getItem("targetUsername");
 
     const [mostrarMensagem, setMostrarMensagem] = useState(false);
 
@@ -27,6 +28,7 @@ const Error = () => {
         <div className="errorContainer">
             <div className={`containerError ${mostrarMensagem ? 'fadeIn' : ''}`}>
                 <p className="textError">ERROR 404</p>
+                {console.log(targetUsername)}
             </div>
         </div>
     );

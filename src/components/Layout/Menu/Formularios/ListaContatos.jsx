@@ -2,15 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import './formularios.css';
-import { seforAdm } from '../../../Scripts/verificações/verificaAdm';
-import { idGoogleCap } from '../../../../App';
+import { seforAdm } from '../../../Scripts/verificacoes/verificaAdm';
 
 import {
-  collection,
+  collectionGroup,
   getDocs,
   query,
   where,
-  orderBy
+  orderBy,
+  limit
 } from 'firebase/firestore';
 
 import { db } from '../../../Banco/init-firebase.js';
@@ -22,29 +22,37 @@ function ListaContatos() {
 
   const navigate = useNavigate();
   const skinLogadoUser = localStorage.getItem('skinLogadoUser');
+  const userId = localStorage.getItem('userId');
+  const isAdmin = seforAdm({ uid: userId });
 
   useEffect(() => {
 
     // 🔹 Busca dados da skin pelo username
     const fetchSkinDataByUsername = async (username) => {
       try {
-        const usersSnapshot = await getDocs(collection(db, 'users'));
+        let skinsQuery = query(
+          collectionGroup(db, 'skins'),
+          where('username', '==', username),
+          limit(1)
+        );
 
-        for (const userDoc of usersSnapshot.docs) {
-          const skinsQuery = query(
-            collection(userDoc.ref, 'skins'),
-            where('username', '==', username)
+        if (!isAdmin) {
+          skinsQuery = query(
+            collectionGroup(db, 'skins'),
+            where('username', '==', username),
+            where('visibilidade', 'in', ['publico', 'publico_restritivo', 'privado']),
+            limit(1)
           );
+        }
 
-          const skinsSnapshot = await getDocs(skinsQuery);
+        const skinsSnapshot = await getDocs(skinsQuery);
 
-          if (!skinsSnapshot.empty) {
-            const skinData = skinsSnapshot.docs[0].data();
-            return {
-              nome: skinData.username || 'Sem nome',
-              foto: skinData.iconSkin || 'default-user.jpg',
-            };
-          }
+        if (!skinsSnapshot.empty) {
+          const skinData = skinsSnapshot.docs[0].data();
+          return {
+            nome: skinData.username || 'Sem nome',
+            foto: skinData.iconSkin || 'default-user.jpg',
+          };
         }
       } catch (error) {
         console.error(`Erro ao buscar dados da skin (${username}):`, error);
@@ -73,7 +81,7 @@ function ListaContatos() {
             const destinatario = data.skinDestinatario;
 
             // 🔒 Filtro para não-admin
-            if (!seforAdm()) {
+            if (!isAdmin) {
               const userIsInvolved =
                 remetente === skinLogadoUser ||
                 destinatario === skinLogadoUser;
@@ -135,7 +143,7 @@ function ListaContatos() {
             }
           >
             <div className="fotoContainer">
-              {seforAdm() && (
+              {isAdmin && (
                 <>
                   <img
                     src={contato.fotoRemetente}
@@ -155,7 +163,7 @@ function ListaContatos() {
 
             <div className="infosContato">
               <p className="nomesContatos">
-                {seforAdm()
+                {isAdmin
                   ? `${contato.nomeRemetente} | ${contato.nomeDestinatario}`
                   : contato.nomeDestinatario}
               </p>
@@ -182,3 +190,5 @@ function ListaContatos() {
 }
 
 export default ListaContatos;
+
+

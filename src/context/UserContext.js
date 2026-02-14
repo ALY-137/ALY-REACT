@@ -6,14 +6,23 @@ const UserContext = createContext();
 
 // Criar um provedor de contexto
 export const UserProvider = ({ children }) => {
-  const [usernameGlobal, setUsernameGlobal] = useState(false);  // Definindo a variável global 'username'
-  const [userLogado, setUserLogado] = useState('false'); 
+  const [usernameGlobal, setUsernameGlobal] = useState(null); // string | null
+  const [userLogado, setUserLogado] = useState(false);        // boolean
+
   return (
-    <UserContext.Provider value={{ usernameGlobal, setUsernameGlobal ,userLogado, setUserLogado }}>
+    <UserContext.Provider
+      value={{
+        usernameGlobal,
+        setUsernameGlobal,
+        userLogado,
+        setUserLogado,
+      }}
+    >
       {children}
     </UserContext.Provider>
   );
 };
+
 
 // Função para usar o contexto em outros componentes
 export const useUser = () => useContext(UserContext);

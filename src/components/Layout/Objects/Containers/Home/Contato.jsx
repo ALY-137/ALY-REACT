@@ -15,7 +15,7 @@ function Contato() {
   const valorHash = localStorage.getItem('navegacaoHash');
   const skinLogadoUser = localStorage.getItem('skinLogadoUser');
 
-  const idGoogleCap = localStorage.getItem('idGoogleCap'); // USUÁRIO LOGADO
+  const userId = localStorage.getItem('userId'); // USUARIO LOGADO
 
 const [valorEmail, setValorEmail] = useState(''); // Adicionei esta linha para definir o estado do email
 
@@ -58,7 +58,7 @@ const handleClick = () => {
             <option value={'PROJETO ENCHENTES RS'}> - Projeto para suporte a pessoas atingidas pelas inundações no RS.</option>
           </select>
 
-          {!idGoogleCap ? (
+          {!userId ? (
           <textarea value={valorEmail}
             id='emailCamp'
             placeholder=" E-mail..."
@@ -82,3 +82,4 @@ const handleClick = () => {
 }
 
 export default Contato;
+

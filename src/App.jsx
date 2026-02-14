@@ -1,224 +1,125 @@
 // App.jsx
-
-import React, { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-
-import { db } from './components/Banco/init-firebase';
+import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
+import { auth, db } from './components/Banco/init-firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 import { collection, doc, getDocs } from 'firebase/firestore';
 
-
 import SkinsManager from './components/Layout/Skins/SkinsManager';
-import AnoAtualizado from './components/Scripts/data/AnoAtualizado';
-import './App.css';
-import { txtDefault } from './components/Layout/Temas/CYBERPINK/layout';
 import Estrutura from './components/Layout/Espacos/Estrutura';
-import Localiza from './components/Scripts/acesso/Acesso.jsx';
-import { seforAdm } from './components/Scripts/verificações/verificaAdm.js';
-import Acesso from './components/Scripts/acesso/Acesso.jsx';
-import Navegacoes from './components/Scripts/navegacoes/Navegacoes.jsx';
-import {buscarSkinLogada} from './components/Layout/Skins/buscarSkinLogada.jsx';
-
 import LoginGoogle from './components/Layout/Geral/LoginGoogle.jsx';
+import Navegacoes from './components/Scripts/navegacoes/Navegacoes.jsx';
+import AnoAtualizado from './components/Scripts/data/AnoAtualizado';
 
-import  {verificaUser ,auth}  from './components/Banco/init-firebase';
+import './App.css';
 
 // Variáveis globais exportadas
-let idGoogleCap = null;
 let primeiroNomeCap = null;
 let emailCap = null;
 let picGoogleCap = null;
 let fullnameCap = null;
 
 const App = () => {
-  txtDefault();
 
-  const [username, setUsername] = useState('');
-  const [skins, setSkins] = useState([]);
+
   const [user, setUser] = useState(null);
+  const [skins, setSkins] = useState([]);
+  const [username, setUsername] = useState('');
   const [mostrarLogin, setMostrarLogin] = useState(false);
 
+  const [authLoading, setAuthLoading] = useState(true);
+  const [skinsLoading, setSkinsLoading] = useState(false); // inicia falso
   const location = useLocation();
-  const navigate = useNavigate();
 
-  const [skinLogado, setSkinLogado] = useState(
-    JSON.parse(localStorage.getItem('skinLogado')) || false
-  );
-
-  const [localIdGoogle, setLocalIdGoogle] = useState(
-    JSON.parse(localStorage.getItem('idGoogleCap')) || false
-  );
-
-  const [localPrimeiroNome, setLocalPrimeiroNome] = useState('');
-  const [localEmail, setLocalEmail] = useState('');
-  const [localPicGoogle, setLocalPicGoogle] = useState('');
-  const [localFullname, setLocalFullname] = useState('');
-
-
-  
-const handleCallbackResponse = (response) => {
-  const userObject = jwtDecode(response.credential);
-
-  // Atualiza locais
-  setLocalIdGoogle(userObject.sub);
-  setLocalPrimeiroNome(userObject.given_name);
-  setLocalEmail(userObject.email);
-  setLocalPicGoogle(userObject.picture);
-  setLocalFullname(userObject.name);
-
-  // Atualiza storage
-  localStorage.setItem('user', JSON.stringify(userObject));
-  localStorage.setItem('idGoogleCap', userObject.sub);
-  localStorage.setItem('primeiroNomeCap', userObject.given_name);
-
-  // Atualiza estado
-  setUser(userObject);
-  verificaUser('idGoogleCap', userObject.sub);
-};
-
-
-const fetchSkins = async (id) => {
-  try {
-    // Referência ao documento do usuário
-    const userRef = doc(db, 'users', id);
-
-    // Referência à coleção de skins
-    const skinsCol = collection(userRef, 'skins');
-
-    // Busca todos os documentos da coleção
-    const skinsSnapshot = await getDocs(skinsCol);
-
-    const skinsList = skinsSnapshot.docs.map((doc) => doc.data());
-    setSkins(skinsList);
-
-    if (skinsList.length === 1) {
-      const skinUser = skinsList[0].username;
-
-      setUsername(skinUser);
-
-      localStorage.setItem('skinLogadoUser', skinUser);
-      localStorage.setItem('selectedTheme', skinsList[0].theme);
-      localStorage.setItem('skinLogado', true);
-
-      setSkinLogado(true);
-    }
-  } catch (error) {
-    console.error('Erro ao buscar skins:', error);
-  }
-};
-
-
+  // onAuthStateChanged já atualiza o user
   useEffect(() => {
-    window.google.accounts.id.initialize({
-      client_id: '99960275074-f5d0bnogv6a9oq1ui4pkrbou60ffh43f.apps.googleusercontent.com',
-      callback: handleCallbackResponse,
-    });
-
-    window.google.accounts.id.renderButton(
-      document.getElementById('signInDiv'),
-      {
-        theme: 'outline',
-        size: 'large',
-        type: 'icon',
-        shape: 'rectangular',
-        text: '$ {button.text}',
-        locale: 'pt-BR',
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser?.uid) {
+        localStorage.setItem('userId', firebaseUser.uid);
+      } else {
+        localStorage.removeItem('userId');
       }
-    );
 
-    const storedUser = JSON.parse(localStorage.getItem('user'));
-    if (storedUser) {
-      setUser(storedUser);
-      setLocalIdGoogle(storedUser.sub);
-      setLocalPrimeiroNome(storedUser.given_name);
-      setLocalEmail(storedUser.email);
-      setLocalPicGoogle(storedUser.picture);
-      setLocalFullname(storedUser.name);
-    }
+      setUser(firebaseUser);
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
   }, []);
 
+  // Busca skins só quando user existir
   useEffect(() => {
-    if (user && localIdGoogle) {
-      fetchSkins(localIdGoogle);
-    }
-  }, [user, localIdGoogle]);
+    if (!user?.uid) return;
 
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      setMostrarLogin(true);
-    }, 2000);
-    return () => clearTimeout(timeoutId);
-  }, []);
+    setSkinsLoading(true);
 
-  // Sincroniza globais exportadas com as variáveis locais
-  useEffect(() => {
-    idGoogleCap = localIdGoogle;
-    primeiroNomeCap = localPrimeiroNome;
-    emailCap = localEmail;
-    picGoogleCap = localPicGoogle;
-    fullnameCap = localFullname;
-  }, [localIdGoogle, localPrimeiroNome, localEmail, localPicGoogle, localFullname]);
+    const fetchSkins = async () => {
+      try {
+        await user.getIdToken();
+        const userRef = doc(db, 'users', user.uid);
+        const skinsCol = collection(userRef, 'skins');
+        const skinsSnapshot = await getDocs(skinsCol);
+        const skinsList = skinsSnapshot.docs.map(doc => doc.data());
 
-    useEffect(() => {
-    const carregarSkinLogada = async () => {
-      const skin = await buscarSkinLogada();
-      if (skin) {
-        console.log('Skin logadaA:', skin);
+        setSkins(skinsList);
+
+        if (skinsList.length === 1) {
+          const skin = skinsList[0];
+          setUsername(skin.username);
+          localStorage.setItem('targetUsername', skin.username);
+          localStorage.setItem('skinLogadoUser', skin.username);
+          localStorage.setItem('selectedTheme', skin.theme);
+        }
+      } catch (error) {
+        console.error('Erro ao buscar skins:', error);
+      } finally {
+        setSkinsLoading(false);
       }
     };
 
-    carregarSkinLogada();
-  }, []); 
+    fetchSkins();
+  }, [user]);
 
-const handleLogin = async () => {
-  try {
-    const result = await signInWithPopup(auth, provider);
-    const user = result.user;
-    console.log("Usuário logado:", user);
+  // Delay da animação de login
+  useEffect(() => {
+    const timeout = setTimeout(() => setMostrarLogin(true), 1000);
+    return () => clearTimeout(timeout);
+  }, []);
 
-    onLogin(user);
-  } catch (error) {
-    if (error.code === "auth/popup-closed-by-user") {
-      console.log("O popup foi fechado antes de completar o login.");
-    } else {
-      console.error("Erro no login:", error);
-    }
-  }
-};
+  // Loader apenas quando user logado e skins ainda carregando
+  if (!authLoading && user && skinsLoading) return <div className="loader">Carregando skins...</div>;
 
-  return (
-    <div>
+  const isPublicProfileRoute =
+  location.pathname.split("/").length >= 2 &&
+  location.pathname !== "/";
 
-      {!localIdGoogle && location.pathname === '/' ? (
-
-        <div id="login" className={`containerLogin ${mostrarLogin ? 'fadeIn' : ''}`}>   
-
-        {/*   <Acesso />  */}
-               
-              <Navegacoes />
-<div id="iconsLogin">
-  <img src="/logoNeon.png" id="logoLogin" alt="Logo" />
-  <p id="logoTxt">ALY-137</p>
-  <p id="textoLogin">EMBARQUE COM O GOOGLE</p>
-  <LoginGoogle onLogin={handleLogin} />
-</div>
-
-            <p id="rodapeLogin">
-                ALY-137© <AnoAtualizado />
-            </p>
+return (
+  <div>
+    {/* 🔓 ROTAS PÚBLICAS (skins públicas) */}
+    {isPublicProfileRoute ? (
+      <Estrutura />
+    ) : !user && !authLoading ? (
+      // LOGIN
+      <div id="login" className={`containerLogin ${mostrarLogin ? 'fadeIn' : ''}`}>
+        <Navegacoes />
+        <div id="iconsLogin">
+          <img src="/logoNeon.png" id="logoLogin" alt="Logo" />
+          <p id="logoTxt">ALY-137</p>
+          <p id="textoLogin">EMBARQUE COM O GOOGLE</p>
+          <LoginGoogle />
         </div>
-      ) : skinLogado ? (
-      
-        <Estrutura username={username} skins={skins} />
-                 
- 
-        
-      ) : (
-        <SkinsManager />
-      )}
-    </div>
-  );
+        <p id="rodapeLogin">ALY-137© <AnoAtualizado /></p>
+      </div>
+    ) : skins.length === 1 ? (
+      <Estrutura username={username} skins={skins} />
+    ) : (
+      <SkinsManager user={user} />
+    )}
+  </div>
+);
+
 };
 
-// Mantém as exportações para não quebrar outros componentes
-export { idGoogleCap, primeiroNomeCap, emailCap, picGoogleCap, fullnameCap  };
+
+// Mantém as exportações para outros componentes
+export { primeiroNomeCap, emailCap, picGoogleCap, fullnameCap };
 export default App;

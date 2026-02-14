@@ -1,72 +1,59 @@
-// Componente para excluir conta do usuário logado, exluindo dados da coleção  'users"
-import React, { useState, useEffect } from "react";
-import { useNavigate   } from "react-router-dom";
+// Componente para excluir conta do usuario logado e seus dados em users/{userId}
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  collection,
+  doc,
+  getDocs,
+  writeBatch,
+} from "firebase/firestore";
 
-import { app } from '../../../../Banco/init-firebase.js';
-import { getFirestore } from 'firebase/firestore';
-
-const db = getFirestore(app);
+import { db } from "../../../../Banco/init-firebase";
 
 function ContaManager() {
+  const navigate = useNavigate();
 
-
-      const navigate = useNavigate();
   const excluirConta = async () => {
-  const idGoogleCap = localStorage.getItem("idGoogleCap");
-  if (!idGoogleCap) {
-    alert("ID do usuário não encontrado.");
-    return;
-  }
-
-  const confirmar = window.confirm("Tem certeza que deseja excluir sua conta? Essa ação é irreversível.");
-  if (!confirmar) return;
-
-  try {
-    const usersRef = firebase.firestore().collection("users");
-    const snapshot = await usersRef.where("idGoogle", "==", idGoogleCap).get();
-
-    if (snapshot.empty) {
-      alert("Usuário não encontrado no banco de dados.");
+    const userId = localStorage.getItem("userId");
+    if (!userId) {
+      alert("ID do usuario nao encontrado.");
       return;
     }
 
-    const batch = firebase.firestore().batch();
+    const confirmar = window.confirm(
+      "Tem certeza que deseja excluir sua conta? Essa acao e irreversivel."
+    );
+    if (!confirmar) return;
 
-    for (const doc of snapshot.docs) {
-      const userRef = doc.ref;
+    try {
+      const userRef = doc(db, "users", userId);
+      const batch = writeBatch(db);
 
-      // 🔻 1. Excluir subcoleção 'logins'
-      const loginsSnapshot = await userRef.collection("logins").get();
+      const loginsSnapshot = await getDocs(collection(userRef, "logins"));
       loginsSnapshot.forEach((subDoc) => batch.delete(subDoc.ref));
 
-      // 🔻 2. Excluir subcoleção 'navegacoes_users'
-      const navSnapshot = await userRef.collection("navegacoes_users").get();
+      const navSnapshot = await getDocs(collection(userRef, "navegacoes_users"));
       navSnapshot.forEach((subDoc) => batch.delete(subDoc.ref));
 
-    const skinsSnapshot = await userRef.collection("skins").get();
+      const skinsSnapshot = await getDocs(collection(userRef, "skins"));
       skinsSnapshot.forEach((subDoc) => batch.delete(subDoc.ref));
 
-      // 🔻 3. Excluir o próprio documento user
       batch.delete(userRef);
+      await batch.commit();
+
+      alert("Conta excluida com sucesso.");
+      localStorage.clear();
+      navigate("/");
+      window.location.reload();
+    } catch (erro) {
+      if (erro.code === "auth/requires-recent-login") {
+        alert("Por seguranca, voce precisa entrar novamente para excluir sua conta.");
+      } else {
+        console.error("Erro ao excluir conta:", erro);
+        alert("Erro ao excluir conta. Tente novamente.");
+      }
     }
-
-    await batch.commit();
-
-    alert("Conta excluída com sucesso.");
-    localStorage.clear();
-    navigate('/');
-    window.location.reload();
-    
-  } catch (erro) {
-    if (erro.code === 'auth/requires-recent-login') {
-      alert("Por segurança, você precisa entrar novamente para excluir sua conta.");
-    } else {
-      console.error("Erro ao excluir conta:", erro);
-      alert("Erro ao excluir conta. Tente novamente.");
-    }
-  }
-};
-
+  };
 
   return (
     <div>

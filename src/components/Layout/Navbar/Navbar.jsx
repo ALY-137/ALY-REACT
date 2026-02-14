@@ -1,35 +1,55 @@
-import { useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
 
+import { useEffect, useRef, useMemo } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
 const Navbar = ({ pages = [] }) => {
-  const skinLocal = localStorage.getItem("skinLocal");
   const navigate = useNavigate();
+  const targetUsername = localStorage.getItem("targetUsername");
+  const redirected = useRef(false);
+  const activePage = window.location.pathname.split("/").pop(); // última parte da URL
 
+
+  // Menu formatado
+  const menu = pages.map(p => ({
+    ...p,
+    tipo: p.isHome ? "home" : "add",
+    rota: `/${targetUsername}/${p.nome}`
+  }));
+
+  // Redirecionamento automático
   useEffect(() => {
-    if (!pages.length) return;
+    if (redirected.current) return;
+    if (!targetUsername || !menu.length) return;
 
-    const mainPage = pages.find(p => p.is_main);
-
-    if (mainPage) {
-      navigate(`/${skinLocal}/${mainPage.nome}`, { replace: true });
+    const homeItem = menu.find(i => i.tipo === "home");
+    if (homeItem) {
+      redirected.current = true;
+      navigate(homeItem.rota, { replace: true });
     }
-  }, [pages]);
+  }, [menu, targetUsername, navigate]);
+
+  if (!targetUsername || !menu.length) return null;
 
   return (
-    <div id="cabecalho">
+   
       <div id="abas">
-        {pages.map((page, index) => (
+        {menu.map((item, index) => (
           <Link
-            key={index}
-            className="optionsAbasFocoHome"
-            to={`/${skinLocal}/${page.nome}`}
+            key={item.id_espaco || item.id || `${item.nome}-${index}`}
+           className={item.nome === activePage ? "optionsAbasFoco" : "optionsAbas"}
+
+            to={item.rota}
           >
-            <p className="numBrilhaHome">{page.nome}</p>
+            <p>{item.nome}</p>
           </Link>
         ))}
       </div>
-    </div>
+
   );
 };
+
+
 export default Navbar;
+
+
+

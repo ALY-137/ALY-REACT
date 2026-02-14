@@ -4,9 +4,9 @@ export function validarFormulario() {
     var mensagemErro = document.getElementById("mensagemErro");
     var emailCampo = document.getElementById("emailCamp");
 
-    const idGoogleCap = localStorage.getItem('idGoogleCap'); // USUÁRIO LOGADO
+    const userId = localStorage.getItem('userId'); // USUARIO LOGADO
 
-    if (!idGoogleCap) {
+    if (!userId) {
         if (emailCampo.value.trim() === "") {
             mensagemErro.textContent = "⚠ Hey, você ainda não disse o seu e-mail!";
             return(0)
@@ -27,3 +27,4 @@ export function validarFormulario() {
     
 
 }
+

@@ -1,247 +1,287 @@
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, Suspense  } from "react";
 import { useLocation, useNavigate, Outlet } from "react-router-dom";
-import Navbar from "../Navbar/Navbar";
-import LoginButton from "../Geral/LoginButton";
-import CriadorBloco from "../Blocos/CriadorBloco";
-import Navegacoes from "../../Scripts/navegacoes/Navegacoes";
 import { useAuth } from "../../../hooks/auth/useAuth";
-import { seforAdm } from "../../Scripts/verificações/verificaAdm";
-import { getEspacosDaSkin } from "../../Banco/firebaseEspacos";
-
-import {
-  collection,
-  doc,
-  getDocs,
-  query,
-  where,
-} from "firebase/firestore";
+import { collection, collectionGroup, doc, getDocs, limit, query, updateDoc, where } from "firebase/firestore";
 import { db } from "../../Banco/init-firebase";
 
-// Função para aplicar o tema
-export const defineTheme = async (username, skins, setLayoutScript) => {
-  const selectedSkinItem = skins.find((skin) => skin.username === username);
-  if (!selectedSkinItem) {
-    console.error("Skin ou tema não encontrados.");
-    return;
-  }
+import Layout from "../Temas/Layout.jsx";
+import Navegacoes from "../../Scripts/navegacoes/Navegacoes";
+import Navbar from "../Navbar/Navbar";
+import LoginButton from "../Geral/LoginButton";
+import { getEspacosDaSkin } from "./firebaseEspacos";
 
-  const { theme } = selectedSkinItem;
-  console.log(`Tema encontrado: ${theme}`);
-
-  try {
-    const module = await import(`../Temas/${theme}/layout.js`);
-    setLayoutScript(() => module.default);
-    console.log(`Tema "${theme}" aplicado com sucesso.`);
-  } catch (error) {
-    console.error(`Erro ao carregar o layout para o tema "${theme}":`, error);
-  }
-};
-
-// Componente principal
 function Estrutura({ username: propUsername, skins: propSkins }) {
   const location = useLocation();
   const navigate = useNavigate();
-   const { user, loading } = useAuth();
+  const { user, loading } = useAuth();
 
-  const [LayoutScript, setLayoutScript] = useState(null);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [skins, setSkins] = useState(propSkins || []);
   const [username, setUsername] = useState(propUsername || "");
-  const [espacos, setPages] = useState([]);
-  const [userLocalId, setUserLocalId] = useState(null);
+  const [skins, setSkins] = useState(propSkins || []);
+  const [theme, setTheme] = useState(false);
+  const [espacos, setEspacos] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [blocos, setBlocos] = useState([]);
 
-  const idGoogleCap = localStorage.getItem("idGoogleCap");
-  const pathname = location.pathname;
-  const urlUsername = pathname.split("/")[1];
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [hasNavigated, setHasNavigated] = useState(false);
+
+  const urlUsername = location.pathname.split("/")[1];
   const skinLogadoUser = localStorage.getItem("skinLogadoUser");
-
-  const [podeCriarBloco, setPodeCriarBloco] = useState(false);
-
+  const skinIdAtual = localStorage.getItem("skinIdAtual") || null;
 
 
   // --------------------------
-  // Carrega a skin e páginas
+  // Buscar skin e páginas
   // --------------------------
   useEffect(() => {
-    if (urlUsername) {
-      localStorage.setItem("skinLocal", urlUsername);
-      fetchSkins(urlUsername);
-    } else if (skinLogadoUser) {
-      fetchSkins(skinLogadoUser);
-      localStorage.setItem("skinLocal", skinLogadoUser);
-    } else {
-      navigate("/");
-    }
-  }, [urlUsername]);
+    if (loading) return;
 
-  // --------------------------
-  // Função para adicionar bloco
-  // --------------------------
-  function adicionarBloco(bloco) {
-    setBlocos((prev) => [...prev, bloco]);
-    console.log("Bloco criado:", bloco);
-  }
+    const targetUsername = urlUsername || localStorage.getItem("targetUsername");
 
-  // --------------------------
-  // Função para buscar skins + páginas
-  // --------------------------
-  const fetchSkins = async (username) => {
-    setIsLoading(true);
+    localStorage.setItem("targetUsername", targetUsername);
 
-    try {
-      // 1. Encontrar usuário baseado na username da skin
-      const usersCol = collection(db, "users");
-      const usersSnapshot = await getDocs(usersCol);
-
-      let userId = null;
-      let skinId = null;
-
-      for (const userDoc of usersSnapshot.docs) {
-        const skinsCol = collection(db, "users", userDoc.id, "skins");
-        const q = query(skinsCol, where("username", "==", username));
-        const skinsSnap = await getDocs(q);
-
-        if (!skinsSnap.empty) {
-          userId = userDoc.id;
-          skinId = skinsSnap.docs[0].id;
-          break;
+    const fetchSkinData = async () => {
+      setIsLoading(true);
+      try {
+        if (user?.uid) {
+          await user.getIdToken();
         }
+        // 1) Quando logado, tenta primeiro no caminho do próprio usuário.
+        let skinsSnap = { empty: true, docs: [] };
+        if (user?.uid) {
+          const ownerQuery = query(
+            collection(db, "users", user.uid, "skins"),
+            where("username", "==", targetUsername),
+            limit(1)
+          );
+          skinsSnap = await getDocs(ownerQuery);
+        }
+
+        // 2) Se não encontrar no usuário logado, faz fallback para busca pública/global.
+        if (skinsSnap.empty) {
+          const publicQuery = query(
+            collectionGroup(db, "skins"),
+            where("username", "==", targetUsername),
+            where("visibilidade", "==", "publico"),
+            limit(1)
+          );
+
+          if (user?.uid) {
+            const preferredQuery = query(
+              collectionGroup(db, "skins"),
+              where("username", "==", targetUsername),
+              where("visibilidade", "in", ["publico", "publico_restritivo", "privado"]),
+              limit(1)
+            );
+
+            try {
+              skinsSnap = await getDocs(preferredQuery);
+            } catch (err) {
+              if (err?.code !== "permission-denied") throw err;
+
+              const compatQuery = query(
+                collectionGroup(db, "skins"),
+                where("username", "==", targetUsername),
+                where("visibilidade", "in", ["publico", "publico_restritivo"]),
+                limit(1)
+              );
+              skinsSnap = await getDocs(compatQuery);
+            }
+          } else {
+            skinsSnap = await getDocs(publicQuery);
+          }
+
+          if (skinsSnap.empty) {
+            const legacyVisibilityQuery = query(
+              collectionGroup(db, "skins"),
+              where("username", "==", targetUsername),
+              where("visibilidade", "==", null),
+              limit(1)
+            );
+            try {
+              skinsSnap = await getDocs(legacyVisibilityQuery);
+            } catch (err) {
+              if (err?.code !== "permission-denied") throw err;
+            }
+          }
+        }
+
+if (skinsSnap.empty) {
+  navigate("/Error");
+  console.log(targetUsername);
+  return;
+}
+
+const skinDoc = skinsSnap.docs[0];
+const skinData = skinDoc.data();
+
+// 🔐 REGRA DE VISIBILIDADE
+const isOwner = user && user.uid === skinData.ownerUserId;
+const isPublic =
+  !skinData.visibilidade || skinData.visibilidade === "publico";
+const isAuthPublic =
+  (skinData.visibilidade === "publico_restritivo" ||
+    skinData.visibilidade === "privado") &&
+  !!user;
+
+if (!isOwner && !isPublic && !isAuthPublic) {
+  navigate("/Error"); // ou /acesso-negado
+  return;
+}
+
+
+        const skinId = skinDoc.id;
+
+        setUsername(targetUsername);
+        setSkins([skinData]);
+        setTheme(skinData.theme);
+
+        let pagesList = [];
+        try {
+          pagesList = await getEspacosDaSkin({
+            userId: skinData.ownerUserId,
+            skinId,
+            viewerUserId: user?.uid || null,
+          });
+        } catch (espacosErr) {
+          if (espacosErr?.code !== "permission-denied") throw espacosErr;
+          console.warn(
+            "Permissao negada ao ler espacos da skin. Perfil sera exibido sem lista de espacos.",
+            espacosErr?.message
+          );
+        }
+
+        setEspacos(pagesList);
+
+        if (user?.uid === skinData.ownerUserId) {
+          localStorage.setItem("skinIdAtual", skinId);
+          localStorage.setItem("skinLogadoUser", targetUsername);
+          try {
+            await updateDoc(doc(db, "users", user.uid), {
+              skinAtivaId: skinId,
+            });
+          } catch (updateErr) {
+            // Nao bloqueia renderizacao da skin caso falhe apenas a metadata do user.
+            console.warn(
+              "Falha ao atualizar skinAtivaId:",
+              updateErr?.code,
+              updateErr?.message
+            );
+          }
+        }
+      } catch (err) {
+        console.error(
+          "Erro ao buscar skin:",
+          err?.code,
+          err?.message,
+          err
+        );
+        if (err?.code === "permission-denied") {
+          console.warn(
+            "Permissao negada ao ler skin. Confirme deploy das regras com: npm run firestore:rules:deploy"
+          );
+        }
+        navigate("/Error");
+      } finally {
+        setIsLoading(false);
       }
+    };
 
-      if (!userId || !skinId) {
-        alert("Nenhum usuário ou skin encontrada para esse username.");
-        navigate("/");
-        return;
-      }
-
-      localStorage.setItem("userLocalId", userId);
-      localStorage.setItem("skinIdAtual", skinId);
-      setUserLocalId(userId);
-
-      // 2. Buscar todas as skins do usuário
-      const skinsCol = collection(db, "users", userId, "skins");
-      const skinsSnap = await getDocs(skinsCol);
-      const skinsList = skinsSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-
-      // 3. Buscar somente as páginas relacionadas a essa skin
-      const pagesList = await getEspacosDaSkin({ userId, skinId });
-      setPages(Array.isArray(pagesList) ? pagesList : []);
-
-      // 4. Atualizar estados
-      setSkins(skinsList);
-      setUsername(username);
-
-      console.log("pagesList recebido:", pagesList);
-    } catch (error) {
-      console.error("Erro ao buscar skins e páginas:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    fetchSkinData();
+  }, [urlUsername, loading, navigate, user]);
 
   // --------------------------
-  // Navega para a página principal da skin
+  // Navega para página principal
   // --------------------------
   useEffect(() => {
-    if (!espacos.length || !username) return;
+    if (!espacos.length || !username || hasNavigated) return;
 
-    const mainPage = espacos.find((p) => p.is_main === true);
+    const mainPage = espacos.find(p => p.isHome === true);
+
     if (!mainPage) {
-      console.warn("Nenhuma home encontrada");
+      console.warn("Página principal não encontrada!");
+      navigate("/Error"); // redireciona para página de erro
+      setHasNavigated(true);
       return;
     }
 
     navigate(`/${username}/${mainPage.nome}`, { replace: true });
-  }, [espacos, username]);
+    setHasNavigated(true);
+  }, [espacos, username, hasNavigated, navigate, skinIdAtual]);
 
   // --------------------------
-  // Aplica tema
+  // Permissão de criar blocos
   // --------------------------
-  useEffect(() => {
-    if (!username || !skins.length) return;
-    defineTheme(username, skins, setLayoutScript);
-    
-  }, [username, skins]);
 
+
+  // --------------------------
+  // Toggle menu
+  // --------------------------
   const toggleMenu = () => {
     setMenuOpen(!menuOpen);
     navigate(menuOpen ? "/home" : `/menu/${skinLogadoUser}`);
   };
 
+// --------------------------
+// JSX do profile
+// --------------------------
+const profileJSX = (
+  <>
+    <div id="navbar-menu" style={{ textAlign: "center" }}>
+      {!user ? (
+        <LoginButton />
+      ) : (
+        <p onClick={toggleMenu} style={{ cursor: "pointer" }}>㆔</p>
+      )}
+    </div>
 
+    {/* 🔥 cardProfile EXISTE APENAS AQUI */}
+    <div
+      id="cardProfile"
+      style={{ display: menuOpen ? "none" : "block" }}
+    >
+      <Navegacoes />
+      <img
+        src="/imagens/imgHome/busto.png"
+        id="imgBustoHome"
+        alt="imagem"
+      />
+    </div>
+  </>
+);
 
-
-useEffect(() => {
-  if (!loading && user && username) {
-    setPodeCriarBloco(user.username === username);
-
-  }
-}, [user, loading, username]);
-
-useEffect(() => {
-  if (!loading) {
-    console.log("User carregado:", user);
-  }
-}, [user, loading]);
-
-
-  return (
-    <div id="fundo">
-      <div id="estrutura">
-        {isLoading ? (
-          <div>Carregando dados...</div>
-        ) : (
-          <>
-            {!idGoogleCap ? (
-              <div id="navbar-menu" style={{ textAlign: "center", display: menuOpen ? "none" : "block" }}>
-                <LoginButton />
-              </div>
-            ) : (
-              <div id="navbar-menu" style={{ textAlign: "center", display: menuOpen ? "none" : "block" }}>
-                <p onClick={toggleMenu} style={{ cursor: "pointer", display: menuOpen ? "none" : "block" }}>
-                  ㆔
-                </p>
-              </div>
-            )}
-
-            <div id="cardProfile" style={{ display: menuOpen ? "none" : "block" }}>
-              <Navegacoes />
-              <img src="/imagens/imgHome/busto.png" id="imgBustoHome" alt="imagem" />
-              <div id="MatrixDesign"></div>
-              <div id="MatrixDev"></div>
-              <div id="MatrixHome"></div>
-            </div>
-
-            <div style={{ display: menuOpen ? "none" : "block" }}>
-              <Navbar pages={espacos} />
-            </div>
-
-            <div id="conteudo">
-{loading ? <div>Carregando usuário...</div> : null}
-{podeCriarBloco && <CriadorBloco onCreate={adicionarBloco} />}
   
-  {blocos.map((bloco) => (
-    <div key={bloco.id} style={{ border: "1px solid #ccc", margin: "4px", padding: "4px" }}>
-      <strong>{bloco.tipo}</strong> - {bloco.id}
-    </div>
-  ))}
-              {'Eu estou sendo mostrado'}
-              <Suspense fallback={<div>Carregando...</div>}>
-                <Outlet />
-              </Suspense>
-            </div>
 
-            {LayoutScript && (
-              <div className="layout-container">
-                <LayoutScript />
-              </div>
-            )}
-          </>
-        )}
-      </div>
-    </div>
+  // --------------------------
+  // JSX do conteúdo
+  // --------------------------
+  const contentJSX = (
+    <>
+      <Navbar pages={espacos} username={username} />
+       
+      <Suspense fallback={<div>Carregando...</div>}>
+
+        <Outlet  context={{    user,    skinIdAtual,    espacos  }}/>
+
+      </Suspense>
+    </>
+  );
+
+  // --------------------------
+  // Loader
+  // --------------------------
+  if (loading || isLoading || !theme) return <div>Carregando...</div>;
+
+  // --------------------------
+  // Render
+  // --------------------------
+  return (
+    <Layout
+      theme={theme}
+      profile={profileJSX}
+      content={contentJSX}
+    />
+
+   
   );
 }
 
