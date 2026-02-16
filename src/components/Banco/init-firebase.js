@@ -20,24 +20,19 @@ import {
   getAuth,
   GoogleAuthProvider
 } from "firebase/auth";
+import { resolveFirebaseProject } from "../../config/firebaseProjects";
 
 // ===============================
 // CONFIG
 // ===============================
-const firebaseConfig = {
-  apiKey: "AIzaSyCJMHDdf-GwLwyqKQLRWR8kkyWXDP2v02A",
-  authDomain: "teste-aa015.firebaseapp.com",
-  databaseURL: "https://teste-aa015-default-rtdb.firebaseio.com",
-  projectId: "teste-aa015",
-  storageBucket: "teste-aa015.appspot.com",
-  messagingSenderId: "99960275074",
-  appId: "1:99960275074:web:e2923f7e34a0c0c18c749b"
-};
+const { projectKey, firebaseConfig, functionsRegion } = resolveFirebaseProject();
 
 // ===============================
 // INIT
 // ===============================
 export const app = initializeApp(firebaseConfig);
+export const activeFirebaseProjectKey = projectKey;
+export const activeFirebaseProjectId = firebaseConfig.projectId;
 
 // ===============================
 // SERVICES
@@ -45,7 +40,7 @@ export const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const auth = getAuth(app);
 export const storage = getStorage(app);
-export const functions = getFunctions(app, "us-central1");
+export const functions = getFunctions(app, functionsRegion);
 export const providerGoogle = new GoogleAuthProvider();
 
 

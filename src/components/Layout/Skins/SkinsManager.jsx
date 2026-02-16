@@ -18,6 +18,10 @@ import {
 import { db } from "../../Banco/init-firebase";
 import { THEMES } from "../Temas/themesRegistry";
 import { useAuth } from "../../../hooks/auth/useAuth";
+import {
+  DEFAULT_SISTEMA_CONFIG,
+  obterConfigSistema,
+} from "../Sistema/configSistema";
 
 const SkinsManager = () => {
   const { user, loading } = useAuth();
@@ -85,6 +89,42 @@ const SkinsManager = () => {
 // CRIAR NOVA SKIN
 // ─────────────────────────────
 const [feedback, setFeedback] = useState(""); // estado para mensagens ao usuário
+
+const [temaSistemaAtual, setTemaSistemaAtual] = useState(
+  DEFAULT_SISTEMA_CONFIG.temaPadraoSistema
+);
+
+useEffect(() => {
+  let ativo = true;
+
+  const carregarTemaSistema = async () => {
+    try {
+      const configSistema = await obterConfigSistema();
+      if (!ativo) return;
+      setTemaSistemaAtual(configSistema.temaPadraoSistema);
+    } catch (error) {
+      // Mantem fallback local quando a config global ainda nao existir.
+    }
+  };
+
+  carregarTemaSistema();
+
+  return () => {
+    ativo = false;
+  };
+}, []);
+
+const labelTemaSkin = (theme) => {
+  const ehExtensao =
+    Array.isArray(theme.extendsSystem) &&
+    theme.extendsSystem.includes(temaSistemaAtual);
+
+  if (!ehExtensao) {
+    return theme.label || theme.id;
+  }
+
+  return `${theme.label || theme.id} (extensao do sistema)`;
+};
 
 const handleCreateSkin = async () => {
   if (!newUsername || !newTheme) {
@@ -183,7 +223,7 @@ const handleCreateSkin = async () => {
               key={theme.id}
               onClick={() => handleCreateFirstSkin(theme.id)}
             >
-              {theme.label}
+              {labelTemaSkin(theme)}
             </button>
           ))}
         </div>
@@ -211,7 +251,7 @@ const handleCreateSkin = async () => {
     <option value="">Escolha o tema</option>
     {THEMES.map(t => (
       <option key={t.id} value={t.id}>
-        {t.label}
+        {labelTemaSkin(t)}
       </option>
     ))}
   </select>
@@ -242,7 +282,7 @@ const handleCreateSkin = async () => {
                   <option value="">Tema</option>
                   {THEMES.map(t => (
                     <option key={t.id} value={t.id}>
-                      {t.label}
+                      {labelTemaSkin(t)}
                     </option>
                   ))}
                 </select>

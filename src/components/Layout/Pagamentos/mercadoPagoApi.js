@@ -3,6 +3,7 @@ import { functions } from "../../Banco/init-firebase";
 
 const callSalvarCredenciais = httpsCallable(functions, "salvarMercadoPagoCredenciais");
 const callStatusCredenciais = httpsCallable(functions, "obterStatusMercadoPago");
+const callDesconectarCredenciais = httpsCallable(functions, "desconectarMercadoPago");
 const callCriarCheckout = httpsCallable(functions, "criarCheckoutBlocoMercadoPago");
 const callConfirmarPagamento = httpsCallable(functions, "confirmarPagamentoBlocoMercadoPago");
 
@@ -14,6 +15,11 @@ export async function salvarMercadoPagoCredenciais({ accessToken, publicKey = ""
 export async function obterStatusMercadoPago() {
   const response = await callStatusCredenciais({});
   return response?.data || { conectado: false };
+}
+
+export async function desconectarMercadoPago() {
+  const response = await callDesconectarCredenciais({});
+  return response?.data || { ok: true, conectado: false };
 }
 
 export async function criarCheckoutBlocoMercadoPago({

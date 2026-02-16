@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  desconectarMercadoPago,
   obterStatusMercadoPago,
   salvarMercadoPagoCredenciais,
 } from "../../../Pagamentos/mercadoPagoApi";
@@ -32,6 +33,7 @@ export default function MercadoPagoConfig() {
   const [publicKey, setPublicKey] = useState("");
   const [status, setStatus] = useState(null);
   const [salvando, setSalvando] = useState(false);
+  const [desconectando, setDesconectando] = useState(false);
   const [carregandoStatus, setCarregandoStatus] = useState(false);
   const [mensagem, setMensagem] = useState("");
 
@@ -83,6 +85,29 @@ export default function MercadoPagoConfig() {
     }
   };
 
+  const desconectar = async () => {
+    if (!status?.conectado) return;
+
+    const confirmado = window.confirm(
+      "Deseja desconectar sua conta do Mercado Pago?"
+    );
+    if (!confirmado) return;
+
+    setDesconectando(true);
+    setMensagem("");
+    try {
+      await desconectarMercadoPago();
+      setAccessToken("");
+      setPublicKey("");
+      await carregarStatus();
+      setMensagem("Mercado Pago desconectado.");
+    } catch (err) {
+      setMensagem(parseErroMercadoPago(err));
+    } finally {
+      setDesconectando(false);
+    }
+  };
+
   return (
     <div style={{ marginBottom: 20, padding: 12, border: "1px solid #ccc", borderRadius: 8 }}>
       <h3 style={{ marginTop: 0 }}>Mercado Pago</h3>
@@ -117,11 +142,17 @@ export default function MercadoPagoConfig() {
       />
 
       <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-        <button onClick={salvar} disabled={salvando}>
+        <button onClick={salvar} disabled={salvando || desconectando}>
           {salvando ? "Salvando..." : "Salvar credenciais"}
         </button>
-        <button onClick={carregarStatus} disabled={carregandoStatus || salvando}>
+        <button onClick={carregarStatus} disabled={carregandoStatus || salvando || desconectando}>
           Atualizar status
+        </button>
+        <button
+          onClick={desconectar}
+          disabled={!status?.conectado || salvando || carregandoStatus || desconectando}
+        >
+          {desconectando ? "Desconectando..." : "Desconectar"}
         </button>
       </div>
 

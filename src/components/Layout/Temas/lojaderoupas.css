@@ -1,0 +1,21 @@
+.theme-lojaderoupas {
+  --main-color: #4f2f22;
+  --bg-color: #f7f1ea;
+  color: var(--main-color);
+  background-color: var(--bg-color);
+}
+
+.theme-lojaderoupas #textoLogin {
+  color: #8a4f2b;
+  text-shadow: none;
+}
+
+.theme-lojaderoupas #logoTxt {
+  color: #4f2f22;
+  text-shadow: none;
+}
+
+.theme-lojaderoupas #rodapeLogin {
+  color: #4f2f22;
+  text-shadow: none;
+}

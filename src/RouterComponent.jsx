@@ -14,6 +14,7 @@ import ListaAcessos from "./components/Scripts/acesso/ListaAcessos";
 import Propriedades from "./components/Layout/Menu/Propriedades/Propriedades";
 import EspacoManager from "./components/Layout/Espacos/EspacoManager";
 import EspacoPage from "./components/Layout/Espacos/EspacoPage";
+import PropriedadesSistema from "./components/Layout/Menu/PropriedadesSistema/PropriedadesSistema";
 
 export default function RouterComponent() {
   const { routes } = useRoutesContext();
@@ -35,6 +36,7 @@ export default function RouterComponent() {
         { path: "skins", element: <SkinsManager /> },
         { path: "acessos", element: <ListaAcessos /> },
         { path: "propriedades", element: <Propriedades /> },
+        { path: "propriedades-sistema", element: <PropriedadesSistema /> },
         { path: "espacos", element: <EspacoManager /> },
       ],
     },

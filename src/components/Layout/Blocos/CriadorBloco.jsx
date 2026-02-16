@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../../../hooks/auth/useAuth";
 import { collection, doc, serverTimestamp, setDoc } from "firebase/firestore";
 import {
@@ -7,6 +7,7 @@ import {
   getDownloadURL,
 } from "firebase/storage";
 import { db, storage } from "../../Banco/init-firebase";
+import { obterStatusMercadoPago } from "../Pagamentos/mercadoPagoApi";
 
 async function gerarPreviewDesfocado(file) {
   try {
@@ -73,25 +74,63 @@ export default function CriadorBloco({ espacoAtual, skinIdAtual, onCreate }) {
   const [erro, setErro] = useState("");
   const [visibilidade, setVisibilidade] = useState("publico");
   const [valorCompra, setValorCompra] = useState("");
-
-  if (loading || !user || !espacoAtual) return null;
-
-  const espacoId = espacoAtual.id || espacoAtual.id_espaco;
-  const ownerUserId = espacoAtual.ownerUserId || null;
+  const [mpConectado, setMpConectado] = useState(false);
+  const espacoId = espacoAtual?.id || espacoAtual?.id_espaco || null;
+  const ownerUserId = espacoAtual?.ownerUserId || null;
   const activeSkinId = skinIdAtual || localStorage.getItem("skinIdAtual");
-  const isOwner = espacoAtual.ownerUserId === user.uid;
+  const isOwner = !!user?.uid && espacoAtual?.ownerUserId === user.uid;
   const isCoCriador =
-    Array.isArray(espacoAtual.coCriadoresUids) &&
+    !!user?.uid &&
+    Array.isArray(espacoAtual?.coCriadoresUids) &&
     espacoAtual.coCriadoresUids.includes(user.uid);
   const isCoCriadorPorSkin =
     activeSkinId &&
-    Array.isArray(espacoAtual.coCriadoresSkins) &&
+    Array.isArray(espacoAtual?.coCriadoresSkins) &&
     espacoAtual.coCriadoresSkins.includes(activeSkinId);
   const fallbackSkinOwner =
-    !!activeSkinId && espacoAtual.skinOwner === activeSkinId;
+    !!activeSkinId && espacoAtual?.skinOwner === activeSkinId;
 
   const podeCriar = isOwner || isCoCriador || isCoCriadorPorSkin || fallbackSkinOwner;
 
+  useEffect(() => {
+    let cancelado = false;
+
+    async function carregarStatusMercadoPago() {
+      if (loading || !user || !espacoAtual) {
+        if (!cancelado) {
+          setMpConectado(false);
+        }
+        return;
+      }
+      try {
+        const status = await obterStatusMercadoPago();
+        if (!cancelado) {
+          setMpConectado(Boolean(status?.conectado));
+        }
+      } catch (err) {
+        if (!cancelado) {
+          setMpConectado(false);
+        }
+      }
+    }
+
+    carregarStatusMercadoPago();
+    return () => {
+      cancelado = true;
+    };
+  }, [loading, user?.uid, espacoId]);
+
+  useEffect(() => {
+    const visibilidadeExclusiva =
+      visibilidade === "exclusivo_assinante" || visibilidade === "exclusivo_comprador";
+
+    if (!mpConectado && visibilidadeExclusiva) {
+      setVisibilidade("publico");
+      setValorCompra("");
+    }
+  }, [mpConectado, visibilidade]);
+
+  if (loading || !user || !espacoAtual) return null;
   if (!podeCriar) return null;
 
   const isExclusivoComprador = visibilidade === "exclusivo_comprador";
@@ -249,9 +288,19 @@ export default function CriadorBloco({ espacoAtual, skinIdAtual, onCreate }) {
         <option value="publico">Publico</option>
         <option value="publico_restritivo">Publico restritivo</option>
         <option value="privado">Privado (autenticado)</option>
-        <option value="exclusivo_assinante">Exclusivo assinante</option>
-        <option value="exclusivo_comprador">Exclusivo comprador</option>
+        {mpConectado && (
+          <>
+            <option value="exclusivo_assinante">Exclusivo assinante</option>
+            <option value="exclusivo_comprador">Exclusivo comprador</option>
+          </>
+        )}
       </select>
+
+      {!mpConectado && (
+        <p style={{ margin: "8px 0 0", fontSize: 12, color: "#666" }}>
+          Conecte o Mercado Pago para habilitar visibilidade exclusiva para assinantes/compradores.
+        </p>
+      )}
 
       {isExclusivoComprador && (
         <input

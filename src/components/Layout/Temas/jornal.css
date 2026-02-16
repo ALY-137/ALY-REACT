@@ -1,0 +1,23 @@
+.theme-jornal {
+  --main-color: #1f1f1f;
+  --bg-color: #f2f2ee;
+  color: var(--main-color);
+  background-color: var(--bg-color);
+}
+
+.theme-jornal #textoLogin {
+  color: #3a3a3a;
+  text-shadow: none;
+  letter-spacing: 1px;
+}
+
+.theme-jornal #logoTxt {
+  color: #111;
+  text-shadow: none;
+  letter-spacing: 1px;
+}
+
+.theme-jornal #rodapeLogin {
+  color: #2c2c2c;
+  text-shadow: none;
+}

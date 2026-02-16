@@ -11,6 +11,7 @@ import { useAuth } from "../../../hooks/auth/useAuth";
 import { signOut } from "firebase/auth";
 import { auth } from "../../Banco/init-firebase";
 import CheckoutBlocoMercadoPago from "../Pagamentos/CheckoutBlocoMercadoPago";
+import { aplicarTemaNoBody, obterConfigSistema } from "../Sistema/configSistema";
 
 function Menu({ menuOpen }) {
   const { user, loading } = useAuth();
@@ -67,6 +68,10 @@ function Menu({ menuOpen }) {
     navigate(`/menu/${skinLogadoUser}/espacos`);
   }
 
+  function abrirPropriedadesSistema() {
+    navigate(`/menu/${skinLogadoUser}/propriedades-sistema`);
+  }
+
   async function logoff() {
     localStorage.clear();
     navigate("/");
@@ -80,6 +85,26 @@ function Menu({ menuOpen }) {
       menu.style.width = `${1000 - 5}px`;
     }
   }
+
+  useEffect(() => {
+    let ativo = true;
+
+    const carregarTemaPadrao = async () => {
+      try {
+        const config = await obterConfigSistema();
+        if (!ativo) return;
+        aplicarTemaNoBody(config.temaPadraoSistema);
+      } catch (error) {
+        // Mantem comportamento atual caso a config publica ainda nao exista.
+      }
+    };
+
+    carregarTemaPadrao();
+
+    return () => {
+      ativo = false;
+    };
+  }, []);
 
   useEffect(() => {
     const atualizarTitulo = async () => {
@@ -108,6 +133,10 @@ function Menu({ menuOpen }) {
         setBackAction(() => returnMenu);
       } else if (path.endsWith("/propriedades")) {
         setAtualTxt("PROPRIEDADES");
+        setBackText("MENU");
+        setBackAction(() => returnMenu);
+      } else if (path.endsWith("/propriedades-sistema")) {
+        setAtualTxt("PROPRIEDADES DO SISTEMA");
         setBackText("MENU");
         setBackAction(() => returnMenu);
       } else if (path.endsWith("/contatos")) {
@@ -167,6 +196,7 @@ function Menu({ menuOpen }) {
           <>
             <div onClick={abrirUsers} className="gavetaOption">USERS</div>
             <div onClick={abrirAcessos} className="gavetaOption">ACESSOS</div>
+            <div onClick={abrirPropriedadesSistema} className="gavetaOption">PROPRIEDADES DO SISTEMA</div>
           </>
         )}
         <div onClick={abrirSkins} className="gavetaOption">GERENCIAR SKINS</div>

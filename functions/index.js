@@ -239,6 +239,28 @@ exports.obterStatusMercadoPago = onCall(CALLABLE_OPTIONS, async (request) => {
   };
 });
 
+exports.desconectarMercadoPago = onCall(CALLABLE_OPTIONS, async (request) => {
+  const uid = ensureAuth(request);
+  const integrationRef = getOwnerIntegrationRef(uid);
+
+  await integrationRef.set(
+    {
+      accessToken: null,
+      publicKey: null,
+      mpUserId: null,
+      mpEmail: null,
+      disconnectedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
+
+  return {
+    ok: true,
+    conectado: false,
+  };
+});
+
 exports.criarCheckoutBlocoMercadoPago = onCall(CALLABLE_OPTIONS, async (request) => {
   const compradorUid = ensureAuth(request);
   const ownerUserId = ensureRequiredString(request.data?.ownerUserId, "ownerUserId");

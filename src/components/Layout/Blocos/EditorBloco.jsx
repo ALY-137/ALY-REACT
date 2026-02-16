@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { obterStatusMercadoPago } from "../Pagamentos/mercadoPagoApi";
 
 const OPCOES_VISIBILIDADE = [
   { value: "publico", label: "Publico" },
@@ -23,15 +24,70 @@ export default function EditorBloco({
   );
   const [indicesRemovidos, setIndicesRemovidos] = useState([]);
   const [novasImagens, setNovasImagens] = useState([]);
+  const [mpConectado, setMpConectado] = useState(null);
 
   useEffect(() => {
     setVisibilidade(bloco?.visibilidade || "publico");
     setValorCompra(bloco?.precoCentavos ? (Number(bloco.precoCentavos) / 100).toFixed(2) : "");
     setIndicesRemovidos([]);
     setNovasImagens([]);
+    setMpConectado(null);
   }, [bloco?.id, bloco?.visibilidade, bloco?.precoCentavos]);
 
+  useEffect(() => {
+    if (!aberto) return;
+
+    let cancelado = false;
+
+    async function carregarStatusMercadoPago() {
+      try {
+        const status = await obterStatusMercadoPago();
+        if (!cancelado) {
+          setMpConectado(Boolean(status?.conectado));
+        }
+      } catch {
+        if (!cancelado) {
+          setMpConectado(false);
+        }
+      }
+    }
+
+    carregarStatusMercadoPago();
+    return () => {
+      cancelado = true;
+    };
+  }, [aberto]);
+
+  useEffect(() => {
+    const visibilidadeExclusiva =
+      visibilidade === "exclusivo_assinante" || visibilidade === "exclusivo_comprador";
+
+    if (mpConectado === false && visibilidadeExclusiva) {
+      setVisibilidade("publico");
+      setValorCompra("");
+    }
+  }, [mpConectado, visibilidade]);
+
   const isExclusivoComprador = visibilidade === "exclusivo_comprador";
+
+  const opcoesVisibilidade = useMemo(() => {
+    if (mpConectado === true) return OPCOES_VISIBILIDADE;
+
+    const opcoesBase = OPCOES_VISIBILIDADE.filter(
+      (opcao) =>
+        opcao.value !== "exclusivo_assinante" &&
+        opcao.value !== "exclusivo_comprador"
+    );
+
+    if (!opcoesBase.some((opcao) => opcao.value === visibilidade)) {
+      const opcaoAtual = OPCOES_VISIBILIDADE.find((opcao) => opcao.value === visibilidade);
+      if (opcaoAtual) {
+        return [opcaoAtual, ...opcoesBase];
+      }
+    }
+
+    return opcoesBase;
+  }, [mpConectado, visibilidade]);
 
   const parseValorCompraEmCentavos = (valorTexto) => {
     const normalizado = String(valorTexto || "").replace(",", ".").trim();
@@ -109,12 +165,18 @@ export default function EditorBloco({
             onChange={(event) => setVisibilidade(event.target.value)}
             disabled={bloqueado}
           >
-            {OPCOES_VISIBILIDADE.map((opcao) => (
+            {opcoesVisibilidade.map((opcao) => (
               <option key={opcao.value} value={opcao.value}>
                 {opcao.label}
               </option>
             ))}
           </select>
+
+          {mpConectado === false && (
+            <p style={{ margin: "4px 0", fontSize: 12, color: "#666", width: "100%" }}>
+              Conecte o Mercado Pago para habilitar visibilidade exclusiva para assinantes/compradores.
+            </p>
+          )}
 
           {isExclusivoComprador && (
             <input
