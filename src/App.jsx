@@ -262,6 +262,7 @@ const App = () => {
               ) : null}
               <p id="textoLogin">{textoLogin}</p>
               {possuiMetodoLoginHabilitado ? (
+                
                 <div id="loginMetodos">
                   {loginComGoogleHabilitado || loginComTwitterHabilitado ? (
                     <div className="loginSocialButtons">
