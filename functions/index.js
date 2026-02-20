@@ -1,5 +1,6 @@
 const admin = require("firebase-admin");
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { randomUUID } = require("crypto");
+const { onCall, onRequest, HttpsError } = require("firebase-functions/v2/https");
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -8,14 +9,139 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 const serverTimestamp = admin.firestore.FieldValue.serverTimestamp;
 const REGION = "us-central1";
-const RUNTIME_SERVICE_ACCOUNT = "functions-runtime@teste-aa015.iam.gserviceaccount.com";
+const runtimeServiceAccount =
+  sanitizeString(process.env.FUNCTIONS_RUNTIME_SERVICE_ACCOUNT) ||
+  `functions-runtime@${sanitizeString(process.env.GCLOUD_PROJECT) || "teste-aa015"}.iam.gserviceaccount.com`;
 const CALLABLE_OPTIONS = {
   region: REGION,
-  serviceAccount: RUNTIME_SERVICE_ACCOUNT,
 };
+const HTTP_OPTIONS = {
+  region: REGION,
+  cors: true,
+};
+
+if (runtimeServiceAccount) {
+  CALLABLE_OPTIONS.serviceAccount = runtimeServiceAccount;
+  HTTP_OPTIONS.serviceAccount = runtimeServiceAccount;
+}
+
+const SHARED_BUCKET_NAME =
+  sanitizeString(process.env.SHARED_STORAGE_BUCKET) ||
+  `${sanitizeString(process.env.GCLOUD_PROJECT) || "teste-aa015"}.appspot.com`;
+const SHARED_BUCKET_ALLOWED_AUTH_PROJECTS = [
+  sanitizeString(process.env.GCLOUD_PROJECT),
+  ...sanitizeString(process.env.SHARED_BUCKET_AUTH_PROJECTS)
+    .split(",")
+    .map((item) => sanitizeString(item)),
+  "obeyon-project",
+].filter(Boolean);
+const UNIQUE_SHARED_BUCKET_AUTH_PROJECTS = [...new Set(SHARED_BUCKET_ALLOWED_AUTH_PROJECTS)];
+const sharedVerifierApps = new Map();
 
 function sanitizeString(value) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function buildTokenizedStorageUrl(bucket, path, token) {
+  return `https://firebasestorage.googleapis.com/v0/b/${encodeURIComponent(
+    bucket
+  )}/o/${encodeURIComponent(path)}?alt=media&token=${encodeURIComponent(token)}`;
+}
+
+function normalizeRequestBody(req) {
+  if (req?.body && typeof req.body === "object") {
+    return req.body;
+  }
+
+  if (typeof req?.body === "string") {
+    try {
+      return JSON.parse(req.body);
+    } catch {
+      return {};
+    }
+  }
+
+  return {};
+}
+
+function getBearerToken(req) {
+  const authHeader = sanitizeString(req.headers?.authorization || "");
+  if (!authHeader.toLowerCase().startsWith("bearer ")) {
+    return "";
+  }
+  return sanitizeString(authHeader.slice(7));
+}
+
+function getSharedVerifierAuth(projectId) {
+  const appName = `shared-auth-${projectId}`;
+  if (!sharedVerifierApps.has(appName)) {
+    const app = admin.initializeApp({ projectId }, appName);
+    sharedVerifierApps.set(appName, app);
+  }
+  return admin.auth(sharedVerifierApps.get(appName));
+}
+
+async function verifySharedBucketIdToken(idToken) {
+  const token = sanitizeString(idToken);
+  if (!token) {
+    throw new HttpsError("unauthenticated", "Token de autenticacao ausente.");
+  }
+
+  for (const projectId of UNIQUE_SHARED_BUCKET_AUTH_PROJECTS) {
+    try {
+      const decoded = await getSharedVerifierAuth(projectId).verifyIdToken(token);
+      return { decoded, projectId };
+    } catch {
+      // tenta proximo projeto permitido
+    }
+  }
+
+  throw new HttpsError("unauthenticated", "Token de autenticacao invalido.");
+}
+
+function decodeBase64Payload(base64Input) {
+  const base64 = sanitizeString(base64Input);
+  if (!base64) {
+    throw new HttpsError("invalid-argument", "Arquivo base64 ausente.");
+  }
+
+  const matchDataUrl = base64.match(/^data:([^;]+);base64,(.+)$/i);
+  const mimeFromDataUrl = matchDataUrl?.[1] || "";
+  const rawBase64 = matchDataUrl?.[2] || base64;
+
+  let buffer;
+  try {
+    buffer = Buffer.from(rawBase64, "base64");
+  } catch {
+    throw new HttpsError("invalid-argument", "Conteudo base64 invalido.");
+  }
+
+  if (!buffer?.length) {
+    throw new HttpsError("invalid-argument", "Arquivo vazio.");
+  }
+
+  return { buffer, mimeFromDataUrl };
+}
+
+function sendHttpError(res, error) {
+  if (error instanceof HttpsError) {
+    const map = {
+      unauthenticated: 401,
+      "permission-denied": 403,
+      "invalid-argument": 400,
+      "not-found": 404,
+      "failed-precondition": 412,
+    };
+    const status = map[error.code] || 500;
+    res.status(status).json({ ok: false, error: error.message, code: error.code });
+    return;
+  }
+
+  res.status(500).json({
+    ok: false,
+    error: sanitizeString(error?.message) || "Erro interno.",
+    code: "internal",
+  });
 }
 
 function ensureAuth(request) {
@@ -548,3 +674,147 @@ exports.confirmarPagamentoBlocoMercadoPago = onCall(CALLABLE_OPTIONS, async (req
     paymentId: String(paymentId),
   };
 });
+
+exports.uploadArquivoBucketCompartilhado = onRequest(
+  HTTP_OPTIONS,
+  async (req, res) => {
+    try {
+      if (req.method !== "POST") {
+        res.status(405).json({ ok: false, error: "Metodo nao permitido." });
+        return;
+      }
+
+      const body = normalizeRequestBody(req);
+      const token = getBearerToken(req);
+      const { decoded } = await verifySharedBucketIdToken(token);
+      const path = ensureRequiredString(body?.path, "path");
+      const declaredContentType = sanitizeString(body?.contentType);
+      const { buffer, mimeFromDataUrl } = decodeBase64Payload(body?.base64);
+      const contentType = declaredContentType || mimeFromDataUrl || "application/octet-stream";
+
+      if (!contentType.toLowerCase().startsWith("image/")) {
+        throw new HttpsError("invalid-argument", "Somente imagem e permitida.");
+      }
+
+      if (buffer.length > 15 * 1024 * 1024) {
+        throw new HttpsError("invalid-argument", "Arquivo acima de 15MB.");
+      }
+
+      if (!path.startsWith(`users/${decoded.uid}/`)) {
+        throw new HttpsError(
+          "permission-denied",
+          "Voce so pode enviar arquivos para sua propria pasta."
+        );
+      }
+
+      const bucket = admin.storage().bucket(SHARED_BUCKET_NAME);
+      const file = bucket.file(path);
+      const tokenDownload = randomUUID();
+
+      await file.save(buffer, {
+        resumable: false,
+        metadata: {
+          contentType,
+          metadata: {
+            firebaseStorageDownloadTokens: tokenDownload,
+          },
+        },
+      });
+
+      res.json({
+        ok: true,
+        path,
+        bucket: bucket.name,
+        url: buildTokenizedStorageUrl(bucket.name, path, tokenDownload),
+      });
+    } catch (error) {
+      sendHttpError(res, error);
+    }
+  }
+);
+
+exports.obterUrlArquivoBucketCompartilhado = onRequest(
+  HTTP_OPTIONS,
+  async (req, res) => {
+    try {
+      if (req.method !== "POST") {
+        res.status(405).json({ ok: false, error: "Metodo nao permitido." });
+        return;
+      }
+
+      const body = normalizeRequestBody(req);
+      const token = getBearerToken(req);
+      await verifySharedBucketIdToken(token);
+
+      const path = ensureRequiredString(body?.path, "path");
+      const bucket = admin.storage().bucket(SHARED_BUCKET_NAME);
+      const file = bucket.file(path);
+
+      const [exists] = await file.exists();
+      if (!exists) {
+        throw new HttpsError("not-found", "Arquivo nao encontrado.");
+      }
+
+      const [metadata] = await file.getMetadata();
+      let tokenDownload = sanitizeString(metadata?.metadata?.firebaseStorageDownloadTokens);
+      if (tokenDownload.includes(",")) {
+        tokenDownload = sanitizeString(tokenDownload.split(",")[0]);
+      }
+
+      if (!tokenDownload) {
+        tokenDownload = randomUUID();
+        await file.setMetadata({
+          metadata: {
+            ...(metadata?.metadata || {}),
+            firebaseStorageDownloadTokens: tokenDownload,
+          },
+        });
+      }
+
+      res.json({
+        ok: true,
+        path,
+        bucket: bucket.name,
+        url: buildTokenizedStorageUrl(bucket.name, path, tokenDownload),
+      });
+    } catch (error) {
+      sendHttpError(res, error);
+    }
+  }
+);
+
+exports.excluirArquivoBucketCompartilhado = onRequest(
+  HTTP_OPTIONS,
+  async (req, res) => {
+    try {
+      if (req.method !== "POST") {
+        res.status(405).json({ ok: false, error: "Metodo nao permitido." });
+        return;
+      }
+
+      const body = normalizeRequestBody(req);
+      const token = getBearerToken(req);
+      const { decoded } = await verifySharedBucketIdToken(token);
+      const path = ensureRequiredString(body?.path, "path");
+
+      if (!path.startsWith(`users/${decoded.uid}/`)) {
+        throw new HttpsError(
+          "permission-denied",
+          "Voce so pode excluir arquivos da sua propria pasta."
+        );
+      }
+
+      const bucket = admin.storage().bucket(SHARED_BUCKET_NAME);
+      const file = bucket.file(path);
+      await file.delete({ ignoreNotFound: true });
+
+      res.json({
+        ok: true,
+        path,
+        bucket: bucket.name,
+      });
+    } catch (error) {
+      sendHttpError(res, error);
+    }
+  }
+);

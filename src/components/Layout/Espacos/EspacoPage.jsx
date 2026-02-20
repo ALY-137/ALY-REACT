@@ -16,6 +16,19 @@ import CriadorBloco from "../Blocos/CriadorBloco";
 import EditorBloco from "../Blocos/EditorBloco";
 import LoginButton from "../Geral/LoginButton";
 import { auth, db, storage } from "../../Banco/init-firebase";
+import {
+  excluirArquivoNoBucketCompartilhado,
+  obterUrlArquivoNoBucketCompartilhado,
+  uploadArquivoNoBucketCompartilhado,
+  usandoBucketCompartilhadoCrossProject,
+} from "../Storage/sharedBucketApi";
+import {
+  DEFAULT_SISTEMA_CONFIG,
+  obterConfigSistema,
+  obterRotulosBloco,
+  obterRotulosEspaco,
+  obterRotulosSkin,
+} from "../Sistema/configSistema";
 
 const isRenderableUrl = (valor) =>
   typeof valor === "string" &&
@@ -56,6 +69,9 @@ const gerarNomeArquivoSeguro = (nome = "imagem") => {
     .replace(/[^\w.\-]/g, "_");
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${nomeLimpo || "imagem"}`;
 };
+
+const capitalizar = (texto = "") =>
+  texto ? texto.charAt(0).toUpperCase() + texto.slice(1) : "";
 
 async function gerarPreviewDesfocado(file) {
   try {
@@ -129,9 +145,28 @@ export default function EspacoPage() {
   const [blocoEmAtualizacaoId, setBlocoEmAtualizacaoId] = useState(null);
   const [blocoEmExclusaoId, setBlocoEmExclusaoId] = useState(null);
   const [erroAcaoBloco, setErroAcaoBloco] = useState("");
+  const [mercadoPagoSistemaHabilitado, setMercadoPagoSistemaHabilitado] = useState(
+    DEFAULT_SISTEMA_CONFIG.mercadoPagoHabilitado
+  );
+  const [nomeSkinSingular, setNomeSkinSingular] = useState(
+    DEFAULT_SISTEMA_CONFIG.nomeSkinSingular
+  );
+  const [nomeEspacoSingular, setNomeEspacoSingular] = useState(
+    DEFAULT_SISTEMA_CONFIG.nomeEspacoSingular
+  );
+  const [nomeEspacoPlural, setNomeEspacoPlural] = useState(
+    DEFAULT_SISTEMA_CONFIG.nomeEspacoPlural
+  );
+  const [nomeBlocoSingular, setNomeBlocoSingular] = useState(
+    DEFAULT_SISTEMA_CONFIG.nomeBlocoSingular
+  );
+  const [nomeBlocoPlural, setNomeBlocoPlural] = useState(
+    DEFAULT_SISTEMA_CONFIG.nomeBlocoPlural
+  );
   const blockedOriginalPathsRef = useRef(new Set());
   const blockedPreviewPathsRef = useRef(new Set());
   const backfilledPublicUrlsRef = useRef(new Set());
+  const nomeEspacoSingularCapitalizado = capitalizar(nomeEspacoSingular);
 
   if (!espacos) return null;
 
@@ -194,6 +229,75 @@ export default function EspacoPage() {
     if (vis === "exclusivo_comprador" || vis === "comprado") return "comprador";
     return "login";
   };
+
+  const resolverUrlArquivo = async (path) => {
+    if (usandoBucketCompartilhadoCrossProject) {
+      return obterUrlArquivoNoBucketCompartilhado({ user, path });
+    }
+    return getDownloadURL(ref(storage, path));
+  };
+
+  const subirArquivoStorage = async (path, arquivo) => {
+    if (usandoBucketCompartilhadoCrossProject) {
+      return uploadArquivoNoBucketCompartilhado({ user, path, file: arquivo });
+    }
+
+    const storageRef = ref(storage, path);
+    await uploadBytes(storageRef, arquivo);
+
+    let url = "";
+    try {
+      url = await getDownloadURL(storageRef);
+    } catch {
+      url = "";
+    }
+
+    return { path, url };
+  };
+
+  const excluirArquivoStorage = async (path) => {
+    if (usandoBucketCompartilhadoCrossProject) {
+      await excluirArquivoNoBucketCompartilhado({ user, path });
+      return;
+    }
+    await deleteObject(ref(storage, path));
+  };
+
+  useEffect(() => {
+    let ativo = true;
+
+    async function carregarConfigSistema() {
+      try {
+        const config = await obterConfigSistema();
+        if (!ativo) return;
+        setMercadoPagoSistemaHabilitado(config?.mercadoPagoHabilitado !== false);
+        const rotulosSkin = obterRotulosSkin(config);
+        const rotulosEspaco = obterRotulosEspaco(config);
+        const rotulosBloco = obterRotulosBloco(config);
+        setNomeSkinSingular(rotulosSkin.singular || DEFAULT_SISTEMA_CONFIG.nomeSkinSingular);
+        setNomeEspacoSingular(
+          rotulosEspaco.singular || DEFAULT_SISTEMA_CONFIG.nomeEspacoSingular
+        );
+        setNomeEspacoPlural(rotulosEspaco.plural || DEFAULT_SISTEMA_CONFIG.nomeEspacoPlural);
+        setNomeBlocoSingular(rotulosBloco.singular || DEFAULT_SISTEMA_CONFIG.nomeBlocoSingular);
+        setNomeBlocoPlural(rotulosBloco.plural || DEFAULT_SISTEMA_CONFIG.nomeBlocoPlural);
+      } catch {
+        if (!ativo) return;
+        setMercadoPagoSistemaHabilitado(DEFAULT_SISTEMA_CONFIG.mercadoPagoHabilitado);
+        setNomeSkinSingular(DEFAULT_SISTEMA_CONFIG.nomeSkinSingular);
+        setNomeEspacoSingular(DEFAULT_SISTEMA_CONFIG.nomeEspacoSingular);
+        setNomeEspacoPlural(DEFAULT_SISTEMA_CONFIG.nomeEspacoPlural);
+        setNomeBlocoSingular(DEFAULT_SISTEMA_CONFIG.nomeBlocoSingular);
+        setNomeBlocoPlural(DEFAULT_SISTEMA_CONFIG.nomeBlocoPlural);
+      }
+    }
+
+    carregarConfigSistema();
+
+    return () => {
+      ativo = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!espacoId || !ownerUserId) return;
@@ -430,7 +534,7 @@ export default function EspacoPage() {
             continue;
           }
           try {
-            const url = await getDownloadURL(ref(storage, path));
+            const url = await resolverUrlArquivo(path);
             urls.push(url);
           } catch (err) {
             if (err?.code === "storage/unauthorized" || err?.code === "storage/object-not-found") {
@@ -503,7 +607,7 @@ export default function EspacoPage() {
         const urlsPublicas = [];
         for (const path of paths) {
           try {
-            const url = await getDownloadURL(ref(storage, path));
+            const url = await resolverUrlArquivo(path);
             urlsPublicas.push(url);
           } catch {
             // Mantem silencioso; novo ciclo pode resolver apos refresh/login.
@@ -615,15 +719,15 @@ export default function EspacoPage() {
   }, [blocos, podeVerEspaco, currentUid]);
 
   if (!espacoAtual) {
-    return <p>Espaco nao encontrado</p>;
+    return <p>{`${nomeEspacoSingularCapitalizado} nao encontrado`}</p>;
   }
 
   const mensagemRestricaoEspaco = (() => {
     if (visibilidadeEspaco === "exclusivo_assinante") {
-      return "Este espaco requer assinatura para visualizar o conteudo.";
+      return `Este ${nomeEspacoSingular} requer assinatura para visualizar o conteudo.`;
     }
     if (visibilidadeEspaco === "privado" || visibilidadeEspaco === "publico_restritivo") {
-      return "Este espaco requer login para visualizar o conteudo.";
+      return `Este ${nomeEspacoSingular} requer login para visualizar o conteudo.`;
     }
     return "Conteudo restrito.";
   })();
@@ -631,16 +735,21 @@ export default function EspacoPage() {
   const irParaAssinatura = () => {
     const skinLogadoUser = localStorage.getItem("skinLogadoUser");
     if (!skinLogadoUser) {
-      alert("Selecione uma skin para assinar espacos.");
+      alert(`Selecione uma ${nomeSkinSingular} para assinar ${nomeEspacoPlural}.`);
       return;
     }
     navigate(`/menu/${skinLogadoUser}/espacos`);
   };
 
   const irParaCompra = (bloco = null) => {
+    if (!mercadoPagoSistemaHabilitado) {
+      alert("Pagamentos desativados neste projeto.");
+      return;
+    }
+
     const skinLogadoUser = localStorage.getItem("skinLogadoUser");
     if (!skinLogadoUser) {
-      alert("Selecione uma skin para comprar blocos.");
+      alert(`Selecione uma ${nomeSkinSingular} para comprar ${nomeBlocoPlural}.`);
       return;
     }
     if (bloco?.id) {
@@ -665,6 +774,9 @@ export default function EspacoPage() {
       return <button onClick={irParaAssinatura}>Assinar para desbloquear</button>;
     }
     if (tipoRestricao === "comprador") {
+      if (!mercadoPagoSistemaHabilitado) {
+        return <p>Pagamento indisponivel neste projeto.</p>;
+      }
       const precoFormatado = formatarPreco(bloco?.precoCentavos, bloco?.moeda || "BRL");
       return (
         <button onClick={() => irParaCompra(bloco)}>
@@ -697,7 +809,7 @@ export default function EspacoPage() {
     const bloco = blocos.find((item) => item.id === blocoId);
     if (!bloco) return false;
     if (!ownerUserId || !espacoId) {
-      setErroAcaoBloco("Nao foi possivel atualizar: espaco invalido.");
+      setErroAcaoBloco(`Nao foi possivel atualizar: ${nomeEspacoSingular} invalido.`);
       return false;
     }
 
@@ -764,39 +876,47 @@ export default function EspacoPage() {
       for (const arquivo of novasImagens) {
         const nomeArquivo = gerarNomeArquivoSeguro(arquivo?.name || "imagem");
         const originalPath = `users/${ownerUserId}/espacos/${espacoId}/blocos/${blocoId}/original/${nomeArquivo}`;
-        const originalRef = ref(storage, originalPath);
-
-        await uploadBytes(originalRef, arquivo);
+        const originalUpload = await subirArquivoStorage(originalPath, arquivo);
         novosOriginaisPaths.push(originalPath);
 
         if (isPublicoFinal) {
-          try {
-            const urlPublica = await getDownloadURL(originalRef);
-            novasPublicasUrls.push(urlPublica);
-          } catch (err) {
-            console.warn("Falha ao obter URL publica do original:", err?.code, err?.message);
+          if (isRenderableUrl(originalUpload?.url)) {
+            novasPublicasUrls.push(originalUpload.url);
+          } else {
+            try {
+              const urlPublica = await resolverUrlArquivo(originalPath);
+              if (isRenderableUrl(urlPublica)) {
+                novasPublicasUrls.push(urlPublica);
+              }
+            } catch (err) {
+              console.warn("Falha ao obter URL publica do original:", err?.code, err?.message);
+            }
           }
           continue;
         }
 
         const previewFile = await gerarPreviewDesfocado(arquivo);
         const previewPath = `users/${ownerUserId}/espacos/${espacoId}/blocos/${blocoId}/preview/${nomeArquivo}`;
-        const previewRef = ref(storage, previewPath);
-
-        await uploadBytes(previewRef, previewFile);
+        const previewUpload = await subirArquivoStorage(previewPath, previewFile);
         novosPreviewPaths.push(previewPath);
 
-        try {
-          const previewUrl = await getDownloadURL(previewRef);
-          novasPreviewUrls.push(previewUrl);
-        } catch (err) {
-          console.warn("Falha ao obter URL de preview:", err?.code, err?.message);
+        if (isRenderableUrl(previewUpload?.url)) {
+          novasPreviewUrls.push(previewUpload.url);
+        } else {
+          try {
+            const previewUrl = await resolverUrlArquivo(previewPath);
+            if (isRenderableUrl(previewUrl)) {
+              novasPreviewUrls.push(previewUrl);
+            }
+          } catch (err) {
+            console.warn("Falha ao obter URL de preview:", err?.code, err?.message);
+          }
         }
       }
 
       const imagensOriginaisPaths = [...pathsOriginaisMantidos, ...novosOriginaisPaths];
       if (!imagensOriginaisPaths.length) {
-        throw new Error("O bloco precisa ter ao menos uma imagem.");
+        throw new Error(`O ${nomeBlocoSingular} precisa ter ao menos uma imagem.`);
       }
 
       let imagensPreviewPaths = [];
@@ -811,7 +931,7 @@ export default function EspacoPage() {
         const urlsPublicas = [];
         for (const path of imagensOriginaisPaths) {
           try {
-            const url = await getDownloadURL(ref(storage, path));
+            const url = await resolverUrlArquivo(path);
             urlsPublicas.push(url);
           } catch (err) {
             console.warn("Falha ao resolver URL publica do original:", path, err?.code);
@@ -849,7 +969,7 @@ export default function EspacoPage() {
       );
       for (const path of pathsExclusaoUnicos) {
         try {
-          await deleteObject(ref(storage, path));
+          await excluirArquivoStorage(path);
         } catch (err) {
           if (err?.code !== "storage/object-not-found") {
             console.warn("Falha ao excluir imagem removida:", path, err?.message);
@@ -877,7 +997,7 @@ export default function EspacoPage() {
       return true;
     } catch (err) {
       console.error("Erro ao atualizar bloco:", err);
-      setErroAcaoBloco(err?.message || "Falha ao atualizar bloco.");
+      setErroAcaoBloco(err?.message || `Falha ao atualizar ${nomeBlocoSingular}.`);
       return false;
     } finally {
       setBlocoEmAtualizacaoId(null);
@@ -888,7 +1008,7 @@ export default function EspacoPage() {
     const bloco = blocos.find((item) => item.id === blocoId);
     if (!bloco) return;
 
-    const confirmou = window.confirm("Excluir este bloco?");
+    const confirmou = window.confirm(`Excluir este ${nomeBlocoSingular}?`);
     if (!confirmou) return;
 
     setErroAcaoBloco("");
@@ -902,7 +1022,7 @@ export default function EspacoPage() {
 
       for (const path of allPaths) {
         try {
-          await deleteObject(ref(storage, path));
+          await excluirArquivoStorage(path);
         } catch (err) {
           if (err?.code !== "storage/object-not-found") {
             console.warn("Falha ao excluir arquivo do bloco:", path, err?.message);
@@ -933,7 +1053,7 @@ export default function EspacoPage() {
       blockedPreviewPathsRef.current.clear();
     } catch (err) {
       console.error("Erro ao excluir bloco:", err);
-      setErroAcaoBloco(err?.message || "Falha ao excluir bloco.");
+      setErroAcaoBloco(err?.message || `Falha ao excluir ${nomeBlocoSingular}.`);
     } finally {
       setBlocoEmExclusaoId(null);
     }
@@ -954,7 +1074,7 @@ export default function EspacoPage() {
       {!!erroBlocos && <p style={{ color: "red" }}>{erroBlocos}</p>}
       {!!erroAcaoBloco && <p style={{ color: "red" }}>{erroAcaoBloco}</p>}
 
-      {!acessoEspacoResolvido && <p>Carregando acesso...</p>}
+      {!acessoEspacoResolvido && <p>{`Carregando acesso ao ${nomeEspacoSingular}...`}</p>}
 
       {acessoEspacoResolvido && !podeVerEspaco && (
         <div style={{ padding: 16, border: "1px solid #666", marginBottom: 16 }}>
@@ -1071,7 +1191,7 @@ export default function EspacoPage() {
 
               {bloqueado && (
                 <div style={{ marginTop: 8 }}>
-                  <p>Conteudo restrito do bloco.</p>
+                  <p>{`Conteudo restrito do ${nomeBlocoSingular}.`}</p>
                   {renderCtaRestricao(tipoRestricao, bloco)}
                 </div>
               )}

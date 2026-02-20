@@ -18,7 +18,8 @@ import { getFunctions } from "firebase/functions";
 
 import {
   getAuth,
-  GoogleAuthProvider
+  GoogleAuthProvider,
+  TwitterAuthProvider
 } from "firebase/auth";
 import { resolveFirebaseProject } from "../../config/firebaseProjects";
 
@@ -33,15 +34,19 @@ const { projectKey, firebaseConfig, functionsRegion } = resolveFirebaseProject()
 export const app = initializeApp(firebaseConfig);
 export const activeFirebaseProjectKey = projectKey;
 export const activeFirebaseProjectId = firebaseConfig.projectId;
+export const activeFirebaseStorageBucket = firebaseConfig.storageBucket || "";
 
 // ===============================
 // SERVICES
 // ===============================
 export const db = getFirestore(app);
 export const auth = getAuth(app);
-export const storage = getStorage(app);
+export const storage = activeFirebaseStorageBucket
+  ? getStorage(app, `gs://${activeFirebaseStorageBucket}`)
+  : getStorage(app);
 export const functions = getFunctions(app, functionsRegion);
 export const providerGoogle = new GoogleAuthProvider();
+export const providerTwitter = new TwitterAuthProvider();
 
 
 

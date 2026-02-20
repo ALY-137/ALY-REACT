@@ -7,7 +7,17 @@ import {
   getDownloadURL,
 } from "firebase/storage";
 import { db, storage } from "../../Banco/init-firebase";
+import {
+  uploadArquivoNoBucketCompartilhado,
+  usandoBucketCompartilhadoCrossProject,
+} from "../Storage/sharedBucketApi";
 import { obterStatusMercadoPago } from "../Pagamentos/mercadoPagoApi";
+import {
+  DEFAULT_SISTEMA_CONFIG,
+  obterConfigSistema,
+  obterRotulosBloco,
+  obterRotulosEspaco,
+} from "../Sistema/configSistema";
 
 async function gerarPreviewDesfocado(file) {
   try {
@@ -66,6 +76,8 @@ async function gerarPreviewDesfocado(file) {
   }
 }
 
+const capitalizar = (texto = "") =>
+  texto ? texto.charAt(0).toUpperCase() + texto.slice(1) : "";
 
 export default function CriadorBloco({ espacoAtual, skinIdAtual, onCreate }) {
   const { user, loading } = useAuth();
@@ -75,6 +87,18 @@ export default function CriadorBloco({ espacoAtual, skinIdAtual, onCreate }) {
   const [visibilidade, setVisibilidade] = useState("publico");
   const [valorCompra, setValorCompra] = useState("");
   const [mpConectado, setMpConectado] = useState(false);
+  const [mercadoPagoSistemaHabilitado, setMercadoPagoSistemaHabilitado] = useState(
+    DEFAULT_SISTEMA_CONFIG.mercadoPagoHabilitado
+  );
+  const [nomeEspacoSingular, setNomeEspacoSingular] = useState(
+    DEFAULT_SISTEMA_CONFIG.nomeEspacoSingular
+  );
+  const [nomeBlocoSingular, setNomeBlocoSingular] = useState(
+    DEFAULT_SISTEMA_CONFIG.nomeBlocoSingular
+  );
+  const [nomeBlocoPlural, setNomeBlocoPlural] = useState(
+    DEFAULT_SISTEMA_CONFIG.nomeBlocoPlural
+  );
   const espacoId = espacoAtual?.id || espacoAtual?.id_espaco || null;
   const ownerUserId = espacoAtual?.ownerUserId || null;
   const activeSkinId = skinIdAtual || localStorage.getItem("skinIdAtual");
@@ -96,12 +120,46 @@ export default function CriadorBloco({ espacoAtual, skinIdAtual, onCreate }) {
     let cancelado = false;
 
     async function carregarStatusMercadoPago() {
-      if (loading || !user || !espacoAtual) {
+      if (loading || !user || !espacoAtual || !podeCriar) {
         if (!cancelado) {
           setMpConectado(false);
+          setNomeEspacoSingular(DEFAULT_SISTEMA_CONFIG.nomeEspacoSingular);
+          setNomeBlocoSingular(DEFAULT_SISTEMA_CONFIG.nomeBlocoSingular);
+          setNomeBlocoPlural(DEFAULT_SISTEMA_CONFIG.nomeBlocoPlural);
         }
         return;
       }
+
+      let moduloMercadoPagoAtivo = DEFAULT_SISTEMA_CONFIG.mercadoPagoHabilitado;
+      let nomeEspacoSingularAtual = DEFAULT_SISTEMA_CONFIG.nomeEspacoSingular;
+      let nomeBlocoSingularAtual = DEFAULT_SISTEMA_CONFIG.nomeBlocoSingular;
+      let nomeBlocoPluralAtual = DEFAULT_SISTEMA_CONFIG.nomeBlocoPlural;
+      try {
+        const configSistema = await obterConfigSistema();
+        moduloMercadoPagoAtivo = configSistema?.mercadoPagoHabilitado !== false;
+        const rotulosEspaco = obterRotulosEspaco(configSistema);
+        const rotulosBloco = obterRotulosBloco(configSistema);
+        nomeEspacoSingularAtual =
+          rotulosEspaco?.singular || DEFAULT_SISTEMA_CONFIG.nomeEspacoSingular;
+        nomeBlocoSingularAtual =
+          rotulosBloco?.singular || DEFAULT_SISTEMA_CONFIG.nomeBlocoSingular;
+        nomeBlocoPluralAtual = rotulosBloco?.plural || DEFAULT_SISTEMA_CONFIG.nomeBlocoPlural;
+      } catch {
+        // Mantem fallback local.
+      }
+
+      if (!cancelado) {
+        setMercadoPagoSistemaHabilitado(moduloMercadoPagoAtivo);
+        setNomeEspacoSingular(nomeEspacoSingularAtual);
+        setNomeBlocoSingular(nomeBlocoSingularAtual);
+        setNomeBlocoPlural(nomeBlocoPluralAtual);
+      }
+
+      if (!moduloMercadoPagoAtivo) {
+        if (!cancelado) setMpConectado(false);
+        return;
+      }
+
       try {
         const status = await obterStatusMercadoPago();
         if (!cancelado) {
@@ -118,22 +176,24 @@ export default function CriadorBloco({ espacoAtual, skinIdAtual, onCreate }) {
     return () => {
       cancelado = true;
     };
-  }, [loading, user?.uid, espacoId]);
+  }, [loading, user?.uid, espacoId, podeCriar]);
 
   useEffect(() => {
     const visibilidadeExclusiva =
       visibilidade === "exclusivo_assinante" || visibilidade === "exclusivo_comprador";
 
-    if (!mpConectado && visibilidadeExclusiva) {
+    if ((!mercadoPagoSistemaHabilitado || !mpConectado) && visibilidadeExclusiva) {
       setVisibilidade("publico");
       setValorCompra("");
     }
-  }, [mpConectado, visibilidade]);
+  }, [mercadoPagoSistemaHabilitado, mpConectado, visibilidade]);
 
   if (loading || !user || !espacoAtual) return null;
   if (!podeCriar) return null;
 
   const isExclusivoComprador = visibilidade === "exclusivo_comprador";
+  const nomeEspacoSingularCapitalizado = capitalizar(nomeEspacoSingular);
+  const nomeBlocoSingularCapitalizado = capitalizar(nomeBlocoSingular);
 
   const parseValorCompraEmCentavos = (valorTexto) => {
     const normalizado = String(valorTexto || "").replace(",", ".").trim();
@@ -145,15 +205,15 @@ export default function CriadorBloco({ espacoAtual, skinIdAtual, onCreate }) {
 
   async function criarBloco() {
     if (!files.length) return alert("Selecione ao menos uma imagem");
-    if (!espacoId) return alert("Espaco sem id valido.");
-    if (!ownerUserId) return alert("Espaco sem ownerUserId valido.");
+    if (!espacoId) return alert(`${nomeEspacoSingularCapitalizado} sem id valido.`);
+    if (!ownerUserId) return alert(`${nomeEspacoSingularCapitalizado} sem ownerUserId valido.`);
 
     const precoCentavos = isExclusivoComprador
       ? parseValorCompraEmCentavos(valorCompra)
       : null;
 
     if (isExclusivoComprador && !precoCentavos) {
-      alert("Informe um valor valido para bloco exclusivo de comprador.");
+      alert(`Informe um valor valido para ${nomeBlocoSingular} exclusivo de comprador.`);
       return;
     }
 
@@ -178,6 +238,34 @@ export default function CriadorBloco({ espacoAtual, skinIdAtual, onCreate }) {
         const fileName = `${Date.now()}-${file.name}`;
         const originalPath = `users/${ownerUserId}/espacos/${espacoId}/blocos/${blocoId}/original/${fileName}`;
         const previewPath = `users/${ownerUserId}/espacos/${espacoId}/blocos/${blocoId}/preview/${fileName}`;
+
+        if (usandoBucketCompartilhadoCrossProject) {
+          const originalUpload = await uploadArquivoNoBucketCompartilhado({
+            user,
+            path: originalPath,
+            file,
+          });
+
+          if (visibilidade === "publico" && originalUpload?.url) {
+            originaisPublicasPersistidas.push(originalUpload.url);
+            originaisPublicasParaUI.push(originalUpload.url);
+          } else {
+            const previewFile = await gerarPreviewDesfocado(file);
+            const previewUpload = await uploadArquivoNoBucketCompartilhado({
+              user,
+              path: previewPath,
+              file: previewFile,
+            });
+            if (previewUpload?.url) {
+              previewUrlsPersistidas.push(previewUpload.url);
+              previewUrlsParaUI.push(previewUpload.url);
+            }
+            previewPaths.push(previewPath);
+          }
+
+          originaisPaths.push(originalPath);
+          continue;
+        }
 
         const originalRef = ref(
           storage,
@@ -259,12 +347,12 @@ export default function CriadorBloco({ espacoAtual, skinIdAtual, onCreate }) {
 
       setFiles([]);
       setValorCompra("");
-      alert("Bloco criado com sucesso!");
+      alert(`${nomeBlocoSingularCapitalizado} criado com sucesso!`);
 
     } catch (err) {
       console.error("Erro ao criar bloco:", err);
-      setErro(`${err?.code || "erro"}: ${err?.message || "Falha ao criar bloco"}`);
-      alert("Erro ao criar bloco. Veja o console para detalhes.");
+      setErro(`${err?.code || "erro"}: ${err?.message || `Falha ao criar ${nomeBlocoSingular}`}`);
+      alert(`Erro ao criar ${nomeBlocoSingular}. Veja o console para detalhes.`);
     } finally {
       setEnviando(false);
     }
@@ -272,7 +360,7 @@ export default function CriadorBloco({ espacoAtual, skinIdAtual, onCreate }) {
 
   return (
     <div className="bloco-creator">
-      <h3>Criar bloco de imagens</h3>
+      <h3>{`Criar ${nomeBlocoSingular} de imagens`}</h3>
 
       <input
         type="file"
@@ -288,7 +376,7 @@ export default function CriadorBloco({ espacoAtual, skinIdAtual, onCreate }) {
         <option value="publico">Publico</option>
         <option value="publico_restritivo">Publico restritivo</option>
         <option value="privado">Privado (autenticado)</option>
-        {mpConectado && (
+        {mercadoPagoSistemaHabilitado && mpConectado && (
           <>
             <option value="exclusivo_assinante">Exclusivo assinante</option>
             <option value="exclusivo_comprador">Exclusivo comprador</option>
@@ -296,9 +384,13 @@ export default function CriadorBloco({ espacoAtual, skinIdAtual, onCreate }) {
         )}
       </select>
 
-      {!mpConectado && (
+      {!mercadoPagoSistemaHabilitado ? (
         <p style={{ margin: "8px 0 0", fontSize: 12, color: "#666" }}>
-          Conecte o Mercado Pago para habilitar visibilidade exclusiva para assinantes/compradores.
+          Mercado Pago desativado em PROPRIEDADES DO SISTEMA.
+        </p>
+      ) : !mpConectado && (
+        <p style={{ margin: "8px 0 0", fontSize: 12, color: "#666" }}>
+          {`Conecte o Mercado Pago para habilitar visibilidade exclusiva para assinantes/compradores de ${nomeBlocoPlural}.`}
         </p>
       )}
 
@@ -314,7 +406,7 @@ export default function CriadorBloco({ espacoAtual, skinIdAtual, onCreate }) {
       )}
 
       <button onClick={criarBloco} disabled={enviando}>
-        {enviando ? "Enviando..." : "Criar bloco"}
+        {enviando ? "Enviando..." : `Criar ${nomeBlocoSingular}`}
       </button>
 
       {!!erro && <p style={{ color: "red" }}>{erro}</p>}

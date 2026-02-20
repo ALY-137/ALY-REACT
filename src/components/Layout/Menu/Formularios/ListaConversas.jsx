@@ -1,75 +1,98 @@
-import React, { useState, useEffect } from 'react';
-import './formularios.css';
-import { useNavigate, useParams } from 'react-router-dom';
-
+import React, { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   collection,
+  deleteDoc,
   doc,
-  query,
-  orderBy,
-  onSnapshot,
   getDocs,
+  onSnapshot,
+  orderBy,
+  query,
   writeBatch,
-  deleteDoc
-} from 'firebase/firestore';
+} from "firebase/firestore";
 
-import { db } from '../../../Banco/init-firebase.js';
+import "./formularios.css";
+import { db } from "../../../Banco/init-firebase.js";
+import {
+  DEFAULT_SISTEMA_CONFIG,
+  obterConfigSistema,
+} from "../../Sistema/configSistema";
 
-function ListaConversas({ setBackText, setAtualTxt, handleExpandForm }) {
+function ListaConversas() {
   const [conversas, setConversas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [chatHabilitado, setChatHabilitado] = useState(DEFAULT_SISTEMA_CONFIG.chatHabilitado);
+  const [carregandoConfig, setCarregandoConfig] = useState(true);
 
   const navigate = useNavigate();
   const { contactId } = useParams();
-  const skinLogadoUser = localStorage.getItem('skinLogadoUser');
+  const skinLogadoUser = localStorage.getItem("skinLogadoUser");
 
   useEffect(() => {
-    const conversasRef = collection(
-      db,
-      'contatos',
-      contactId,
-      'conversas'
-    );
+    let ativo = true;
 
-    const q = query(
-      conversasRef,
-      orderBy('dataUltimaMensagem', 'desc')
-    );
+    async function carregarConfigSistema() {
+      try {
+        const config = await obterConfigSistema();
+        if (!ativo) return;
+        setChatHabilitado(config?.chatHabilitado !== false);
+      } catch {
+        if (!ativo) return;
+        setChatHabilitado(DEFAULT_SISTEMA_CONFIG.chatHabilitado);
+      } finally {
+        if (ativo) setCarregandoConfig(false);
+      }
+    }
+
+    carregarConfigSistema();
+
+    return () => {
+      ativo = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!chatHabilitado || !contactId) {
+      setConversas([]);
+      setLoading(false);
+      return;
+    }
+
+    const conversasRef = collection(db, "contatos", contactId, "conversas");
+    const q = query(conversasRef, orderBy("dataUltimaMensagem", "desc"));
 
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
         const listaConversas = snapshot.docs.map((docSnap) => ({
           conversaId: docSnap.id,
-          assunto: docSnap.data().assunto || 'Sem assunto',
-          ultimaMensagem:
-            docSnap.data().ultimaMensagem || 'Nenhuma mensagem',
+          assunto: docSnap.data().assunto || "Sem assunto",
+          ultimaMensagem: docSnap.data().ultimaMensagem || "Nenhuma mensagem",
           data: docSnap.data().dataUltimaMensagem?.toDate(),
         }));
 
         setConversas(listaConversas);
         setLoading(false);
       },
-      (error) => {
-        console.error('Erro ao carregar conversas:', error);
-        setError('Erro ao carregar conversas.');
+      (snapshotError) => {
+        console.error("Erro ao carregar conversas:", snapshotError);
+        setError("Erro ao carregar conversas.");
         setLoading(false);
       }
     );
 
     return () => unsubscribe();
-  }, [contactId]);
+  }, [chatHabilitado, contactId]);
 
-  // 🔥 Exclui todos os chats da conversa
   const deleteChats = async (idConversa) => {
     const chatsRef = collection(
       db,
-      'contatos',
+      "contatos",
       contactId,
-      'conversas',
+      "conversas",
       idConversa,
-      'chats'
+      "chats"
     );
 
     const snapshot = await getDocs(chatsRef);
@@ -86,58 +109,46 @@ function ListaConversas({ setBackText, setAtualTxt, handleExpandForm }) {
     event.stopPropagation();
 
     try {
-      // 1️⃣ Deleta os chats
       await deleteChats(idConversa);
 
-      // 2️⃣ Deleta a conversa
-      await deleteDoc(
-        doc(
-          db,
-          'contatos',
-          contactId,
-          'conversas',
-          idConversa
-        )
-      );
+      await deleteDoc(doc(db, "contatos", contactId, "conversas", idConversa));
 
-      // 3️⃣ Atualiza estado local
-      const novasConversas = conversas.filter(
-        (c) => c.conversaId !== idConversa
-      );
+      const novasConversas = conversas.filter((item) => item.conversaId !== idConversa);
       setConversas(novasConversas);
 
-      // 4️⃣ Se não sobrar conversa, remove o contato
       if (novasConversas.length === 0) {
-        await deleteDoc(doc(db, 'contatos', contactId));
+        await deleteDoc(doc(db, "contatos", contactId));
       }
-    } catch (error) {
-      console.error('Erro ao deletar conversa:', error);
-      setError('Erro ao deletar a conversa.');
+    } catch (erroDelete) {
+      console.error("Erro ao deletar conversa:", erroDelete);
+      setError("Erro ao deletar a conversa.");
     }
   };
 
   const handleConversaClick = (idConversa) => {
-    navigate(
-      `/menu/${skinLogadoUser}/contatos/${contactId}/chat/${idConversa}`
-    );
+    navigate(`/menu/${skinLogadoUser}/contatos/${contactId}/chat/${idConversa}`);
   };
+
+  if (carregandoConfig) {
+    return <p>Carregando...</p>;
+  }
+
+  if (!chatHabilitado) {
+    return <p>Chat desativado em PROPRIEDADES DO SISTEMA.</p>;
+  }
 
   return (
     <div>
       {loading && <p>Carregando conversas...</p>}
       {error && <p>{error}</p>}
-      {!loading && !error && conversas.length === 0 && (
-        <p>Não há conversas.</p>
-      )}
+      {!loading && !error && conversas.length === 0 && <p>Nao ha conversas.</p>}
 
       <div className="pageContentForms">
         {conversas.map((conversa) => (
           <div
             key={conversa.conversaId}
             className="boxItemConversa"
-            onClick={() =>
-              handleConversaClick(conversa.conversaId)
-            }
+            onClick={() => handleConversaClick(conversa.conversaId)}
           >
             <div className="conversaHeader">
               <p>
@@ -145,23 +156,18 @@ function ListaConversas({ setBackText, setAtualTxt, handleExpandForm }) {
               </p>
               <button
                 className="deleteButton"
-                onClick={(event) =>
-                  handleDelete(conversa.conversaId, event)
-                }
+                onClick={(event) => handleDelete(conversa.conversaId, event)}
               >
                 Excluir
               </button>
             </div>
 
             <p>
-              <strong>Última Mensagem:</strong>{' '}
-              {conversa.ultimaMensagem}
+              <strong>Ultima mensagem:</strong> {conversa.ultimaMensagem}
             </p>
             <p>
-              <strong>Data da Última Mensagem:</strong>{' '}
-              {conversa.data
-                ? conversa.data.toLocaleDateString('pt-BR')
-                : 'Data não disponível'}
+              <strong>Data da ultima mensagem:</strong>{" "}
+              {conversa.data ? conversa.data.toLocaleDateString("pt-BR") : "Data nao disponivel"}
             </p>
           </div>
         ))}

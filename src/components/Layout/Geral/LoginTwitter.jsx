@@ -2,7 +2,7 @@ import React from "react";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { getRedirectResult, signInWithPopup, signInWithRedirect } from "firebase/auth";
-import { auth, providerGoogle } from "../../Banco/init-firebase";
+import { auth, providerTwitter } from "../../Banco/init-firebase";
 import { bootstrapUser } from "../Menu/Users/bootstrapUser";
 
 const POST_LOGIN_REDIRECT_KEY = "postLoginRedirectPath";
@@ -15,7 +15,7 @@ const normalizarDestinoInterno = (valor) => {
   return valor;
 };
 
-function LoginGoogle({ onLogin }) {
+function LoginTwitter({ onLogin }) {
   const navigate = useNavigate();
 
   const finalizarLogin = async (firebaseUser) => {
@@ -45,7 +45,7 @@ function LoginGoogle({ onLogin }) {
         if (!result?.user || !ativo) return;
         await finalizarLogin(result.user);
       } catch (err) {
-        console.error("Erro ao concluir login por redirect:", err);
+        console.error("Erro ao concluir login por redirect (X/Twitter):", err);
       }
     };
 
@@ -58,7 +58,7 @@ function LoginGoogle({ onLogin }) {
 
   const handleLogin = async () => {
     try {
-      const result = await signInWithPopup(auth, providerGoogle);
+      const result = await signInWithPopup(auth, providerTwitter);
       await finalizarLogin(result.user);
     } catch (err) {
       const codigo = err?.code || "";
@@ -69,7 +69,12 @@ function LoginGoogle({ onLogin }) {
         codigo === "auth/cancelled-popup-request" ||
         codigo === "auth/operation-not-supported-in-this-environment"
       ) {
-        await signInWithRedirect(auth, providerGoogle);
+        await signInWithRedirect(auth, providerTwitter);
+        return;
+      }
+
+      if (codigo === "auth/operation-not-allowed") {
+        alert("Login com X/Twitter nao habilitado no Firebase Authentication.");
         return;
       }
 
@@ -80,44 +85,32 @@ function LoginGoogle({ onLogin }) {
         return;
       }
 
-      console.error("Erro no login:", err);
+      console.error("Erro no login com X/Twitter:", err);
     }
   };
 
   return (
     <button
       onClick={handleLogin}
-      className="loginGoogleButton"
+      className="loginTwitterButton"
       type="button"
-      aria-label="Entrar com Google"
-      title="Entrar com Google"
+      aria-label="Entrar com X/Twitter"
+      title="Entrar com X/Twitter"
     >
       <svg
-        className="loginGoogleIcon"
-        viewBox="0 0 18 18"
-        width="18"
-        height="18"
+        className="loginTwitterIcon"
+        viewBox="0 0 1200 1227"
+        width="16"
+        height="16"
         aria-hidden="true"
       >
         <path
-          fill="#4285F4"
-          d="M17.64 9.2045c0-.6382-.0573-1.2518-.1636-1.8409H9v3.4818h4.8436c-.2086 1.125-.8427 2.0795-1.7972 2.7177v2.2582h2.9086c1.7018-1.5668 2.6845-3.8727 2.6845-6.6168z"
-        />
-        <path
-          fill="#34A853"
-          d="M9 18c2.43 0 4.4673-.8059 5.9564-2.1782l-2.9086-2.2582c-.8059.54-1.8368.8591-3.0478.8591-2.3441 0-4.3282-1.5832-5.0368-3.7105H.9573v2.3318C2.4382 15.9832 5.4818 18 9 18z"
-        />
-        <path
-          fill="#FBBC05"
-          d="M3.9632 10.7122C3.7823 10.1727 3.68 9.5968 3.68 9s.1023-1.1727.2832-1.7123V4.9559H.9573C.3477 6.1705 0 7.5482 0 9s.3477 2.8295.9573 4.0441l3.0059-2.3319z"
-        />
-        <path
-          fill="#EA4335"
-          d="M9 3.5773c1.3214 0 2.5077.4541 3.4405 1.345L15.0291 2.334C13.4632.8777 11.43 0 9 0 5.4818 0 2.4382 2.0168.9573 4.9559l3.0059 2.3318C4.6718 5.1605 6.6559 3.5773 9 3.5773z"
+          fill="currentColor"
+          d="M714 519L1160 0H1054L667 450L358 0H0L468 681L0 1227H106L515 756L842 1227H1200L714 519ZM569 699L521 631L144 99H307L611 533L659 601L1054 1130H891L569 699Z"
         />
       </svg>
     </button>
   );
 }
 
-export default LoginGoogle;
+export default LoginTwitter;

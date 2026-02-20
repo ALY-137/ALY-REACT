@@ -6,13 +6,19 @@ import { collection, doc, getDocs } from "firebase/firestore";
 import { auth, db } from "./components/Banco/init-firebase";
 import {
   DEFAULT_SISTEMA_CONFIG,
+  aplicarBrandingNoDocumento,
   aplicarTemaNoBody,
+  estaConfigSistemaInicializada,
   obterConfigSistema,
 } from "./components/Layout/Sistema/configSistema";
+import PropriedadesSistema from "./components/Layout/Menu/PropriedadesSistema/PropriedadesSistema";
 
 import SkinsManager from "./components/Layout/Skins/SkinsManager";
 import Estrutura from "./components/Layout/Espacos/Estrutura";
 import LoginGoogle from "./components/Layout/Geral/LoginGoogle.jsx";
+import LoginTwitter from "./components/Layout/Geral/LoginTwitter.jsx";
+import LoginCadastroEmail from "./components/Layout/Geral/LoginCadastroEmail.jsx";
+import FirebaseProjectBadge from "./components/Layout/Geral/FirebaseProjectBadge.jsx";
 import Navegacoes from "./components/Scripts/navegacoes/Navegacoes.jsx";
 import AnoAtualizado from "./components/Scripts/data/AnoAtualizado";
 
@@ -32,8 +38,21 @@ const App = () => {
   const [authLoading, setAuthLoading] = useState(true);
   const [skinsLoading, setSkinsLoading] = useState(false);
   const [configSistema, setConfigSistema] = useState(DEFAULT_SISTEMA_CONFIG);
+  const [carregandoSetupAdmin, setCarregandoSetupAdmin] = useState(false);
+  const [mostrarSetupAdmin, setMostrarSetupAdmin] = useState(false);
+  const [setupAdminBootstrap, setSetupAdminBootstrap] = useState(false);
 
   const location = useLocation();
+
+  const aplicarConfigSistemaLocal = (config) => {
+    setConfigSistema(config);
+    aplicarBrandingNoDocumento(config);
+    if (config?.adminUid) {
+      localStorage.setItem("systemAdminUid", config.adminUid);
+    } else {
+      localStorage.removeItem("systemAdminUid");
+    }
+  };
 
   useEffect(() => {
     let ativo = true;
@@ -42,7 +61,7 @@ const App = () => {
       try {
         const config = await obterConfigSistema();
         if (!ativo) return;
-        setConfigSistema(config);
+        aplicarConfigSistemaLocal(config);
       } catch (error) {
         // Se falhar, segue com defaults locais.
       }
@@ -52,6 +71,19 @@ const App = () => {
 
     return () => {
       ativo = false;
+    };
+  }, [user?.uid]);
+
+  useEffect(() => {
+    const handleConfigSistemaAtualizada = (event) => {
+      const configAtualizada = event?.detail;
+      if (!configAtualizada || typeof configAtualizada !== "object") return;
+      aplicarConfigSistemaLocal(configAtualizada);
+    };
+
+    window.addEventListener("sistema-config-atualizada", handleConfigSistemaAtualizada);
+    return () => {
+      window.removeEventListener("sistema-config-atualizada", handleConfigSistemaAtualizada);
     };
   }, []);
 
@@ -103,9 +135,69 @@ const App = () => {
   }, [user]);
 
   useEffect(() => {
+    let ativo = true;
+
+    const resolverSetupAdmin = async () => {
+      if (!user?.uid) {
+        if (ativo) {
+          setMostrarSetupAdmin(false);
+          setSetupAdminBootstrap(false);
+          setCarregandoSetupAdmin(false);
+        }
+        return;
+      }
+
+      setCarregandoSetupAdmin(true);
+
+      try {
+        const configInicializada = await estaConfigSistemaInicializada();
+        if (!ativo) return;
+        if (!configInicializada) {
+          setMostrarSetupAdmin(true);
+          setSetupAdminBootstrap(true);
+          return;
+        }
+
+        setSetupAdminBootstrap(false);
+        setMostrarSetupAdmin(false);
+      } catch {
+        if (!ativo) return;
+        // Se Firestore ainda nao estiver inicializado, prioriza o onboarding
+        // em Propriedades do Sistema para o admin.
+        setMostrarSetupAdmin(true);
+        setSetupAdminBootstrap(true);
+      } finally {
+        if (ativo) setCarregandoSetupAdmin(false);
+      }
+    };
+
+    resolverSetupAdmin();
+
+    return () => {
+      ativo = false;
+    };
+  }, [user]);
+
+  useEffect(() => {
     const timeout = setTimeout(() => setMostrarLogin(true), 1000);
     return () => clearTimeout(timeout);
   }, []);
+
+  useEffect(() => {
+    aplicarBrandingNoDocumento(configSistema);
+  }, [configSistema.tituloSistema, configSistema.faviconUrl]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const root = document.documentElement;
+    const largura = Number(configSistema?.larguraIconsLoginPx);
+
+    if (Number.isFinite(largura) && largura > 0) {
+      root.style.setProperty("--icons-login-width", `${Math.round(largura)}px`);
+    } else {
+      root.style.removeProperty("--icons-login-width");
+    }
+  }, [configSistema.larguraIconsLoginPx]);
 
   const isPublicProfileRoute = useMemo(() => {
     return location.pathname.split("/").length >= 2 && location.pathname !== "/";
@@ -122,23 +214,70 @@ const App = () => {
     return <div className="loader">Carregando skins...</div>;
   }
 
+  if (!authLoading && user && carregandoSetupAdmin) {
+    return <div className="loader">Carregando configuracoes do sistema...</div>;
+  }
+
   const logoLoginSrc = configSistema.logoLoginUrl || DEFAULT_SISTEMA_CONFIG.logoLoginUrl;
+  const tituloSistema = configSistema.tituloSistema || DEFAULT_SISTEMA_CONFIG.tituloSistema;
+  const exibirTituloSistemaNoLogin = configSistema.exibirTituloSistemaNoLogin !== false;
+  const textoLogin = configSistema.textoLogin || DEFAULT_SISTEMA_CONFIG.textoLogin;
+  const loginComGoogleHabilitado =
+    configSistema?.metodosLoginHabilitados?.google !== false;
+  const loginComTwitterHabilitado =
+    configSistema?.metodosLoginHabilitados?.twitter !== false;
+  const loginComEmailSenhaHabilitado =
+    configSistema?.metodosLoginHabilitados?.emailSenha !== false;
+  const possuiMetodoLoginHabilitado =
+    loginComGoogleHabilitado || loginComTwitterHabilitado || loginComEmailSenhaHabilitado;
 
   return (
     <div>
-      {isPublicProfileRoute ? (
+      <FirebaseProjectBadge />
+      {mostrarSetupAdmin && !isPublicProfileRoute ? (
+        <PropriedadesSistema
+          modoBootstrap={setupAdminBootstrap}
+          onConfigSalva={(configSalva) => {
+            aplicarConfigSistemaLocal(configSalva);
+            setSetupAdminBootstrap(false);
+            setMostrarSetupAdmin(false);
+          }}
+        />
+      ) : isPublicProfileRoute ? (
         <Estrutura />
       ) : !user && !authLoading ? (
         <div id="login" className={`containerLogin ${mostrarLogin ? "fadeIn" : ""}`}>
           <Navegacoes />
           <div id="iconsLogin">
-            <img src={logoLoginSrc} id="logoLogin" alt="Logo" />
-            <p id="logoTxt">ALY-137</p>
-            <p id="textoLogin">EMBARQUE COM O GOOGLE</p>
-            <LoginGoogle />
+
+            <div id="loginMain">
+              <img src={logoLoginSrc} id="logoLogin" alt="Logo" />
+              {exibirTituloSistemaNoLogin ? <p id="logoTxt">{tituloSistema}</p> : null}
+            </div>
+
+            {loginComEmailSenhaHabilitado ? <LoginCadastroEmail /> : null}
+            <div id="divLogin">
+              {possuiMetodoLoginHabilitado ? (
+                <div id="loginDivider" aria-hidden="true" />
+              ) : null}
+              <p id="textoLogin">{textoLogin}</p>
+              {possuiMetodoLoginHabilitado ? (
+                <div id="loginMetodos">
+                  {loginComGoogleHabilitado || loginComTwitterHabilitado ? (
+                    <div className="loginSocialButtons">
+                      {loginComGoogleHabilitado ? <LoginGoogle /> : null}
+                      {loginComTwitterHabilitado ? <LoginTwitter /> : null}
+                    </div>
+                  ) : null}
+                  
+                </div>
+              ) : (
+                <p id="loginSemMetodoAviso">Nenhum metodo de login habilitado.</p>
+              )}
+            </div>
           </div>
           <p id="rodapeLogin">
-            ALY-137&#169; <AnoAtualizado />
+            {`${tituloSistema}\u00A9`} <AnoAtualizado />
           </p>
         </div>
       ) : skins.length === 1 ? (

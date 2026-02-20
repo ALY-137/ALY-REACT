@@ -1,46 +1,80 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-
-import './formularios.css';
-import { seforAdm } from '../../../Scripts/verificacoes/verificaAdm';
-
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
+  collection,
   collectionGroup,
   getDocs,
+  limit,
+  orderBy,
   query,
   where,
-  orderBy,
-  limit
-} from 'firebase/firestore';
+} from "firebase/firestore";
 
-import { db } from '../../../Banco/init-firebase.js';
+import "./formularios.css";
+import { db } from "../../../Banco/init-firebase.js";
+import { seforAdm } from "../../../Scripts/verificacoes/verificaAdm";
+import {
+  DEFAULT_SISTEMA_CONFIG,
+  obterConfigSistema,
+} from "../../Sistema/configSistema";
 
 function ListaContatos() {
   const [contatos, setContatos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [chatHabilitado, setChatHabilitado] = useState(DEFAULT_SISTEMA_CONFIG.chatHabilitado);
+  const [carregandoConfig, setCarregandoConfig] = useState(true);
 
   const navigate = useNavigate();
-  const skinLogadoUser = localStorage.getItem('skinLogadoUser');
-  const userId = localStorage.getItem('userId');
+  const skinLogadoUser = localStorage.getItem("skinLogadoUser");
+  const userId = localStorage.getItem("userId");
   const isAdmin = seforAdm({ uid: userId });
 
   useEffect(() => {
+    let ativo = true;
 
-    // 🔹 Busca dados da skin pelo username
+    async function carregarConfigSistema() {
+      try {
+        const config = await obterConfigSistema();
+        if (!ativo) return;
+        setChatHabilitado(config?.chatHabilitado !== false);
+      } catch {
+        if (!ativo) return;
+        setChatHabilitado(DEFAULT_SISTEMA_CONFIG.chatHabilitado);
+      } finally {
+        if (ativo) setCarregandoConfig(false);
+      }
+    }
+
+    carregarConfigSistema();
+
+    return () => {
+      ativo = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!chatHabilitado) {
+      setContatos([]);
+      setLoading(false);
+      return;
+    }
+
+    let cancelado = false;
+
     const fetchSkinDataByUsername = async (username) => {
       try {
         let skinsQuery = query(
-          collectionGroup(db, 'skins'),
-          where('username', '==', username),
+          collectionGroup(db, "skins"),
+          where("username", "==", username),
           limit(1)
         );
 
         if (!isAdmin) {
           skinsQuery = query(
-            collectionGroup(db, 'skins'),
-            where('username', '==', username),
-            where('visibilidade', 'in', ['publico', 'publico_restritivo', 'privado']),
+            collectionGroup(db, "skins"),
+            where("username", "==", username),
+            where("visibilidade", "in", ["publico", "publico_restritivo", "privado"]),
             limit(1)
           );
         }
@@ -50,26 +84,26 @@ function ListaContatos() {
         if (!skinsSnapshot.empty) {
           const skinData = skinsSnapshot.docs[0].data();
           return {
-            nome: skinData.username || 'Sem nome',
-            foto: skinData.iconSkin || 'default-user.jpg',
+            nome: skinData.username || "Sem nome",
+            foto: skinData.iconSkin || "default-user.jpg",
           };
         }
-      } catch (error) {
-        console.error(`Erro ao buscar dados da skin (${username}):`, error);
+      } catch (erroSkin) {
+        console.error(`Erro ao buscar dados da skin (${username}):`, erroSkin);
       }
 
       return {
         nome: username,
-        foto: 'default-user.jpg',
+        foto: "default-user.jpg",
       };
     };
 
-    // 🔹 Busca contatos
     const fetchContatos = async () => {
+      setLoading(true);
       try {
         const contatosQuery = query(
-          collection(db, 'contatos'),
-          orderBy('ultimaConversaData', 'desc')
+          collection(db, "contatos"),
+          orderBy("ultimaConversaData", "desc")
         );
 
         const snapshot = await getDocs(contatosQuery);
@@ -80,11 +114,9 @@ function ListaContatos() {
             const remetente = data.skinRemetente;
             const destinatario = data.skinDestinatario;
 
-            // 🔒 Filtro para não-admin
             if (!isAdmin) {
               const userIsInvolved =
-                remetente === skinLogadoUser ||
-                destinatario === skinLogadoUser;
+                remetente === skinLogadoUser || destinatario === skinLogadoUser;
 
               if (!userIsInvolved) return null;
             }
@@ -99,23 +131,29 @@ function ListaContatos() {
               fotoDestinatario: destinatarioData.foto,
               nomeRemetente: remetenteData.nome,
               nomeDestinatario: destinatarioData.nome,
-              ultimaConversaData:
-                data.ultimaConversaData?.toDate() || new Date(0),
+              ultimaConversaData: data.ultimaConversaData?.toDate() || new Date(0),
             };
           })
         );
 
+        if (cancelado) return;
         setContatos(listaContatos.filter(Boolean));
-        setLoading(false);
-      } catch (error) {
-        console.error('Erro ao carregar contatos:', error);
-        setError('Erro ao carregar contatos.');
-        setLoading(false);
+        setError(null);
+      } catch (erroContatos) {
+        if (cancelado) return;
+        console.error("Erro ao carregar contatos:", erroContatos);
+        setError("Erro ao carregar contatos.");
+      } finally {
+        if (!cancelado) setLoading(false);
       }
     };
 
     fetchContatos();
-  }, [skinLogadoUser]);
+
+    return () => {
+      cancelado = true;
+    };
+  }, [chatHabilitado, isAdmin, skinLogadoUser]);
 
   const handleChatRedirect = (contatoId) => {
     navigate(`/menu/${skinLogadoUser}/contatos/${contatoId}/chat/principal`);
@@ -125,38 +163,42 @@ function ListaContatos() {
     navigate(`/menu/${skinLogadoUser}/contatos/${contatoId}`);
   };
 
+  if (carregandoConfig) {
+    return <p>Carregando...</p>;
+  }
+
+  if (!chatHabilitado) {
+    return <p>Chat desativado em PROPRIEDADES DO SISTEMA.</p>;
+  }
+
   return (
     <div>
       {loading && <p>Carregando contatos...</p>}
       {error && <p>{error}</p>}
-      {!loading && !error && contatos.length === 0 && (
-        <p>Não há contatos.</p>
-      )}
+      {!loading && !error && contatos.length === 0 && <p>Nao ha contatos.</p>}
 
       <div className="pageContentForms">
         {contatos.map((contato) => (
           <div
             key={contato.contatoId}
             className="boxItemContato"
-            onClick={() =>
-              handleListarConversasRedirect(contato.contatoId)
-            }
+            onClick={() => handleListarConversasRedirect(contato.contatoId)}
           >
             <div className="fotoContainer">
               {isAdmin && (
                 <>
                   <img
                     src={contato.fotoRemetente}
-                    alt="Foto Remetente"
+                    alt="Foto remetente"
                     className="fotoContato"
                   />
-                  <p> ◄--► </p>
+                  <p> | </p>
                 </>
               )}
 
               <img
                 src={contato.fotoDestinatario}
-                alt="Foto Destinatário"
+                alt="Foto destinatario"
                 className="fotoContato"
               />
             </div>
@@ -168,15 +210,14 @@ function ListaContatos() {
                   : contato.nomeDestinatario}
               </p>
               <p className="dataContatos">
-                Último contato:{' '}
-                {contato.ultimaConversaData.toLocaleDateString('pt-BR')}
+                Ultimo contato: {contato.ultimaConversaData.toLocaleDateString("pt-BR")}
               </p>
             </div>
 
             <img
               className="btnChat"
-              onClick={(e) => {
-                e.stopPropagation();
+              onClick={(event) => {
+                event.stopPropagation();
                 handleChatRedirect(contato.contatoId);
               }}
               src="https://firebasestorage.googleapis.com/v0/b/teste-aa015.appspot.com/o/imagens%2Fthemes%2Fcyberpink%2Fviolet%2Fchat.png?alt=media&token=663a432d-f916-4917-98b2-e90eacd65745"
@@ -190,5 +231,3 @@ function ListaContatos() {
 }
 
 export default ListaContatos;
-
-

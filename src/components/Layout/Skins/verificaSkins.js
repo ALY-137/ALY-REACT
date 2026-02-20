@@ -25,6 +25,16 @@ export const verificarESalvarskins = async (userId, username, theme) => {
     const userRef = doc(db, "users", userId);
     const skinsRef = collection(userRef, "skins");
 
+    // Garante documento pai do usuario para evitar "not-found" em updates futuros.
+    await setDoc(
+      userRef,
+      {
+        uid: userId,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+
     // ── Verificar se o username já existe nas skins públicas/restritivas
     // (skins privadas de terceiros não são consultáveis por regra)
     const publicQuery = query(

@@ -1,6 +1,8 @@
 const DEFAULT_FUNCTIONS_REGION = "us-central1";
 const LOCAL_STORAGE_PROJECT_KEY = "firebaseProjectTarget";
 const LOCAL_QUERY_PARAM = "firebaseProject";
+const SHARED_STORAGE_BUCKET_ENV =
+  process.env.REACT_APP_FIREBASE_SHARED_STORAGE_BUCKET || "";
 
 const TESTE_AA015_CONFIG = {
   apiKey: "AIzaSyCJMHDdf-GwLwyqKQLRWR8kkyWXDP2v02A",
@@ -11,6 +13,26 @@ const TESTE_AA015_CONFIG = {
   messagingSenderId: "99960275074",
   appId: "1:99960275074:web:e2923f7e34a0c0c18c749b",
 };
+
+function normalizeStorageBucket(value) {
+  const normalized = String(value || "")
+    .trim()
+    .replace(/^gs:\/\//i, "")
+    .replace(/\/+$/, "");
+  return normalized;
+}
+
+function applySharedStorageBucket(firebaseConfig) {
+  const sharedBucket = normalizeStorageBucket(SHARED_STORAGE_BUCKET_ENV);
+  if (!sharedBucket) {
+    return firebaseConfig;
+  }
+
+  return {
+    ...firebaseConfig,
+    storageBucket: sharedBucket,
+  };
+}
 
 function buildObeyonConfigFromEnv() {
   const apiKey = process.env.REACT_APP_FIREBASE_OBEYON_API_KEY || "";
@@ -34,7 +56,7 @@ function buildObeyonConfigFromEnv() {
     return null;
   }
 
-  return {
+  return applySharedStorageBucket({
     apiKey,
     authDomain,
     databaseURL,
@@ -42,7 +64,7 @@ function buildObeyonConfigFromEnv() {
     storageBucket,
     messagingSenderId,
     appId,
-  };
+  });
 }
 
 function getHostProjectMap() {
@@ -90,17 +112,18 @@ function safeWriteLocalProjectToStorage(projectKey) {
 }
 
 function resolveRequestedProjectKey(projects) {
-  const envTarget = (process.env.REACT_APP_FIREBASE_TARGET || "").trim();
-  if (envTarget && projects[envTarget]) {
-    return envTarget;
-  }
-
   const hostname =
     typeof window !== "undefined"
       ? (window.location.hostname || "").toLowerCase()
       : "";
+  const localHost = isLocalHost(hostname);
+  const envTarget = (process.env.REACT_APP_FIREBASE_TARGET || "").trim();
 
-  if (isLocalHost(hostname)) {
+  if (localHost && envTarget && projects[envTarget]) {
+    return envTarget;
+  }
+
+  if (localHost) {
     const queryTarget = safeReadLocalProjectFromUrl();
     if (queryTarget && projects[queryTarget]) {
       safeWriteLocalProjectToStorage(queryTarget);
@@ -124,11 +147,12 @@ function resolveRequestedProjectKey(projects) {
 
 export function resolveFirebaseProject() {
   const obeyonConfig = buildObeyonConfigFromEnv();
+  const testeConfig = applySharedStorageBucket(TESTE_AA015_CONFIG);
 
   const projects = {
     "teste-aa015": {
       key: "teste-aa015",
-      config: TESTE_AA015_CONFIG,
+      config: testeConfig,
       functionsRegion: DEFAULT_FUNCTIONS_REGION,
     },
   };

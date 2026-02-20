@@ -1,0 +1,360 @@
+@import "./system-base.css";
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
+body.theme-obeydom {
+  --obey-black: #000000;
+  --obey-white: #e4e4dd;
+  --obey-offwhite: #d2d2cb;
+  --obey-gray-1: #111111;
+  --obey-gray-2: #1c1c1c;
+  --obey-gray-3: #2a2a2a;
+  --obey-gray-4: #6a6a6a;
+  --obey-red-muted: #5a3333;
+  --obey-text-primary: #cdcdc6;
+  --obey-text-muted: #b0b0a8;
+  --obey-text-subtle: #85857f;
+  --obey-spacing-xl: 28px;
+  --obey-spacing-lg: 20px;
+  --obey-spacing-md: 14px;
+  --obey-radius: 6px;
+
+  background-color: var(--obey-black);
+  background-image: linear-gradient(180deg, #000000 0%, #080808 100%);
+  color: var(--obey-text-primary);
+  font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  letter-spacing: 0.01em;
+}
+
+body.theme-obeydom * {
+  transition:
+    color 260ms ease,
+    background-color 260ms ease,
+    border-color 260ms ease,
+    opacity 260ms ease;
+}
+
+body.theme-obeydom #login {
+  background-color: var(--obey-black);
+  background-image: linear-gradient(180deg, #000000 0%, #090909 100%);
+}
+
+body.theme-obeydom #iconsLogin {
+  width: min(92vw, var(--icons-login-width, 380px));
+  min-height: 440px;
+  padding: 36px 32px 26px;
+  border: 1px solid var(--obey-gray-3);
+  border-radius: var(--obey-radius);
+  background: var(--obey-gray-1);
+  box-shadow: none;
+}
+
+body.theme-obeydom #logoLogin {
+  width: 168px;
+  height: 168px;
+  margin: 0 auto var(--obey-spacing-lg);
+  display: block;
+  filter: none;
+}
+
+body.theme-obeydom #logoTxt {
+  margin: 0 0 var(--obey-spacing-xl);
+  color: var(--obey-text-primary);
+  font-family: ui-serif, Georgia, "Times New Roman", serif;
+  font-size: clamp(28px, 3vw, 38px);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1.1;
+  text-transform: uppercase;
+  text-align: center;
+  text-shadow: none;
+}
+
+body.theme-obeydom #textoLogin {
+  margin: 0 0 var(--obey-spacing-md);
+  color: var(--obey-text-muted);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+  text-shadow: none;
+}
+
+body.theme-obeydom #loginDivider {
+  max-width: 300px;
+  margin: 10px auto 14px;
+  background-color: var(--obey-text-muted);
+  opacity: 0.22;
+}
+
+body.theme-obeydom #rodapeLogin {
+  color: var(--obey-text-subtle);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-shadow: none;
+}
+
+body.theme-obeydom .firebaseProjectBadge {
+  border: 1px solid var(--obey-gray-3);
+  background: rgba(17, 17, 17, 0.95);
+  color: var(--obey-text-muted);
+  font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+body.theme-obeydom #fundo {
+  color: var(--obey-text-primary);
+}
+
+body.theme-obeydom #cabecalho {
+  height: 56px;
+  border: 1px solid var(--obey-gray-3);
+  border-radius: var(--obey-radius);
+  background: var(--obey-gray-1);
+  box-shadow: none;
+}
+
+body.theme-obeydom.layout-density-airy #cardProfile,
+body.theme-obeydom.layout-density-airy #conteudo,
+body.theme-obeydom.layout-density-airy .pages-navbar {
+  margin-top: 18px;
+}
+
+body.theme-obeydom #navbar-menu p {
+  margin: 0;
+  color: var(--obey-text-muted);
+  font-size: 24px;
+  line-height: 1;
+}
+
+body.theme-obeydom #MenuContainer,
+body.theme-obeydom .openMenu,
+body.theme-obeydom .mostra {
+  width: 100%;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  background: transparent;
+}
+
+body.theme-obeydom .headMenu {
+  width: min(96vw, 1120px);
+  position: sticky;
+  top: 0;
+  margin: 16px auto 0;
+  padding: 16px 18px;
+  border: 1px solid var(--obey-gray-3);
+  border-radius: var(--obey-radius);
+  background: rgba(17, 17, 17, 0.96);
+  backdrop-filter: none;
+  z-index: 20000;
+}
+
+body.theme-obeydom .back {
+  color: var(--obey-text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+body.theme-obeydom .back:hover {
+  color: var(--obey-text-primary);
+}
+
+body.theme-obeydom .pageAtual {
+  color: var(--obey-text-primary);
+  font-size: clamp(16px, 2vw, 22px);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-align: left;
+}
+
+body.theme-obeydom #Gavetas {
+  position: static;
+  top: auto;
+  left: auto;
+  transform: none;
+  width: min(96vw, 1120px);
+  margin: 26px auto 0;
+  padding: 0 0 40px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--obey-spacing-md);
+  box-sizing: border-box;
+}
+
+body.theme-obeydom .gavetaOption {
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 14px 16px;
+  border: 1px solid var(--obey-gray-3);
+  border-left: 3px solid var(--obey-gray-3);
+  border-radius: var(--obey-radius);
+  background: var(--obey-gray-1);
+  color: var(--obey-text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-shadow: none;
+  cursor: pointer;
+}
+
+body.theme-obeydom .gavetaOption::before,
+body.theme-obeydom .gavetaOption::after {
+  display: none;
+}
+
+body.theme-obeydom .gavetaOption:hover,
+body.theme-obeydom .gavetaOption.highlight,
+body.theme-obeydom .gavetaOption:active {
+  border-color: #434343;
+  border-left-color: var(--obey-red-muted);
+  background: var(--obey-gray-2);
+  color: var(--obey-text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  transform: none;
+}
+
+body.theme-obeydom .skins-manager,
+body.theme-obeydom .theme-picker {
+  color: var(--obey-text-primary);
+  background: transparent;
+}
+
+body.theme-obeydom .skins-list li {
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid var(--obey-gray-3);
+  border-radius: var(--obey-radius);
+  background: var(--obey-gray-1);
+}
+
+body.theme-obeydom .boxItemContato,
+body.theme-obeydom .boxItemConversa,
+body.theme-obeydom .resposta-texto,
+body.theme-obeydom .dataResposta {
+  border: 1px solid var(--obey-gray-3);
+  border-radius: var(--obey-radius);
+  background: var(--obey-gray-1);
+  color: var(--obey-text-primary);
+}
+
+body.theme-obeydom .inputResposta,
+body.theme-obeydom input,
+body.theme-obeydom textarea,
+body.theme-obeydom select {
+  border: 1px solid var(--obey-gray-3);
+  border-radius: 4px;
+  background: #0b0b0b;
+  color: var(--obey-text-primary);
+  font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+body.theme-obeydom input::placeholder,
+body.theme-obeydom textarea::placeholder {
+  color: var(--obey-text-subtle);
+}
+
+body.theme-obeydom button,
+body.theme-obeydom .buttonEnviarResp,
+body.theme-obeydom .buttonExcluirForm {
+  padding: 10px 14px;
+  border: 1px solid var(--obey-gray-3);
+  border-radius: 4px;
+  background: var(--obey-black);
+  color: var(--obey-text-primary);
+  font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  box-shadow: none;
+}
+
+body.theme-obeydom button:hover,
+body.theme-obeydom .buttonEnviarResp:hover,
+body.theme-obeydom .buttonExcluirForm:hover {
+  background: #101010;
+  border-color: #515151;
+}
+
+body.theme-obeydom button:active {
+  background: var(--obey-gray-1);
+}
+
+body.theme-obeydom button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+body.theme-obeydom .cardContainerDesktopDev,
+body.theme-obeydom .cardContainerDesktopHome,
+body.theme-obeydom .cardContainerDesktopDesign {
+  border-radius: var(--obey-radius);
+  border: 1px solid var(--obey-gray-3);
+  background: var(--obey-gray-1);
+  box-shadow: none;
+  overflow: hidden;
+}
+
+body.theme-obeydom .cardCabecalhoDev,
+body.theme-obeydom .cardCabecalhoHome,
+body.theme-obeydom .cardCabecalhoDesign,
+body.theme-obeydom .cardImagemDev,
+body.theme-obeydom .cardImagemHome,
+body.theme-obeydom .cardImagemDesign,
+body.theme-obeydom .cardDescricaoDev,
+body.theme-obeydom .cardDescricaoHome,
+body.theme-obeydom .cardDescricaoDesign,
+body.theme-obeydom .cardDescricaoDivDev,
+body.theme-obeydom .cardDescricaoDivHome,
+body.theme-obeydom .cardDescricaoDivDesign,
+body.theme-obeydom .cardNomeDev,
+body.theme-obeydom .cardNomeHome,
+body.theme-obeydom .cardNomeDesign {
+  border-color: var(--obey-gray-3);
+  background: var(--obey-gray-1);
+  color: var(--obey-offwhite);
+}
+
+body.theme-obeydom .txtTituloPri,
+body.theme-obeydom .txtTitulo,
+body.theme-obeydom .txtTituloLink {
+  color: var(--obey-text-primary);
+}
+
+body.theme-obeydom a {
+  color: var(--obey-text-muted);
+}
+
+body.theme-obeydom a:hover {
+  color: var(--obey-text-primary);
+}
+
+@media (max-width: 900px) {
+  body.theme-obeydom #iconsLogin {
+    min-height: 410px;
+    padding: 28px 20px 20px;
+  }
+
+  body.theme-obeydom .headMenu {
+    width: min(96vw, 720px);
+    padding: 14px;
+  }
+
+  body.theme-obeydom #Gavetas {
+    width: min(96vw, 720px);
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  body.theme-obeydom .gavetaOption {
+    min-height: 48px;
+    font-size: 12px;
+  }
+}

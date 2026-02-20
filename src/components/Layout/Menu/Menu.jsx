@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation, useParams, Outlet } from "react-router-dom";
 import { seforAdm } from "../../Scripts/verificacoes/verificaAdm";
-import "./menu.css";
 
 import Navegacoes from "../../Scripts/navegacoes/Navegacoes";
 import { db } from "../../Banco/init-firebase";
@@ -11,7 +10,13 @@ import { useAuth } from "../../../hooks/auth/useAuth";
 import { signOut } from "firebase/auth";
 import { auth } from "../../Banco/init-firebase";
 import CheckoutBlocoMercadoPago from "../Pagamentos/CheckoutBlocoMercadoPago";
-import { aplicarTemaNoBody, obterConfigSistema } from "../Sistema/configSistema";
+import {
+  DEFAULT_SISTEMA_CONFIG,
+  aplicarBrandingNoDocumento,
+  aplicarTemaNoBody,
+  obterConfigSistema,
+} from "../Sistema/configSistema";
+import FirebaseProjectBadge from "../Geral/FirebaseProjectBadge";
 
 function Menu({ menuOpen }) {
   const { user, loading } = useAuth();
@@ -19,6 +24,7 @@ function Menu({ menuOpen }) {
   const [backAction, setBackAction] = useState(() => closeMenu);
   const [backText, setBackText] = useState("VOLTAR");
   const [atualTxt, setAtualTxt] = useState("MENU");
+  const [configSistema, setConfigSistema] = useState(DEFAULT_SISTEMA_CONFIG);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -27,6 +33,12 @@ function Menu({ menuOpen }) {
   const larScreen = window.innerWidth;
 
   const skinLogadoUser = localStorage.getItem("skinLogadoUser");
+  const nomeSkinPlural = (configSistema.nomeSkinPlural || "skins").trim() || "skins";
+  const nomeSkinPluralUpper = nomeSkinPlural.toUpperCase();
+  const nomeEspacoPlural = (configSistema.nomeEspacoPlural || "espacos").trim() || "espacos";
+  const nomeEspacoPluralUpper = nomeEspacoPlural.toUpperCase();
+  const chatHabilitado = configSistema.chatHabilitado !== false;
+  const mercadoPagoHabilitado = configSistema.mercadoPagoHabilitado !== false;
 
   function closeMenu() {
     navigate(`/${skinLogadoUser}/home`);
@@ -93,7 +105,9 @@ function Menu({ menuOpen }) {
       try {
         const config = await obterConfigSistema();
         if (!ativo) return;
+        setConfigSistema(config);
         aplicarTemaNoBody(config.temaPadraoSistema);
+        aplicarBrandingNoDocumento(config);
       } catch (error) {
         // Mantem comportamento atual caso a config publica ainda nao exista.
       }
@@ -104,7 +118,16 @@ function Menu({ menuOpen }) {
     return () => {
       ativo = false;
     };
-  }, []);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!chatHabilitado) {
+      const estaEmRotasChat = location.pathname.includes("/contatos");
+      if (estaEmRotasChat && skinLogadoUser) {
+        navigate(`/menu/${skinLogadoUser}`, { replace: true });
+      }
+    }
+  }, [chatHabilitado, location.pathname, navigate, skinLogadoUser]);
 
   useEffect(() => {
     const atualizarTitulo = async () => {
@@ -116,7 +139,7 @@ function Menu({ menuOpen }) {
         setBackText("VOLTAR");
         setBackAction(() => closeMenu);
       } else if (path.endsWith("/skins")) {
-        setAtualTxt("SKINS");
+        setAtualTxt(nomeSkinPluralUpper);
         setBackText("MENU");
         setBackAction(() => returnMenu);
       } else if (path.endsWith("/users")) {
@@ -128,7 +151,7 @@ function Menu({ menuOpen }) {
         setBackText("MENU");
         setBackAction(() => returnMenu);
       } else if (path.endsWith("/espacos")) {
-        setAtualTxt("ESPACOS");
+        setAtualTxt(nomeEspacoPluralUpper);
         setBackText("MENU");
         setBackAction(() => returnMenu);
       } else if (path.endsWith("/propriedades")) {
@@ -139,11 +162,11 @@ function Menu({ menuOpen }) {
         setAtualTxt("PROPRIEDADES DO SISTEMA");
         setBackText("MENU");
         setBackAction(() => returnMenu);
-      } else if (path.endsWith("/contatos")) {
+      } else if (path.endsWith("/contatos") && chatHabilitado) {
         setAtualTxt("CONTATOS");
         setBackText("MENU");
         setBackAction(() => returnMenu);
-      } else if (path.includes("/chat/") && contactId) {
+      } else if (chatHabilitado && path.includes("/chat/") && contactId) {
         try {
           const contatoRef = doc(db, "contatos", contactId);
           const contatoSnap = await getDoc(contatoRef);
@@ -171,7 +194,7 @@ function Menu({ menuOpen }) {
     };
 
     atualizarTitulo();
-  }, [location.pathname, contactId]);
+  }, [location.pathname, contactId, nomeSkinPluralUpper, nomeEspacoPluralUpper, chatHabilitado]);
 
 
 
@@ -199,15 +222,30 @@ function Menu({ menuOpen }) {
             <div onClick={abrirPropriedadesSistema} className="gavetaOption">PROPRIEDADES DO SISTEMA</div>
           </>
         )}
-        <div onClick={abrirSkins} className="gavetaOption">GERENCIAR SKINS</div>
-        <div onClick={abrirEspacos} className="gavetaOption">GERENCIAR ESPACOS</div>
-        <div onClick={abrirContatos} className="gavetaOption">CONTATOS</div>
+        <div onClick={abrirSkins} className="gavetaOption">
+          {`GERENCIAR ${nomeSkinPluralUpper}`}
+        </div>
+        <div onClick={abrirEspacos} className="gavetaOption">{`GERENCIAR ${nomeEspacoPluralUpper}`}</div>
+        {chatHabilitado && (
+          <div onClick={abrirContatos} className="gavetaOption">CONTATOS</div>
+        )}
         <div onClick={abrirPropriedades} className="gavetaOption">PROPRIEDADES</div>
         <div onClick={logoff} className="gavetaOption">ENCERRAR</div>
         <Navegacoes />
       </div>
 
-      <CheckoutBlocoMercadoPago skinLogadoUser={skinLogadoUser} />
+      {mercadoPagoHabilitado ? (
+        <CheckoutBlocoMercadoPago skinLogadoUser={skinLogadoUser} />
+      ) : (
+        location.search.includes("comprarBloco=") && (
+          <div style={{ marginTop: 16, padding: 12, border: "1px solid #999", borderRadius: 8 }}>
+            <p style={{ margin: 0 }}>
+              Integracao de pagamentos desativada neste projeto.
+            </p>
+          </div>
+        )
+      )}
+      <FirebaseProjectBadge />
 
       <Outlet />
      

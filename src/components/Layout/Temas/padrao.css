@@ -1,0 +1,27 @@
+@import "./system-base.css";
+
+body.theme-padrao {
+  color: #000;
+  background-color: #fff;
+}
+
+body.theme-padrao #login {
+  background-image: none;
+  background-color: #fff;
+}
+
+body.theme-padrao #logoTxt,
+body.theme-padrao #textoLogin,
+body.theme-padrao #rodapeLogin {
+  color: #000;
+  text-shadow: none;
+}
+
+body.theme-padrao .headMenu,
+body.theme-padrao .openMenu,
+body.theme-padrao .back,
+body.theme-padrao .pageAtual,
+body.theme-padrao .gavetaOption {
+  color: #000;
+  text-shadow: none;
+}

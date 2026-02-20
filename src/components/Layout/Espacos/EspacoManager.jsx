@@ -11,6 +11,14 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { auth, db } from "../../Banco/init-firebase";
+import {
+  DEFAULT_SISTEMA_CONFIG,
+  obterConfigSistema,
+  obterRotulosEspaco,
+} from "../Sistema/configSistema";
+
+const capitalizar = (texto = "") =>
+  texto ? texto.charAt(0).toUpperCase() + texto.slice(1) : "";
 
 export default function EspacoManager() {
   const [homeDaSkin, setHomeDaSkin] = useState(null);
@@ -21,13 +29,44 @@ export default function EspacoManager() {
 
   const [editingEspacoId, setEditingEspacoId] = useState(null);
   const [editingNome, setEditingNome] = useState("");
+  const [nomeEspacoSingular, setNomeEspacoSingular] = useState(
+    DEFAULT_SISTEMA_CONFIG.nomeEspacoSingular
+  );
+  const [nomeEspacoPlural, setNomeEspacoPlural] = useState(
+    DEFAULT_SISTEMA_CONFIG.nomeEspacoPlural
+  );
 
   const userId = auth.currentUser?.uid;
   const skinIdAtual = localStorage.getItem("skinIdAtual");
+  const nomeEspacoSingularCapitalizado = capitalizar(nomeEspacoSingular);
+  const nomeEspacoPluralCapitalizado = capitalizar(nomeEspacoPlural);
 
   useEffect(() => {
     if (userId && skinIdAtual) carregarEspacos();
   }, [userId, skinIdAtual]);
+
+  useEffect(() => {
+    let ativo = true;
+
+    async function carregarNomenclatura() {
+      try {
+        const configSistema = await obterConfigSistema();
+        if (!ativo) return;
+        const rotulosEspaco = obterRotulosEspaco(configSistema);
+        setNomeEspacoSingular(rotulosEspaco?.singular || DEFAULT_SISTEMA_CONFIG.nomeEspacoSingular);
+        setNomeEspacoPlural(rotulosEspaco?.plural || DEFAULT_SISTEMA_CONFIG.nomeEspacoPlural);
+      } catch {
+        if (!ativo) return;
+        setNomeEspacoSingular(DEFAULT_SISTEMA_CONFIG.nomeEspacoSingular);
+        setNomeEspacoPlural(DEFAULT_SISTEMA_CONFIG.nomeEspacoPlural);
+      }
+    }
+
+    carregarNomenclatura();
+    return () => {
+      ativo = false;
+    };
+  }, []);
 
   const proxOrdem = useMemo(() => {
     if (!espacosRelacionados.length) return 1;
@@ -121,7 +160,7 @@ export default function EspacoManager() {
 
   const excluirEspaco = async (espaco) => {
     const ok = window.confirm(
-      `Excluir o espaco "${espaco.nome}"? Esta acao nao pode ser desfeita.`
+      `Excluir o ${nomeEspacoSingular} "${espaco.nome}"? Esta acao nao pode ser desfeita.`
     );
     if (!ok) return;
 
@@ -185,10 +224,12 @@ export default function EspacoManager() {
 
       <hr />
 
-      <h3>Espacos Relacionados</h3>
+      <h3>{`${nomeEspacoPluralCapitalizado} Relacionados`}</h3>
       {loading && <p>Carregando...</p>}
 
-      {!loading && espacosRelacionados.length === 0 && <p>Nenhum espaco relacionado.</p>}
+      {!loading && espacosRelacionados.length === 0 && (
+        <p>{`Nenhum ${nomeEspacoSingular} relacionado.`}</p>
+      )}
 
       {espacosRelacionados.map((e) => (
         <div key={e.id} style={{ marginBottom: 12 }}>
@@ -213,9 +254,9 @@ export default function EspacoManager() {
               <input
                 value={editingNome}
                 onChange={(event) => setEditingNome(event.target.value)}
-                placeholder="Novo nome do espaco"
+                placeholder={`Novo nome do ${nomeEspacoSingular}`}
               />{" "}
-              <button onClick={() => salvarEdicao(e.id)}>Salvar nome</button>{" "}
+              <button onClick={() => salvarEdicao(e.id)}>{`Salvar ${nomeEspacoSingular}`}</button>{" "}
               <button onClick={cancelarEdicao}>Cancelar</button>
             </div>
           )}
@@ -224,22 +265,22 @@ export default function EspacoManager() {
 
       <hr />
 
-      <h3>Relacionar Espacos</h3>
+      <h3>{`Relacionar ${nomeEspacoPluralCapitalizado}`}</h3>
       {espacosRelacionaveis.map((e) => (
         <button key={e.id} onClick={() => relacionar(e.id)}>
-          Relacionar {e.nome}
+          {`Relacionar ${nomeEspacoSingular}: ${e.nome}`}
         </button>
       ))}
 
       <hr />
 
-      <h3>Criar Espaco Adicional</h3>
+      <h3>{`Criar ${nomeEspacoSingularCapitalizado} Adicional`}</h3>
       <input
         value={novoNome}
         onChange={(e) => setNovoNome(e.target.value)}
-        placeholder="Nome do espaco"
+        placeholder={`Nome do ${nomeEspacoSingular}`}
       />{" "}
-      <button onClick={criarEspaco}>Criar</button>
+      <button onClick={criarEspaco}>{`Criar ${nomeEspacoSingularCapitalizado}`}</button>
     </div>
   );
 }

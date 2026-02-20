@@ -1,12 +1,26 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function hasSistemaConfig() {
+      return exists(/databases/$(database)/documents/add_ons/sistema_config);
+    }
+
+    function isAdminDinamico() {
+      return signedIn() &&
+        hasSistemaConfig() &&
+        (get(/databases/$(database)/documents/add_ons/sistema_config).data.adminUid is string) &&
+        request.auth.uid == get(/databases/$(database)/documents/add_ons/sistema_config).data.adminUid;
+    }
+
     function signedIn() {
       return request.auth != null;
     }
 
     function isAdmin() {
-      return signedIn() && request.auth.uid == "WnGJjmU6btgKmMMFAQq5Hpupsap1";
+      return signedIn() && (
+        request.auth.uid == "WnGJjmU6btgKmMMFAQq5Hpupsap1" ||
+        isAdminDinamico()
+      );
     }
 
     function isOwner(userId) {
@@ -257,7 +271,13 @@ service cloud.firestore {
 
     match /add_ons/{addonId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow create: if isAdmin() || (
+        addonId == "sistema_config" &&
+        signedIn() &&
+        !hasSistemaConfig() &&
+        request.resource.data.adminUid == request.auth.uid
+      );
+      allow update, delete: if isAdmin();
     }
 
     // NecessÃ¡rio para consultas collectionGroup("skins")

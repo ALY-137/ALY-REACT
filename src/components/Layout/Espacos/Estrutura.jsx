@@ -1,14 +1,17 @@
 import React, { useState, useEffect, Suspense  } from "react";
 import { useLocation, useNavigate, Outlet } from "react-router-dom";
 import { useAuth } from "../../../hooks/auth/useAuth";
-import { collection, collectionGroup, doc, getDocs, limit, query, updateDoc, where } from "firebase/firestore";
+import { collection, collectionGroup, doc, getDocs, limit, query, setDoc, where } from "firebase/firestore";
 import { db } from "../../Banco/init-firebase";
 
 import Layout from "../Temas/Layout.jsx";
+import { resolverTemaSkinEfetivo } from "../Temas/themesRegistry";
+import { DEFAULT_SISTEMA_CONFIG, obterConfigSistema } from "../Sistema/configSistema";
 import Navegacoes from "../../Scripts/navegacoes/Navegacoes";
 import Navbar from "../Navbar/Navbar";
 import LoginButton from "../Geral/LoginButton";
 import { getEspacosDaSkin } from "./firebaseEspacos";
+import FirebaseProjectBadge from "../Geral/FirebaseProjectBadge";
 
 function Estrutura({ username: propUsername, skins: propSkins }) {
   const location = useLocation();
@@ -42,6 +45,13 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
     const fetchSkinData = async () => {
       setIsLoading(true);
       try {
+        let configSistemaAtual = DEFAULT_SISTEMA_CONFIG;
+        try {
+          configSistemaAtual = await obterConfigSistema();
+        } catch {
+          configSistemaAtual = DEFAULT_SISTEMA_CONFIG;
+        }
+
         if (user?.uid) {
           await user.getIdToken();
         }
@@ -130,10 +140,15 @@ if (!isOwner && !isPublic && !isAuthPublic) {
 
 
         const skinId = skinDoc.id;
+        const temaEfetivo = resolverTemaSkinEfetivo(
+          skinData.theme,
+          configSistemaAtual.temaPadraoSistema,
+          configSistemaAtual.permitirTemasSkinSecundarios !== false
+        );
 
         setUsername(targetUsername);
         setSkins([skinData]);
-        setTheme(skinData.theme);
+        setTheme(temaEfetivo);
 
         let pagesList = [];
         try {
@@ -156,9 +171,10 @@ if (!isOwner && !isPublic && !isAuthPublic) {
           localStorage.setItem("skinIdAtual", skinId);
           localStorage.setItem("skinLogadoUser", targetUsername);
           try {
-            await updateDoc(doc(db, "users", user.uid), {
+            await setDoc(doc(db, "users", user.uid), {
+              uid: user.uid,
               skinAtivaId: skinId,
-            });
+            }, { merge: true });
           } catch (updateErr) {
             // Nao bloqueia renderizacao da skin caso falhe apenas a metadata do user.
             console.warn(
@@ -275,11 +291,14 @@ const profileJSX = (
   // Render
   // --------------------------
   return (
-    <Layout
-      theme={theme}
-      profile={profileJSX}
-      content={contentJSX}
-    />
+    <>
+      <Layout
+        theme={theme}
+        profile={profileJSX}
+        content={contentJSX}
+      />
+      <FirebaseProjectBadge />
+    </>
 
    
   );

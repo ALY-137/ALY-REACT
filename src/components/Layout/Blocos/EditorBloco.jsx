@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { obterStatusMercadoPago } from "../Pagamentos/mercadoPagoApi";
+import {
+  DEFAULT_SISTEMA_CONFIG,
+  obterConfigSistema,
+  obterRotulosBloco,
+} from "../Sistema/configSistema";
 
 const OPCOES_VISIBILIDADE = [
   { value: "publico", label: "Publico" },
@@ -8,6 +13,9 @@ const OPCOES_VISIBILIDADE = [
   { value: "exclusivo_assinante", label: "Exclusivo assinante" },
   { value: "exclusivo_comprador", label: "Exclusivo comprador" },
 ];
+
+const capitalizar = (texto = "") =>
+  texto ? texto.charAt(0).toUpperCase() + texto.slice(1) : "";
 
 export default function EditorBloco({
   bloco,
@@ -25,6 +33,15 @@ export default function EditorBloco({
   const [indicesRemovidos, setIndicesRemovidos] = useState([]);
   const [novasImagens, setNovasImagens] = useState([]);
   const [mpConectado, setMpConectado] = useState(null);
+  const [mercadoPagoSistemaHabilitado, setMercadoPagoSistemaHabilitado] = useState(
+    DEFAULT_SISTEMA_CONFIG.mercadoPagoHabilitado
+  );
+  const [nomeBlocoSingular, setNomeBlocoSingular] = useState(
+    DEFAULT_SISTEMA_CONFIG.nomeBlocoSingular
+  );
+  const [nomeBlocoPlural, setNomeBlocoPlural] = useState(
+    DEFAULT_SISTEMA_CONFIG.nomeBlocoPlural
+  );
 
   useEffect(() => {
     setVisibilidade(bloco?.visibilidade || "publico");
@@ -35,11 +52,53 @@ export default function EditorBloco({
   }, [bloco?.id, bloco?.visibilidade, bloco?.precoCentavos]);
 
   useEffect(() => {
+    let cancelado = false;
+
+    async function carregarNomenclatura() {
+      try {
+        const configSistema = await obterConfigSistema();
+        if (cancelado) return;
+        const rotulosBloco = obterRotulosBloco(configSistema);
+        setNomeBlocoSingular(rotulosBloco?.singular || DEFAULT_SISTEMA_CONFIG.nomeBlocoSingular);
+        setNomeBlocoPlural(rotulosBloco?.plural || DEFAULT_SISTEMA_CONFIG.nomeBlocoPlural);
+      } catch {
+        if (cancelado) return;
+        setNomeBlocoSingular(DEFAULT_SISTEMA_CONFIG.nomeBlocoSingular);
+        setNomeBlocoPlural(DEFAULT_SISTEMA_CONFIG.nomeBlocoPlural);
+      }
+    }
+
+    carregarNomenclatura();
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!aberto) return;
 
     let cancelado = false;
 
     async function carregarStatusMercadoPago() {
+      let moduloMercadoPagoAtivo = DEFAULT_SISTEMA_CONFIG.mercadoPagoHabilitado;
+      try {
+        const configSistema = await obterConfigSistema();
+        moduloMercadoPagoAtivo = configSistema?.mercadoPagoHabilitado !== false;
+      } catch {
+        // Mantem fallback local.
+      }
+
+      if (!cancelado) {
+        setMercadoPagoSistemaHabilitado(moduloMercadoPagoAtivo);
+      }
+
+      if (!moduloMercadoPagoAtivo) {
+        if (!cancelado) {
+          setMpConectado(false);
+        }
+        return;
+      }
+
       try {
         const status = await obterStatusMercadoPago();
         if (!cancelado) {
@@ -62,16 +121,17 @@ export default function EditorBloco({
     const visibilidadeExclusiva =
       visibilidade === "exclusivo_assinante" || visibilidade === "exclusivo_comprador";
 
-    if (mpConectado === false && visibilidadeExclusiva) {
+    if ((!mercadoPagoSistemaHabilitado || mpConectado === false) && visibilidadeExclusiva) {
       setVisibilidade("publico");
       setValorCompra("");
     }
-  }, [mpConectado, visibilidade]);
+  }, [mercadoPagoSistemaHabilitado, mpConectado, visibilidade]);
 
   const isExclusivoComprador = visibilidade === "exclusivo_comprador";
+  const nomeBlocoSingularCapitalizado = capitalizar(nomeBlocoSingular);
 
   const opcoesVisibilidade = useMemo(() => {
-    if (mpConectado === true) return OPCOES_VISIBILIDADE;
+    if (mercadoPagoSistemaHabilitado && mpConectado === true) return OPCOES_VISIBILIDADE;
 
     const opcoesBase = OPCOES_VISIBILIDADE.filter(
       (opcao) =>
@@ -87,7 +147,7 @@ export default function EditorBloco({
     }
 
     return opcoesBase;
-  }, [mpConectado, visibilidade]);
+  }, [mercadoPagoSistemaHabilitado, mpConectado, visibilidade]);
 
   const parseValorCompraEmCentavos = (valorTexto) => {
     const normalizado = String(valorTexto || "").replace(",", ".").trim();
@@ -118,12 +178,12 @@ export default function EditorBloco({
       : null;
 
     if (isExclusivoComprador && !precoCentavos) {
-      alert("Informe um valor valido para bloco exclusivo de comprador.");
+      alert(`Informe um valor valido para ${nomeBlocoSingular} exclusivo de comprador.`);
       return;
     }
 
     if (!imagensAtivas.length && !novasImagens.length) {
-      alert("O bloco precisa ter ao menos uma imagem.");
+      alert(`O ${nomeBlocoSingular} precisa ter ao menos uma imagem.`);
       return;
     }
 
@@ -156,7 +216,7 @@ export default function EditorBloco({
     <div style={{ marginTop: 8, borderTop: "1px solid #ddd", paddingTop: 8 }}>
       {!aberto ? (
         <button onClick={() => setAberto(true)} disabled={bloqueado}>
-          Editar bloco
+          {`Editar ${nomeBlocoSingular}`}
         </button>
       ) : (
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -172,9 +232,13 @@ export default function EditorBloco({
             ))}
           </select>
 
-          {mpConectado === false && (
+          {!mercadoPagoSistemaHabilitado ? (
             <p style={{ margin: "4px 0", fontSize: 12, color: "#666", width: "100%" }}>
-              Conecte o Mercado Pago para habilitar visibilidade exclusiva para assinantes/compradores.
+              Mercado Pago desativado em PROPRIEDADES DO SISTEMA.
+            </p>
+          ) : mpConectado === false && (
+            <p style={{ margin: "4px 0", fontSize: 12, color: "#666", width: "100%" }}>
+              {`Conecte o Mercado Pago para habilitar visibilidade exclusiva para assinantes/compradores de ${nomeBlocoPlural}.`}
             </p>
           )}
 
@@ -191,7 +255,7 @@ export default function EditorBloco({
           )}
 
           <div style={{ width: "100%" }}>
-            <p style={{ margin: "6px 0" }}>Imagens atuais</p>
+            <p style={{ margin: "6px 0" }}>{`Imagens atuais do ${nomeBlocoSingular}`}</p>
             {!imagensEditor.length && <p style={{ margin: "6px 0" }}>Nenhuma imagem cadastrada.</p>}
 
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -278,7 +342,7 @@ export default function EditorBloco({
             Cancelar
           </button>
           <button onClick={onExcluir} disabled={bloqueado} style={{ color: "red" }}>
-            {excluindo ? "Excluindo..." : "Excluir bloco"}
+            {excluindo ? "Excluindo..." : `Excluir ${nomeBlocoSingularCapitalizado}`}
           </button>
         </div>
       )}

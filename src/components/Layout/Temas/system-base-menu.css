@@ -1,0 +1,58 @@
+﻿#cabecalho.rolagem{
+  display: none;
+}
+
+.menuIcon{
+  height: 40px;
+  width: 40px;
+  font-size: 35px;
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  margin-left: 10px;
+  margin-top:-2px;
+  cursor: pointer;
+  z-index: 30;
+}
+
+#cardProfile, #conteudo, .pages-navbar {
+  display: block;
+  opacity: 1;
+  transition: opacity 0.3s ease-in-out;
+  margin-top: 10px;
+}
+
+.menu-navbar {
+  height: 40px;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.menu-open #cardProfile,
+.menu-open #conteudo,
+.menu-open .pages-navbar {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.skins-manager,.theme-picker{
+
+  color: white;
+}
+
+.firebaseProjectBadge {
+  position: fixed;
+  right: 10px;
+  bottom: 10px;
+  z-index: 99999;
+  font-size: 11px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #f5f5f5;
+  background: rgba(0, 0, 0, 0.55);
+  font-family: "Courier New", Courier, monospace;
+  letter-spacing: 0;
+  pointer-events: none;
+}

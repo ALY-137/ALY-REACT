@@ -1,0 +1,243 @@
+﻿.loginGoogleButton {
+  position: relative;
+  margin: 0 auto;
+  min-height: 36px;
+  min-width: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.loginGoogleIcon {
+  display: block;
+}
+
+.loginTwitterButton {
+  position: relative;
+  margin: 0 auto;
+  min-height: 36px;
+  min-width: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.loginTwitterIcon {
+  display: block;
+}
+
+#login{
+  background-image: var(--system-wallpaper);
+  background-color: #0d0d16;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  height: 100%;
+  width:  100%;
+  position: absolute;
+  z-index: 30;
+  display: flex;
+  justify-content: center;
+  flex-direction: row;
+  align-items: center;
+}
+
+.containerLogin{
+ 
+  opacity: 0;
+  transition: opacity 3s ease;
+}
+
+
+.fadeIn {
+  opacity: 1;
+ }
+
+#given_name,#fullName,#sub,#family_name,#verifiedEmail,#email,#picture{
+  display: none;
+}
+
+#iconsLogin{
+  height: 350px;
+  width: var(--icons-login-width, 150px);
+  max-width: calc(100vw - 24px);
+  display: grid;
+  grid-template-rows: 1fr auto;
+  align-items: stretch;
+  justify-items: center;
+}
+
+#loginMain {
+  width: 100%;
+  min-height: 160px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+#signInDiv{
+  margin-left: 57px;
+}
+
+#logoLogin{
+  margin: 0 auto;
+  padding: 0;
+  height: 150px;
+  width: 150px;
+  display: block;
+}
+
+#textoLogin{
+  width: 100%;
+  box-sizing: border-box;
+  margin: 1px 0 0;
+  padding: 0 18px;
+  font-size: 11px; 
+  font-family: 'DotGothic16', sans-serif;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #a85cff;
+  text-align: center;
+  text-shadow: 0 0 0px;
+}
+
+#divLogin {
+  width: 100%;
+  margin-top: 0;
+  position: static;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+#loginMetodos {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.loginSocialButtons {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.loginCadastroForm {
+  width: calc(100% - 24px);
+  max-width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.loginCadastroInput {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 34px;
+  padding: 8px 10px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+}
+
+.loginCadastroInput::placeholder {
+  color: currentColor;
+  opacity: 0.7;
+}
+
+.loginCadastroButton {
+  width: 100%;
+  min-height: 34px;
+  padding: 8px 10px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.loginCadastroButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.loginCadastroErro {
+  margin: 0;
+  font-size: 11px;
+  text-align: center;
+  opacity: 0.9;
+}
+
+#loginSemMetodoAviso {
+  margin: 0;
+  padding: 0 18px;
+  font-size: 12px;
+  text-align: center;
+  opacity: 0.8;
+}
+
+#loginDivider {
+  width: calc(100% - 24px);
+  max-width: 240px;
+  height: 1px;
+  margin: 0 auto;
+  background-color: currentColor;
+  opacity: 0.24;
+}
+
+
+#rodapeLogin{
+  position: fixed; 
+  bottom: 0px;
+  left: 0; 
+  width: 100%; 
+  font-size: 11px;
+  text-align: center;
+  color: #e8d4ff;
+  text-shadow:
+  0 0 1px #7e0eff,
+  0 0 2px #7e0eff,
+  0 0 3px #7e0eff,
+  0 0 4px #7e0eff,
+  0 0 5px #7e0eff,
+  0 0 6px #7e0eff,
+  0 0 7px #7e0eff,
+  0 0 8px #7e0eff;
+
+}
+
+
+
+#logoTxt{
+  margin: 12px 0 0;
+  font-size: 33px; 
+  font-family: 'DotGothic16', sans-serif;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #e8d4ff;
+  text-shadow:
+  0 0 1px #7e0eff,
+  0 0 2px #7e0eff,
+  0 0 3px #7e0eff,
+  0 0 4px #7e0eff,
+  0 0 5px #7e0eff,
+  0 0 6px #7e0eff,
+  0 0 7px #7e0eff,
+  0 0 8px #7e0eff;
+  text-align: center;
+}

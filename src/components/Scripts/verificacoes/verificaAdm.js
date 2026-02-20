@@ -5,8 +5,9 @@ export function seforAdm(user) {
 
   // UID do admin
   const ADMIN_UID = "WnGJjmU6btgKmMMFAQq5Hpupsap1";
+  const ADMIN_UID_DINAMICO = localStorage.getItem("systemAdminUid");
 
-  return user.uid === ADMIN_UID;
+  return user.uid === ADMIN_UID || user.uid === ADMIN_UID_DINAMICO;
 }
 
 
