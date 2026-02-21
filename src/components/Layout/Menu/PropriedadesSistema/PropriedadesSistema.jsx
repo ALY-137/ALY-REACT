@@ -570,6 +570,20 @@ function PropriedadesSistema({ onConfigSalva, modoBootstrap = false }) {
           />
           Habilitar integracao com Mercado Pago
         </label>
+
+        <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+          <input
+            type="checkbox"
+            checked={!!config.blocoCardsHabilitado}
+            onChange={(event) =>
+              setConfig((prev) => ({
+                ...prev,
+                blocoCardsHabilitado: event.target.checked,
+              }))
+            }
+          />
+          Habilitar conteudo de bloco tipo Card
+        </label>
       </div>
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>

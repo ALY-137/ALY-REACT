@@ -19,7 +19,6 @@ function LoginTwitter({ onLogin }) {
   const navigate = useNavigate();
 
   const finalizarLogin = async (firebaseUser) => {
-    await firebaseUser.getIdToken();
     const bootstrapResult = await bootstrapUser(firebaseUser);
 
     if (onLogin) {
@@ -45,6 +44,10 @@ function LoginTwitter({ onLogin }) {
         if (!result?.user || !ativo) return;
         await finalizarLogin(result.user);
       } catch (err) {
+        if (err?.code === "auth/network-request-failed") {
+          alert("Falha de rede ao autenticar com X/Twitter. Verifique sua conexao e DNS.");
+          return;
+        }
         console.error("Erro ao concluir login por redirect (X/Twitter):", err);
       }
     };
@@ -82,6 +85,11 @@ function LoginTwitter({ onLogin }) {
         alert(
           `Dominio nao autorizado no Firebase Auth: ${window.location.hostname}. Adicione este dominio em Authentication > Settings > Authorized domains.`
         );
+        return;
+      }
+
+      if (codigo === "auth/network-request-failed") {
+        alert("Falha de rede ao autenticar com X/Twitter. Verifique sua conexao e DNS.");
         return;
       }
 

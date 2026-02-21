@@ -21,3 +21,18 @@
   color: #4f2f22;
   text-shadow: none;
 }
+
+.theme-lojaderoupas #navbar-menu p {
+  color: #8a4f2b;
+}
+
+.theme-lojaderoupas #abas.navbar-tabs .navbar-tab {
+  border-color: rgba(138, 79, 43, 0.25);
+  background: rgba(255, 246, 236, 0.9);
+  color: #5d3828;
+}
+
+.theme-lojaderoupas #abas.navbar-tabs .navbar-tab.navbar-tab--active {
+  border-color: rgba(138, 79, 43, 0.42);
+  background: #fff4e8;
+}

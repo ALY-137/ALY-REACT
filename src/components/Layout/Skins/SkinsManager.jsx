@@ -73,7 +73,6 @@ const SkinsManager = () => {
   const fetchSkins = async () => {
     setIsLoading(true);
     try {
-      await user.getIdToken();
       const snap = await getDocs(collection(db, "users", user.uid, "skins"));
 
       setSkins(
@@ -94,6 +93,7 @@ const SkinsManager = () => {
     !isAdmin &&
     configSistema.limiteSkinsPorUsuario === "1" &&
     skins.length >= 1;
+  const exibirSecaoCriacao = !limiteAtingido;
 
   const { singular, plural } = obterRotulosSkin(configSistema);
   const nomeSkinSingular = singular || "skin";
@@ -101,7 +101,6 @@ const SkinsManager = () => {
   const permitirTemasSkinSecundarios =
     configSistema.permitirTemasSkinSecundarios !== false;
   const temaSkinPadraoId = obterTemaSkinPadrao(configSistema.temaPadraoSistema);
-  const temaSkinPadraoDefinido = obterTemaSkinDefinicao(temaSkinPadraoId);
   const temasDisponiveis = useMemo(
     () =>
       listarTemasSkinDaFamilia(
@@ -128,11 +127,14 @@ const SkinsManager = () => {
       return "";
     }
 
+    const familia = String(theme.family || theme.id || "").trim();
+    const sufixoFamilia = familia ? ` - familia ${familia}` : "";
+
     if (theme.id === temaSkinPadraoId || theme.isPrimary) {
-      return `${theme.label || theme.id} (base da familia)`;
+      return `${theme.label || theme.id}${sufixoFamilia} (base)`;
     }
 
-    return `${theme.label || theme.id} (secundario)`;
+    return `${theme.label || theme.id}${sufixoFamilia} (secundario)`;
   };
 
   const labelSkinAtual = (skinThemeId) => {
@@ -158,7 +160,6 @@ const SkinsManager = () => {
       return;
     }
 
-    await user.getIdToken();
     const prefixoPadrao = nomeSkinSingular
       .toLowerCase()
       .replace(/[^a-z0-9]/g, "");
@@ -195,8 +196,6 @@ const SkinsManager = () => {
       setFeedback(`Limite atingido. Voce pode criar apenas 1 ${nomeSkinSingular}.`);
       return;
     }
-
-    await user.getIdToken();
 
     const resultado = await verificarESalvarskins(user.uid, newUsername, temaCriacao);
 
@@ -256,7 +255,7 @@ const SkinsManager = () => {
       return "Administrador tem criacao ilimitada.";
     }
     if (configSistema.limiteSkinsPorUsuario === "1") {
-      return `Limite atual: apenas 1 ${nomeSkinSingular} por usuario.`;
+      return "";
     }
     return `Limite atual: ${nomeSkinPlural} ilimitadas por usuario.`;
   }, [configSistema.limiteSkinsPorUsuario, isAdmin, nomeSkinPlural, nomeSkinSingular]);
@@ -280,11 +279,7 @@ const SkinsManager = () => {
         ) : (
           <>
             <h2>Criar sua primeira {nomeSkinSingular}</h2>
-            <p>
-              Este projeto usa somente o tema padrao de skin:
-              {" "}
-              <strong>{temaSkinPadraoDefinido?.label || temaSkinPadraoId}</strong>
-            </p>
+            <p>Este projeto usa somente o tema padrao de skin.</p>
             <button onClick={() => handleCreateFirstSkin(temaSkinPadraoId)}>
               Criar com tema padrao
             </button>
@@ -300,42 +295,42 @@ const SkinsManager = () => {
     <div className="skins-manager">
       <h2>Gerenciar {nomeSkinPlural}</h2>
 
-      <div className="create-skin">
-        <h3>Criar nova {nomeSkinSingular}</h3>
+      {exibirSecaoCriacao ? (
+        <div className="create-skin">
+          <h3>Criar nova {nomeSkinSingular}</h3>
 
-        <input
-          placeholder={`Nome da ${nomeSkinSingular}`}
-          value={newUsername.toLowerCase()}
-          onChange={(event) => setNewUsername(event.target.value)}
-          disabled={limiteAtingido}
-        />
-
-        {permitirTemasSkinSecundarios ? (
-          <select
-            value={newTheme}
-            onChange={(event) => setNewTheme(event.target.value)}
+          <input
+            placeholder={`Nome da ${nomeSkinSingular}`}
+            value={newUsername.toLowerCase()}
+            onChange={(event) => setNewUsername(event.target.value)}
             disabled={limiteAtingido}
-          >
-            <option value="">Escolha o tema</option>
-            {temasDisponiveis.map((theme) => (
-              <option key={theme.id} value={theme.id}>
-                {labelTemaSkin(theme)}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <p style={{ margin: "8px 0" }}>
-            Tema fixo: <strong>{temaSkinPadraoDefinido?.label || temaSkinPadraoId}</strong>
-          </p>
-        )}
+          />
 
-        <button onClick={handleCreateSkin} disabled={limiteAtingido}>
-          Criar
-        </button>
+          {permitirTemasSkinSecundarios ? (
+            <select
+              value={newTheme}
+              onChange={(event) => setNewTheme(event.target.value)}
+              disabled={limiteAtingido}
+            >
+              <option value="">Escolha o tema</option>
+              {temasDisponiveis.map((theme) => (
+                <option key={theme.id} value={theme.id}>
+                  {labelTemaSkin(theme)}
+                </option>
+              ))}
+            </select>
+          ) : null}
 
-        <p style={{ marginTop: 8, opacity: 0.8 }}>{textoLimite}</p>
-        {!!feedback && <p style={{ color: "red" }}>{feedback}</p>}
-      </div>
+          <button onClick={handleCreateSkin} disabled={limiteAtingido}>
+            Criar
+          </button>
+
+          {textoLimite ? <p style={{ marginTop: 8, opacity: 0.8 }}>{textoLimite}</p> : null}
+          {!!feedback && <p style={{ color: "red" }}>{feedback}</p>}
+        </div>
+      ) : (
+        textoLimite ? <p style={{ marginTop: 8, opacity: 0.8 }}>{textoLimite}</p> : null
+      )}
 
       <ul className="skins-list">
         {skins.map((skin) => (
@@ -363,7 +358,9 @@ const SkinsManager = () => {
               </>
             ) : (
               <>
-                <span> - {labelSkinAtual(skin.theme)}</span>
+                {permitirTemasSkinSecundarios ? (
+                  <span> - {labelSkinAtual(skin.theme)}</span>
+                ) : null}
                 {permitirTemasSkinSecundarios && (
                   <button
                     onClick={() => {

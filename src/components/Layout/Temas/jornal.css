@@ -23,3 +23,18 @@
   color: #2c2c2c;
   text-shadow: none;
 }
+
+.theme-jornal #navbar-menu p {
+  color: #303030;
+}
+
+.theme-jornal #abas.navbar-tabs .navbar-tab {
+  border-color: rgba(33, 33, 33, 0.2);
+  background: rgba(255, 255, 255, 0.82);
+  color: #2a2a2a;
+}
+
+.theme-jornal #abas.navbar-tabs .navbar-tab.navbar-tab--active {
+  border-color: rgba(33, 33, 33, 0.4);
+  background: #ffffff;
+}

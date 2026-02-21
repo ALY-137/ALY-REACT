@@ -1,0 +1,338 @@
+@import "./system-base.css";
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap");
+
+body.theme-passy {
+  --passy-pink-carnation: #ff7fb6;
+  --passy-cool-horizon: #66adff;
+  --passy-cornflower-blue: #5e89ff;
+  --passy-blush-pop: #ffbef8;
+  --passy-lavender-veil: #ffe3fc;
+  --passy-ink: #2a2145;
+  --passy-deep: #1d1736;
+  --passy-text: #2f2554;
+  --passy-text-soft: #5d5185;
+  --passy-border: rgba(94, 137, 255, 0.35);
+  --passy-shadow: 0 12px 32px rgba(94, 137, 255, 0.16);
+
+  color: var(--passy-text);
+  background-color: #fef7ff;
+  background-image:
+    radial-gradient(1200px 480px at 15% -10%, rgba(255, 127, 182, 0.24), transparent 68%),
+    radial-gradient(980px 420px at 85% -5%, rgba(102, 173, 255, 0.28), transparent 72%),
+    linear-gradient(180deg, #fff8ff 0%, #f7f3ff 38%, #f8f2ff 100%);
+  font-family: "Manrope", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  letter-spacing: 0.01em;
+}
+
+body.theme-passy * {
+  transition:
+    color 220ms ease,
+    border-color 220ms ease,
+    background-color 220ms ease,
+    box-shadow 220ms ease;
+}
+
+body.theme-passy #login {
+  background-image:
+    radial-gradient(1200px 520px at 20% -8%, rgba(255, 127, 182, 0.22), transparent 65%),
+    radial-gradient(900px 520px at 80% -3%, rgba(102, 173, 255, 0.24), transparent 70%),
+    linear-gradient(180deg, #fff9ff 0%, #f7f2ff 100%);
+}
+
+body.theme-passy #iconsLogin {
+  width: min(92vw, var(--icons-login-width, 410px));
+  min-height: 460px;
+  padding: 34px 28px 24px;
+  border-radius: 20px;
+  border: 1px solid rgba(94, 137, 255, 0.25);
+  background: linear-gradient(160deg, rgba(255, 227, 252, 0.94) 0%, rgba(255, 255, 255, 0.94) 55%);
+  box-shadow: var(--passy-shadow);
+}
+
+body.theme-passy #logoLogin {
+  width: 160px;
+  height: 160px;
+  margin: 0 auto 20px;
+  display: block;
+}
+
+body.theme-passy #logoTxt {
+  margin: 0 0 18px;
+  color: var(--passy-deep);
+  font-family: "Space Grotesk", "Manrope", sans-serif;
+  font-size: clamp(30px, 3vw, 40px);
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  text-align: center;
+  text-shadow: none;
+}
+
+body.theme-passy #textoLogin {
+  margin: 0 0 10px;
+  color: var(--passy-text-soft);
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow: none;
+}
+
+body.theme-passy #loginDivider {
+  max-width: 320px;
+  margin: 12px auto 16px;
+  background: linear-gradient(90deg, rgba(255, 127, 182, 0.4), rgba(102, 173, 255, 0.45));
+  opacity: 0.9;
+}
+
+body.theme-passy #rodapeLogin {
+  color: var(--passy-text-soft);
+  font-size: 11px;
+  text-shadow: none;
+}
+
+body.theme-passy .firebaseProjectBadge {
+  border: 1px solid rgba(94, 137, 255, 0.3);
+  background: rgba(255, 236, 252, 0.94);
+  color: var(--passy-text);
+  font-family: "Manrope", sans-serif;
+}
+
+body.theme-passy #cabecalho {
+  border: 1px solid var(--passy-border);
+  border-radius: 14px;
+  background: rgba(255, 244, 252, 0.85);
+  box-shadow: 0 8px 20px rgba(94, 137, 255, 0.1);
+}
+
+body.theme-passy #navbar-menu p {
+  margin: 0;
+  color: var(--passy-cornflower-blue);
+}
+
+body.theme-passy #abas.navbar-tabs {
+  gap: 10px;
+}
+
+body.theme-passy #abas.navbar-tabs .navbar-tab {
+  border-radius: 12px;
+  border-color: rgba(94, 137, 255, 0.3);
+  background: linear-gradient(135deg, rgba(255, 190, 248, 0.66), rgba(255, 227, 252, 0.94));
+  color: var(--passy-text);
+  font-family: "Space Grotesk", "Manrope", sans-serif;
+}
+
+body.theme-passy #abas.navbar-tabs .navbar-tab p {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+body.theme-passy #abas.navbar-tabs .navbar-tab:hover,
+body.theme-passy #abas.navbar-tabs .navbar-tab.navbar-tab--active {
+  border-color: rgba(94, 137, 255, 0.5);
+  background: linear-gradient(135deg, rgba(255, 127, 182, 0.34), rgba(102, 173, 255, 0.34));
+  color: var(--passy-deep);
+  box-shadow: 0 8px 20px rgba(94, 137, 255, 0.18);
+}
+
+body.theme-passy #MenuContainer,
+body.theme-passy .openMenu,
+body.theme-passy .mostra {
+  width: 100%;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+body.theme-passy .headMenu {
+  width: min(96vw, 1120px);
+  position: sticky;
+  top: 0;
+  margin: 14px auto 0;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(94, 137, 255, 0.3);
+  background: linear-gradient(135deg, rgba(255, 190, 248, 0.84), rgba(255, 227, 252, 0.92));
+  box-shadow: 0 10px 26px rgba(94, 137, 255, 0.16);
+}
+
+body.theme-passy .back {
+  color: var(--passy-cornflower-blue);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+body.theme-passy .pageAtual {
+  color: var(--passy-deep);
+  font-family: "Space Grotesk", "Manrope", sans-serif;
+  font-size: clamp(16px, 2vw, 24px);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: left;
+}
+
+body.theme-passy #Gavetas {
+  position: static;
+  top: auto;
+  left: auto;
+  transform: none;
+  width: min(96vw, 1120px);
+  margin: 22px auto 0;
+  padding: 0 0 32px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 10px;
+  box-sizing: border-box;
+}
+
+body.theme-passy .gavetaOption {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(94, 137, 255, 0.28);
+  background: linear-gradient(135deg, rgba(255, 190, 248, 0.66), rgba(255, 227, 252, 0.94));
+  color: var(--passy-text);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-shadow: none;
+}
+
+body.theme-passy .gavetaOption::before,
+body.theme-passy .gavetaOption::after {
+  display: none;
+}
+
+body.theme-passy .gavetaOption:hover,
+body.theme-passy .gavetaOption.highlight,
+body.theme-passy .gavetaOption:active {
+  background: linear-gradient(135deg, rgba(255, 127, 182, 0.34), rgba(102, 173, 255, 0.34));
+  border-color: rgba(94, 137, 255, 0.5);
+  color: var(--passy-deep);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 22px rgba(94, 137, 255, 0.2);
+}
+
+body.theme-passy .menuContentArea {
+  width: min(96vw, 1120px);
+  margin: 0 auto;
+  padding: 12px 0 34px;
+  box-sizing: border-box;
+}
+
+body.theme-passy .skins-manager,
+body.theme-passy .theme-picker {
+  color: var(--passy-text);
+}
+
+body.theme-passy input,
+body.theme-passy textarea,
+body.theme-passy select {
+  border: 1px solid rgba(94, 137, 255, 0.3);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.88);
+  color: var(--passy-text);
+}
+
+body.theme-passy button,
+body.theme-passy .buttonEnviarResp,
+body.theme-passy .buttonExcluirForm {
+  border-radius: 10px;
+  border: 1px solid rgba(94, 137, 255, 0.32);
+  background: linear-gradient(135deg, rgba(255, 127, 182, 0.26), rgba(102, 173, 255, 0.26));
+  color: var(--passy-deep);
+  font-family: "Space Grotesk", "Manrope", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+body.theme-passy button:hover,
+body.theme-passy .buttonEnviarResp:hover,
+body.theme-passy .buttonExcluirForm:hover {
+  border-color: rgba(94, 137, 255, 0.5);
+  background: linear-gradient(135deg, rgba(255, 127, 182, 0.38), rgba(102, 173, 255, 0.36));
+}
+
+body.theme-passy .bloco-container {
+  border-radius: 16px;
+  border: 1px solid rgba(94, 137, 255, 0.3);
+  background: linear-gradient(145deg, rgba(255, 227, 252, 0.85), rgba(255, 255, 255, 0.85));
+  box-shadow: var(--passy-shadow);
+}
+
+body.theme-passy .bloco-container__header {
+  border-bottom: 1px solid rgba(94, 137, 255, 0.22);
+}
+
+body.theme-passy .bloco-container__title {
+  color: var(--passy-deep);
+  font-family: "Space Grotesk", "Manrope", sans-serif;
+  letter-spacing: 0.06em;
+}
+
+body.theme-passy .cardContainerDesktopDev,
+body.theme-passy .cardContainerDesktopHome,
+body.theme-passy .cardContainerDesktopDesign {
+  border-radius: 14px;
+  border: 1px solid rgba(94, 137, 255, 0.3);
+  background: linear-gradient(170deg, rgba(255, 190, 248, 0.8), rgba(255, 227, 252, 0.9));
+  overflow: hidden;
+}
+
+body.theme-passy .cardCabecalhoDev,
+body.theme-passy .cardCabecalhoHome,
+body.theme-passy .cardCabecalhoDesign,
+body.theme-passy .cardImagemDev,
+body.theme-passy .cardImagemHome,
+body.theme-passy .cardImagemDesign,
+body.theme-passy .cardDescricaoDev,
+body.theme-passy .cardDescricaoHome,
+body.theme-passy .cardDescricaoDesign,
+body.theme-passy .cardDescricaoDivDev,
+body.theme-passy .cardDescricaoDivHome,
+body.theme-passy .cardDescricaoDivDesign,
+body.theme-passy .cardNomeDev,
+body.theme-passy .cardNomeHome,
+body.theme-passy .cardNomeDesign {
+  border-color: rgba(94, 137, 255, 0.35);
+  color: var(--passy-text);
+}
+
+body.theme-passy .txtTituloPri,
+body.theme-passy .txtTitulo,
+body.theme-passy .txtTituloLink {
+  color: var(--passy-cornflower-blue);
+}
+
+body.theme-passy .txtDescricao {
+  color: var(--passy-text);
+}
+
+@media (max-width: 900px) {
+  body.theme-passy #iconsLogin {
+    min-height: 420px;
+    padding: 28px 18px 20px;
+  }
+
+  body.theme-passy .headMenu {
+    width: min(96vw, 760px);
+    padding: 12px;
+  }
+
+  body.theme-passy #Gavetas {
+    width: min(96vw, 760px);
+    grid-template-columns: 1fr;
+  }
+}

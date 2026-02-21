@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { obterConfigLayoutTemaSkin, obterCssTemaSkin } from "./themesRegistry";
 
 export default function Layout({ profile, content, theme }) {
@@ -47,7 +47,7 @@ export default function Layout({ profile, content, theme }) {
   }, [layoutConfig.frameMaxWidth, layoutConfig.viewportMargin]);
 
   // ---------- Tema ----------
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!theme) return;
 
     const cssTheme = obterCssTemaSkin(theme);

@@ -52,9 +52,6 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
           configSistemaAtual = DEFAULT_SISTEMA_CONFIG;
         }
 
-        if (user?.uid) {
-          await user.getIdToken();
-        }
         // 1) Quando logado, tenta primeiro no caminho do próprio usuário.
         let skinsSnap = { empty: true, docs: [] };
         if (user?.uid) {

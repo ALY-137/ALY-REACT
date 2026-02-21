@@ -79,14 +79,54 @@ async function gerarPreviewDesfocado(file) {
 const capitalizar = (texto = "") =>
   texto ? texto.charAt(0).toUpperCase() + texto.slice(1) : "";
 
+const criarCardVazio = () => ({
+  nome: "",
+  descricao: "",
+  imagem: "",
+  imagemPath: "",
+  imagemArquivo: null,
+  imagemPreviewUrl: "",
+  linkExterno: "",
+});
+
+const normalizarCardsDoBloco = (cards = []) => {
+  const baseId = Date.now();
+  return cards
+    .map((card, index) => ({
+      id: String(card?.id || `card_${baseId}_${index}`),
+      ordem: Number.isFinite(card?.ordem) ? Number(card.ordem) : index,
+      nome: String(card?.nome || "").trim(),
+      descricao: String(card?.descricao || "").trim(),
+      imagem: String(card?.imagem || "").trim(),
+      imagemPath: String(card?.imagemPath || "").trim(),
+      imagemArquivo: card?.imagemArquivo instanceof File ? card.imagemArquivo : null,
+      imagemPreviewUrl: String(card?.imagemPreviewUrl || "").trim(),
+      linkExterno: String(card?.linkExterno || "").trim(),
+    }))
+    .filter(
+      (card) =>
+        card.nome ||
+        card.descricao ||
+        card.imagem ||
+        card.imagemPath ||
+        card.imagemArquivo ||
+        card.linkExterno
+    );
+};
+
 export default function CriadorBloco({ espacoAtual, skinIdAtual, onCreate }) {
   const { user, loading } = useAuth();
   const [files, setFiles] = useState([]);
+  const [tipoConteudo, setTipoConteudo] = useState("imagem");
+  const [cards, setCards] = useState([criarCardVazio()]);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState("");
   const [visibilidade, setVisibilidade] = useState("publico");
   const [valorCompra, setValorCompra] = useState("");
   const [mpConectado, setMpConectado] = useState(false);
+  const [blocoCardsHabilitado, setBlocoCardsHabilitado] = useState(
+    DEFAULT_SISTEMA_CONFIG.blocoCardsHabilitado
+  );
   const [mercadoPagoSistemaHabilitado, setMercadoPagoSistemaHabilitado] = useState(
     DEFAULT_SISTEMA_CONFIG.mercadoPagoHabilitado
   );
@@ -123,6 +163,7 @@ export default function CriadorBloco({ espacoAtual, skinIdAtual, onCreate }) {
       if (loading || !user || !espacoAtual || !podeCriar) {
         if (!cancelado) {
           setMpConectado(false);
+          setBlocoCardsHabilitado(DEFAULT_SISTEMA_CONFIG.blocoCardsHabilitado);
           setNomeEspacoSingular(DEFAULT_SISTEMA_CONFIG.nomeEspacoSingular);
           setNomeBlocoSingular(DEFAULT_SISTEMA_CONFIG.nomeBlocoSingular);
           setNomeBlocoPlural(DEFAULT_SISTEMA_CONFIG.nomeBlocoPlural);
@@ -131,12 +172,14 @@ export default function CriadorBloco({ espacoAtual, skinIdAtual, onCreate }) {
       }
 
       let moduloMercadoPagoAtivo = DEFAULT_SISTEMA_CONFIG.mercadoPagoHabilitado;
+      let cardsBlocoHabilitado = DEFAULT_SISTEMA_CONFIG.blocoCardsHabilitado;
       let nomeEspacoSingularAtual = DEFAULT_SISTEMA_CONFIG.nomeEspacoSingular;
       let nomeBlocoSingularAtual = DEFAULT_SISTEMA_CONFIG.nomeBlocoSingular;
       let nomeBlocoPluralAtual = DEFAULT_SISTEMA_CONFIG.nomeBlocoPlural;
       try {
         const configSistema = await obterConfigSistema();
         moduloMercadoPagoAtivo = configSistema?.mercadoPagoHabilitado !== false;
+        cardsBlocoHabilitado = configSistema?.blocoCardsHabilitado === true;
         const rotulosEspaco = obterRotulosEspaco(configSistema);
         const rotulosBloco = obterRotulosBloco(configSistema);
         nomeEspacoSingularAtual =
@@ -150,6 +193,7 @@ export default function CriadorBloco({ espacoAtual, skinIdAtual, onCreate }) {
 
       if (!cancelado) {
         setMercadoPagoSistemaHabilitado(moduloMercadoPagoAtivo);
+        setBlocoCardsHabilitado(cardsBlocoHabilitado);
         setNomeEspacoSingular(nomeEspacoSingularAtual);
         setNomeBlocoSingular(nomeBlocoSingularAtual);
         setNomeBlocoPlural(nomeBlocoPluralAtual);
@@ -188,10 +232,18 @@ export default function CriadorBloco({ espacoAtual, skinIdAtual, onCreate }) {
     }
   }, [mercadoPagoSistemaHabilitado, mpConectado, visibilidade]);
 
+  useEffect(() => {
+    if (!blocoCardsHabilitado && tipoConteudo === "cards") {
+      setTipoConteudo("imagem");
+      setCards([criarCardVazio()]);
+    }
+  }, [blocoCardsHabilitado, tipoConteudo]);
+
   if (loading || !user || !espacoAtual) return null;
   if (!podeCriar) return null;
 
   const isExclusivoComprador = visibilidade === "exclusivo_comprador";
+  const blocoEhCards = tipoConteudo === "cards" && blocoCardsHabilitado;
   const nomeEspacoSingularCapitalizado = capitalizar(nomeEspacoSingular);
   const nomeBlocoSingularCapitalizado = capitalizar(nomeBlocoSingular);
 
@@ -203,10 +255,45 @@ export default function CriadorBloco({ espacoAtual, skinIdAtual, onCreate }) {
     return Math.round(valorNumerico * 100);
   };
 
+  const criarNomeArquivoSeguro = (nome = "imagem") => {
+    const nomeLimpo = String(nome || "imagem")
+      .trim()
+      .replace(/[^\w.\-]/g, "_");
+    return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${nomeLimpo || "imagem"}`;
+  };
+
+  const limparCardParaPersistencia = (card) => ({
+    id: card.id,
+    ordem: card.ordem,
+    nome: card.nome,
+    descricao: card.descricao,
+    imagem: card.imagem,
+    imagemPath: card.imagemPath || "",
+    linkExterno: card.linkExterno,
+  });
+
+  const subirArquivoStorage = async (path, arquivo) => {
+    if (usandoBucketCompartilhadoCrossProject) {
+      return uploadArquivoNoBucketCompartilhado({ user, path, file: arquivo });
+    }
+
+    const storageRef = ref(storage, path);
+    await uploadBytes(storageRef, arquivo);
+
+    let url = "";
+    try {
+      url = await getDownloadURL(storageRef);
+    } catch {
+      url = "";
+    }
+
+    return { path, url };
+  };
+
   async function criarBloco() {
-    if (!files.length) return alert("Selecione ao menos uma imagem");
     if (!espacoId) return alert(`${nomeEspacoSingularCapitalizado} sem id valido.`);
     if (!ownerUserId) return alert(`${nomeEspacoSingularCapitalizado} sem ownerUserId valido.`);
+    if (!blocoEhCards && !files.length) return alert("Selecione ao menos uma imagem");
 
     const precoCentavos = isExclusivoComprador
       ? parseValorCompraEmCentavos(valorCompra)
@@ -225,6 +312,91 @@ export default function CriadorBloco({ espacoAtual, skinIdAtual, onCreate }) {
         collection(db, "users", ownerUserId, "espacos", espacoId, "blocos")
       );
       const blocoId = blocoRef.id;
+
+      if (blocoEhCards) {
+        const cardsNormalizados = normalizarCardsDoBloco(cards);
+
+        if (!cardsNormalizados.length) {
+          alert("Adicione ao menos um card com algum conteudo.");
+          return;
+        }
+
+        const cardsPersistidos = [];
+        for (const card of cardsNormalizados) {
+          let imagem = card.imagem;
+          let imagemPath = card.imagemPath || "";
+
+          if (card.imagemArquivo) {
+            const nomeArquivo = criarNomeArquivoSeguro(card.imagemArquivo.name || `${card.id}.jpg`);
+            const path = `users/${ownerUserId}/espacos/${espacoId}/blocos/${blocoId}/cards/${card.id}/${nomeArquivo}`;
+            const upload = await subirArquivoStorage(path, card.imagemArquivo);
+            imagemPath = path;
+            if (upload?.url) {
+              imagem = upload.url;
+            }
+          }
+
+          cardsPersistidos.push(
+            limparCardParaPersistencia({
+              ...card,
+              imagem,
+              imagemPath,
+            })
+          );
+        }
+
+        const blocoPayload = {
+          id: blocoId,
+          tipo: "cards",
+          cards: cardsPersistidos,
+          imagensPreview: [],
+          imagensPreviewPaths: [],
+          imagensOriginaisPaths: [],
+          imagensOriginaisPublicas: [],
+          imagens: [],
+          criadoPor: user.uid,
+          criadoEm: serverTimestamp(),
+          ordem: Date.now(),
+          espacoId,
+          ownerUserId,
+          skinOwner: espacoAtual.skinOwner || activeSkinId || null,
+          visibilidade,
+          precoCentavos: precoCentavos || null,
+          moeda: precoCentavos ? "BRL" : null,
+        };
+
+        await setDoc(blocoRef, blocoPayload);
+        await Promise.all(
+          cardsPersistidos.map((card) =>
+            setDoc(doc(collection(blocoRef, "cards"), card.id), {
+              id: card.id,
+              ordem: card.ordem,
+              nome: card.nome,
+              descricao: card.descricao,
+              imagem: card.imagem,
+              imagemPath: card.imagemPath || "",
+              linkExterno: card.linkExterno,
+              blocoId,
+              espacoId,
+              ownerUserId,
+              criadoEm: serverTimestamp(),
+            })
+          )
+        );
+
+        if (onCreate) {
+          onCreate({
+            criadoEm: new Date().toISOString(),
+            ...blocoPayload,
+          });
+        }
+
+        setFiles([]);
+        setCards([criarCardVazio()]);
+        setValorCompra("");
+        alert(`${nomeBlocoSingularCapitalizado} criado com sucesso!`);
+        return;
+      }
 
       // 1) Upload das imagens
       const previewUrlsPersistidas = [];
@@ -360,14 +532,161 @@ export default function CriadorBloco({ espacoAtual, skinIdAtual, onCreate }) {
 
   return (
     <div className="bloco-creator">
-      <h3>{`Criar ${nomeBlocoSingular} de imagens`}</h3>
+      <h3>
+        {`Criar ${nomeBlocoSingular} de ${
+          blocoEhCards ? "cards" : "imagens"
+        }`}
+      </h3>
 
-      <input
-        type="file"
-        multiple
-        accept="image/*"
-        onChange={(e) => setFiles([...e.target.files])}
-      />
+      <select value={tipoConteudo} onChange={(e) => setTipoConteudo(e.target.value)}>
+        <option value="imagem">Imagens</option>
+        {blocoCardsHabilitado && <option value="cards">Cards</option>}
+      </select>
+
+      {blocoEhCards ? (
+        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10 }}>
+          {cards.map((card, index) => (
+            <div
+              key={`novo-card-${index}`}
+              style={{ border: "1px solid #ccc", borderRadius: 6, padding: 10 }}
+            >
+              <input
+                type="text"
+                placeholder="Titulo do card"
+                value={card.nome}
+                onChange={(event) =>
+                  setCards((prev) =>
+                    prev.map((item, itemIndex) =>
+                      itemIndex === index ? { ...item, nome: event.target.value } : item
+                    )
+                  )
+                }
+              />
+              <input
+                type="text"
+                placeholder="Descricao do card"
+                value={card.descricao}
+                onChange={(event) =>
+                  setCards((prev) =>
+                    prev.map((item, itemIndex) =>
+                      itemIndex === index
+                        ? { ...item, descricao: event.target.value }
+                        : item
+                    )
+                  )
+                }
+              />
+              <input
+                type="text"
+                placeholder="URL da imagem do card (opcional)"
+                value={card.imagem}
+                onChange={(event) =>
+                  setCards((prev) =>
+                    prev.map((item, itemIndex) =>
+                      itemIndex === index
+                        ? {
+                            ...item,
+                            imagem: event.target.value,
+                            imagemPath: "",
+                            imagemArquivo: null,
+                            imagemPreviewUrl: "",
+                          }
+                        : item
+                    )
+                  )
+                }
+              />
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(event) => {
+                  const arquivo = event.target.files?.[0] || null;
+                  setCards((prev) =>
+                    prev.map((item, itemIndex) =>
+                      itemIndex === index
+                        ? {
+                            ...item,
+                            imagemArquivo: arquivo,
+                            imagemPreviewUrl: arquivo ? URL.createObjectURL(arquivo) : "",
+                            imagemPath: "",
+                            imagem: arquivo ? "" : item.imagem,
+                          }
+                        : item
+                    )
+                  );
+                  event.target.value = "";
+                }}
+              />
+              {(card.imagemPreviewUrl || card.imagem) && (
+                <div style={{ marginTop: 6 }}>
+                  <img
+                    src={card.imagemPreviewUrl || card.imagem}
+                    alt=""
+                    style={{ width: 96, height: 96, objectFit: "cover", borderRadius: 4 }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCards((prev) =>
+                        prev.map((item, itemIndex) =>
+                          itemIndex === index
+                            ? {
+                                ...item,
+                                imagem: "",
+                                imagemPath: "",
+                                imagemArquivo: null,
+                                imagemPreviewUrl: "",
+                              }
+                            : item
+                        )
+                      )
+                    }
+                    style={{ color: "red", marginLeft: 8 }}
+                  >
+                    Remover imagem
+                  </button>
+                </div>
+              )}
+              <input
+                type="text"
+                placeholder="Link externo do card (opcional)"
+                value={card.linkExterno}
+                onChange={(event) =>
+                  setCards((prev) =>
+                    prev.map((item, itemIndex) =>
+                      itemIndex === index
+                        ? { ...item, linkExterno: event.target.value }
+                        : item
+                    )
+                  )
+                }
+              />
+              {cards.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCards((prev) => prev.filter((_, itemIndex) => itemIndex !== index))
+                  }
+                  style={{ color: "red" }}
+                >
+                  Remover card
+                </button>
+              )}
+            </div>
+          ))}
+
+          <button type="button" onClick={() => setCards((prev) => [...prev, criarCardVazio()])}>
+            Adicionar card
+          </button>
+        </div>
+      ) : (
+        <input
+          type="file"
+          multiple
+          accept="image/*"
+          onChange={(e) => setFiles([...e.target.files])}
+        />
+      )}
 
       <select
         value={visibilidade}

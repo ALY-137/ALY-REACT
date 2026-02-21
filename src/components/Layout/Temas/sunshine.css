@@ -1,10 +1,25 @@
 @import "./system-base.css";
 
-#cardProfile {
+body.theme-sunshine #cardProfile {
   background: rgb(255, 0, 0);
   height: 50px;
 }
 
-#fundo{
+body.theme-sunshine #fundo{
   color: brown;
+}
+
+body.theme-sunshine #navbar-menu p {
+  color: #b83d3d;
+}
+
+body.theme-sunshine #abas.navbar-tabs .navbar-tab {
+  border-color: rgba(184, 61, 61, 0.25);
+  background: rgba(255, 242, 222, 0.95);
+  color: #7d3434;
+}
+
+body.theme-sunshine #abas.navbar-tabs .navbar-tab.navbar-tab--active {
+  border-color: rgba(184, 61, 61, 0.42);
+  background: rgba(255, 233, 205, 1);
 }

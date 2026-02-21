@@ -1,6 +1,6 @@
 @import "./system-base.css";
 
-.optionsAbas{
+body.theme-cyberpink .optionsAbas{
     height: 40px;
     width: 50%;
     border: 1px solid rgba(165, 86, 255, 0.288);
@@ -16,7 +16,7 @@
     font-size: 15px;
   }
   
-  .optionsAbasFoco{
+body.theme-cyberpink .optionsAbasFoco{
     height: 40px;
     width: 50%;
     border: 1px solid #7e0eff;
@@ -62,6 +62,44 @@
     color: #a75aff;
   }
 
+body.theme-cyberpink #navbar-menu p {
+  color: #a75aff;
+  font-family: "DotGothic16", sans-serif;
+  text-shadow:
+    0 0 1px #7e0eff,
+    0 0 2px #7e0eff,
+    0 0 3px #7e0eff;
+}
+
+body.theme-cyberpink #abas.navbar-tabs {
+  gap: 8px;
+}
+
+body.theme-cyberpink #abas.navbar-tabs .navbar-tab {
+  flex: 1 1 220px;
+  max-width: 360px;
+  border: 1px solid rgba(165, 86, 255, 0.45);
+  background-color: #050035;
+  color: #a353ff;
+  font-family: "Special Elite", cursive;
+}
+
+body.theme-cyberpink #abas.navbar-tabs .navbar-tab p {
+  font-family: "DotGothic16", sans-serif;
+  letter-spacing: 0.08em;
+}
+
+body.theme-cyberpink #abas.navbar-tabs .navbar-tab:hover,
+body.theme-cyberpink #abas.navbar-tabs .navbar-tab.navbar-tab--active {
+  border-color: #7e0eff;
+  color: #e8d4ff;
+  text-shadow:
+    0 0 1px #7e0eff,
+    0 0 2px #7e0eff,
+    0 0 3px #7e0eff,
+    0 0 4px #7e0eff;
+}
+
   .theme-cyberpink {
   --main-color: #ae6bfa;
   --bg-color: #1b1b2f;
@@ -71,11 +109,11 @@
 
 
 /* Depois */
-#cardProfile {
+body.theme-cyberpink #cardProfile {
   height: 50px;
 }
 
-.openMenu {
+body.theme-cyberpink .openMenu {
     display: flex;
     flex-direction: column; 
     justify-content: center;
@@ -94,7 +132,7 @@
     margin-right: auto;
 }
 
-.headMenu {
+body.theme-cyberpink .headMenu {
     display: flex;
     align-items: center;
     width: 100%;
@@ -106,7 +144,7 @@
     border-color: black;  
 }
 
-.back {
+body.theme-cyberpink .back {
     text-align: center;
     cursor: pointer;
     text-decoration: none;
@@ -117,7 +155,7 @@
     flex: 0 1 auto; 
 }
 
-.pageAtual {
+body.theme-cyberpink .pageAtual {
     font-weight: bold;
     flex: 1 1 auto; 
     text-align: center; 
@@ -126,7 +164,7 @@
     text-align: left;
 }
 
-.tituloPageMenu {
+body.theme-cyberpink .tituloPageMenu {
     margin: 0px;
     text-decoration: none;
     color: inherit;
@@ -137,20 +175,20 @@
     font-size: 15px;
 }
 
-.mostra {
+body.theme-cyberpink .mostra {
     display: flex;
     flex-direction: column;
 }
 
-.oculta {
+body.theme-cyberpink .oculta {
     display: none;
 }
 
-.scroll-lock {
+body.theme-cyberpink .scroll-lock {
     overflow: hidden;
 }
 
-.gavetaOption {
+body.theme-cyberpink .gavetaOption {
     position: relative;
     padding: 5px; 
     margin: 5px 0;
@@ -159,24 +197,24 @@
     cursor: pointer;
 }
 
-.gavetaOption::before,
-.gavetaOption::after {
+body.theme-cyberpink .gavetaOption::before,
+body.theme-cyberpink .gavetaOption::after {
     content: '';
     position: absolute;
     opacity: 0; 
     transition: opacity 0.3s ease;
 }
 
-.gavetaOption::before {
+body.theme-cyberpink .gavetaOption::before {
     left: -20px; 
 }
 
-.gavetaOption::after {
+body.theme-cyberpink .gavetaOption::after {
     right: -20px; 
 }
 
-.gavetaOption.highlight,
-.gavetaOption:hover {
+body.theme-cyberpink .gavetaOption.highlight,
+body.theme-cyberpink .gavetaOption:hover {
     font-size: 1.7em;
     font-weight: bold;
   color: #e8d4ff;
@@ -190,7 +228,7 @@
   0 0 7px #7e0eff,
   0 0 8px #7e0eff;
 }
-.gavetaOption.highlight, .gavetaOption:active {
+body.theme-cyberpink .gavetaOption.highlight, body.theme-cyberpink .gavetaOption:active {
   
     color: #e8d4ff;
     text-shadow:
@@ -205,19 +243,19 @@
 }
 
 
-.gavetaOption.highlight::before,
-.gavetaOption:hover::before {
+body.theme-cyberpink .gavetaOption.highlight::before,
+body.theme-cyberpink .gavetaOption:hover::before {
     content: '❱';
     opacity: 1; 
 }
 
-.gavetaOption.highlight::after,
-.gavetaOption:hover::after {
+body.theme-cyberpink .gavetaOption.highlight::after,
+body.theme-cyberpink .gavetaOption:hover::after {
     content: '❰';
     opacity: 1; 
 }
 
-.back-detail {
+body.theme-cyberpink .back-detail {
     margin: 0px;
     cursor: pointer;
     text-decoration: none;
@@ -229,7 +267,7 @@
     font-size: 22px;    
 }
 
-#MenuContainer{
+body.theme-cyberpink #MenuContainer{
     
         left: 0px;
         right: 0px;
@@ -241,14 +279,14 @@
 }
 
 @media (min-width: 1000px) {
-    #navbar-menu{
+    body.theme-cyberpink #navbar-menu{
         width: 1000px;
 
     }
 
 }
 
-#Gavetas{
+body.theme-cyberpink #Gavetas{
   position: absolute;
   top: 50%;
   left: 50%;
@@ -257,3 +295,325 @@
   box-sizing: border-box;
 }  
 
+
+/* Layout resiliente do Menu (Cyberpink) */
+body.theme-cyberpink #MenuContainer {
+  position: relative;
+  left: auto;
+  right: auto;
+  width: 100%;
+  height: auto;
+  min-height: 100dvh;
+  margin: 0 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+body.theme-cyberpink #MenuContainer.openMenu,
+body.theme-cyberpink #MenuContainer.mostra {
+  justify-content: flex-start;
+  align-items: center;
+  text-align: center;
+  overflow-y: auto;
+}
+
+body.theme-cyberpink .headMenu {
+  position: sticky;
+  top: 0;
+  width: min(96vw, 1000px);
+  margin: 0 auto;
+  padding: 8px 10px;
+  border: 1px solid rgba(126, 14, 255, 0.45);
+  background-color: rgba(8, 0, 20, 0.88);
+  box-sizing: border-box;
+}
+
+body.theme-cyberpink #Gavetas {
+  position: static;
+  top: auto;
+  left: auto;
+  transform: none;
+  width: min(96vw, 1000px);
+  margin: 18px auto 0;
+  padding: 0 0 22px;
+  min-height: calc(100dvh - 110px);
+  box-sizing: border-box;
+}
+
+body.theme-cyberpink #Gavetas.mostra {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+body.theme-cyberpink #Gavetas.oculta {
+  display: none;
+}
+
+body.theme-cyberpink #Gavetas .gavetaOption {
+  width: min(92vw, 520px);
+  min-height: 48px;
+  margin: 0;
+  padding: 12px 10px;
+  box-sizing: border-box;
+}
+
+body.theme-cyberpink .menuContentArea {
+  width: min(96vw, 1000px);
+  margin: 0 auto;
+  padding: 14px 0 34px;
+  box-sizing: border-box;
+}
+
+/* Blocos (Container) - tema Cyberpink */
+body.theme-cyberpink .bloco-container {
+  margin-left: 20px;
+  margin-right: 20px;
+  border: 1px solid #7e0eff;
+  border-left: none;
+  border-right: none;
+  background-color: #080110;
+  text-align: center;
+}
+
+body.theme-cyberpink .bloco-container__header {
+  min-height: 54px;
+  margin: 0;
+  padding: 12px 16px 10px;
+  border-bottom: 1px solid rgba(126, 14, 255, 0.45);
+  justify-content: center;
+}
+
+body.theme-cyberpink .bloco-container__icon {
+  width: 34px;
+  height: 34px;
+}
+
+body.theme-cyberpink .bloco-container__title {
+  color: #e8d4ff;
+  font-family: "DotGothic16", sans-serif;
+  font-size: 15px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  text-shadow:
+    0 0 1px #7e0eff,
+    0 0 2px #7e0eff,
+    0 0 3px #7e0eff;
+}
+
+body.theme-cyberpink .bloco-container__content {
+  padding: 10px 12px 16px;
+}
+
+/* Objetos (Card) - tema Cyberpink */
+body.theme-cyberpink .cardContainerDesktopDev,
+body.theme-cyberpink .cardContainerDesktopHome,
+body.theme-cyberpink .cardContainerDesktopDesign {
+  position: relative;
+  margin-left: auto;
+  margin-right: auto;
+  margin-bottom: 60px;
+}
+
+body.theme-cyberpink .cardContainerDesktopDev,
+body.theme-cyberpink .cardCabecalhoDev,
+body.theme-cyberpink .cardDescricaoDev {
+  background-color: #02102c;
+}
+
+body.theme-cyberpink .cardContainerDesktopHome,
+body.theme-cyberpink .cardCabecalhoHome,
+body.theme-cyberpink .cardDescricaoHome {
+  background-color: #160025;
+}
+
+body.theme-cyberpink .cardContainerDesktopDesign,
+body.theme-cyberpink .cardCabecalhoDesign,
+body.theme-cyberpink .cardDescricaoDesign {
+  background-color: #35011d;
+}
+
+body.theme-cyberpink .cardCabecalhoDev,
+body.theme-cyberpink .cardCabecalhoHome,
+body.theme-cyberpink .cardCabecalhoDesign {
+  width: 100%;
+  border-bottom: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+body.theme-cyberpink .cardCabecalhoDev,
+body.theme-cyberpink .cardImagemDev,
+body.theme-cyberpink .cardDescricaoDev,
+body.theme-cyberpink .cardDescricaoDivDev,
+body.theme-cyberpink .cardNomeDev {
+  border: 1px solid #0e62ff;
+}
+
+body.theme-cyberpink .cardCabecalhoHome,
+body.theme-cyberpink .cardImagemHome,
+body.theme-cyberpink .cardDescricaoHome,
+body.theme-cyberpink .cardDescricaoDivHome,
+body.theme-cyberpink .cardNomeHome {
+  border: 1px solid #7e0eff;
+}
+
+body.theme-cyberpink .cardCabecalhoDesign,
+body.theme-cyberpink .cardImagemDesign,
+body.theme-cyberpink .cardDescricaoDesign,
+body.theme-cyberpink .cardDescricaoDivDesign,
+body.theme-cyberpink .cardNomeDesign {
+  border: 1px solid #fb008a;
+}
+
+body.theme-cyberpink .cardNomeDev,
+body.theme-cyberpink .cardNomeHome,
+body.theme-cyberpink .cardNomeDesign {
+  width: 95%;
+  text-align: left;
+  padding-top: 5px;
+  padding-bottom: 7px;
+  text-indent: 10px;
+  letter-spacing: 1px;
+}
+
+body.theme-cyberpink .cardNomeDev {
+  color: #abc9ff;
+  background-color: #00205f;
+}
+
+body.theme-cyberpink .cardNomeHome {
+  color: #d8b5ff;
+  background-color: #39005f;
+}
+
+body.theme-cyberpink .cardNomeDesign {
+  color: #ffc6e5;
+  background-color: #830048;
+}
+
+body.theme-cyberpink .cardImagemDev,
+body.theme-cyberpink .cardImagemHome,
+body.theme-cyberpink .cardImagemDesign {
+  width: 100%;
+  height: 55%;
+  border-top: none;
+  border-bottom: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+body.theme-cyberpink .cardDescricaoDev,
+body.theme-cyberpink .cardDescricaoHome,
+body.theme-cyberpink .cardDescricaoDesign {
+  width: 100%;
+  height: 35%;
+  font-size: 11px;
+  border-top: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+body.theme-cyberpink .cardDescricaoDivDev,
+body.theme-cyberpink .cardDescricaoDivHome,
+body.theme-cyberpink .cardDescricaoDivDesign {
+  height: 90%;
+  width: 95%;
+  display: block;
+  text-align: left;
+  overflow-x: scroll;
+  background-color: #07000c;
+}
+
+body.theme-cyberpink .cardDescricaoDivDev {
+  color: #abc9ff;
+  background-color: #01040c;
+}
+
+body.theme-cyberpink .cardDescricaoDivHome {
+  color: #a657ff;
+}
+
+body.theme-cyberpink .cardDescricaoDivDesign {
+  color: #ff8aca;
+}
+
+body.theme-cyberpink .imgCardDev,
+body.theme-cyberpink .imgCardHome,
+body.theme-cyberpink .imgCardDesign {
+  width: 85%;
+  border: 3px double;
+}
+
+body.theme-cyberpink .imgCardDev {
+  border-color: #0e62ff;
+}
+
+body.theme-cyberpink .imgCardHome {
+  border-color: #7e0eff;
+}
+
+body.theme-cyberpink .imgCardDesign {
+  border-color: #fb008a;
+}
+
+body.theme-cyberpink .txtDescricao {
+  margin-left: 10px;
+  margin-right: 10px;
+  text-align: justify;
+  line-height: 12px;
+  font-family: 'DotGothic16', sans-serif;
+}
+
+body.theme-cyberpink .txtTituloPri,
+body.theme-cyberpink .txtTitulo,
+body.theme-cyberpink .txtTituloLink {
+  margin-left: 10px;
+  margin-right: 10px;
+  line-height: 11px;
+  font-weight: bold;
+  letter-spacing: 2px;
+  color: #ba7eff;
+}
+
+body.theme-cyberpink .txtTituloPri {
+  margin-top: -10px;
+}
+
+body.theme-cyberpink .txtTituloLink {
+  text-decoration: none;
+}
+
+body.theme-cyberpink .txtTituloLink:visited {
+  color: purple;
+}
+
+body.theme-cyberpink .txtTituloLink:hover {
+  color: #dec5ff;
+}
+
+body.theme-cyberpink .txtTituloLink:active {
+  color: rgb(177, 136, 243);
+}
+
+body.theme-cyberpink .checkBoxHab {
+  width: 95%;
+  margin-top: 10px;
+  text-align: right;
+}
+
+body.theme-cyberpink .iconeAddOn,
+body.theme-cyberpink .checkIconAtivo {
+  height: 20px;
+  width: 20px;
+}
+
+body.theme-cyberpink .checkIconAtivo {
+  margin-left: 5px;
+  margin-top: 10px;
+}

@@ -125,6 +125,30 @@ body.theme-obeydom #navbar-menu p {
   line-height: 1;
 }
 
+body.theme-obeydom #abas.navbar-tabs {
+  gap: 8px;
+}
+
+body.theme-obeydom #abas.navbar-tabs .navbar-tab {
+  border-radius: var(--obey-radius);
+  border-color: var(--obey-gray-3);
+  background: var(--obey-gray-1);
+  color: var(--obey-text-muted);
+  font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+body.theme-obeydom #abas.navbar-tabs .navbar-tab p {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+}
+
+body.theme-obeydom #abas.navbar-tabs .navbar-tab:hover,
+body.theme-obeydom #abas.navbar-tabs .navbar-tab.navbar-tab--active {
+  border-color: #474747;
+  background: var(--obey-gray-2);
+  color: var(--obey-text-primary);
+}
+
 body.theme-obeydom #MenuContainer,
 body.theme-obeydom .openMenu,
 body.theme-obeydom .mostra {

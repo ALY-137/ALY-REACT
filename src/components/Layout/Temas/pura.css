@@ -1,10 +1,25 @@
 @import "./system-base.css";
 
-#cardProfile {
+body.theme-pura #cardProfile {
   background: rgb(25, 163, 55);
   height: 50px;
 }
 
-#fundo{
+body.theme-pura #fundo{
     color: aquamarine;
+}
+
+body.theme-pura #navbar-menu p {
+  color: #1c8a46;
+}
+
+body.theme-pura #abas.navbar-tabs .navbar-tab {
+  border-color: rgba(28, 138, 70, 0.28);
+  background: rgba(230, 255, 240, 0.92);
+  color: #1f6f3f;
+}
+
+body.theme-pura #abas.navbar-tabs .navbar-tab.navbar-tab--active {
+  border-color: rgba(28, 138, 70, 0.46);
+  background: rgba(218, 255, 232, 1);
 }

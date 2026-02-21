@@ -3,6 +3,7 @@ import { db } from "../../Banco/init-firebase";
 import { SYSTEM_THEMES } from "../Temas/themesRegistry";
 
 const SISTEMA_CONFIG_REF = doc(db, "add_ons", "sistema_config");
+const SISTEMA_CONFIG_CACHE_KEY = "sistemaConfigCacheV1";
 const TEMAS_SISTEMA_VALIDOS = SYSTEM_THEMES.map((tema) => tema.id);
 const TEMA_SISTEMA_FALLBACK = TEMAS_SISTEMA_VALIDOS.includes("PADRAO_INICIAL")
   ? "PADRAO_INICIAL"
@@ -37,7 +38,32 @@ export const DEFAULT_SISTEMA_CONFIG = {
   metodosLoginHabilitados: { ...METODOS_LOGIN_PADRAO },
   chatHabilitado: true,
   mercadoPagoHabilitado: true,
+  blocoCardsHabilitado: false,
 };
+
+function salvarConfigSistemaCacheLocal(configNormalizada = DEFAULT_SISTEMA_CONFIG) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      SISTEMA_CONFIG_CACHE_KEY,
+      JSON.stringify(configNormalizada)
+    );
+  } catch {
+    // Ignora indisponibilidade de storage local.
+  }
+}
+
+export function obterConfigSistemaCacheLocal() {
+  if (typeof window === "undefined") return null;
+  try {
+    const bruto = window.localStorage.getItem(SISTEMA_CONFIG_CACHE_KEY);
+    if (!bruto) return null;
+    const parsed = JSON.parse(bruto);
+    return normalizarConfigSistema(parsed);
+  } catch {
+    return null;
+  }
+}
 
 function normalizarTemaSistema(tema) {
   if (typeof tema !== "string") {
@@ -233,6 +259,10 @@ export function normalizarConfigSistema(data = {}) {
       data.mercadoPagoHabilitado,
       DEFAULT_SISTEMA_CONFIG.mercadoPagoHabilitado
     ),
+    blocoCardsHabilitado: normalizarBoolean(
+      data.blocoCardsHabilitado,
+      DEFAULT_SISTEMA_CONFIG.blocoCardsHabilitado
+    ),
     adminUid: adminUidNormalizado,
   };
 }
@@ -240,10 +270,14 @@ export function normalizarConfigSistema(data = {}) {
 export async function obterConfigSistema() {
   const snap = await getDoc(SISTEMA_CONFIG_REF);
   if (!snap.exists()) {
-    return { ...DEFAULT_SISTEMA_CONFIG };
+    const fallback = { ...DEFAULT_SISTEMA_CONFIG };
+    salvarConfigSistemaCacheLocal(fallback);
+    return fallback;
   }
 
-  return normalizarConfigSistema(snap.data());
+  const configNormalizada = normalizarConfigSistema(snap.data());
+  salvarConfigSistemaCacheLocal(configNormalizada);
+  return configNormalizada;
 }
 
 export async function estaConfigSistemaInicializada() {
@@ -263,6 +297,7 @@ export async function salvarConfigSistemaAdmin(configParcial = {}) {
     { merge: true }
   );
 
+  salvarConfigSistemaCacheLocal(configNormalizada);
   return configNormalizada;
 }
 

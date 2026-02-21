@@ -35,6 +35,13 @@ export const SYSTEM_THEMES = [
     wallpaper: "",
     description: "Tema dark confortavel com acentos vinho e tipografia editorial.",
   },
+  {
+    id: "PASSY",
+    label: "Passy",
+    layoutTheme: "PASSY",
+    wallpaper: "",
+    description: "Tema suave com paleta candy-tech em rosa, azul e lavanda.",
+  },
 ];
 
 export const SKIN_THEMES = [
@@ -136,6 +143,20 @@ export const SKIN_THEMES = [
       viewportMargin: 16,
     },
   },
+  {
+    id: "PASSY",
+    label: "Passy (padrao)",
+    family: "PASSY",
+    cssTheme: "PASSY",
+    extendsSystem: ["PASSY"],
+    isPrimary: true,
+    layout: {
+      menuPosition: "top",
+      surfaceDensity: "comfortable",
+      frameMaxWidth: 1120,
+      viewportMargin: 14,
+    },
+  },
 ];
 
 // Compatibilidade com imports antigos no sistema
@@ -215,11 +236,8 @@ export function listarTemasSkinDaFamilia(
     return temaPadraoDef ? [temaPadraoDef] : [];
   }
 
-  if (temasDaFamilia.length > 0) {
-    return temasDaFamilia;
-  }
-
-  return temaPadraoDef ? [temaPadraoDef] : [];
+  // Com secundarios liberados no sistema, disponibiliza todos os temas de skin.
+  return ordenarTemasFamilia(SKIN_THEMES);
 }
 
 export function resolverTemaSkinEfetivo(
@@ -228,27 +246,17 @@ export function resolverTemaSkinEfetivo(
   permitirTemasSkinSecundarios = true
 ) {
   const temaPadraoId = obterTemaSkinPadrao(temaSistemaId);
-  const temaPadraoDef = obterTemaSkinDefinicao(temaPadraoId);
-  const familiaPadrao = obterFamiliaTemaSkin(temaPadraoDef);
   const temaSelecionadoDef = obterTemaSkinDefinicao(temaSkinId);
 
   if (!temaSelecionadoDef) {
     return temaPadraoId;
   }
 
-  const familiaSelecionada = obterFamiliaTemaSkin(temaSelecionadoDef);
-  if (familiaSelecionada !== familiaPadrao) {
-    return temaPadraoId;
+  if (permitirTemasSkinSecundarios) {
+    return temaSelecionadoDef.id;
   }
 
-  if (
-    !permitirTemasSkinSecundarios &&
-    normalizarIdTema(temaSelecionadoDef.id) !== normalizarIdTema(temaPadraoId)
-  ) {
-    return temaPadraoId;
-  }
-
-  return temaSelecionadoDef.id;
+  return temaPadraoId;
 }
 
 export function obterCssTemaSkin(temaSkinId) {

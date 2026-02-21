@@ -1,6 +1,8 @@
 const DEFAULT_FUNCTIONS_REGION = "us-central1";
 const LOCAL_STORAGE_PROJECT_KEY = "firebaseProjectTarget";
 const LOCAL_QUERY_PARAM = "firebaseProject";
+const FIREBASE_ENV_PREFIX = "REACT_APP_FIREBASE_";
+const FIREBASE_PROJECT_KEYS_ENV = "REACT_APP_FIREBASE_PROJECT_KEYS";
 const SHARED_STORAGE_BUCKET_ENV =
   process.env.REACT_APP_FIREBASE_SHARED_STORAGE_BUCKET || "";
 
@@ -22,6 +24,26 @@ function normalizeStorageBucket(value) {
   return normalized;
 }
 
+function normalizeHost(value) {
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw) return "";
+
+  const semProtocolo = raw.replace(/^https?:\/\//i, "");
+  const [host] = semProtocolo.split("/");
+  return host.trim();
+}
+
+function parseCsv(value) {
+  return String(value || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function parseDomains(value) {
+  return parseCsv(value).map((host) => normalizeHost(host)).filter(Boolean);
+}
+
 function applySharedStorageBucket(firebaseConfig) {
   const sharedBucket = normalizeStorageBucket(SHARED_STORAGE_BUCKET_ENV);
   if (!sharedBucket) {
@@ -34,15 +56,22 @@ function applySharedStorageBucket(firebaseConfig) {
   };
 }
 
-function buildObeyonConfigFromEnv() {
-  const apiKey = process.env.REACT_APP_FIREBASE_OBEYON_API_KEY || "";
-  const authDomain = process.env.REACT_APP_FIREBASE_OBEYON_AUTH_DOMAIN || "";
-  const databaseURL = process.env.REACT_APP_FIREBASE_OBEYON_DATABASE_URL || "";
-  const projectId = process.env.REACT_APP_FIREBASE_OBEYON_PROJECT_ID || "";
-  const storageBucket = process.env.REACT_APP_FIREBASE_OBEYON_STORAGE_BUCKET || "";
-  const messagingSenderId =
-    process.env.REACT_APP_FIREBASE_OBEYON_MESSAGING_SENDER_ID || "";
-  const appId = process.env.REACT_APP_FIREBASE_OBEYON_APP_ID || "";
+function buildProjectFromEnvPrefix(prefixoBruto) {
+  const prefixo = String(prefixoBruto || "").trim().toUpperCase();
+  if (!prefixo) return null;
+
+  const envKey = `${FIREBASE_ENV_PREFIX}${prefixo}_`;
+  const keyPersonalizada = process.env[`${envKey}KEY`] || "";
+  const apiKey = process.env[`${envKey}API_KEY`] || "";
+  const authDomain = process.env[`${envKey}AUTH_DOMAIN`] || "";
+  const databaseURL = process.env[`${envKey}DATABASE_URL`] || "";
+  const projectId = process.env[`${envKey}PROJECT_ID`] || "";
+  const storageBucket = process.env[`${envKey}STORAGE_BUCKET`] || "";
+  const messagingSenderId = process.env[`${envKey}MESSAGING_SENDER_ID`] || "";
+  const appId = process.env[`${envKey}APP_ID`] || "";
+  const functionsRegion =
+    process.env[`${envKey}FUNCTIONS_REGION`] || DEFAULT_FUNCTIONS_REGION;
+  const domains = parseDomains(process.env[`${envKey}DOMAINS`]);
 
   const hasRequired =
     !!apiKey &&
@@ -56,23 +85,63 @@ function buildObeyonConfigFromEnv() {
     return null;
   }
 
-  return applySharedStorageBucket({
-    apiKey,
-    authDomain,
-    databaseURL,
-    projectId,
-    storageBucket,
-    messagingSenderId,
-    appId,
-  });
+  return {
+    key: (keyPersonalizada || prefixo.toLowerCase()).trim(),
+    config: applySharedStorageBucket({
+      apiKey,
+      authDomain,
+      databaseURL,
+      projectId,
+      storageBucket,
+      messagingSenderId,
+      appId,
+    }),
+    functionsRegion,
+    domains,
+    envPrefix: prefixo,
+  };
 }
 
-function getHostProjectMap() {
-  return {
+function descobrirPrefixosProjetosEnv() {
+  const explicitos = parseCsv(process.env[FIREBASE_PROJECT_KEYS_ENV] || "").map((key) =>
+    key.toUpperCase()
+  );
+
+  if (explicitos.length) {
+    return Array.from(new Set(explicitos));
+  }
+
+  const regex = /^REACT_APP_FIREBASE_([A-Z0-9_]+)_PROJECT_ID$/;
+  const detectados = Object.keys(process.env || {})
+    .map((nomeEnv) => {
+      const match = nomeEnv.match(regex);
+      return match ? match[1] : "";
+    })
+    .filter(Boolean);
+
+  return Array.from(new Set(detectados));
+}
+
+function coletarProjetosEnv() {
+  return descobrirPrefixosProjetosEnv()
+    .map((prefixo) => buildProjectFromEnvPrefix(prefixo))
+    .filter(Boolean);
+}
+
+function getHostProjectMap(projects) {
+  const hostMap = {
     "obeyon.vercel.app": "obeyon",
     "teste-aa015.web.app": "teste-aa015",
     "teste-aa015.firebaseapp.com": "teste-aa015",
   };
+
+  Object.values(projects).forEach((project) => {
+    (project.domains || []).forEach((domainHost) => {
+      hostMap[domainHost] = project.key;
+    });
+  });
+
+  return hostMap;
 }
 
 function isLocalHost(hostname) {
@@ -111,7 +180,7 @@ function safeWriteLocalProjectToStorage(projectKey) {
   }
 }
 
-function resolveRequestedProjectKey(projects) {
+function resolveRequestedProjectKey(projects, hostProjectMap) {
   const hostname =
     typeof window !== "undefined"
       ? (window.location.hostname || "").toLowerCase()
@@ -136,8 +205,7 @@ function resolveRequestedProjectKey(projects) {
     }
   }
 
-  const hostMap = getHostProjectMap();
-  const hostTarget = hostMap[hostname];
+  const hostTarget = hostProjectMap[hostname];
   if (hostTarget && projects[hostTarget]) {
     return hostTarget;
   }
@@ -146,7 +214,6 @@ function resolveRequestedProjectKey(projects) {
 }
 
 export function resolveFirebaseProject() {
-  const obeyonConfig = buildObeyonConfigFromEnv();
   const testeConfig = applySharedStorageBucket(TESTE_AA015_CONFIG);
 
   const projects = {
@@ -154,29 +221,32 @@ export function resolveFirebaseProject() {
       key: "teste-aa015",
       config: testeConfig,
       functionsRegion: DEFAULT_FUNCTIONS_REGION,
+      domains: [],
     },
   };
 
-  if (obeyonConfig) {
-    projects.obeyon = {
-      key: "obeyon",
-      config: obeyonConfig,
-      functionsRegion: DEFAULT_FUNCTIONS_REGION,
+  coletarProjetosEnv().forEach((project) => {
+    projects[project.key] = {
+      key: project.key,
+      config: project.config,
+      functionsRegion: project.functionsRegion || DEFAULT_FUNCTIONS_REGION,
+      domains: project.domains || [],
+      envPrefix: project.envPrefix || "",
     };
-  }
+  });
 
-  const selectedKey = resolveRequestedProjectKey(projects);
+  const hostProjectMap = getHostProjectMap(projects);
+  const selectedKey = resolveRequestedProjectKey(projects, hostProjectMap);
   const selectedProject = projects[selectedKey] || projects["teste-aa015"];
 
-  if (
-    typeof window !== "undefined" &&
-    window.location.hostname.toLowerCase() === "obeyon.vercel.app" &&
-    !projects.obeyon
-  ) {
-    console.warn(
-      "[firebase] Config do projeto obeyon ausente. " +
-        "Defina as variaveis REACT_APP_FIREBASE_OBEYON_* no Vercel."
-    );
+  if (typeof window !== "undefined") {
+    const hostname = (window.location.hostname || "").toLowerCase();
+    const hostTarget = hostProjectMap[hostname];
+    if (hostTarget && !projects[hostTarget]) {
+      console.warn(
+        `[firebase] Config do projeto '${hostTarget}' ausente para o dominio '${hostname}'.`
+      );
+    }
   }
 
   return {

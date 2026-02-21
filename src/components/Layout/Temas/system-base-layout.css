@@ -79,6 +79,36 @@
   min-height: 100vh;
 }
 
+.bloco-container {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.bloco-container__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.bloco-container__icon {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
+.bloco-container__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.bloco-container__content {
+  width: 100%;
+}
+
 .fundoEstiloDev{
   background-color: #00000000;
 }

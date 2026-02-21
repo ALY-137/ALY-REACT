@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useLayoutEffect } from "react";
 import { useNavigate, useLocation, useParams, Outlet } from "react-router-dom";
 import { seforAdm } from "../../Scripts/verificacoes/verificaAdm";
 
@@ -14,6 +14,7 @@ import {
   DEFAULT_SISTEMA_CONFIG,
   aplicarBrandingNoDocumento,
   aplicarTemaNoBody,
+  obterConfigSistemaCacheLocal,
   obterConfigSistema,
 } from "../Sistema/configSistema";
 import FirebaseProjectBadge from "../Geral/FirebaseProjectBadge";
@@ -24,7 +25,12 @@ function Menu({ menuOpen }) {
   const [backAction, setBackAction] = useState(() => closeMenu);
   const [backText, setBackText] = useState("VOLTAR");
   const [atualTxt, setAtualTxt] = useState("MENU");
-  const [configSistema, setConfigSistema] = useState(DEFAULT_SISTEMA_CONFIG);
+  const [configSistema, setConfigSistema] = useState(
+    () => obterConfigSistemaCacheLocal() || DEFAULT_SISTEMA_CONFIG
+  );
+  const [configSistemaPronta, setConfigSistemaPronta] = useState(
+    () => Boolean(obterConfigSistemaCacheLocal())
+  );
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -85,10 +91,26 @@ function Menu({ menuOpen }) {
   }
 
   async function logoff() {
-    localStorage.clear();
+    const chavesSessao = [
+      "targetUsername",
+      "skinLogadoUser",
+      "skinLogado",
+      "skinIdAtual",
+      "selectedTheme",
+      "userId",
+      "nomeSkin",
+      "skinOwner",
+    ];
+    chavesSessao.forEach((chave) => localStorage.removeItem(chave));
+
+    try {
+      await signOut(auth);
+    } catch {
+      // Segue para tela inicial mesmo se o provider local falhar.
+    }
+
     navigate("/");
     window.location.reload();
-    await signOut(auth);
   }
 
   function resizeMenu(larScreen) {
@@ -98,6 +120,11 @@ function Menu({ menuOpen }) {
     }
   }
 
+  useLayoutEffect(() => {
+    aplicarTemaNoBody(configSistema.temaPadraoSistema);
+    aplicarBrandingNoDocumento(configSistema);
+  }, [configSistema]);
+
   useEffect(() => {
     let ativo = true;
 
@@ -106,10 +133,10 @@ function Menu({ menuOpen }) {
         const config = await obterConfigSistema();
         if (!ativo) return;
         setConfigSistema(config);
-        aplicarTemaNoBody(config.temaPadraoSistema);
-        aplicarBrandingNoDocumento(config);
       } catch (error) {
         // Mantem comportamento atual caso a config publica ainda nao exista.
+      } finally {
+        if (ativo) setConfigSistemaPronta(true);
       }
     };
 
@@ -118,7 +145,21 @@ function Menu({ menuOpen }) {
     return () => {
       ativo = false;
     };
-  }, [location.pathname]);
+  }, []);
+
+  useEffect(() => {
+    const handleConfigSistemaAtualizada = (event) => {
+      const configAtualizada = event?.detail;
+      if (!configAtualizada || typeof configAtualizada !== "object") return;
+      setConfigSistema(configAtualizada);
+      setConfigSistemaPronta(true);
+    };
+
+    window.addEventListener("sistema-config-atualizada", handleConfigSistemaAtualizada);
+    return () => {
+      window.removeEventListener("sistema-config-atualizada", handleConfigSistemaAtualizada);
+    };
+  }, []);
 
   useEffect(() => {
     if (!chatHabilitado) {
@@ -205,6 +246,10 @@ function Menu({ menuOpen }) {
     return null;
   }
 
+  if (!configSistemaPronta) {
+    return <div className="loader">Carregando tema do menu...</div>;
+  }
+
    return (
     <div id="MenuContainer" className={menuOpen ? "mostra" : "openMenu"}>
       <div className="headMenu">
@@ -234,20 +279,22 @@ function Menu({ menuOpen }) {
         <Navegacoes />
       </div>
 
-      {mercadoPagoHabilitado ? (
-        <CheckoutBlocoMercadoPago skinLogadoUser={skinLogadoUser} />
-      ) : (
-        location.search.includes("comprarBloco=") && (
-          <div style={{ marginTop: 16, padding: 12, border: "1px solid #999", borderRadius: 8 }}>
-            <p style={{ margin: 0 }}>
-              Integracao de pagamentos desativada neste projeto.
-            </p>
-          </div>
-        )
-      )}
-      <FirebaseProjectBadge />
+      <div className="menuContentArea">
+        {mercadoPagoHabilitado ? (
+          <CheckoutBlocoMercadoPago skinLogadoUser={skinLogadoUser} />
+        ) : (
+          location.search.includes("comprarBloco=") && (
+            <div style={{ marginTop: 16, padding: 12, border: "1px solid #999", borderRadius: 8 }}>
+              <p style={{ margin: 0 }}>
+                Integracao de pagamentos desativada neste projeto.
+              </p>
+            </div>
+          )
+        )}
 
-      <Outlet />
+        <Outlet />
+      </div>
+      <FirebaseProjectBadge />
      
     </div>
   );

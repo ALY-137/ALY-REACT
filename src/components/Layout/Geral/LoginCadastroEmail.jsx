@@ -32,6 +32,8 @@ const mapearErroAuth = (codigo) => {
       return "Metodo de login por email/senha nao habilitado no Firebase Auth.";
     case "auth/too-many-requests":
       return "Muitas tentativas. Tente novamente em instantes.";
+    case "auth/network-request-failed":
+      return "Falha de rede. Verifique sua conexao e DNS.";
     default:
       return "Nao foi possivel autenticar com email e senha.";
   }
@@ -45,7 +47,6 @@ function LoginCadastroEmail({ onLogin }) {
   const [erro, setErro] = useState("");
 
   const finalizarLogin = async (firebaseUser) => {
-    await firebaseUser.getIdToken();
     const bootstrapResult = await bootstrapUser(firebaseUser);
 
     if (onLogin) {

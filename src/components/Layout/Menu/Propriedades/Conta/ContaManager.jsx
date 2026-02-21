@@ -42,7 +42,17 @@ function ContaManager() {
       await batch.commit();
 
       alert("Conta excluida com sucesso.");
-      localStorage.clear();
+      const chavesSessao = [
+        "targetUsername",
+        "skinLogadoUser",
+        "skinLogado",
+        "skinIdAtual",
+        "selectedTheme",
+        "userId",
+        "nomeSkin",
+        "skinOwner",
+      ];
+      chavesSessao.forEach((chave) => localStorage.removeItem(chave));
       navigate("/");
       window.location.reload();
     } catch (erro) {

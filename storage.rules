@@ -37,6 +37,15 @@ service firebase.storage {
       allow write: if isAdmin() || isOwner(userId);
     }
 
+    // Imagens de cards dentro do bloco:
+    // users/{ownerUserId}/espacos/{espacoId}/blocos/{blocoId}/cards/{cardId}/{arquivo}
+    match /users/{userId}/espacos/{espacoId}/blocos/{blocoId}/cards/{cardId}/{allPaths=**} {
+      // Mantem leitura publica para cards de blocos publicos.
+      // Se quiser endurecer, troque para: isAdmin() || isOwner(userId) || signedIn()
+      allow read: if true;
+      allow write: if isAdmin() || isOwner(userId);
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }

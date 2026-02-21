@@ -215,6 +215,42 @@ service cloud.firestore {
             canManageEspacoByPath(userId, espacoId) ||
             canManageBlocoData(resource.data);
 
+          match /cards/{cardId} {
+            allow read: if exists(/databases/$(database)/documents/users/$(userId)/espacos/$(espacoId)/blocos/$(blocoId)) &&
+              canReadEspacoBlocoData(
+                get(/databases/$(database)/documents/users/$(userId)/espacos/$(espacoId)/blocos/$(blocoId)).data,
+                userId,
+                espacoId,
+                blocoId
+              );
+            allow create, update, delete: if isAdmin() ||
+              canManageEspacoByPath(userId, espacoId) ||
+              (
+                exists(/databases/$(database)/documents/users/$(userId)/espacos/$(espacoId)/blocos/$(blocoId)) &&
+                canManageBlocoData(
+                  get(/databases/$(database)/documents/users/$(userId)/espacos/$(espacoId)/blocos/$(blocoId)).data
+                )
+              );
+
+            match /addOnsRefs/{addOnRefId} {
+              allow read: if exists(/databases/$(database)/documents/users/$(userId)/espacos/$(espacoId)/blocos/$(blocoId)) &&
+                canReadEspacoBlocoData(
+                  get(/databases/$(database)/documents/users/$(userId)/espacos/$(espacoId)/blocos/$(blocoId)).data,
+                  userId,
+                  espacoId,
+                  blocoId
+                );
+              allow create, update, delete: if isAdmin() ||
+                canManageEspacoByPath(userId, espacoId) ||
+                (
+                  exists(/databases/$(database)/documents/users/$(userId)/espacos/$(espacoId)/blocos/$(blocoId)) &&
+                  canManageBlocoData(
+                    get(/databases/$(database)/documents/users/$(userId)/espacos/$(espacoId)/blocos/$(blocoId)).data
+                  )
+                );
+            }
+          }
+
           match /compradores/{compradorId} {
             allow read: if canManageEspacoByPath(userId, espacoId) || isSelfOrOwnSkinId(compradorId);
             allow create, delete: if canManageEspacoByPath(userId, espacoId) || isSelfOrOwnSkinId(compradorId);
@@ -235,6 +271,24 @@ service cloud.firestore {
       allow create: if signedIn() &&
         (isAdmin() || request.resource.data.criadoPor == request.auth.uid);
       allow update, delete: if canManageBlocoData(resource.data);
+
+      match /cards/{cardId} {
+        allow read: if exists(/databases/$(database)/documents/blocos/$(blocoId)) &&
+          canReadLegacyBlocoData(
+            get(/databases/$(database)/documents/blocos/$(blocoId)).data,
+            blocoId
+          );
+        allow create, update, delete: if canManageLegacyBloco(blocoId);
+
+        match /addOnsRefs/{addOnRefId} {
+          allow read: if exists(/databases/$(database)/documents/blocos/$(blocoId)) &&
+            canReadLegacyBlocoData(
+              get(/databases/$(database)/documents/blocos/$(blocoId)).data,
+              blocoId
+            );
+          allow create, update, delete: if canManageLegacyBloco(blocoId);
+        }
+      }
 
       match /compradores/{compradorId} {
         allow read: if canManageLegacyBloco(blocoId) || isSelfOrOwnSkinId(compradorId);

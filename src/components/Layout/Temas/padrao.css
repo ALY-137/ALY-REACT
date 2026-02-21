@@ -2,12 +2,12 @@
 
 body.theme-padrao {
   color: #000;
-  background-color: #fff;
+  background-color: #000000;
 }
 
 body.theme-padrao #login {
   background-image: none;
-  background-color: #fff;
+  background-color: #000000;
 }
 
 body.theme-padrao #logoTxt,
@@ -24,4 +24,19 @@ body.theme-padrao .pageAtual,
 body.theme-padrao .gavetaOption {
   color: #000;
   text-shadow: none;
+}
+
+body.theme-padrao #navbar-menu p {
+  color: #111;
+}
+
+body.theme-padrao #abas.navbar-tabs .navbar-tab {
+  border-color: rgba(0, 0, 0, 0.2);
+  background: rgba(255, 255, 255, 0.85);
+  color: #111;
+}
+
+body.theme-padrao #abas.navbar-tabs .navbar-tab.navbar-tab--active {
+  border-color: rgba(0, 0, 0, 0.38);
+  background: rgba(255, 255, 255, 1);
 }

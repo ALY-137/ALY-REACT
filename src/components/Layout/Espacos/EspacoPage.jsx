@@ -15,6 +15,8 @@ import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage
 import CriadorBloco from "../Blocos/CriadorBloco";
 import EditorBloco from "../Blocos/EditorBloco";
 import LoginButton from "../Geral/LoginButton";
+import Card from "../Objects/Objetos/Card";
+import Container from "../Objects/Containers/Container";
 import { auth, db, storage } from "../../Banco/init-firebase";
 import {
   excluirArquivoNoBucketCompartilhado,
@@ -47,6 +49,26 @@ const normalizarListaImagens = (valor) => {
     return [valor];
   }
   return [];
+};
+
+const normalizarCardsDoBloco = (valor) => {
+  if (!Array.isArray(valor)) return [];
+
+  return valor
+    .map((card, index) => ({
+      id: String(card?.id || `card_${index}`),
+      ordem: Number.isFinite(card?.ordem) ? Number(card.ordem) : index,
+      nome: String(card?.nome || "").trim(),
+      descricao: String(card?.descricao || "").trim(),
+      imagem: String(card?.imagem || "").trim(),
+      imagemPath: String(card?.imagemPath || "").trim(),
+      linkExterno: String(card?.linkExterno || "").trim(),
+    }))
+    .filter(
+      (card) =>
+        card.nome || card.descricao || card.imagem || card.imagemPath || card.linkExterno
+    )
+    .sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
 };
 
 const formatarPreco = (precoCentavos, moeda = "BRL") => {
@@ -141,6 +163,7 @@ export default function EspacoPage() {
   const [compradorPorBloco, setCompradorPorBloco] = useState({});
   const [originaisPorBloco, setOriginaisPorBloco] = useState({});
   const [previewsPorBloco, setPreviewsPorBloco] = useState({});
+  const [imagensCardsPorBloco, setImagensCardsPorBloco] = useState({});
   const [reloadNonce, setReloadNonce] = useState(0);
   const [blocoEmAtualizacaoId, setBlocoEmAtualizacaoId] = useState(null);
   const [blocoEmExclusaoId, setBlocoEmExclusaoId] = useState(null);
@@ -167,6 +190,7 @@ export default function EspacoPage() {
   const blockedPreviewPathsRef = useRef(new Set());
   const backfilledPublicUrlsRef = useRef(new Set());
   const nomeEspacoSingularCapitalizado = capitalizar(nomeEspacoSingular);
+  const nomeBlocoSingularCapitalizado = capitalizar(nomeBlocoSingular);
 
   if (!espacos) return null;
 
@@ -355,6 +379,7 @@ export default function EspacoPage() {
       setBlocos([]);
       setOriginaisPorBloco({});
       setPreviewsPorBloco({});
+      setImagensCardsPorBloco({});
       blockedOriginalPathsRef.current.clear();
       blockedPreviewPathsRef.current.clear();
       setErroBlocos("");
@@ -426,7 +451,13 @@ export default function EspacoPage() {
         const dedupe = new Map();
         for (const item of docs) {
           const d = item.docSnap;
-          dedupe.set(d.id, { id: d.id, __legacy: item.__legacy, ...d.data() });
+          const blocoData = d.data();
+          dedupe.set(d.id, {
+            id: d.id,
+            __legacy: item.__legacy,
+            ...blocoData,
+            cards: normalizarCardsDoBloco(blocoData?.cards),
+          });
         }
 
         const lista = [...dedupe.values()].sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
@@ -446,6 +477,128 @@ export default function EspacoPage() {
     assinaturaCheckPronto,
     reloadNonce,
   ]);
+
+  useEffect(() => {
+    if (!ownerUserId || !espacoId || !podeVerEspaco || !blocos.length) return;
+
+    const blocosCardsSemLista = blocos.filter(
+      (bloco) =>
+        bloco?.tipo === "cards" &&
+        (!Array.isArray(bloco.cards) || !bloco.cards.length)
+    );
+
+    if (!blocosCardsSemLista.length) return;
+
+    let cancelado = false;
+
+    async function carregarCardsSubcolecao() {
+      const cardsPorBloco = {};
+
+      for (const bloco of blocosCardsSemLista) {
+        try {
+          const cardsRef = bloco?.__legacy
+            ? collection(db, "blocos", bloco.id, "cards")
+            : collection(
+                db,
+                "users",
+                ownerUserId,
+                "espacos",
+                espacoId,
+                "blocos",
+                bloco.id,
+                "cards"
+              );
+          const cardsSnap = await getDocs(cardsRef);
+          const cards = normalizarCardsDoBloco(
+            cardsSnap.docs.map((cardDoc) => ({
+              id: cardDoc.id,
+              ...cardDoc.data(),
+            }))
+          );
+          if (cards.length) {
+            cardsPorBloco[bloco.id] = cards;
+          }
+        } catch (err) {
+          if (err?.code !== "permission-denied") {
+            console.error("Erro ao carregar cards do bloco:", bloco.id, err);
+          }
+        }
+      }
+
+      if (cancelado || !Object.keys(cardsPorBloco).length) return;
+
+      setBlocos((prev) =>
+        prev.map((bloco) =>
+          cardsPorBloco[bloco.id]
+            ? { ...bloco, cards: cardsPorBloco[bloco.id] }
+            : bloco
+        )
+      );
+    }
+
+    carregarCardsSubcolecao();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [blocos, ownerUserId, espacoId, podeVerEspaco]);
+
+  useEffect(() => {
+    if (!podeVerEspaco || !blocos.length) {
+      setImagensCardsPorBloco({});
+      return;
+    }
+
+    const cardsComPath = [];
+    for (const bloco of blocos) {
+      if (bloco?.tipo !== "cards") continue;
+      const cards = normalizarCardsDoBloco(bloco?.cards);
+      for (const card of cards) {
+        if (!card.imagemPath) continue;
+        if (isRenderableUrl(card.imagem)) continue;
+        cardsComPath.push({ blocoId: bloco.id, cardId: card.id, path: card.imagemPath });
+      }
+    }
+
+    if (!cardsComPath.length) return;
+
+    let cancelado = false;
+
+    async function resolverImagensCards() {
+      const mapa = {};
+      for (const item of cardsComPath) {
+        try {
+          const url = await resolverUrlArquivo(item.path);
+          if (!url) continue;
+          if (!mapa[item.blocoId]) mapa[item.blocoId] = {};
+          mapa[item.blocoId][item.cardId] = url;
+        } catch (err) {
+          if (err?.code !== "storage/object-not-found" && err?.code !== "storage/unauthorized") {
+            console.warn("Erro ao resolver imagem do card:", item.path, err?.code, err?.message);
+          }
+        }
+      }
+
+      if (cancelado || !Object.keys(mapa).length) return;
+
+      setImagensCardsPorBloco((prev) => {
+        const next = { ...prev };
+        for (const blocoId of Object.keys(mapa)) {
+          next[blocoId] = {
+            ...(next[blocoId] || {}),
+            ...mapa[blocoId],
+          };
+        }
+        return next;
+      });
+    }
+
+    resolverImagensCards();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [blocos, podeVerEspaco, currentUid]);
 
   useEffect(() => {
     if (!podeVerEspaco || !blocos.length) {
@@ -1030,6 +1183,25 @@ export default function EspacoPage() {
         }
       }
 
+      if (bloco?.tipo === "cards") {
+        const cardsRef = bloco.__legacy
+          ? collection(db, "blocos", bloco.id, "cards")
+          : collection(
+              db,
+              "users",
+              ownerUserId,
+              "espacos",
+              espacoId,
+              "blocos",
+              bloco.id,
+              "cards"
+            );
+        const cardsSnap = await getDocs(cardsRef);
+        for (const cardDoc of cardsSnap.docs) {
+          await deleteDoc(cardDoc.ref);
+        }
+      }
+
       await deleteDoc(getBlocoDocRef(bloco));
 
       setBlocos((prev) => prev.filter((item) => item.id !== blocoId));
@@ -1088,6 +1260,10 @@ export default function EspacoPage() {
       {acessoEspacoResolvido &&
         podeVerEspaco &&
         blocos.map((bloco) => {
+          const blocoEhCards = bloco?.tipo === "cards";
+          const cardsDoBloco = normalizarCardsDoBloco(bloco?.cards);
+          const tituloBloco = String(bloco?.titulo || bloco?.nome || "").trim();
+          const iconeBloco = String(bloco?.icone || bloco?.iconUrl || "").trim();
           const visivel = podeVerBloco(bloco);
           const bloqueado = !visivel;
           const tipoRestricao = tipoRestricaoBloco(bloco);
@@ -1130,7 +1306,9 @@ export default function EspacoPage() {
               null,
           })).filter((item) => item.originalPath || item.previewPath || item.displayUrl);
 
-          const imagensParaExibir = bloqueado
+          const imagensParaExibir = blocoEhCards
+            ? []
+            : bloqueado
             ? imagensBloqueadas
             : originalsAutorizadas.length
               ? originalsAutorizadas
@@ -1141,10 +1319,12 @@ export default function EspacoPage() {
                 : fallbackLegado;
 
           return (
-            <div
+            <Container
               key={bloco.id}
+              titulo={tituloBloco}
+              iconUrl={iconeBloco}
+              variante="home"
               className="bloco-imagem"
-              style={{ position: "relative", marginBottom: 16 }}
             >
               {!!imagensParaExibir.length && (
                 <div
@@ -1162,6 +1342,40 @@ export default function EspacoPage() {
                       style={{ maxWidth: "200px", margin: "4px" }}
                     />
                   ))}
+                </div>
+              )}
+
+              {blocoEhCards && !bloqueado && !!cardsDoBloco.length && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+                  {cardsDoBloco.map((card, cardIndex) => {
+                    const imagemCardResolvida =
+                      imagensCardsPorBloco?.[bloco.id]?.[card.id] || "";
+                    const imagemCardFinal = isRenderableUrl(card.imagem)
+                      ? card.imagem
+                      : imagemCardResolvida || "/logoNeon.png";
+                    return (
+                    <Card
+                      key={`${bloco.id}-card-${card.id || cardIndex}`}
+                      id={card.id || `${bloco.id}-card-${cardIndex}`}
+                      ownerUserId={ownerUserId}
+                      espacoId={espacoId}
+                      blocoId={bloco.id}
+                      nome={card.nome || `Card ${cardIndex + 1}`}
+                      nomeDescricao={card.nome || ""}
+                      descricao={card.descricao || ""}
+                      linkExterno={card.linkExterno || ""}
+                      imagem={imagemCardFinal}
+                      idNome={`${bloco.id}-card-${cardIndex}`}
+                      cardDescricaoDiv="cardDescricaoDivHome"
+                      cardNome="cardNomeHome"
+                      cardContainerDesktop="cardContainerDesktopHome"
+                      cardCabecalho="cardCabecalhoHome"
+                      cardImagem="cardImagemHome"
+                      cardDescricao="cardDescricaoHome"
+                      imgCard="imgCardHome"
+                    />
+                    );
+                  })}
                 </div>
               )}
 
@@ -1196,7 +1410,7 @@ export default function EspacoPage() {
                 </div>
               )}
 
-              {podeGerenciar && (
+              {podeGerenciar && !blocoEhCards && (
                 <EditorBloco
                   bloco={bloco}
                   imagensEditor={imagensEditor}
@@ -1206,7 +1420,21 @@ export default function EspacoPage() {
                   excluindo={blocoEmExclusaoId === bloco.id}
                 />
               )}
-            </div>
+
+              {podeGerenciar && blocoEhCards && (
+                <div style={{ marginTop: 8 }}>
+                  <button
+                    onClick={() => excluirBloco(bloco.id)}
+                    disabled={blocoEmExclusaoId === bloco.id}
+                    style={{ color: "red" }}
+                  >
+                    {blocoEmExclusaoId === bloco.id
+                      ? `Excluindo ${nomeBlocoSingularCapitalizado}...`
+                      : `Excluir ${nomeBlocoSingularCapitalizado}`}
+                  </button>
+                </div>
+              )}
+            </Container>
           );
         })}
     </div>

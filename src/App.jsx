@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { onAuthStateChanged } from "firebase/auth";
 import { collection, doc, getDocs } from "firebase/firestore";
@@ -9,6 +9,7 @@ import {
   aplicarBrandingNoDocumento,
   aplicarTemaNoBody,
   estaConfigSistemaInicializada,
+  obterConfigSistemaCacheLocal,
   obterConfigSistema,
 } from "./components/Layout/Sistema/configSistema";
 import PropriedadesSistema from "./components/Layout/Menu/PropriedadesSistema/PropriedadesSistema";
@@ -37,7 +38,12 @@ const App = () => {
   const [mostrarLogin, setMostrarLogin] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   const [skinsLoading, setSkinsLoading] = useState(false);
-  const [configSistema, setConfigSistema] = useState(DEFAULT_SISTEMA_CONFIG);
+  const [configSistema, setConfigSistema] = useState(
+    () => obterConfigSistemaCacheLocal() || DEFAULT_SISTEMA_CONFIG
+  );
+  const [configSistemaPronta, setConfigSistemaPronta] = useState(
+    () => Boolean(obterConfigSistemaCacheLocal())
+  );
   const [carregandoSetupAdmin, setCarregandoSetupAdmin] = useState(false);
   const [mostrarSetupAdmin, setMostrarSetupAdmin] = useState(false);
   const [setupAdminBootstrap, setSetupAdminBootstrap] = useState(false);
@@ -46,6 +52,7 @@ const App = () => {
 
   const aplicarConfigSistemaLocal = (config) => {
     setConfigSistema(config);
+    setConfigSistemaPronta(true);
     aplicarBrandingNoDocumento(config);
     if (config?.adminUid) {
       localStorage.setItem("systemAdminUid", config.adminUid);
@@ -64,6 +71,8 @@ const App = () => {
         aplicarConfigSistemaLocal(config);
       } catch (error) {
         // Se falhar, segue com defaults locais.
+      } finally {
+        if (ativo) setConfigSistemaPronta(true);
       }
     };
 
@@ -109,7 +118,6 @@ const App = () => {
 
     const fetchSkins = async () => {
       try {
-        await user.getIdToken();
         const userRef = doc(db, "users", user.uid);
         const skinsCol = collection(userRef, "skins");
         const skinsSnapshot = await getDocs(skinsCol);
@@ -183,7 +191,7 @@ const App = () => {
     return () => clearTimeout(timeout);
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     aplicarBrandingNoDocumento(configSistema);
   }, [configSistema.tituloSistema, configSistema.faviconUrl]);
 
@@ -205,7 +213,7 @@ const App = () => {
 
   const exibindoFluxoSistema = !isPublicProfileRoute && (!user || skins.length !== 1);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!exibindoFluxoSistema) return;
     aplicarTemaNoBody(configSistema.temaPadraoSistema);
   }, [exibindoFluxoSistema, configSistema.temaPadraoSistema]);
@@ -216,6 +224,10 @@ const App = () => {
 
   if (!authLoading && user && carregandoSetupAdmin) {
     return <div className="loader">Carregando configuracoes do sistema...</div>;
+  }
+
+  if (exibindoFluxoSistema && !configSistemaPronta) {
+    return <div className="loader">Carregando tema do sistema...</div>;
   }
 
   const logoLoginSrc = configSistema.logoLoginUrl || DEFAULT_SISTEMA_CONFIG.logoLoginUrl;
