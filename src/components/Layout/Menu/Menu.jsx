@@ -3,7 +3,7 @@ import { useNavigate, useLocation, useParams, Outlet } from "react-router-dom";
 import { seforAdm } from "../../Scripts/verificacoes/verificaAdm";
 
 import Navegacoes from "../../Scripts/navegacoes/Navegacoes";
-import { db } from "../../Banco/init-firebase";
+import { activeFirebaseProjectKey, db } from "../../Banco/init-firebase";
 
 import { doc, getDoc } from "firebase/firestore";
 import { useAuth } from "../../../hooks/auth/useAuth";
@@ -34,11 +34,15 @@ function Menu({ menuOpen }) {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const { contactId } = useParams();
+  const { userId: menuUserId, contactId } = useParams();
+  const isManagerProject = activeFirebaseProjectKey === "gerenciador-aly";
 
   const larScreen = window.innerWidth;
 
   const skinLogadoUser = localStorage.getItem("skinLogadoUser");
+  const menuTargetUser = isManagerProject
+    ? (menuUserId || "gerenciador").trim()
+    : skinLogadoUser;
   const nomeSkinPlural = (configSistema.nomeSkinPlural || "skins").trim() || "skins";
   const nomeSkinPluralUpper = nomeSkinPlural.toUpperCase();
   const nomeEspacoPlural = (configSistema.nomeEspacoPlural || "espacos").trim() || "espacos";
@@ -47,47 +51,55 @@ function Menu({ menuOpen }) {
   const mercadoPagoHabilitado = configSistema.mercadoPagoHabilitado !== false;
 
   function closeMenu() {
+    if (isManagerProject) {
+      navigate(`/menu/${menuTargetUser}`);
+      return;
+    }
     navigate(`/${skinLogadoUser}/home`);
   }
 
   function abrirUsers() {
-    navigate(`/menu/${skinLogadoUser}/users`);
+    navigate(`/menu/${menuTargetUser}/users`);
   }
 
   function abrirSkins() {
-    navigate(`/menu/${skinLogadoUser}/skins`);
+    navigate(`/menu/${menuTargetUser}/skins`);
   }
 
   function abrirAcessos() {
-    navigate(`/menu/${skinLogadoUser}/acessos`);
+    navigate(`/menu/${menuTargetUser}/acessos`);
   }
 
   function abrirContatos() {
-    navigate(`/menu/${skinLogadoUser}/contatos`);
+    navigate(`/menu/${menuTargetUser}/contatos`);
   }
 
   function returnMenu() {
-    navigate(`/menu/${skinLogadoUser}`);
+    navigate(`/menu/${menuTargetUser}`);
   }
 
   function closeConversas() {
-    navigate(`/menu/${skinLogadoUser}/contatos`);
+    navigate(`/menu/${menuTargetUser}/contatos`);
   }
 
   function closeChat() {
-    navigate(`/menu/${skinLogadoUser}/contatos/${contactId}`);
+    navigate(`/menu/${menuTargetUser}/contatos/${contactId}`);
   }
 
   function abrirPropriedades() {
-    navigate(`/menu/${skinLogadoUser}/propriedades`);
+    navigate(`/menu/${menuTargetUser}/propriedades`);
   }
 
   function abrirEspacos() {
-    navigate(`/menu/${skinLogadoUser}/espacos`);
+    navigate(`/menu/${menuTargetUser}/espacos`);
   }
 
-  function abrirPropriedadesSistema() {
-    navigate(`/menu/${skinLogadoUser}/propriedades-sistema`);
+  function abrirConfiguracoesGerenciador() {
+    navigate(`/menu/${menuTargetUser}/configuracoes-gerenciador`);
+  }
+
+  function abrirGerenciadorSistemas() {
+    navigate(`/menu/${menuTargetUser}/gerenciador-sistemas`);
   }
 
   async function logoff() {
@@ -162,20 +174,38 @@ function Menu({ menuOpen }) {
   }, []);
 
   useEffect(() => {
+    if (isManagerProject) return;
     if (!chatHabilitado) {
       const estaEmRotasChat = location.pathname.includes("/contatos");
-      if (estaEmRotasChat && skinLogadoUser) {
-        navigate(`/menu/${skinLogadoUser}`, { replace: true });
+      if (estaEmRotasChat && menuTargetUser) {
+        navigate(`/menu/${menuTargetUser}`, { replace: true });
       }
     }
-  }, [chatHabilitado, location.pathname, navigate, skinLogadoUser]);
+  }, [isManagerProject, chatHabilitado, location.pathname, navigate, menuTargetUser]);
 
   useEffect(() => {
     const atualizarTitulo = async () => {
       resizeMenu(larScreen);
       const path = location.pathname;
 
-      if (path === `/menu/${skinLogadoUser}`) {
+      if (isManagerProject) {
+        if (path === `/menu/${menuTargetUser}`) {
+          setAtualTxt("MENU");
+          setBackText("VOLTAR");
+          setBackAction(() => closeMenu);
+        } else if (path.endsWith("/configuracoes-gerenciador")) {
+          setAtualTxt("CONFIGURACOES DO GERENCIADOR");
+          setBackText("MENU");
+          setBackAction(() => returnMenu);
+        } else if (path.endsWith("/gerenciador-sistemas")) {
+          setAtualTxt("GERENCIADOR DE SISTEMAS");
+          setBackText("MENU");
+          setBackAction(() => returnMenu);
+        }
+        return;
+      }
+
+      if (path === `/menu/${menuTargetUser}`) {
         setAtualTxt("MENU");
         setBackText("VOLTAR");
         setBackAction(() => closeMenu);
@@ -197,10 +227,6 @@ function Menu({ menuOpen }) {
         setBackAction(() => returnMenu);
       } else if (path.endsWith("/propriedades")) {
         setAtualTxt("PROPRIEDADES");
-        setBackText("MENU");
-        setBackAction(() => returnMenu);
-      } else if (path.endsWith("/propriedades-sistema")) {
-        setAtualTxt("PROPRIEDADES DO SISTEMA");
         setBackText("MENU");
         setBackAction(() => returnMenu);
       } else if (path.endsWith("/contatos") && chatHabilitado) {
@@ -235,13 +261,21 @@ function Menu({ menuOpen }) {
     };
 
     atualizarTitulo();
-  }, [location.pathname, contactId, nomeSkinPluralUpper, nomeEspacoPluralUpper, chatHabilitado]);
+  }, [
+    isManagerProject,
+    menuTargetUser,
+    location.pathname,
+    contactId,
+    nomeSkinPluralUpper,
+    nomeEspacoPluralUpper,
+    chatHabilitado,
+  ]);
 
 
 
   if (loading) return null;
 
-  if (!skinLogadoUser || !user) {
+  if (!user || (!isManagerProject && !skinLogadoUser)) {
     navigate("/");
     return null;
   }
@@ -254,43 +288,64 @@ function Menu({ menuOpen }) {
     <div id="MenuContainer" className={menuOpen ? "mostra" : "openMenu"}>
       <div className="headMenu">
         <div onClick={backAction} className="back">
-          ❮ {backText}
+          {"<"} {backText}
         </div>
         <div className="pageAtual"> / {atualTxt} </div>
       </div>
 
-      <div id="Gavetas" className={location.pathname === `/menu/${skinLogadoUser}` ? "mostra" : "oculta"}>
-        {seforAdm(user) && (
+      <div
+        id="Gavetas"
+        className={location.pathname === `/menu/${menuTargetUser}` ? "mostra" : "oculta"}
+      >
+        {isManagerProject ? (
+          <>
+            <div onClick={abrirConfiguracoesGerenciador} className="gavetaOption">
+              CONFIGURACOES DO GERENCIADOR
+            </div>
+            <div onClick={abrirGerenciadorSistemas} className="gavetaOption">
+              GERENCIADOR DE SISTEMAS
+            </div>
+          </>
+        ) : seforAdm(user) ? (
           <>
             <div onClick={abrirUsers} className="gavetaOption">USERS</div>
             <div onClick={abrirAcessos} className="gavetaOption">ACESSOS</div>
-            <div onClick={abrirPropriedadesSistema} className="gavetaOption">PROPRIEDADES DO SISTEMA</div>
           </>
-        )}
-        <div onClick={abrirSkins} className="gavetaOption">
-          {`GERENCIAR ${nomeSkinPluralUpper}`}
-        </div>
-        <div onClick={abrirEspacos} className="gavetaOption">{`GERENCIAR ${nomeEspacoPluralUpper}`}</div>
-        {chatHabilitado && (
-          <div onClick={abrirContatos} className="gavetaOption">CONTATOS</div>
-        )}
-        <div onClick={abrirPropriedades} className="gavetaOption">PROPRIEDADES</div>
-        <div onClick={logoff} className="gavetaOption">ENCERRAR</div>
-        <Navegacoes />
+        ) : null}
+        {!isManagerProject ? (
+          <>
+            <div onClick={abrirSkins} className="gavetaOption">
+              {`GERENCIAR ${nomeSkinPluralUpper}`}
+            </div>
+            <div onClick={abrirEspacos} className="gavetaOption">
+              {`GERENCIAR ${nomeEspacoPluralUpper}`}
+            </div>
+            {chatHabilitado && (
+              <div onClick={abrirContatos} className="gavetaOption">CONTATOS</div>
+            )}
+            <div onClick={abrirPropriedades} className="gavetaOption">PROPRIEDADES</div>
+          </>
+        ) : null}
+        {!isManagerProject ? (
+          <div onClick={logoff} className="gavetaOption">ENCERRAR</div>
+        ) : null}
+        {!isManagerProject ? <Navegacoes /> : null}
       </div>
 
       <div className="menuContentArea">
-        {mercadoPagoHabilitado ? (
-          <CheckoutBlocoMercadoPago skinLogadoUser={skinLogadoUser} />
-        ) : (
-          location.search.includes("comprarBloco=") && (
-            <div style={{ marginTop: 16, padding: 12, border: "1px solid #999", borderRadius: 8 }}>
-              <p style={{ margin: 0 }}>
-                Integracao de pagamentos desativada neste projeto.
-              </p>
-            </div>
-          )
-        )}
+        {!isManagerProject
+          ? mercadoPagoHabilitado
+            ? <CheckoutBlocoMercadoPago skinLogadoUser={skinLogadoUser} />
+            : (
+                location.search.includes("comprarBloco=") && (
+                  <div style={{ marginTop: 16, padding: 12, border: "1px solid #999", borderRadius: 8 }}>
+                    <p style={{ margin: 0 }}>
+                      Integracao de pagamentos desativada neste projeto.
+                    </p>
+                  </div>
+                )
+              )
+          : null}
 
         <Outlet />
       </div>
@@ -302,4 +357,5 @@ function Menu({ menuOpen }) {
 }
 
 export default Menu;
+
 

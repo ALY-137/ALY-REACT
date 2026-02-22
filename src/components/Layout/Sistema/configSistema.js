@@ -49,6 +49,32 @@ export const DEFAULT_SISTEMA_CONFIG = {
   blocoCardsHabilitado: false,
 };
 
+function obterDefaultConfigSistemaProjeto() {
+  if (activeFirebaseProjectKey === "gerenciador-aly") {
+    return {
+      ...DEFAULT_SISTEMA_CONFIG,
+      temaPadraoSistema: "ALY_137",
+      tituloSistema: "GERENCIADOR DE SISTEMAS",
+    };
+  }
+  return { ...DEFAULT_SISTEMA_CONFIG };
+}
+
+function aplicarDefaultsPorProjeto(configSistema = DEFAULT_SISTEMA_CONFIG) {
+  const config = {
+    ...configSistema,
+  };
+  if (activeFirebaseProjectKey === "gerenciador-aly") {
+    if (!config.temaPadraoSistema || config.temaPadraoSistema === "PADRAO_INICIAL") {
+      config.temaPadraoSistema = "ALY_137";
+    }
+    if (!config.tituloSistema) {
+      config.tituloSistema = "GERENCIADOR DE SISTEMAS";
+    }
+  }
+  return config;
+}
+
 function salvarConfigSistemaCacheLocal(configNormalizada = DEFAULT_SISTEMA_CONFIG) {
   if (typeof window === "undefined") return;
   try {
@@ -67,7 +93,7 @@ export function obterConfigSistemaCacheLocal() {
     const bruto = window.localStorage.getItem(SISTEMA_CONFIG_CACHE_KEY);
     if (!bruto) return null;
     const parsed = JSON.parse(bruto);
-    return normalizarConfigSistema(parsed);
+    return aplicarDefaultsPorProjeto(normalizarConfigSistema(parsed));
   } catch {
     return null;
   }
@@ -287,7 +313,9 @@ export async function obterConfigSistema() {
     });
 
     if (configGerenciada) {
-      const configNormalizada = normalizarConfigSistema(configGerenciada);
+      const configNormalizada = aplicarDefaultsPorProjeto(
+        normalizarConfigSistema(configGerenciada)
+      );
       salvarConfigSistemaCacheLocal(configNormalizada);
       return configNormalizada;
     }
@@ -297,12 +325,12 @@ export async function obterConfigSistema() {
 
   const snap = await getDoc(SISTEMA_CONFIG_REF);
   if (!snap.exists()) {
-    const fallback = { ...DEFAULT_SISTEMA_CONFIG };
+    const fallback = aplicarDefaultsPorProjeto(obterDefaultConfigSistemaProjeto());
     salvarConfigSistemaCacheLocal(fallback);
     return fallback;
   }
 
-  const configNormalizada = normalizarConfigSistema(snap.data());
+  const configNormalizada = aplicarDefaultsPorProjeto(normalizarConfigSistema(snap.data()));
   salvarConfigSistemaCacheLocal(configNormalizada);
   return configNormalizada;
 }

@@ -1,5 +1,6 @@
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { useRoutesContext } from "./context/RoutesContext";
+import { activeFirebaseProjectKey } from "./components/Banco/init-firebase";
 
 import App from "./App";
 import Error from "./components/Scripts/routes/Error";
@@ -15,9 +16,30 @@ import Propriedades from "./components/Layout/Menu/Propriedades/Propriedades";
 import EspacoManager from "./components/Layout/Espacos/EspacoManager";
 import EspacoPage from "./components/Layout/Espacos/EspacoPage";
 import PropriedadesSistema from "./components/Layout/Menu/PropriedadesSistema/PropriedadesSistema";
+import GerenciadorSistemas from "./components/Layout/Menu/Gerenciador/GerenciadorSistemas";
 
 export default function RouterComponent() {
   const { routes } = useRoutesContext();
+  const isManagerProject = activeFirebaseProjectKey === "gerenciador-aly";
+  const menuChildren = isManagerProject
+    ? [
+        {
+          path: "configuracoes-gerenciador",
+          element: <PropriedadesSistema tituloSecao="CONFIGURACOES DO GERENCIADOR" />,
+        },
+        { path: "gerenciador-sistemas", element: <GerenciadorSistemas /> },
+      ]
+    : [
+        { path: "contatos", element: <ListaContatos /> },
+        { path: "contatos/:contactId", element: <ListaConversas /> },
+        { path: "contatos/:contactId/chat/:conversationId", element: <Chat /> },
+        { path: "users", element: <Users /> },
+        { path: "skins", element: <SkinsManager /> },
+        { path: "acessos", element: <ListaAcessos /> },
+        { path: "propriedades", element: <Propriedades /> },
+        { path: "propriedades-sistema", element: <PropriedadesSistema /> },
+        { path: "espacos", element: <EspacoManager /> },
+      ];
 
   const router = createBrowserRouter([
     {
@@ -28,32 +50,18 @@ export default function RouterComponent() {
     {
       path: "menu/:userId",
       element: <Menu />,
-      children: [
-        { path: "contatos", element: <ListaContatos /> },
-        { path: "contatos/:contactId", element: <ListaConversas /> },
-        { path: "contatos/:contactId/chat/:conversationId", element: <Chat /> },
-        { path: "users", element: <Users /> },
-        { path: "skins", element: <SkinsManager /> },
-        { path: "acessos", element: <ListaAcessos /> },
-        { path: "propriedades", element: <Propriedades /> },
-        { path: "propriedades-sistema", element: <PropriedadesSistema /> },
-        { path: "espacos", element: <EspacoManager /> },
-      ],
+      children: menuChildren,
     },
-    {
-      path: ":skinsUsername",
-      element: <Estrutura />,
-      children: [
-        { path: ":espacoNome", element: <EspacoPage /> },
-        ...routes, // ✅ AGORA FUNCIONA
-      ],
-    },
+    ...(!isManagerProject
+      ? [
+          {
+            path: ":skinsUsername",
+            element: <Estrutura />,
+            children: [{ path: ":espacoNome", element: <EspacoPage /> }, ...routes],
+          },
+        ]
+      : []),
   ]);
 
-  return (
-    <RouterProvider
-      router={router}
-      future={{ v7_startTransition: true }}
-    />
-  );
+  return <RouterProvider router={router} future={{ v7_startTransition: true }} />;
 }

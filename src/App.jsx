@@ -1,14 +1,17 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { onAuthStateChanged } from "firebase/auth";
 import { collection, doc, getDocs } from "firebase/firestore";
 
-import { auth, db } from "./components/Banco/init-firebase";
+import {
+  activeFirebaseProjectKey,
+  auth,
+  db,
+} from "./components/Banco/init-firebase";
 import {
   DEFAULT_SISTEMA_CONFIG,
   aplicarBrandingNoDocumento,
   aplicarTemaNoBody,
-  estaConfigSistemaInicializada,
   obterConfigSistemaCacheLocal,
   obterConfigSistema,
 } from "./components/Layout/Sistema/configSistema";
@@ -32,6 +35,7 @@ let picGoogleCap = null;
 let fullnameCap = null;
 
 const App = () => {
+  const isManagerProject = activeFirebaseProjectKey === "gerenciador-aly";
   const [user, setUser] = useState(null);
   const [skins, setSkins] = useState([]);
   const [username, setUsername] = useState("");
@@ -112,6 +116,12 @@ const App = () => {
   }, []);
 
   useEffect(() => {
+    if (isManagerProject) {
+      setSkins([]);
+      setSkinsLoading(false);
+      return;
+    }
+
     if (!user?.uid) return;
 
     setSkinsLoading(true);
@@ -140,51 +150,13 @@ const App = () => {
     };
 
     fetchSkins();
-  }, [user]);
+  }, [isManagerProject, user]);
 
   useEffect(() => {
-    let ativo = true;
-
-    const resolverSetupAdmin = async () => {
-      if (!user?.uid) {
-        if (ativo) {
-          setMostrarSetupAdmin(false);
-          setSetupAdminBootstrap(false);
-          setCarregandoSetupAdmin(false);
-        }
-        return;
-      }
-
-      setCarregandoSetupAdmin(true);
-
-      try {
-        const configInicializada = await estaConfigSistemaInicializada();
-        if (!ativo) return;
-        if (!configInicializada) {
-          setMostrarSetupAdmin(true);
-          setSetupAdminBootstrap(true);
-          return;
-        }
-
-        setSetupAdminBootstrap(false);
-        setMostrarSetupAdmin(false);
-      } catch {
-        if (!ativo) return;
-        // Se Firestore ainda nao estiver inicializado, prioriza o onboarding
-        // em Propriedades do Sistema para o admin.
-        setMostrarSetupAdmin(true);
-        setSetupAdminBootstrap(true);
-      } finally {
-        if (ativo) setCarregandoSetupAdmin(false);
-      }
-    };
-
-    resolverSetupAdmin();
-
-    return () => {
-      ativo = false;
-    };
-  }, [user]);
+    setMostrarSetupAdmin(false);
+    setSetupAdminBootstrap(false);
+    setCarregandoSetupAdmin(false);
+  }, [isManagerProject, user]);
 
   useEffect(() => {
     const timeout = setTimeout(() => setMostrarLogin(true), 1000);
@@ -208,15 +180,21 @@ const App = () => {
   }, [configSistema.larguraIconsLoginPx]);
 
   const isPublicProfileRoute = useMemo(() => {
+    if (isManagerProject) return false;
     return location.pathname.split("/").length >= 2 && location.pathname !== "/";
-  }, [location.pathname]);
+  }, [isManagerProject, location.pathname]);
 
   const exibindoFluxoSistema = !isPublicProfileRoute && (!user || skins.length !== 1);
+  const temaSistemaEfetivo =
+    isManagerProject &&
+    (!configSistema.temaPadraoSistema || configSistema.temaPadraoSistema === "PADRAO_INICIAL")
+      ? "ALY_137"
+      : configSistema.temaPadraoSistema;
 
   useLayoutEffect(() => {
     if (!exibindoFluxoSistema) return;
-    aplicarTemaNoBody(configSistema.temaPadraoSistema);
-  }, [exibindoFluxoSistema, configSistema.temaPadraoSistema]);
+    aplicarTemaNoBody(temaSistemaEfetivo);
+  }, [exibindoFluxoSistema, temaSistemaEfetivo]);
 
   if (!authLoading && user && skinsLoading) {
     return <div className="loader">Carregando skins...</div>;
@@ -231,7 +209,9 @@ const App = () => {
   }
 
   const logoLoginSrc = configSistema.logoLoginUrl || DEFAULT_SISTEMA_CONFIG.logoLoginUrl;
-  const tituloSistema = configSistema.tituloSistema || DEFAULT_SISTEMA_CONFIG.tituloSistema;
+  const tituloSistema = isManagerProject
+    ? configSistema.tituloSistema || "GERENCIADOR DE SISTEMAS"
+    : configSistema.tituloSistema || DEFAULT_SISTEMA_CONFIG.tituloSistema;
   const exibirTituloSistemaNoLogin = configSistema.exibirTituloSistemaNoLogin !== false;
   const textoLogin = configSistema.textoLogin || DEFAULT_SISTEMA_CONFIG.textoLogin;
   const loginComGoogleHabilitado =
@@ -293,6 +273,8 @@ const App = () => {
             {`${tituloSistema}\u00A9`} <AnoAtualizado />
           </p>
         </div>
+      ) : isManagerProject ? (
+        <Navigate to="/menu/gerenciador" replace />
       ) : skins.length === 1 ? (
         <Estrutura username={username} skins={skins} />
       ) : (

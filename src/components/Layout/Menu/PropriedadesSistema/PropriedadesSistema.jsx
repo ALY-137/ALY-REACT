@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../../../hooks/auth/useAuth";
 import { seforAdm } from "../../../Scripts/verificacoes/verificaAdm";
+import { activeFirebaseProjectKey } from "../../../Banco/init-firebase";
 import { SYSTEM_THEMES } from "../../Temas/themesRegistry";
 import {
   DEFAULT_SISTEMA_CONFIG,
@@ -19,8 +20,13 @@ function lerArquivoComoDataUrl(file) {
   });
 }
 
-function PropriedadesSistema({ onConfigSalva, modoBootstrap = false }) {
+function PropriedadesSistema({
+  onConfigSalva,
+  modoBootstrap = false,
+  tituloSecao = "PROPRIEDADES DO SISTEMA",
+}) {
   const { user, loading } = useAuth();
+  const isManagerProject = activeFirebaseProjectKey === "gerenciador-aly";
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [mensagem, setMensagem] = useState("");
@@ -36,6 +42,11 @@ function PropriedadesSistema({ onConfigSalva, modoBootstrap = false }) {
     let ativo = true;
 
     const carregar = async () => {
+      if (!isManagerProject) {
+        if (ativo) setCarregando(false);
+        return;
+      }
+
       if (loading) return;
 
       if (!user || !seforAdm(user)) {
@@ -64,7 +75,7 @@ function PropriedadesSistema({ onConfigSalva, modoBootstrap = false }) {
     return () => {
       ativo = false;
     };
-  }, [loading, user]);
+  }, [isManagerProject, loading, user]);
 
   const uploadImagem = async (event, campo) => {
     const arquivo = event.target.files?.[0];
@@ -148,10 +159,22 @@ function PropriedadesSistema({ onConfigSalva, modoBootstrap = false }) {
     return <p>Carregando...</p>;
   }
 
+  if (!isManagerProject) {
+    return (
+      <div>
+        <h2>{tituloSecao}</h2>
+        <p>
+          Configuracoes centralizadas no Gerenciador de Sistemas. Abra o projeto
+          <code> gerenciador-aly </code> para editar.
+        </p>
+      </div>
+    );
+  }
+
   if (!user || (!modoBootstrap && !seforAdm(user))) {
     return (
       <div>
-        <h2>PROPRIEDADES DO SISTEMA</h2>
+        <h2>{tituloSecao}</h2>
         <p>Acesso restrito ao administrador.</p>
       </div>
     );
@@ -159,7 +182,7 @@ function PropriedadesSistema({ onConfigSalva, modoBootstrap = false }) {
 
   return (
     <div>
-      <h2>PROPRIEDADES DO SISTEMA</h2>
+      <h2>{tituloSecao}</h2>
       <p>
         Defina comportamento global, identidade visual e modulos ativos do projeto.
       </p>
