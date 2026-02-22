@@ -136,12 +136,15 @@ body.theme-cyberpink .headMenu {
     display: flex;
     align-items: center;
     width: 100%;
-    position: absolute; 
     top: 0; 
     padding: 5px; 
     z-index: 20000; 
     background-color: rgba(255, 255, 255, 0.075);
     border-color: black;  
+    position: sticky;
+    width: min(96vw, 1000px);
+    margin: 0 auto;
+    border: 1px solid hsla(268, 100%, 53%, 0.45);
 }
 
 body.theme-cyberpink .back {
@@ -317,16 +320,7 @@ body.theme-cyberpink #MenuContainer.mostra {
   overflow-y: auto;
 }
 
-body.theme-cyberpink .headMenu {
-  position: sticky;
-  top: 0;
-  width: min(96vw, 1000px);
-  margin: 0 auto;
-  padding: 8px 10px;
-  border: 1px solid rgba(126, 14, 255, 0.45);
-  background-color: rgba(8, 0, 20, 0.88);
-  box-sizing: border-box;
-}
+
 
 body.theme-cyberpink #Gavetas {
   position: static;

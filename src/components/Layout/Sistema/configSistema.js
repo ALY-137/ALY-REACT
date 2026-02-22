@@ -1,6 +1,14 @@
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "../../Banco/init-firebase";
+import {
+  activeFirebaseProjectId,
+  activeFirebaseProjectKey,
+} from "../../Banco/init-firebase";
 import { SYSTEM_THEMES } from "../Temas/themesRegistry";
+import {
+  obterConfigSistemaDoGerenciador,
+  salvarConfigSistemaNoGerenciador,
+} from "./gerenciadorSistemasApi";
 
 const SISTEMA_CONFIG_REF = doc(db, "add_ons", "sistema_config");
 const SISTEMA_CONFIG_CACHE_KEY = "sistemaConfigCacheV1";
@@ -268,6 +276,25 @@ export function normalizarConfigSistema(data = {}) {
 }
 
 export async function obterConfigSistema() {
+  const hostnameAtual =
+    typeof window !== "undefined" ? window.location.hostname || "" : "";
+
+  try {
+    const configGerenciada = await obterConfigSistemaDoGerenciador({
+      projectKey: activeFirebaseProjectKey,
+      projectId: activeFirebaseProjectId,
+      hostname: hostnameAtual,
+    });
+
+    if (configGerenciada) {
+      const configNormalizada = normalizarConfigSistema(configGerenciada);
+      salvarConfigSistemaCacheLocal(configNormalizada);
+      return configNormalizada;
+    }
+  } catch {
+    // Segue fallback local.
+  }
+
   const snap = await getDoc(SISTEMA_CONFIG_REF);
   if (!snap.exists()) {
     const fallback = { ...DEFAULT_SISTEMA_CONFIG };
@@ -281,21 +308,51 @@ export async function obterConfigSistema() {
 }
 
 export async function estaConfigSistemaInicializada() {
+  const hostnameAtual =
+    typeof window !== "undefined" ? window.location.hostname || "" : "";
+  try {
+    const configGerenciada = await obterConfigSistemaDoGerenciador({
+      projectKey: activeFirebaseProjectKey,
+      projectId: activeFirebaseProjectId,
+      hostname: hostnameAtual,
+    });
+    if (configGerenciada) return true;
+  } catch {
+    // Segue fallback local.
+  }
+
   const snap = await getDoc(SISTEMA_CONFIG_REF);
   return snap.exists();
 }
 
 export async function salvarConfigSistemaAdmin(configParcial = {}) {
   const configNormalizada = normalizarConfigSistema(configParcial);
+  const hostnameAtual =
+    typeof window !== "undefined" ? window.location.hostname || "" : "";
 
-  await setDoc(
-    SISTEMA_CONFIG_REF,
-    {
-      ...configNormalizada,
-      atualizadoEm: serverTimestamp(),
-    },
-    { merge: true }
-  );
+  let salvoNoGerenciador = false;
+  try {
+    salvoNoGerenciador = await salvarConfigSistemaNoGerenciador({
+      projectKey: activeFirebaseProjectKey,
+      projectId: activeFirebaseProjectId,
+      hostname: hostnameAtual,
+      configSistema: configNormalizada,
+      atualizadoPorUid: configNormalizada.adminUid || null,
+    });
+  } catch {
+    salvoNoGerenciador = false;
+  }
+
+  if (!salvoNoGerenciador) {
+    await setDoc(
+      SISTEMA_CONFIG_REF,
+      {
+        ...configNormalizada,
+        atualizadoEm: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  }
 
   salvarConfigSistemaCacheLocal(configNormalizada);
   return configNormalizada;
