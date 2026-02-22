@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect } from "react";
+import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { useNavigate, useLocation, useParams, Outlet } from "react-router-dom";
 import { seforAdm } from "../../Scripts/verificacoes/verificaAdm";
 
@@ -21,6 +21,7 @@ import FirebaseProjectBadge from "../Geral/FirebaseProjectBadge";
 
 function Menu({ menuOpen }) {
   const { user, loading } = useAuth();
+  const redirectingRef = useRef(false);
 
   const [backAction, setBackAction] = useState(() => closeMenu);
   const [backText, setBackText] = useState("VOLTAR");
@@ -40,6 +41,7 @@ function Menu({ menuOpen }) {
   const larScreen = window.innerWidth;
 
   const skinLogadoUser = localStorage.getItem("skinLogadoUser");
+  const temUsuarioAutenticado = Boolean(user || auth.currentUser);
   const menuTargetUser = isManagerProject
     ? (menuUserId || "gerenciador").trim()
     : skinLogadoUser;
@@ -271,12 +273,36 @@ function Menu({ menuOpen }) {
     chatHabilitado,
   ]);
 
+  useEffect(() => {
+    if (loading) return;
+
+    const semSessaoValida = !temUsuarioAutenticado || (!isManagerProject && !skinLogadoUser);
+    if (!semSessaoValida) {
+      redirectingRef.current = false;
+      return;
+    }
+
+    if (redirectingRef.current) return;
+    if (location.pathname === "/") return;
+
+    redirectingRef.current = true;
+    if (semSessaoValida) {
+      navigate("/", { replace: true });
+    }
+  }, [
+    loading,
+    temUsuarioAutenticado,
+    isManagerProject,
+    skinLogadoUser,
+    location.pathname,
+    navigate,
+  ]);
+
 
 
   if (loading) return null;
 
-  if (!user || (!isManagerProject && !skinLogadoUser)) {
-    navigate("/");
+  if (!temUsuarioAutenticado || (!isManagerProject && !skinLogadoUser)) {
     return null;
   }
 
