@@ -195,7 +195,7 @@ body.theme-cyberpink .gavetaOption {
     position: relative;
     padding: 5px; 
     margin: 5px 0;
-    border-radius: 5px; 
+    border-radius: 0; 
     transition: font-size 0.3s ease, background-color 0.3s ease; 
     cursor: pointer;
 }
@@ -347,7 +347,7 @@ body.theme-cyberpink #Gavetas.oculta {
 }
 
 body.theme-cyberpink #Gavetas .gavetaOption {
-  width: min(92vw, 520px);
+  width: min(92vw, 300px);
   min-height: 48px;
   margin: 0;
   padding: 12px 10px;
@@ -610,4 +610,97 @@ body.theme-cyberpink .checkIconAtivo {
 body.theme-cyberpink .checkIconAtivo {
   margin-left: 5px;
   margin-top: 10px;
+}
+
+/* Ajustes de contraste e forma (Cyberpink) */
+body.theme-cyberpink {
+  --cyberpink-border-soft: rgba(174, 107, 250, 0.52);
+  --cyberpink-border-strong: #b176ff;
+  --cyberpink-surface-1: rgba(14, 5, 30, 0.9);
+  --cyberpink-surface-2: rgba(30, 10, 52, 0.88);
+  --cyberpink-text-main: #e4cbff;
+  --cyberpink-text-soft: #c79fff;
+}
+
+body.theme-cyberpink .skins-manager,
+body.theme-cyberpink .theme-picker {
+  color: var(--cyberpink-text-main);
+}
+
+body.theme-cyberpink #abas.navbar-tabs .navbar-tab {
+  border-radius: 0;
+  border-color: var(--cyberpink-border-soft);
+  background: var(--cyberpink-surface-1);
+}
+
+body.theme-cyberpink #abas.navbar-tabs .navbar-tab:hover,
+body.theme-cyberpink #abas.navbar-tabs .navbar-tab.navbar-tab--active {
+  border-color: var(--cyberpink-border-strong);
+  background: var(--cyberpink-surface-2);
+}
+
+body.theme-cyberpink .firebaseProjectBadge {
+  border-radius: 0;
+  border-color: var(--cyberpink-border-soft);
+  color: var(--cyberpink-text-soft);
+  background: rgba(10, 3, 22, 0.9);
+}
+
+body.theme-cyberpink .gavetaOption {
+  border: none;
+  background-color: transparent;
+}
+
+body.theme-cyberpink .gavetaOption:hover,
+body.theme-cyberpink .gavetaOption.highlight {
+  border: none;
+  background-color: transparent;
+}
+
+body.theme-cyberpink .menuContentArea button,
+body.theme-cyberpink .menuContentArea input,
+body.theme-cyberpink .menuContentArea select,
+body.theme-cyberpink .menuContentArea textarea {
+  border-radius: 0 !important;
+  border: 1px solid var(--cyberpink-border-soft) !important;
+  background-color: var(--cyberpink-surface-1) !important;
+  color: var(--cyberpink-text-main) !important;
+}
+
+body.theme-cyberpink .menuContentArea button:hover,
+body.theme-cyberpink .menuContentArea button:focus-visible,
+body.theme-cyberpink .menuContentArea input:focus,
+body.theme-cyberpink .menuContentArea select:focus,
+body.theme-cyberpink .menuContentArea textarea:focus {
+  border-color: var(--cyberpink-border-strong) !important;
+  box-shadow: none !important;
+  outline: none;
+}
+
+body.theme-cyberpink .menuContentArea button:disabled {
+  opacity: 0.6;
+}
+
+body.theme-cyberpink .menuContentArea input::placeholder,
+body.theme-cyberpink .menuContentArea textarea::placeholder {
+  color: rgba(199, 159, 255, 0.72);
+}
+
+body.theme-cyberpink .menuContentArea [style*="border: 1px solid"] {
+  border-color: var(--cyberpink-border-soft) !important;
+  border-radius: 0 !important;
+  background-color: rgba(10, 3, 22, 0.55) !important;
+}
+
+body.theme-cyberpink .loginCadastroInput,
+body.theme-cyberpink .loginCadastroButton {
+  border-radius: 0;
+  border-color: var(--cyberpink-border-soft);
+  background-color: rgba(10, 3, 22, 0.74);
+  color: var(--cyberpink-text-main);
+}
+
+body.theme-cyberpink .loginCadastroButton:hover,
+body.theme-cyberpink .loginCadastroButton:focus-visible {
+  border-color: var(--cyberpink-border-strong);
 }

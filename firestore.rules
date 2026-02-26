@@ -323,7 +323,7 @@ service cloud.firestore {
       allow read, update, delete: if isAdmin();
     }
 
-    match /add_ons/{addonId} {
+        match /add_ons/{addonId} {
       allow read: if true;
       allow create: if isAdmin() || (
         addonId == "sistema_config" &&
@@ -334,7 +334,36 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
-    // NecessÃ¡rio para consultas collectionGroup("skins")
+    // Cadastro central de sistemas (projeto gerenciador).
+    // Leitura publica para carregar configuracoes globais sem login.
+    match /systems/{systemId} {
+      allow read: if true;
+      allow create: if isAdmin() || (
+        signedIn() &&
+        (request.resource.data.criadoPorUid is string) &&
+        request.resource.data.criadoPorUid == request.auth.uid &&
+        (request.resource.data.atualizadoPorUid is string) &&
+        request.resource.data.atualizadoPorUid == request.auth.uid
+      );
+      allow update, delete: if isAdmin() || (
+        signedIn() &&
+        (
+          (
+            (resource.data.criadoPorUid is string) &&
+            resource.data.criadoPorUid == request.auth.uid
+          ) ||
+          (
+            !(resource.data.criadoPorUid is string) &&
+            (request.resource.data.criadoPorUid is string) &&
+            request.resource.data.criadoPorUid == request.auth.uid &&
+            (request.resource.data.atualizadoPorUid is string) &&
+            request.resource.data.atualizadoPorUid == request.auth.uid
+          )
+        )
+      );
+    }
+
+    // Necessario para consultas collectionGroup("skins")
     // em qualquer profundidade de caminho.
     match /{path=**}/skins/{skinId} {
       allow get, list: if isAdmin() ||
@@ -347,3 +376,5 @@ service cloud.firestore {
     }
   }
 }
+
+

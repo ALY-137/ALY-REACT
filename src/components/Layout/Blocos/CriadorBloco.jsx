@@ -290,6 +290,70 @@ export default function CriadorBloco({ espacoAtual, skinIdAtual, onCreate }) {
     return { path, url };
   };
 
+  const garantirBasePersistenteOnePage = async () => {
+    if (!user?.uid || !ownerUserId || !espacoId) return;
+    if (user.uid !== ownerUserId) return;
+
+    if (typeof user.getIdToken === "function") {
+      try {
+        await user.getIdToken();
+      } catch {
+        // Continua tentativa de persistencia; Firestore ainda pode aceitar com token em cache.
+      }
+    }
+
+    const userRef = doc(db, "users", ownerUserId);
+    await setDoc(
+      userRef,
+      {
+        uid: ownerUserId,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    const skinDocId =
+      espacoAtual?.skinOwner ||
+      activeSkinId ||
+      localStorage.getItem("skinIdAtual") ||
+      null;
+
+    if (skinDocId) {
+      await setDoc(
+        doc(db, "users", ownerUserId, "skins", skinDocId),
+        {
+          id_skin: skinDocId,
+          ownerUserId,
+          username:
+            localStorage.getItem("skinLogadoUser") ||
+            localStorage.getItem("targetUsername") ||
+            "",
+          theme: localStorage.getItem("selectedTheme") || "CYBERPINK",
+          visibilidade: "publico",
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+    }
+
+    await setDoc(
+      doc(db, "users", ownerUserId, "espacos", espacoId),
+      {
+        id_espaco: espacoId,
+        nome: espacoAtual?.nome || "home",
+        ownerUserId,
+        skinOwner: skinDocId || null,
+        coCriadoresUids: Array.isArray(espacoAtual?.coCriadoresUids)
+          ? espacoAtual.coCriadoresUids
+          : [],
+        visibilidade: espacoAtual?.visibilidade || "publico",
+        isHome: Boolean(espacoAtual?.isHome),
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  };
+
   async function criarBloco() {
     if (!espacoId) return alert(`${nomeEspacoSingularCapitalizado} sem id valido.`);
     if (!ownerUserId) return alert(`${nomeEspacoSingularCapitalizado} sem ownerUserId valido.`);
@@ -308,6 +372,8 @@ export default function CriadorBloco({ espacoAtual, skinIdAtual, onCreate }) {
     setErro("");
 
     try {
+      await garantirBasePersistenteOnePage();
+
       const blocoRef = doc(
         collection(db, "users", ownerUserId, "espacos", espacoId, "blocos")
       );

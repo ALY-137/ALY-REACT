@@ -54,6 +54,11 @@ export const verificarESalvarskins = async (userId, username, theme) => {
     } catch (err) {
       // Em ambientes com regra mais restritiva, segue com validação local.
       if (err?.code !== "permission-denied") throw err;
+      return {
+        sucesso: false,
+        mensagem: "Sem permissao para validar usernames neste projeto.",
+        errorCode: "permission-denied",
+      };
     }
 
     // ── Verificar conflito dentro do próprio usuário
@@ -108,7 +113,14 @@ export const verificarESalvarskins = async (userId, username, theme) => {
     return { sucesso: true, id_skin };
 
   } catch (error) {
+    if (error?.code === "permission-denied") {
+      return {
+        sucesso: false,
+        mensagem: "Sem permissao para criar skin neste projeto.",
+        errorCode: "permission-denied",
+      };
+    }
     console.error("Erro ao verificar e salvar skin:", error);
-    return { sucesso: false, mensagem: "Erro ao criar skin" };
+    return { sucesso: false, mensagem: "Erro ao criar skin", errorCode: error?.code || "" };
   }
 };

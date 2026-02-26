@@ -46,6 +46,12 @@ export default function CheckoutBlocoMercadoPago({ skinLogadoUser }) {
   const paymentId = params.get("payment_id") || params.get("collection_id") || "";
   const statusRetorno =
     params.get("status") || params.get("collection_status") || params.get("mpStatus") || "";
+  const menuBasePath = useMemo(() => {
+    const match = String(location.pathname || "").match(/^\/menu\/[^/]+/);
+    if (match?.[0]) return match[0];
+    if (skinLogadoUser) return `/menu/${skinLogadoUser}`;
+    return "/menu/admin";
+  }, [location.pathname, skinLogadoUser]);
 
   const checkoutAtivo = Boolean(blocoId && espacoId && ownerUserId);
 
@@ -156,7 +162,7 @@ export default function CheckoutBlocoMercadoPago({ skinLogadoUser }) {
   };
 
   const fecharCheckout = () => {
-    navigate(`/menu/${skinLogadoUser}`, { replace: true });
+    navigate(menuBasePath, { replace: true });
   };
 
   const voltarAoEspaco = () => {
@@ -164,7 +170,7 @@ export default function CheckoutBlocoMercadoPago({ skinLogadoUser }) {
       navigate(returnTo, { replace: true });
       return;
     }
-    navigate(`/menu/${skinLogadoUser}`, { replace: true });
+    navigate(menuBasePath, { replace: true });
   };
 
   return (

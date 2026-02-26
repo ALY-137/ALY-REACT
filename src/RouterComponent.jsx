@@ -1,6 +1,16 @@
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { useEffect, useState } from "react";
+import {
+  createBrowserRouter,
+  Navigate,
+  RouterProvider,
+  useParams,
+} from "react-router-dom";
 import { useRoutesContext } from "./context/RoutesContext";
 import { activeFirebaseProjectKey } from "./components/Banco/init-firebase";
+import {
+  DEFAULT_SISTEMA_CONFIG,
+  obterConfigSistemaCacheLocal,
+} from "./components/Layout/Sistema/configSistema";
 
 import App from "./App";
 import Error from "./components/Scripts/routes/Error";
@@ -16,18 +26,44 @@ import Propriedades from "./components/Layout/Menu/Propriedades/Propriedades";
 import EspacoManager from "./components/Layout/Espacos/EspacoManager";
 import EspacoPage from "./components/Layout/Espacos/EspacoPage";
 import PropriedadesSistema from "./components/Layout/Menu/PropriedadesSistema/PropriedadesSistema";
-import GerenciadorSistemas from "./components/Layout/Menu/Gerenciador/GerenciadorSistemas";
+import GerenciadorProjetos from "./components/Layout/Menu/Gerenciador/GerenciadorProjetos";
+
+function RedirectOnePageLegacyPath() {
+  const { espacoNome } = useParams();
+  return <Navigate to={`/${espacoNome || "home"}`} replace />;
+}
 
 export default function RouterComponent() {
   const { routes } = useRoutesContext();
   const isManagerProject = activeFirebaseProjectKey === "gerenciador-aly";
+  const [configSistemaCache, setConfigSistemaCache] = useState(
+    () => obterConfigSistemaCacheLocal() || DEFAULT_SISTEMA_CONFIG
+  );
+
+  useEffect(() => {
+    const syncConfig = () => {
+      const cache = obterConfigSistemaCacheLocal() || DEFAULT_SISTEMA_CONFIG;
+      setConfigSistemaCache(cache);
+    };
+
+    syncConfig();
+    window.addEventListener("sistema-config-atualizada", syncConfig);
+    return () => {
+      window.removeEventListener("sistema-config-atualizada", syncConfig);
+    };
+  }, []);
+
+  const onePagePublicaAtiva =
+    !isManagerProject &&
+    configSistemaCache?.tipoExperiencia === "onepage" &&
+    configSistemaCache?.modoAcessoProjeto === "publico_sem_login";
   const menuChildren = isManagerProject
     ? [
         {
           path: "configuracoes-gerenciador",
           element: <PropriedadesSistema tituloSecao="CONFIGURACOES DO GERENCIADOR" />,
         },
-        { path: "gerenciador-sistemas", element: <GerenciadorSistemas /> },
+        { path: "gerenciador-projetos", element: <GerenciadorProjetos /> },
       ]
     : [
         { path: "contatos", element: <ListaContatos /> },
@@ -41,9 +77,36 @@ export default function RouterComponent() {
         { path: "espacos", element: <EspacoManager /> },
       ];
 
+  const estruturaRoutes = !isManagerProject
+    ? onePagePublicaAtiva
+      ? [
+          {
+            path: ":espacoNome",
+            element: <Estrutura />,
+            children: [{ index: true, element: <EspacoPage /> }, ...routes],
+          },
+          {
+            path: ":skinsUsername/:espacoNome",
+            element: <RedirectOnePageLegacyPath />,
+          },
+        ]
+      : [
+          {
+            path: ":skinsUsername",
+            element: <Estrutura />,
+            children: [{ path: ":espacoNome", element: <EspacoPage /> }, ...routes],
+          },
+        ]
+    : [];
+
   const router = createBrowserRouter([
     {
       path: "/",
+      element: <App />,
+      errorElement: <Error />,
+    },
+    {
+      path: "/login",
       element: <App />,
       errorElement: <Error />,
     },
@@ -52,15 +115,11 @@ export default function RouterComponent() {
       element: <Menu />,
       children: menuChildren,
     },
-    ...(!isManagerProject
-      ? [
-          {
-            path: ":skinsUsername",
-            element: <Estrutura />,
-            children: [{ path: ":espacoNome", element: <EspacoPage /> }, ...routes],
-          },
-        ]
-      : []),
+    {
+      path: "menu",
+      element: <Navigate to="/" replace />,
+    },
+    ...estruturaRoutes,
   ]);
 
   return <RouterProvider router={router} future={{ v7_startTransition: true }} />;

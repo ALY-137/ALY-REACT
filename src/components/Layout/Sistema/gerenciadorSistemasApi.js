@@ -11,9 +11,15 @@ import {
   setDoc,
   where,
 } from "firebase/firestore";
+import {
+  activeFirebaseProjectId,
+  db as dbProjetoAtivo,
+} from "../../Banco/init-firebase";
 
 const MANAGER_APP_NAME = "system-manager-app";
 const MANAGER_COLLECTION = "systems";
+const MANAGER_COLLECTIONS = ["systems", "sistemas"];
+const FORCED_SHARED_STORAGE_BUCKET = "teste-aa015.appspot.com";
 
 let managerDbSingleton = null;
 
@@ -88,6 +94,17 @@ function getManagerDb() {
   const managerConfig = buildManagerConfigFromEnv();
   if (!managerConfig) return null;
 
+  // Quando o projeto ativo ja e o proprio gerenciador, reutiliza o Firestore
+  // autenticado da app principal para preservar permissao de escrita.
+  if (
+    activeFirebaseProjectId &&
+    managerConfig.projectId &&
+    activeFirebaseProjectId === managerConfig.projectId
+  ) {
+    managerDbSingleton = dbProjetoAtivo;
+    return managerDbSingleton;
+  }
+
   const managerApp = initializeApp(managerConfig, MANAGER_APP_NAME);
   managerDbSingleton = getFirestore(managerApp);
   return managerDbSingleton;
@@ -121,7 +138,7 @@ export function gerarBlocoEnvProjeto({
     `REACT_APP_FIREBASE_${prefix}_API_KEY=${normalizeText(firebaseConfig.apiKey)}`,
     `REACT_APP_FIREBASE_${prefix}_AUTH_DOMAIN=${normalizeText(firebaseConfig.authDomain)}`,
     `REACT_APP_FIREBASE_${prefix}_PROJECT_ID=${normalizeText(firebaseConfig.projectId)}`,
-    `REACT_APP_FIREBASE_${prefix}_STORAGE_BUCKET=${normalizeText(firebaseConfig.storageBucket)}`,
+    `REACT_APP_FIREBASE_${prefix}_STORAGE_BUCKET=${FORCED_SHARED_STORAGE_BUCKET}`,
     `REACT_APP_FIREBASE_${prefix}_MESSAGING_SENDER_ID=${normalizeText(
       firebaseConfig.messagingSenderId
     )}`,
@@ -210,6 +227,7 @@ export async function salvarConfigSistemaNoGerenciador({
 
   const keyNormalizada = normalizeText(projectKey);
   if (!keyNormalizada) return false;
+  const uidAtualizacao = normalizeText(atualizadoPorUid);
 
   const hostNormalizado = normalizeHost(hostname);
   const docRef = doc(managerDb, MANAGER_COLLECTION, keyNormalizada);
@@ -229,7 +247,8 @@ export async function salvarConfigSistemaNoGerenciador({
       firebaseProjectId: normalizeText(projectId),
       domains: Array.from(domainsSet),
       configSistema,
-      atualizadoPorUid: atualizadoPorUid || null,
+      ...(uidAtualizacao ? { criadoPorUid: uidAtualizacao } : {}),
+      atualizadoPorUid: uidAtualizacao || null,
       atualizadoEm: serverTimestamp(),
     },
     { merge: true }
@@ -242,25 +261,56 @@ export async function listarSistemasNoGerenciador() {
   const managerDb = getManagerDb();
   if (!managerDb) return [];
 
-  const snap = await getDocs(collection(managerDb, MANAGER_COLLECTION));
-  return snap.docs
-    .map((docItem) => {
-      const data = docItem.data() || {};
-      return {
-        id: docItem.id,
-        systemKey: normalizeText(data.systemKey || docItem.id),
-        nomeProjeto: normalizeText(data.nomeProjeto || data.systemName || docItem.id),
-        firebaseProjectId: normalizeText(data.firebaseProjectId),
-        domains: Array.isArray(data.domains) ? data.domains.map((d) => normalizeHost(d)) : [],
-        firebaseRuntimeConfig:
-          data.firebaseRuntimeConfig && typeof data.firebaseRuntimeConfig === "object"
-            ? data.firebaseRuntimeConfig
-            : {},
-        configSistema:
-          data.configSistema && typeof data.configSistema === "object" ? data.configSistema : {},
-      };
-    })
-    .sort((a, b) => a.systemKey.localeCompare(b.systemKey));
+  const registros = [];
+  for (const collectionName of MANAGER_COLLECTIONS) {
+    try {
+      const snap = await getDocs(collection(managerDb, collectionName));
+      snap.docs.forEach((docItem) => {
+        const data = docItem.data() || {};
+        registros.push({
+          id: docItem.id,
+          sourceCollection: collectionName,
+          systemKey: normalizeText(data.systemKey || docItem.id),
+          nomeProjeto: normalizeText(data.nomeProjeto || data.systemName || docItem.id),
+          firebaseProjectId: normalizeText(data.firebaseProjectId),
+          domains: Array.isArray(data.domains)
+            ? data.domains.map((d) => normalizeHost(d)).filter(Boolean)
+            : [],
+          firebaseRuntimeConfig:
+            data.firebaseRuntimeConfig && typeof data.firebaseRuntimeConfig === "object"
+              ? data.firebaseRuntimeConfig
+              : {},
+          configSistema:
+            data.configSistema && typeof data.configSistema === "object" ? data.configSistema : {},
+        });
+      });
+    } catch {
+      // Mantem leitura das demais colecoes.
+    }
+  }
+
+  const dedup = new Map();
+  registros.forEach((item) => {
+    const key = normalizeText(item.systemKey || item.id);
+    if (!key) return;
+
+    if (!dedup.has(key)) {
+      dedup.set(key, item);
+      return;
+    }
+
+    const atual = dedup.get(key);
+    const itemEhColecaoPrincipal = item.sourceCollection === MANAGER_COLLECTION;
+    const atualEhColecaoPrincipal = atual.sourceCollection === MANAGER_COLLECTION;
+
+    if (itemEhColecaoPrincipal && !atualEhColecaoPrincipal) {
+      dedup.set(key, item);
+    }
+  });
+
+  return Array.from(dedup.values()).sort((a, b) =>
+    a.systemKey.localeCompare(b.systemKey)
+  );
 }
 
 export async function criarSistemaNoGerenciador({
@@ -272,13 +322,13 @@ export async function criarSistemaNoGerenciador({
 }) {
   const managerDb = getManagerDb();
   if (!managerDb) {
-    throw new Error("Gerenciador de sistemas nao configurado.");
+    throw new Error("Gerenciador de projetos nao configurado.");
   }
 
   const nomeNormalizado = normalizeText(nomeProjeto);
   const keyNormalizada = normalizeSystemKey(systemKey || nomeNormalizado);
   if (!keyNormalizada) {
-    throw new Error("Nome/chave do sistema invalido.");
+    throw new Error("Nome/chave do projeto invalido.");
   }
 
   const domainsNorm = normalizeList(domains).map((host) => normalizeHost(host)).filter(Boolean);
@@ -309,12 +359,13 @@ export async function criarSistemaNoGerenciador({
   const docRef = doc(managerDb, MANAGER_COLLECTION, keyNormalizada);
   const existente = await getDoc(docRef);
   if (existente.exists()) {
-    throw new Error("Ja existe um sistema com essa chave.");
+    throw new Error("Ja existe um projeto com essa chave.");
   }
 
   const configSistemaInicial = {
     tituloSistema: nomeNormalizado || keyNormalizada.toUpperCase(),
     temaPadraoSistema: "ALY_137",
+    loginPresetId: "manual",
     exibirTituloSistemaNoLogin: true,
     textoLogin: "EMBARQUE COM O GOOGLE",
   };
@@ -342,4 +393,20 @@ export async function criarSistemaNoGerenciador({
     firebaseRuntimeConfig: payloadFirebase,
     configSistema: configSistemaInicial,
   };
+}
+
+export async function listarProjetosNoGerenciador() {
+  return listarSistemasNoGerenciador();
+}
+
+export async function criarProjetoNoGerenciador(payload = {}) {
+  return criarSistemaNoGerenciador(payload);
+}
+
+export async function obterConfigProjetoDoGerenciador(params = {}) {
+  return obterConfigSistemaDoGerenciador(params);
+}
+
+export async function salvarConfigProjetoNoGerenciador(params = {}) {
+  return salvarConfigSistemaNoGerenciador(params);
 }

@@ -1,6 +1,11 @@
 const admin = require("firebase-admin");
 const { randomUUID } = require("crypto");
 const { onCall, onRequest, HttpsError } = require("firebase-functions/v2/https");
+const {
+  beforeUserCreated,
+  beforeUserSignedIn,
+  HttpsError: IdentityHttpsError,
+} = require("firebase-functions/v2/identity");
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -19,10 +24,14 @@ const HTTP_OPTIONS = {
   region: REGION,
   cors: true,
 };
+const IDENTITY_OPTIONS = {
+  region: REGION,
+};
 
 if (runtimeServiceAccount) {
   CALLABLE_OPTIONS.serviceAccount = runtimeServiceAccount;
   HTTP_OPTIONS.serviceAccount = runtimeServiceAccount;
+  IDENTITY_OPTIONS.serviceAccount = runtimeServiceAccount;
 }
 
 const SHARED_BUCKET_NAME =
@@ -37,9 +46,96 @@ const SHARED_BUCKET_ALLOWED_AUTH_PROJECTS = [
 ].filter(Boolean);
 const UNIQUE_SHARED_BUCKET_AUTH_PROJECTS = [...new Set(SHARED_BUCKET_ALLOWED_AUTH_PROJECTS)];
 const sharedVerifierApps = new Map();
+const CURRENT_PROJECT_ID = sanitizeString(process.env.GCLOUD_PROJECT) || "teste-aa015";
+const ADMIN_ONLY_AUTH_PROJECTS = [
+  ...parseCsv(process.env.ADMIN_ONLY_AUTH_PROJECTS),
+  "gerenciador-aly",
+].filter(Boolean);
+const ADMIN_ONLY_ALLOWED_UIDS = new Set(
+  [
+    ...parseCsv(process.env.SYSTEM_MANAGER_ADMIN_UIDS),
+    sanitizeString(process.env.SYSTEM_MANAGER_ADMIN_UID),
+  ].filter(Boolean)
+);
+const ADMIN_ONLY_ALLOWED_EMAILS = new Set(
+  [
+    ...parseCsv(process.env.SYSTEM_MANAGER_ADMIN_EMAILS),
+    sanitizeString(process.env.SYSTEM_MANAGER_ADMIN_EMAIL),
+  ]
+    .map((item) => item.toLowerCase())
+    .filter(Boolean)
+);
 
 function sanitizeString(value) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function parseCsv(value) {
+  return sanitizeString(value)
+    .split(",")
+    .map((item) => sanitizeString(item))
+    .filter(Boolean);
+}
+
+function shouldEnforceAdminOnlyAuth() {
+  return ADMIN_ONLY_AUTH_PROJECTS.includes(CURRENT_PROJECT_ID);
+}
+
+async function getDynamicAdminUidFromConfig() {
+  try {
+    const configSnap = await db.doc("add_ons/sistema_config").get();
+    if (!configSnap.exists) return "";
+    return sanitizeString(configSnap.data()?.adminUid);
+  } catch {
+    return "";
+  }
+}
+
+async function assertAdminOnlyAuthAllowed(event) {
+  if (!shouldEnforceAdminOnlyAuth()) {
+    return;
+  }
+
+  const uid = sanitizeString(event?.data?.uid);
+  const email = sanitizeString(event?.data?.email).toLowerCase();
+  const dynamicAdminUid = await getDynamicAdminUidFromConfig();
+  const hasAnyAdminConfigured =
+    ADMIN_ONLY_ALLOWED_UIDS.size > 0 ||
+    ADMIN_ONLY_ALLOWED_EMAILS.size > 0 ||
+    Boolean(dynamicAdminUid);
+
+  // Evita lockout acidental antes da primeira configuracao de admin.
+  if (!hasAnyAdminConfigured) {
+    console.warn(
+      `[AUTH-ADMIN-ONLY] Nenhum admin configurado para ${CURRENT_PROJECT_ID}. ` +
+        "Defina SYSTEM_MANAGER_ADMIN_UID(S)/EMAIL(S) ou add_ons/sistema_config.adminUid."
+    );
+    return;
+  }
+
+  if (!uid) {
+    throw new IdentityHttpsError(
+      "unauthenticated",
+      "Nao foi possivel identificar o usuario."
+    );
+  }
+
+  if (ADMIN_ONLY_ALLOWED_UIDS.has(uid)) {
+    return;
+  }
+
+  if (email && ADMIN_ONLY_ALLOWED_EMAILS.has(email)) {
+    return;
+  }
+
+  if (dynamicAdminUid && dynamicAdminUid === uid) {
+    return;
+  }
+
+  throw new IdentityHttpsError(
+    "permission-denied",
+    "Acesso permitido apenas para administradores."
+  );
 }
 
 function buildTokenizedStorageUrl(bucket, path, token) {
@@ -320,6 +416,20 @@ async function fetchMercadoPago(endpoint, accessToken, options = {}) {
 
   return body;
 }
+
+exports.bloquearCriacaoUsuarioNaoAdmin = beforeUserCreated(
+  IDENTITY_OPTIONS,
+  async (event) => {
+    await assertAdminOnlyAuthAllowed(event);
+  }
+);
+
+exports.bloquearLoginUsuarioNaoAdmin = beforeUserSignedIn(
+  IDENTITY_OPTIONS,
+  async (event) => {
+    await assertAdminOnlyAuthAllowed(event);
+  }
+);
 
 exports.salvarMercadoPagoCredenciais = onCall(CALLABLE_OPTIONS, async (request) => {
   const uid = ensureAuth(request);

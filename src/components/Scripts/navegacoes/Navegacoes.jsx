@@ -15,6 +15,7 @@ import {
 const Navegacoes = () => {
   const location = useLocation();
   const sessionId = useRef(null);
+  const trackingBloqueado = useRef(false);
 
   // Create or recover a local session hash
   useEffect(() => {
@@ -27,6 +28,7 @@ const Navegacoes = () => {
   }, []);
 
   useEffect(() => {
+    if (trackingBloqueado.current) return;
     const userId = localStorage.getItem("userId");
     if (!sessionId.current || !userId) return;
     if (seforAdm({ uid: userId })) return;
@@ -56,6 +58,10 @@ const Navegacoes = () => {
           { merge: true }
         );
       } catch (error) {
+        if (error?.code === "permission-denied") {
+          trackingBloqueado.current = true;
+          return;
+        }
         console.error("Erro ao salvar navegacao:", error);
       }
     };

@@ -14,6 +14,8 @@ const normalizarDestinoInterno = (valor) => {
   if (!valor.startsWith("/")) return null;
   if (valor.startsWith("//")) return null;
   if (valor === "/") return null;
+  const caminhoSemQuery = valor.split("?")[0].split("#")[0];
+  if (caminhoSemQuery === "/menu" || caminhoSemQuery === "/menu/") return null;
   return valor;
 };
 
@@ -39,6 +41,16 @@ const mapearErroAuth = (codigo) => {
   }
 };
 
+const isErroAcessoAdmin = (erro) => {
+  const codigo = String(erro?.code || "").toLowerCase();
+  const mensagem = String(erro?.message || "").toLowerCase();
+  return (
+    codigo.includes("permission-denied") ||
+    (codigo === "auth/internal-error" &&
+      (mensagem.includes("administrador") || mensagem.includes("permission-denied")))
+  );
+};
+
 function LoginCadastroEmail({ onLogin }) {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -47,20 +59,36 @@ function LoginCadastroEmail({ onLogin }) {
   const [erro, setErro] = useState("");
 
   const finalizarLogin = async (firebaseUser) => {
-    const bootstrapResult = await bootstrapUser(firebaseUser);
+    if (typeof firebaseUser?.getIdToken === "function") {
+      try {
+        await firebaseUser.getIdToken(true);
+      } catch {
+        // Mantem fluxo de login e deixa bootstrap tentar persistir depois.
+      }
+    }
+
+    let bootstrapResult = null;
+    try {
+      bootstrapResult = await bootstrapUser(firebaseUser);
+    } catch (bootstrapError) {
+      if (bootstrapError?.code !== "permission-denied") {
+        console.warn("Falha no bootstrap do usuario apos login email:", bootstrapError);
+      }
+    }
 
     if (onLogin) {
       onLogin(firebaseUser, bootstrapResult);
     }
 
-    const destinoSalvo = normalizarDestinoInterno(
-      localStorage.getItem(POST_LOGIN_REDIRECT_KEY)
-    );
+    const destinoBruto = localStorage.getItem(POST_LOGIN_REDIRECT_KEY);
+    const destinoSalvo = normalizarDestinoInterno(destinoBruto);
 
     if (destinoSalvo) {
       localStorage.removeItem(POST_LOGIN_REDIRECT_KEY);
       navigate(destinoSalvo, { replace: true });
+      return;
     }
+    localStorage.removeItem(POST_LOGIN_REDIRECT_KEY);
   };
 
   const handleSubmit = async (event) => {
@@ -82,6 +110,11 @@ function LoginCadastroEmail({ onLogin }) {
       await finalizarLogin(credenciais.user);
       return;
     } catch (erroCadastro) {
+      if (isErroAcessoAdmin(erroCadastro)) {
+        setErro("Acesso permitido apenas para administradores.");
+        setEnviando(false);
+        return;
+      }
       if (erroCadastro?.code !== "auth/email-already-in-use") {
         setErro(mapearErroAuth(erroCadastro?.code));
         setEnviando(false);
@@ -93,7 +126,11 @@ function LoginCadastroEmail({ onLogin }) {
       const credenciaisExistentes = await signInWithEmailAndPassword(auth, emailLimpo, senha);
       await finalizarLogin(credenciaisExistentes.user);
     } catch (erroLogin) {
-      setErro(mapearErroAuth(erroLogin?.code));
+      if (isErroAcessoAdmin(erroLogin)) {
+        setErro("Acesso permitido apenas para administradores.");
+      } else {
+        setErro(mapearErroAuth(erroLogin?.code));
+      }
     } finally {
       setEnviando(false);
     }

@@ -1,30 +1,38 @@
 import { useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import {
+  DEFAULT_SISTEMA_CONFIG,
+  obterConfigSistemaCacheLocal,
+} from "../Sistema/configSistema";
 
 const Navbar = ({ pages = [] }) => {
   const navigate = useNavigate();
   const targetUsername = localStorage.getItem("targetUsername");
+  const configSistema = obterConfigSistemaCacheLocal() || DEFAULT_SISTEMA_CONFIG;
+  const onePagePublicaAtiva =
+    configSistema?.tipoExperiencia === "onepage" &&
+    configSistema?.modoAcessoProjeto === "publico_sem_login";
   const redirected = useRef(false);
   const activePage = decodeURIComponent(window.location.pathname.split("/").pop() || "").toLowerCase();
 
   const menu = pages.map((p) => ({
     ...p,
     tipo: p.isHome ? "home" : "add",
-    rota: `/${targetUsername}/${p.nome}`,
+    rota: onePagePublicaAtiva ? `/${p.nome}` : `/${targetUsername}/${p.nome}`,
   }));
 
   useEffect(() => {
     if (redirected.current) return;
-    if (!targetUsername || !menu.length) return;
+    if ((!onePagePublicaAtiva && !targetUsername) || !menu.length) return;
 
     const homeItem = menu.find((i) => i.tipo === "home");
     if (homeItem) {
       redirected.current = true;
       navigate(homeItem.rota, { replace: true });
     }
-  }, [menu, targetUsername, navigate]);
+  }, [menu, targetUsername, navigate, onePagePublicaAtiva]);
 
-  if (!targetUsername || !menu.length) return null;
+  if ((!onePagePublicaAtiva && !targetUsername) || !menu.length) return null;
 
   return (
     <div id="abas" className="navbar-tabs">

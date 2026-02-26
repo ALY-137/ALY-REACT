@@ -1,27 +1,11 @@
-import {
-  activeFirebaseProjectId,
-  activeFirebaseStorageBucket,
-} from "../../Banco/init-firebase";
+import { activeFirebaseProjectId } from "../../Banco/init-firebase";
 
 const normalize = (value) => String(value || "").trim();
 
-const getBucketProjectId = (bucketName) => {
-  const normalized = normalize(bucketName).replace(/^gs:\/\//i, "");
-  const [projectId] = normalized.split(".");
-  return normalize(projectId);
-};
+const SHARED_BUCKET_OWNER_PROJECT_ID = "teste-aa015";
 
-const SHARED_BUCKET_NAME = normalize(
-  process.env.REACT_APP_FIREBASE_SHARED_STORAGE_BUCKET || activeFirebaseStorageBucket
-);
-const SHARED_BUCKET_OWNER_PROJECT_ID =
-  normalize(process.env.REACT_APP_SHARED_BUCKET_OWNER_PROJECT_ID) ||
-  getBucketProjectId(SHARED_BUCKET_NAME);
-
-const SHARED_BUCKET_FUNCTIONS_BASE_URL = normalize(
-  process.env.REACT_APP_SHARED_BUCKET_FUNCTIONS_BASE_URL ||
-    "https://us-central1-teste-aa015.cloudfunctions.net"
-).replace(/\/+$/, "");
+const SHARED_BUCKET_FUNCTIONS_BASE_URL =
+  "https://us-central1-teste-aa015.cloudfunctions.net";
 
 export const usandoBucketCompartilhadoCrossProject = Boolean(
   SHARED_BUCKET_OWNER_PROJECT_ID &&

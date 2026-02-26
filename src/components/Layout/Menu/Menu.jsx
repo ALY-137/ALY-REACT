@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
+import React, { useState, useEffect, useLayoutEffect } from "react";
 import { useNavigate, useLocation, useParams, Outlet } from "react-router-dom";
 import { seforAdm } from "../../Scripts/verificacoes/verificaAdm";
 
@@ -21,7 +21,6 @@ import FirebaseProjectBadge from "../Geral/FirebaseProjectBadge";
 
 function Menu({ menuOpen }) {
   const { user, loading } = useAuth();
-  const redirectingRef = useRef(false);
 
   const [backAction, setBackAction] = useState(() => closeMenu);
   const [backText, setBackText] = useState("VOLTAR");
@@ -38,73 +37,167 @@ function Menu({ menuOpen }) {
   const { userId: menuUserId, contactId } = useParams();
   const isManagerProject = activeFirebaseProjectKey === "gerenciador-aly";
 
-  const larScreen = window.innerWidth;
-
   const skinLogadoUser = localStorage.getItem("skinLogadoUser");
-  const temUsuarioAutenticado = Boolean(user || auth.currentUser);
+  const userIdCache = localStorage.getItem("userId");
+  const modoAcessoProjeto = configSistema?.modoAcessoProjeto || "privado_com_login";
+  const tipoExperiencia = configSistema?.tipoExperiencia || "multipage";
+  const onePagePublicaAtiva =
+    !isManagerProject &&
+    tipoExperiencia === "onepage" &&
+    modoAcessoProjeto === "publico_sem_login";
+  const loginAdminSeparado =
+    !isManagerProject && modoAcessoProjeto === "publico_sem_login";
+  const exigeSkinAtiva = !isManagerProject && !loginAdminSeparado;
+  const aguardandoAuthInicial =
+    loading && !user && !auth.currentUser && (isManagerProject || !userIdCache);
+  const temUsuarioAutenticado = isManagerProject
+    ? Boolean(user || auth.currentUser)
+    : Boolean(user || auth.currentUser || userIdCache);
   const menuTargetUser = isManagerProject
     ? (menuUserId || "gerenciador").trim()
-    : skinLogadoUser;
+    : loginAdminSeparado
+      ? (menuUserId || "admin").trim()
+      : skinLogadoUser;
   const nomeSkinPlural = (configSistema.nomeSkinPlural || "skins").trim() || "skins";
   const nomeSkinPluralUpper = nomeSkinPlural.toUpperCase();
   const nomeEspacoPlural = (configSistema.nomeEspacoPlural || "espacos").trim() || "espacos";
   const nomeEspacoPluralUpper = nomeEspacoPlural.toUpperCase();
   const chatHabilitado = configSistema.chatHabilitado !== false;
   const mercadoPagoHabilitado = configSistema.mercadoPagoHabilitado !== false;
+  const rotaLoginProjeto = loginAdminSeparado ? "/login" : "/";
+  const adminUidProjetoConfigurado = String(
+    configSistema?.adminUid || localStorage.getItem("systemAdminUid") || ""
+  ).trim();
+  const adminEmailProjetoConfigurado = String(
+    configSistema?.adminEmail || localStorage.getItem("systemAdminEmail") || ""
+  )
+    .trim()
+    .toLowerCase();
+  const emailUsuarioAtual = String(user?.email || "")
+    .trim()
+    .toLowerCase();
+  const adminProjetoConfigurado = Boolean(
+    adminUidProjetoConfigurado || adminEmailProjetoConfigurado
+  );
+  const usuarioEhAdminProjeto = Boolean(
+    user?.uid &&
+      (
+        (adminUidProjetoConfigurado && user.uid === adminUidProjetoConfigurado) ||
+        (adminEmailProjetoConfigurado &&
+          emailUsuarioAtual === adminEmailProjetoConfigurado) ||
+        (!adminProjetoConfigurado &&
+          ((loginAdminSeparado && Boolean(user?.uid)) || seforAdm(user)))
+      )
+  );
+  const limiteSkinsPorUsuario = String(
+    configSistema?.limiteSkinsPorUsuario || "ilimitado"
+  )
+    .trim()
+    .toLowerCase();
+  const projetoComSkinUnica = onePagePublicaAtiva || limiteSkinsPorUsuario === "1";
+  const podeGerenciarUsuarios = usuarioEhAdminProjeto && !onePagePublicaAtiva;
+  const exibirGestaoSkins = Boolean(skinLogadoUser) && !projetoComSkinUnica;
+  const exibirGestaoEspacos = Boolean(skinLogadoUser);
+  const exibirContatos = chatHabilitado && Boolean(skinLogadoUser) && !onePagePublicaAtiva;
+  const adminUidGerenciadorConfigurado = String(
+    configSistema?.adminUid ||
+      localStorage.getItem("systemAdminUid") ||
+      process.env.REACT_APP_SYSTEM_MANAGER_ADMIN_UID ||
+      ""
+  ).trim();
+  const adminEmailGerenciadorConfigurado = String(
+    configSistema?.adminEmail ||
+      localStorage.getItem("systemAdminEmail") ||
+      process.env.REACT_APP_SYSTEM_MANAGER_ADMIN_EMAIL ||
+      ""
+  )
+    .trim()
+    .toLowerCase();
+  const usuarioEhAdminGerenciador = Boolean(
+    user?.uid &&
+      ((adminUidGerenciadorConfigurado &&
+        user.uid === adminUidGerenciadorConfigurado) ||
+        (adminEmailGerenciadorConfigurado &&
+          emailUsuarioAtual === adminEmailGerenciadorConfigurado) ||
+        (!adminUidGerenciadorConfigurado &&
+          !adminEmailGerenciadorConfigurado &&
+          seforAdm(user)))
+  );
+  const semAutenticacao = !temUsuarioAutenticado;
+  const semSkinObrigatoria = exigeSkinAtiva && !skinLogadoUser;
+  const semPermissaoAdminProjeto = loginAdminSeparado && !usuarioEhAdminProjeto;
+  const semPermissaoAdminGerenciador =
+    isManagerProject && temUsuarioAutenticado && !usuarioEhAdminGerenciador;
+  const semSessaoValida =
+    semAutenticacao || semSkinObrigatoria || semPermissaoAdminProjeto;
+
+  function navigateIfChanged(path, options = undefined) {
+    if (!path) return;
+    if (location.pathname === path) return;
+    navigate(path, options);
+  }
 
   function closeMenu() {
     if (isManagerProject) {
-      navigate(`/menu/${menuTargetUser}`);
+      navigateIfChanged(`/menu/${menuTargetUser}`);
       return;
     }
-    navigate(`/${skinLogadoUser}/home`);
+    if (loginAdminSeparado) {
+      navigateIfChanged("/");
+      return;
+    }
+    navigateIfChanged(`/${skinLogadoUser}/home`);
   }
 
   function abrirUsers() {
-    navigate(`/menu/${menuTargetUser}/users`);
+    navigateIfChanged(`/menu/${menuTargetUser}/users`);
   }
 
   function abrirSkins() {
-    navigate(`/menu/${menuTargetUser}/skins`);
+    navigateIfChanged(`/menu/${menuTargetUser}/skins`);
   }
 
   function abrirAcessos() {
-    navigate(`/menu/${menuTargetUser}/acessos`);
+    navigateIfChanged(`/menu/${menuTargetUser}/acessos`);
   }
 
   function abrirContatos() {
-    navigate(`/menu/${menuTargetUser}/contatos`);
+    navigateIfChanged(`/menu/${menuTargetUser}/contatos`);
   }
 
   function returnMenu() {
-    navigate(`/menu/${menuTargetUser}`);
+    navigateIfChanged(`/menu/${menuTargetUser}`);
   }
 
   function closeConversas() {
-    navigate(`/menu/${menuTargetUser}/contatos`);
+    navigateIfChanged(`/menu/${menuTargetUser}/contatos`);
   }
 
   function closeChat() {
-    navigate(`/menu/${menuTargetUser}/contatos/${contactId}`);
+    navigateIfChanged(`/menu/${menuTargetUser}/contatos/${contactId}`);
   }
 
   function abrirPropriedades() {
-    navigate(`/menu/${menuTargetUser}/propriedades`);
+    navigateIfChanged(`/menu/${menuTargetUser}/propriedades`);
   }
 
   function abrirEspacos() {
-    navigate(`/menu/${menuTargetUser}/espacos`);
+    navigateIfChanged(`/menu/${menuTargetUser}/espacos`);
   }
 
   function abrirConfiguracoesGerenciador() {
-    navigate(`/menu/${menuTargetUser}/configuracoes-gerenciador`);
+    navigateIfChanged(`/menu/${menuTargetUser}/configuracoes-gerenciador`);
   }
 
-  function abrirGerenciadorSistemas() {
-    navigate(`/menu/${menuTargetUser}/gerenciador-sistemas`);
+  function abrirGerenciadoProjetos() {
+    navigateIfChanged(`/menu/${menuTargetUser}/gerenciador-projetos`);
   }
 
   async function logoff() {
+    const hostAtual = String(window.location.hostname || "").toLowerCase();
+    const executandoNoLocalhost =
+      hostAtual === "localhost" || hostAtual === "127.0.0.1" || hostAtual === "::1";
+    const projetoAtivoLogout = String(activeFirebaseProjectKey || "").trim();
     const chavesSessao = [
       "targetUsername",
       "skinLogadoUser",
@@ -115,7 +208,22 @@ function Menu({ menuOpen }) {
       "nomeSkin",
       "skinOwner",
     ];
-    chavesSessao.forEach((chave) => localStorage.removeItem(chave));
+
+    if (executandoNoLocalhost) {
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+      } catch {
+        // Segue com logoff mesmo se houver falha ao limpar storage.
+      }
+    } else {
+      chavesSessao.forEach((chave) => localStorage.removeItem(chave));
+      try {
+        sessionStorage.clear();
+      } catch {
+        // Ignora indisponibilidade do sessionStorage.
+      }
+    }
 
     try {
       await signOut(auth);
@@ -123,15 +231,15 @@ function Menu({ menuOpen }) {
       // Segue para tela inicial mesmo se o provider local falhar.
     }
 
-    navigate("/");
-    window.location.reload();
-  }
-
-  function resizeMenu(larScreen) {
-    const menu = document.getElementById("MenuContainer");
-    if (menu && larScreen > 1000) {
-      menu.style.width = `${1000 - 5}px`;
+    if (executandoNoLocalhost) {
+      const queryProjeto =
+        projetoAtivoLogout ? `?firebaseProject=${encodeURIComponent(projetoAtivoLogout)}` : "";
+      const destinoLocal = loginAdminSeparado ? `/login${queryProjeto}` : `/${queryProjeto}`;
+      window.location.replace(destinoLocal);
+      return;
     }
+
+    navigate(rotaLoginProjeto, { replace: true });
   }
 
   useLayoutEffect(() => {
@@ -180,14 +288,34 @@ function Menu({ menuOpen }) {
     if (!chatHabilitado) {
       const estaEmRotasChat = location.pathname.includes("/contatos");
       if (estaEmRotasChat && menuTargetUser) {
-        navigate(`/menu/${menuTargetUser}`, { replace: true });
+        navigateIfChanged(`/menu/${menuTargetUser}`, { replace: true });
       }
     }
-  }, [isManagerProject, chatHabilitado, location.pathname, navigate, menuTargetUser]);
+  }, [isManagerProject, chatHabilitado, location.pathname, menuTargetUser]);
+
+  useEffect(() => {
+    if (isManagerProject) return;
+    const path = location.pathname;
+
+    if (projetoComSkinUnica && path.endsWith("/skins")) {
+      navigateIfChanged(`/menu/${menuTargetUser}`, { replace: true });
+      return;
+    }
+
+    if (onePagePublicaAtiva && (path.endsWith("/users") || path.endsWith("/acessos"))) {
+      navigateIfChanged(`/menu/${menuTargetUser}`, { replace: true });
+      return;
+    }
+  }, [
+    isManagerProject,
+    projetoComSkinUnica,
+    onePagePublicaAtiva,
+    location.pathname,
+    menuTargetUser,
+  ]);
 
   useEffect(() => {
     const atualizarTitulo = async () => {
-      resizeMenu(larScreen);
       const path = location.pathname;
 
       if (isManagerProject) {
@@ -199,8 +327,8 @@ function Menu({ menuOpen }) {
           setAtualTxt("CONFIGURACOES DO GERENCIADOR");
           setBackText("MENU");
           setBackAction(() => returnMenu);
-        } else if (path.endsWith("/gerenciador-sistemas")) {
-          setAtualTxt("GERENCIADOR DE SISTEMAS");
+        } else if (path.endsWith("/gerenciador-projetos")) {
+          setAtualTxt("GERENCIADO DE PROJETOS");
           setBackText("MENU");
           setBackAction(() => returnMenu);
         }
@@ -274,40 +402,55 @@ function Menu({ menuOpen }) {
   ]);
 
   useEffect(() => {
-    if (loading) return;
+    if (aguardandoAuthInicial) return;
+    if (semPermissaoAdminGerenciador) return;
+    if (!semSessaoValida) return;
 
-    const semSessaoValida = !temUsuarioAutenticado || (!isManagerProject && !skinLogadoUser);
-    if (!semSessaoValida) {
-      redirectingRef.current = false;
-      return;
-    }
-
-    if (redirectingRef.current) return;
-    if (location.pathname === "/") return;
-
-    redirectingRef.current = true;
-    if (semSessaoValida) {
-      navigate("/", { replace: true });
-    }
+    if (location.pathname === rotaLoginProjeto) return;
+    navigate(rotaLoginProjeto, { replace: true });
   }, [
-    loading,
-    temUsuarioAutenticado,
-    isManagerProject,
-    skinLogadoUser,
+    aguardandoAuthInicial,
+    semSessaoValida,
+    semPermissaoAdminGerenciador,
     location.pathname,
+    rotaLoginProjeto,
     navigate,
   ]);
 
+  if (aguardandoAuthInicial) {
+    return <div className="loader">Carregando menu...</div>;
+  }
 
+  if (semPermissaoAdminGerenciador) {
+    return (
+      <div id="MenuContainer" className={menuOpen ? "mostra" : "openMenu"}>
+        <div className="menuContentArea">
+          <p>Acesso permitido apenas para administradores.</p>
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                await signOut(auth);
+              } catch {
+                // segue fluxo local.
+              }
+              navigate("/", { replace: true });
+            }}
+          >
+            Trocar conta
+          </button>
+        </div>
+        <FirebaseProjectBadge />
+      </div>
+    );
+  }
 
-  if (loading) return null;
-
-  if (!temUsuarioAutenticado || (!isManagerProject && !skinLogadoUser)) {
+  if (semSessaoValida) {
     return null;
   }
 
   if (!configSistemaPronta) {
-    return <div className="loader">Carregando tema do menu...</div>;
+    return <div className="loader" aria-live="polite" />;
   }
 
    return (
@@ -328,11 +471,11 @@ function Menu({ menuOpen }) {
             <div onClick={abrirConfiguracoesGerenciador} className="gavetaOption">
               CONFIGURACOES DO GERENCIADOR
             </div>
-            <div onClick={abrirGerenciadorSistemas} className="gavetaOption">
-              GERENCIADOR DE SISTEMAS
+            <div onClick={abrirGerenciadoProjetos} className="gavetaOption">
+              GERENCIADO DE PROJETOS
             </div>
           </>
-        ) : seforAdm(user) ? (
+        ) : podeGerenciarUsuarios ? (
           <>
             <div onClick={abrirUsers} className="gavetaOption">USERS</div>
             <div onClick={abrirAcessos} className="gavetaOption">ACESSOS</div>
@@ -340,21 +483,23 @@ function Menu({ menuOpen }) {
         ) : null}
         {!isManagerProject ? (
           <>
-            <div onClick={abrirSkins} className="gavetaOption">
-              {`GERENCIAR ${nomeSkinPluralUpper}`}
-            </div>
-            <div onClick={abrirEspacos} className="gavetaOption">
-              {`GERENCIAR ${nomeEspacoPluralUpper}`}
-            </div>
-            {chatHabilitado && (
+            {exibirGestaoSkins ? (
+              <div onClick={abrirSkins} className="gavetaOption">
+                {`GERENCIAR ${nomeSkinPluralUpper}`}
+              </div>
+            ) : null}
+            {exibirGestaoEspacos ? (
+              <div onClick={abrirEspacos} className="gavetaOption">
+                {`GERENCIAR ${nomeEspacoPluralUpper}`}
+              </div>
+            ) : null}
+            {exibirContatos && (
               <div onClick={abrirContatos} className="gavetaOption">CONTATOS</div>
             )}
             <div onClick={abrirPropriedades} className="gavetaOption">PROPRIEDADES</div>
           </>
         ) : null}
-        {!isManagerProject ? (
-          <div onClick={logoff} className="gavetaOption">ENCERRAR</div>
-        ) : null}
+        <div onClick={logoff} className="gavetaOption">ENCERRAR</div>
         {!isManagerProject ? <Navegacoes /> : null}
       </div>
 

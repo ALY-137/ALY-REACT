@@ -6,12 +6,13 @@ import {
 } from "../../Banco/init-firebase";
 import { SYSTEM_THEMES } from "../Temas/themesRegistry";
 import {
-  obterConfigSistemaDoGerenciador,
-  salvarConfigSistemaNoGerenciador,
-} from "./gerenciadorSistemasApi";
+  obterConfigProjetoDoGerenciador,
+  salvarConfigProjetoNoGerenciador,
+} from "./gerenciadorProjetosApi";
+import { APPLYABLE_LOGIN_PRESET_IDS } from "./loginPresets";
 
 const SISTEMA_CONFIG_REF = doc(db, "add_ons", "sistema_config");
-const SISTEMA_CONFIG_CACHE_KEY = "sistemaConfigCacheV1";
+const SISTEMA_CONFIG_CACHE_KEY_BASE = "sistemaConfigCacheV1";
 const TEMAS_SISTEMA_VALIDOS = SYSTEM_THEMES.map((tema) => tema.id);
 const TEMA_SISTEMA_FALLBACK = TEMAS_SISTEMA_VALIDOS.includes("PADRAO_INICIAL")
   ? "PADRAO_INICIAL"
@@ -21,11 +22,20 @@ const LEGACY_MAP_TEMA_SKIN_TO_SISTEMA = {
   SUNSHINE: "LOJA_DE_ROUPAS",
 };
 const LIMITE_SKINS_VALIDOS = ["1", "ilimitado"];
+const TIPOS_EXPERIENCIA_VALIDOS = ["multipage", "onepage"];
+const MODOS_ACESSO_PROJETO_VALIDOS = [
+  "privado_com_login",
+  "publico_com_area_restrita",
+  "publico_sem_login",
+];
 const METODOS_LOGIN_PADRAO = {
   google: true,
   twitter: true,
   emailSenha: true,
 };
+const LOGIN_PRESET_IDS_VALIDOS = Array.isArray(APPLYABLE_LOGIN_PRESET_IDS)
+  ? APPLYABLE_LOGIN_PRESET_IDS
+  : ["manual", "aly137"];
 
 export const DEFAULT_SISTEMA_CONFIG = {
   logoLoginUrl: "/logoNeon.png",
@@ -35,6 +45,9 @@ export const DEFAULT_SISTEMA_CONFIG = {
   textoLogin: "EMBARQUE COM O GOOGLE",
   larguraIconsLoginPx: null,
   temaPadraoSistema: TEMA_SISTEMA_FALLBACK,
+  loginPresetId: "manual",
+  tipoExperiencia: "multipage",
+  modoAcessoProjeto: "privado_com_login",
   limiteSkinsPorUsuario: "ilimitado",
   nomeSkinSingular: "skin",
   nomeSkinPlural: "skins",
@@ -47,6 +60,7 @@ export const DEFAULT_SISTEMA_CONFIG = {
   chatHabilitado: true,
   mercadoPagoHabilitado: true,
   blocoCardsHabilitado: false,
+  adminEmail: "",
 };
 
 function obterDefaultConfigSistemaProjeto() {
@@ -54,7 +68,7 @@ function obterDefaultConfigSistemaProjeto() {
     return {
       ...DEFAULT_SISTEMA_CONFIG,
       temaPadraoSistema: "ALY_137",
-      tituloSistema: "GERENCIADOR DE SISTEMAS",
+      tituloSistema: "GERENCIADO DE PROJETOS",
     };
   }
   return { ...DEFAULT_SISTEMA_CONFIG };
@@ -69,17 +83,27 @@ function aplicarDefaultsPorProjeto(configSistema = DEFAULT_SISTEMA_CONFIG) {
       config.temaPadraoSistema = "ALY_137";
     }
     if (!config.tituloSistema) {
-      config.tituloSistema = "GERENCIADOR DE SISTEMAS";
+      config.tituloSistema = "GERENCIADO DE PROJETOS";
     }
   }
   return config;
 }
 
+function obterChaveCacheSistemaProjeto() {
+  const projectKeyNormalizada =
+    typeof activeFirebaseProjectKey === "string" && activeFirebaseProjectKey.trim()
+      ? activeFirebaseProjectKey.trim()
+      : "default";
+
+  return `${SISTEMA_CONFIG_CACHE_KEY_BASE}:${projectKeyNormalizada}`;
+}
+
 function salvarConfigSistemaCacheLocal(configNormalizada = DEFAULT_SISTEMA_CONFIG) {
   if (typeof window === "undefined") return;
   try {
+    const chaveCacheProjeto = obterChaveCacheSistemaProjeto();
     window.localStorage.setItem(
-      SISTEMA_CONFIG_CACHE_KEY,
+      chaveCacheProjeto,
       JSON.stringify(configNormalizada)
     );
   } catch {
@@ -90,7 +114,8 @@ function salvarConfigSistemaCacheLocal(configNormalizada = DEFAULT_SISTEMA_CONFI
 export function obterConfigSistemaCacheLocal() {
   if (typeof window === "undefined") return null;
   try {
-    const bruto = window.localStorage.getItem(SISTEMA_CONFIG_CACHE_KEY);
+    const chaveCacheProjeto = obterChaveCacheSistemaProjeto();
+    const bruto = window.localStorage.getItem(chaveCacheProjeto);
     if (!bruto) return null;
     const parsed = JSON.parse(bruto);
     return aplicarDefaultsPorProjeto(normalizarConfigSistema(parsed));
@@ -161,11 +186,40 @@ function normalizarLimiteSkins(value) {
   return DEFAULT_SISTEMA_CONFIG.limiteSkinsPorUsuario;
 }
 
+function normalizarTipoExperiencia(value) {
+  const normalizado = String(value || "").trim().toLowerCase();
+  if (TIPOS_EXPERIENCIA_VALIDOS.includes(normalizado)) {
+    return normalizado;
+  }
+  return DEFAULT_SISTEMA_CONFIG.tipoExperiencia;
+}
+
+function normalizarLoginPresetId(value) {
+  const normalizado = String(value || "").trim().toLowerCase();
+  if (LOGIN_PRESET_IDS_VALIDOS.includes(normalizado)) {
+    return normalizado;
+  }
+  return DEFAULT_SISTEMA_CONFIG.loginPresetId;
+}
+
+function normalizarModoAcessoProjeto(value) {
+  const normalizado = String(value || "").trim().toLowerCase();
+  if (MODOS_ACESSO_PROJETO_VALIDOS.includes(normalizado)) {
+    return normalizado;
+  }
+  return DEFAULT_SISTEMA_CONFIG.modoAcessoProjeto;
+}
+
 function normalizarNomeSkin(value, fallback, maxLen = 40) {
   if (typeof value !== "string") return fallback;
   const trim = value.trim();
   if (!trim) return fallback;
   return trim.slice(0, maxLen);
+}
+
+function normalizarEmailAdmin(value) {
+  if (typeof value !== "string") return "";
+  return value.trim().toLowerCase().slice(0, 160);
 }
 
 function normalizarLarguraIconsLogin(value) {
@@ -238,6 +292,13 @@ export function normalizarConfigSistema(data = {}) {
     typeof data.adminUid === "string" && data.adminUid.trim()
       ? data.adminUid.trim()
       : null;
+  const adminEmailNormalizado = normalizarEmailAdmin(data.adminEmail);
+  const tipoExperienciaNormalizado = normalizarTipoExperiencia(data.tipoExperiencia);
+  const modoAcessoProjetoNormalizado = normalizarModoAcessoProjeto(data.modoAcessoProjeto);
+  const limiteSkinsNormalizado =
+    tipoExperienciaNormalizado === "onepage"
+      ? "1"
+      : normalizarLimiteSkins(data.limiteSkinsPorUsuario);
 
   return {
     logoLoginUrl: logoNormalizada,
@@ -250,7 +311,10 @@ export function normalizarConfigSistema(data = {}) {
     textoLogin: textoLoginNormalizado,
     larguraIconsLoginPx: normalizarLarguraIconsLogin(data.larguraIconsLoginPx),
     temaPadraoSistema: normalizarTemaSistema(data.temaPadraoSistema),
-    limiteSkinsPorUsuario: normalizarLimiteSkins(data.limiteSkinsPorUsuario),
+    loginPresetId: normalizarLoginPresetId(data.loginPresetId),
+    tipoExperiencia: tipoExperienciaNormalizado,
+    modoAcessoProjeto: modoAcessoProjetoNormalizado,
+    limiteSkinsPorUsuario: limiteSkinsNormalizado,
     nomeSkinSingular: normalizarNomeSkin(
       data.nomeSkinSingular,
       DEFAULT_SISTEMA_CONFIG.nomeSkinSingular
@@ -298,6 +362,7 @@ export function normalizarConfigSistema(data = {}) {
       DEFAULT_SISTEMA_CONFIG.blocoCardsHabilitado
     ),
     adminUid: adminUidNormalizado,
+    adminEmail: adminEmailNormalizado,
   };
 }
 
@@ -306,7 +371,7 @@ export async function obterConfigSistema() {
     typeof window !== "undefined" ? window.location.hostname || "" : "";
 
   try {
-    const configGerenciada = await obterConfigSistemaDoGerenciador({
+    const configGerenciada = await obterConfigProjetoDoGerenciador({
       projectKey: activeFirebaseProjectKey,
       projectId: activeFirebaseProjectId,
       hostname: hostnameAtual,
@@ -339,7 +404,7 @@ export async function estaConfigSistemaInicializada() {
   const hostnameAtual =
     typeof window !== "undefined" ? window.location.hostname || "" : "";
   try {
-    const configGerenciada = await obterConfigSistemaDoGerenciador({
+    const configGerenciada = await obterConfigProjetoDoGerenciador({
       projectKey: activeFirebaseProjectKey,
       projectId: activeFirebaseProjectId,
       hostname: hostnameAtual,
@@ -360,7 +425,7 @@ export async function salvarConfigSistemaAdmin(configParcial = {}) {
 
   let salvoNoGerenciador = false;
   try {
-    salvoNoGerenciador = await salvarConfigSistemaNoGerenciador({
+    salvoNoGerenciador = await salvarConfigProjetoNoGerenciador({
       projectKey: activeFirebaseProjectKey,
       projectId: activeFirebaseProjectId,
       hostname: hostnameAtual,

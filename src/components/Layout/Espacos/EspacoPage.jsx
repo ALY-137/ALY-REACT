@@ -171,6 +171,7 @@ export default function EspacoPage() {
   const [mercadoPagoSistemaHabilitado, setMercadoPagoSistemaHabilitado] = useState(
     DEFAULT_SISTEMA_CONFIG.mercadoPagoHabilitado
   );
+  const [onePagePublicaAtiva, setOnePagePublicaAtiva] = useState(false);
   const [nomeSkinSingular, setNomeSkinSingular] = useState(
     DEFAULT_SISTEMA_CONFIG.nomeSkinSingular
   );
@@ -295,6 +296,10 @@ export default function EspacoPage() {
         const config = await obterConfigSistema();
         if (!ativo) return;
         setMercadoPagoSistemaHabilitado(config?.mercadoPagoHabilitado !== false);
+        setOnePagePublicaAtiva(
+          config?.tipoExperiencia === "onepage" &&
+            config?.modoAcessoProjeto === "publico_sem_login"
+        );
         const rotulosSkin = obterRotulosSkin(config);
         const rotulosEspaco = obterRotulosEspaco(config);
         const rotulosBloco = obterRotulosBloco(config);
@@ -308,6 +313,7 @@ export default function EspacoPage() {
       } catch {
         if (!ativo) return;
         setMercadoPagoSistemaHabilitado(DEFAULT_SISTEMA_CONFIG.mercadoPagoHabilitado);
+        setOnePagePublicaAtiva(false);
         setNomeSkinSingular(DEFAULT_SISTEMA_CONFIG.nomeSkinSingular);
         setNomeEspacoSingular(DEFAULT_SISTEMA_CONFIG.nomeEspacoSingular);
         setNomeEspacoPlural(DEFAULT_SISTEMA_CONFIG.nomeEspacoPlural);
@@ -887,11 +893,12 @@ export default function EspacoPage() {
 
   const irParaAssinatura = () => {
     const skinLogadoUser = localStorage.getItem("skinLogadoUser");
-    if (!skinLogadoUser) {
+    const menuBase = onePagePublicaAtiva ? "/menu/admin" : `/menu/${skinLogadoUser}`;
+    if (!skinLogadoUser && !onePagePublicaAtiva) {
       alert(`Selecione uma ${nomeSkinSingular} para assinar ${nomeEspacoPlural}.`);
       return;
     }
-    navigate(`/menu/${skinLogadoUser}/espacos`);
+    navigate(`${menuBase}/espacos`);
   };
 
   const irParaCompra = (bloco = null) => {
@@ -901,7 +908,8 @@ export default function EspacoPage() {
     }
 
     const skinLogadoUser = localStorage.getItem("skinLogadoUser");
-    if (!skinLogadoUser) {
+    const menuBase = onePagePublicaAtiva ? "/menu/admin" : `/menu/${skinLogadoUser}`;
+    if (!skinLogadoUser && !onePagePublicaAtiva) {
       alert(`Selecione uma ${nomeSkinSingular} para comprar ${nomeBlocoPlural}.`);
       return;
     }
@@ -913,10 +921,10 @@ export default function EspacoPage() {
         ownerUserId: ownerUserId || "",
         returnTo,
       });
-      navigate(`/menu/${skinLogadoUser}?${params.toString()}`);
+      navigate(`${menuBase}?${params.toString()}`);
       return;
     }
-    navigate(`/menu/${skinLogadoUser}`);
+    navigate(menuBase);
   };
 
   const renderCtaRestricao = (tipoRestricao, bloco = null) => {

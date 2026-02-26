@@ -3,8 +3,7 @@ const LOCAL_STORAGE_PROJECT_KEY = "firebaseProjectTarget";
 const LOCAL_QUERY_PARAM = "firebaseProject";
 const FIREBASE_ENV_PREFIX = "REACT_APP_FIREBASE_";
 const FIREBASE_PROJECT_KEYS_ENV = "REACT_APP_FIREBASE_PROJECT_KEYS";
-const SHARED_STORAGE_BUCKET_ENV =
-  process.env.REACT_APP_FIREBASE_SHARED_STORAGE_BUCKET || "";
+const FORCED_SHARED_STORAGE_BUCKET = "teste-aa015.appspot.com";
 
 const TESTE_AA015_CONFIG = {
   apiKey: "AIzaSyCJMHDdf-GwLwyqKQLRWR8kkyWXDP2v02A",
@@ -45,14 +44,9 @@ function parseDomains(value) {
 }
 
 function applySharedStorageBucket(firebaseConfig) {
-  const sharedBucket = normalizeStorageBucket(SHARED_STORAGE_BUCKET_ENV);
-  if (!sharedBucket) {
-    return firebaseConfig;
-  }
-
   return {
     ...firebaseConfig,
-    storageBucket: sharedBucket,
+    storageBucket: normalizeStorageBucket(FORCED_SHARED_STORAGE_BUCKET),
   };
 }
 
@@ -213,7 +207,7 @@ function resolveRequestedProjectKey(projects, hostProjectMap) {
   return "teste-aa015";
 }
 
-export function resolveFirebaseProject() {
+function buildProjectsMap() {
   const testeConfig = applySharedStorageBucket(TESTE_AA015_CONFIG);
 
   const projects = {
@@ -234,6 +228,25 @@ export function resolveFirebaseProject() {
       envPrefix: project.envPrefix || "",
     };
   });
+
+  return projects;
+}
+
+export function listConfiguredFirebaseProjects() {
+  const projects = buildProjectsMap();
+
+  return Object.values(projects).map((project) => ({
+    key: project.key,
+    projectId: project.config?.projectId || "",
+    domains: Array.isArray(project.domains) ? project.domains : [],
+    functionsRegion: project.functionsRegion || DEFAULT_FUNCTIONS_REGION,
+    firebaseConfig: project.config || {},
+    envPrefix: project.envPrefix || "",
+  }));
+}
+
+export function resolveFirebaseProject() {
+  const projects = buildProjectsMap();
 
   const hostProjectMap = getHostProjectMap(projects);
   const selectedKey = resolveRequestedProjectKey(projects, hostProjectMap);

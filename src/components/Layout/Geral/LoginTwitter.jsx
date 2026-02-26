@@ -12,27 +12,58 @@ const normalizarDestinoInterno = (valor) => {
   if (!valor.startsWith("/")) return null;
   if (valor.startsWith("//")) return null;
   if (valor === "/") return null;
+  const caminhoSemQuery = valor.split("?")[0].split("#")[0];
+  if (caminhoSemQuery === "/menu" || caminhoSemQuery === "/menu/") return null;
   return valor;
+};
+
+const mostrarAjudaRedeAuth = () => {
+  alert(
+    "Falha de rede no Firebase Auth (securetoken.googleapis.com). Verifique DNS/VPN/firewall e tente novamente."
+  );
+};
+
+const isErroAcessoAdmin = (erro) => {
+  const codigo = String(erro?.code || "").toLowerCase();
+  const mensagem = String(erro?.message || "").toLowerCase();
+  return (
+    codigo.includes("permission-denied") ||
+    (codigo === "auth/internal-error" &&
+      (mensagem.includes("administrador") || mensagem.includes("permission-denied")))
+  );
 };
 
 function LoginTwitter({ onLogin }) {
   const navigate = useNavigate();
 
   const finalizarLogin = async (firebaseUser) => {
-    const bootstrapResult = await bootstrapUser(firebaseUser);
+    if (firebaseUser?.uid) {
+      localStorage.setItem("userId", firebaseUser.uid);
+    }
+
+    let bootstrapResult = null;
+    try {
+      bootstrapResult = await bootstrapUser(firebaseUser);
+    } catch (bootstrapError) {
+      // Nao bloqueia sessao se o bootstrap falhar por regra/permissao.
+      if (bootstrapError?.code !== "permission-denied") {
+        console.warn("Falha no bootstrap do usuario apos login X/Twitter:", bootstrapError);
+      }
+    }
 
     if (onLogin) {
       onLogin(firebaseUser, bootstrapResult);
     }
 
-    const destinoSalvo = normalizarDestinoInterno(
-      localStorage.getItem(POST_LOGIN_REDIRECT_KEY)
-    );
+    const destinoBruto = localStorage.getItem(POST_LOGIN_REDIRECT_KEY);
+    const destinoSalvo = normalizarDestinoInterno(destinoBruto);
 
     if (destinoSalvo) {
       localStorage.removeItem(POST_LOGIN_REDIRECT_KEY);
       navigate(destinoSalvo, { replace: true });
+      return;
     }
+    localStorage.removeItem(POST_LOGIN_REDIRECT_KEY);
   };
 
   useEffect(() => {
@@ -44,8 +75,12 @@ function LoginTwitter({ onLogin }) {
         if (!result?.user || !ativo) return;
         await finalizarLogin(result.user);
       } catch (err) {
+        if (isErroAcessoAdmin(err)) {
+          alert("Acesso permitido apenas para administradores.");
+          return;
+        }
         if (err?.code === "auth/network-request-failed") {
-          alert("Falha de rede ao autenticar com X/Twitter. Verifique sua conexao e DNS.");
+          mostrarAjudaRedeAuth();
           return;
         }
         console.error("Erro ao concluir login por redirect (X/Twitter):", err);
@@ -89,7 +124,12 @@ function LoginTwitter({ onLogin }) {
       }
 
       if (codigo === "auth/network-request-failed") {
-        alert("Falha de rede ao autenticar com X/Twitter. Verifique sua conexao e DNS.");
+        mostrarAjudaRedeAuth();
+        return;
+      }
+
+      if (isErroAcessoAdmin(err)) {
+        alert("Acesso permitido apenas para administradores.");
         return;
       }
 

@@ -139,6 +139,12 @@
   justify-content: flex-start;
 }
 
+.headMenu {
+  width: min(96vw, 1000px);
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
 #Gavetas.mostra {
   display: flex;
   flex-direction: column;

@@ -1,5 +1,9 @@
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import {
+  DEFAULT_SISTEMA_CONFIG,
+  obterConfigSistemaCacheLocal,
+} from "../Sistema/configSistema";
 import "./loginButton.css";
 
 const POST_LOGIN_REDIRECT_KEY = "postLoginRedirectPath";
@@ -8,6 +12,9 @@ const LoginButton = () => {
   const userId = localStorage.getItem("userId");
   const location = useLocation();
   const navigate = useNavigate();
+  const configSistema = obterConfigSistemaCacheLocal() || DEFAULT_SISTEMA_CONFIG;
+  const rotaLogin =
+    configSistema?.modoAcessoProjeto === "publico_sem_login" ? "/login" : "/";
 
   if (userId) {
     return null;
@@ -15,13 +22,19 @@ const LoginButton = () => {
 
   const irParaLogin = () => {
     const destinoAtual = `${location.pathname}${location.search}${location.hash}`;
-    if (destinoAtual && destinoAtual !== "/") {
+    const caminhoSemQuery = destinoAtual.split("?")[0].split("#")[0];
+    const destinoInvalido =
+      caminhoSemQuery === rotaLogin ||
+      caminhoSemQuery === "/menu" ||
+      caminhoSemQuery === "/menu/";
+
+    if (destinoAtual && !destinoInvalido) {
       localStorage.setItem(POST_LOGIN_REDIRECT_KEY, destinoAtual);
     } else {
       localStorage.removeItem(POST_LOGIN_REDIRECT_KEY);
     }
 
-    navigate("/");
+    navigate(rotaLogin);
   };
 
   return (

@@ -7,9 +7,18 @@ import {
   DEFAULT_SISTEMA_CONFIG,
   aplicarBrandingNoDocumento,
   aplicarTemaNoBody,
+  normalizarConfigSistema,
   obterConfigSistema,
   salvarConfigSistemaAdmin,
 } from "../../Sistema/configSistema";
+import {
+  applyLoginPresetToConfig,
+  getLoginPresetById,
+} from "../../Sistema/loginPresets";
+import {
+  obterConfigProjetoDoGerenciador,
+  salvarConfigProjetoNoGerenciador,
+} from "../../Sistema/gerenciadorProjetosApi";
 
 function lerArquivoComoDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -24,6 +33,7 @@ function PropriedadesSistema({
   onConfigSalva,
   modoBootstrap = false,
   tituloSecao = "PROPRIEDADES DO SISTEMA",
+  projetoGerenciado = null,
 }) {
   const { user, loading } = useAuth();
   const isManagerProject = activeFirebaseProjectKey === "gerenciador-aly";
@@ -37,6 +47,25 @@ function PropriedadesSistema({
   const loginTwitterHabilitado = config?.metodosLoginHabilitados?.twitter !== false;
   const loginEmailSenhaHabilitado =
     config?.metodosLoginHabilitados?.emailSenha !== false;
+  const loginPresetId = String(config?.loginPresetId || "manual").toLowerCase();
+  const loginPresetSelecionado = getLoginPresetById(loginPresetId);
+  const projetoGerenciadoKey = String(projetoGerenciado?.systemKey || "").trim().toLowerCase();
+  const editandoProjetoExterno =
+    !!projetoGerenciadoKey && projetoGerenciadoKey !== "gerenciador-aly";
+  const exibindoConfiguracoesProjeto = !isManagerProject || editandoProjetoExterno;
+  const bootstrapPrimeiroAdminHabilitado =
+    isManagerProject && !!user && !config?.adminUid;
+  const acessoAdminLiberado = modoBootstrap || bootstrapPrimeiroAdminHabilitado || seforAdm(user);
+
+  const erroPermissao = (error) => {
+    const code = String(error?.code || "").toLowerCase();
+    const message = String(error?.message || "").toLowerCase();
+    return (
+      code.includes("permission-denied") ||
+      code.includes("insufficient") ||
+      message.includes("missing or insufficient permissions")
+    );
+  };
 
   useEffect(() => {
     let ativo = true;
@@ -58,10 +87,36 @@ function PropriedadesSistema({
       setErro("");
 
       try {
-        const configAtual = await obterConfigSistema();
+        let configAtual = null;
+
+        if (editandoProjetoExterno) {
+          const hostnameProjeto = Array.isArray(projetoGerenciado?.domains)
+            ? String(projetoGerenciado.domains[0] || "")
+            : "";
+          const configGerenciada = await obterConfigProjetoDoGerenciador({
+            projectKey: projetoGerenciado?.systemKey || "",
+            projectId: projetoGerenciado?.firebaseProjectId || "",
+            hostname: hostnameProjeto,
+          });
+
+          configAtual = normalizarConfigSistema(
+            configGerenciada || {
+              tituloSistema:
+                projetoGerenciado?.nomeProjeto ||
+                projetoGerenciado?.systemKey ||
+                DEFAULT_SISTEMA_CONFIG.tituloSistema,
+            }
+          );
+        } else {
+          configAtual = await obterConfigSistema();
+        }
+
         if (!ativo) return;
         setConfig(configAtual);
-        aplicarBrandingNoDocumento(configAtual);
+
+        if (!editandoProjetoExterno) {
+          aplicarBrandingNoDocumento(configAtual);
+        }
       } catch (error) {
         if (!ativo) return;
         setErro("Nao foi possivel carregar as configuracoes do sistema.");
@@ -75,7 +130,7 @@ function PropriedadesSistema({
     return () => {
       ativo = false;
     };
-  }, [isManagerProject, loading, user]);
+  }, [isManagerProject, loading, user, editandoProjetoExterno, projetoGerenciado]);
 
   const uploadImagem = async (event, campo) => {
     const arquivo = event.target.files?.[0];
@@ -102,7 +157,7 @@ function PropriedadesSistema({
         ...prev,
         [campo]: dataUrl,
       }));
-      if (campo === "faviconUrl" || campo === "tituloSistema") {
+      if (!editandoProjetoExterno && (campo === "faviconUrl" || campo === "tituloSistema")) {
         aplicarBrandingNoDocumento({
           ...config,
           [campo]: dataUrl,
@@ -122,26 +177,75 @@ function PropriedadesSistema({
     setErro("");
 
     try {
-      const configSalva = await salvarConfigSistemaAdmin({
-        ...config,
-        adminUid: user?.uid || null,
-      });
-      setConfig(configSalva);
-      aplicarTemaNoBody(configSalva.temaPadraoSistema);
-      aplicarBrandingNoDocumento(configSalva);
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(
-          new CustomEvent("sistema-config-atualizada", {
-            detail: configSalva,
-          })
-        );
+      let configSalva = null;
+
+      if (editandoProjetoExterno) {
+        const configNormalizada = normalizarConfigSistema(config);
+        const hostnameProjeto = Array.isArray(projetoGerenciado?.domains)
+          ? String(projetoGerenciado.domains[0] || "")
+          : "";
+
+        try {
+          await salvarConfigProjetoNoGerenciador({
+            projectKey: projetoGerenciado?.systemKey || "",
+            projectId: projetoGerenciado?.firebaseProjectId || "",
+            hostname: hostnameProjeto,
+            configSistema: configNormalizada,
+            atualizadoPorUid: user?.uid || null,
+          });
+        } catch (saveError) {
+          if (!erroPermissao(saveError) || !isManagerProject || !user?.uid) {
+            throw saveError;
+          }
+
+          // Bootstrap de admin dinamico no projeto gerenciador e nova tentativa.
+          const configGerenciadorAtual = await obterConfigSistema();
+          await salvarConfigSistemaAdmin({
+            ...configGerenciadorAtual,
+            adminUid: user.uid,
+          });
+
+          await salvarConfigProjetoNoGerenciador({
+            projectKey: projetoGerenciado?.systemKey || "",
+            projectId: projetoGerenciado?.firebaseProjectId || "",
+            hostname: hostnameProjeto,
+            configSistema: configNormalizada,
+            atualizadoPorUid: user?.uid || null,
+          });
+        }
+
+        configSalva = configNormalizada;
+        setMensagem("Configuracoes do projeto salvas com sucesso.");
+      } else {
+        configSalva = await salvarConfigSistemaAdmin({
+          ...config,
+          adminUid: user?.uid || null,
+        });
+        aplicarTemaNoBody(configSalva.temaPadraoSistema);
+        aplicarBrandingNoDocumento(configSalva);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent("sistema-config-atualizada", {
+              detail: configSalva,
+            })
+          );
+        }
+        setMensagem("Configuracoes salvas com sucesso.");
       }
-      setMensagem("Configuracoes salvas com sucesso.");
+
+      setConfig(configSalva);
       if (typeof onConfigSalva === "function") {
         onConfigSalva(configSalva);
       }
     } catch (error) {
-      setErro("Falha ao salvar configuracoes. Verifique sua permissao de administrador.");
+      const codigo = String(error?.code || "desconhecido");
+      if (erroPermissao(error)) {
+        setErro(
+          `Falha ao salvar configuracoes por permissao no Firestore (${codigo}). Verifique se o seu UID esta definido como admin no gerenciador.`
+        );
+      } else {
+        setErro(`Falha ao salvar configuracoes (${codigo}).`);
+      }
     } finally {
       setSalvando(false);
     }
@@ -150,9 +254,19 @@ function PropriedadesSistema({
   const restaurarPadrao = () => {
     setMensagem("");
     setErro("");
-    setConfig(DEFAULT_SISTEMA_CONFIG);
-    aplicarTemaNoBody(DEFAULT_SISTEMA_CONFIG.temaPadraoSistema);
-    aplicarBrandingNoDocumento(DEFAULT_SISTEMA_CONFIG);
+    const basePadrao = normalizarConfigSistema({
+      ...DEFAULT_SISTEMA_CONFIG,
+      tituloSistema:
+        projetoGerenciado?.nomeProjeto ||
+        projetoGerenciado?.systemKey ||
+        DEFAULT_SISTEMA_CONFIG.tituloSistema,
+    });
+    setConfig(basePadrao);
+
+    if (!editandoProjetoExterno) {
+      aplicarTemaNoBody(DEFAULT_SISTEMA_CONFIG.temaPadraoSistema);
+      aplicarBrandingNoDocumento(DEFAULT_SISTEMA_CONFIG);
+    }
   };
 
   if (loading || carregando) {
@@ -164,14 +278,14 @@ function PropriedadesSistema({
       <div>
         <h2>{tituloSecao}</h2>
         <p>
-          Configuracoes centralizadas no Gerenciador de Sistemas. Abra o projeto
+          Configuracoes centralizadas no Gerenciador de Projetos. Abra o projeto
           <code> gerenciador-aly </code> para editar.
         </p>
       </div>
     );
   }
 
-  if (!user || (!modoBootstrap && !seforAdm(user))) {
+  if (!user || !acessoAdminLiberado) {
     return (
       <div>
         <h2>{tituloSecao}</h2>
@@ -184,7 +298,9 @@ function PropriedadesSistema({
     <div>
       <h2>{tituloSecao}</h2>
       <p>
-        Defina comportamento global, identidade visual e modulos ativos do projeto.
+        {editandoProjetoExterno
+          ? "Defina identidade visual, layout e modulos do projeto selecionado."
+          : "Defina identidade visual e configuracoes de layout do gerenciador."}
       </p>
 
       <div style={{ border: "1px solid #ccc", borderRadius: 8, padding: 12, marginBottom: 12 }}>
@@ -201,10 +317,12 @@ function PropriedadesSistema({
               ...prev,
               tituloSistema: novoTitulo,
             }));
-            aplicarBrandingNoDocumento({
-              ...config,
-              tituloSistema: novoTitulo,
-            });
+            if (!editandoProjetoExterno) {
+              aplicarBrandingNoDocumento({
+                ...config,
+                tituloSistema: novoTitulo,
+              });
+            }
           }}
           placeholder="Ex: Obeyon"
           style={{ width: "100%", marginTop: 8 }}
@@ -258,10 +376,12 @@ function PropriedadesSistema({
               ...prev,
               faviconUrl: novaFavicon,
             }));
-            aplicarBrandingNoDocumento({
-              ...config,
-              faviconUrl: novaFavicon,
-            });
+            if (!editandoProjetoExterno) {
+              aplicarBrandingNoDocumento({
+                ...config,
+                faviconUrl: novaFavicon,
+              });
+            }
           }}
           placeholder="/favicon.ico ou https://..."
           style={{ width: "100%", marginTop: 8 }}
@@ -318,6 +438,49 @@ function PropriedadesSistema({
         />
       </div>
 
+      {exibindoConfiguracoesProjeto ? (
+        <div style={{ border: "1px solid #ccc", borderRadius: 8, padding: 12, marginBottom: 12 }}>
+          <h3 style={{ marginTop: 0 }}>Tipo de login</h3>
+          <label htmlFor="loginPresetId">Preset de login do projeto</label>
+          <select
+            id="loginPresetId"
+            value={loginPresetId}
+            onChange={(event) => {
+              const novoPresetId = String(event.target.value || "manual").toLowerCase();
+              setConfig((prev) => {
+                if (novoPresetId === "manual") {
+                  return normalizarConfigSistema({
+                    ...prev,
+                    loginPresetId: "manual",
+                  });
+                }
+                return normalizarConfigSistema(applyLoginPresetToConfig(prev, novoPresetId));
+              });
+              setErro("");
+              if (novoPresetId === "manual") {
+                setMensagem(
+                  "Preset manual ativo. A configuracao atual foi mantida e pode ser editada livremente."
+                );
+              } else {
+                const presetLabel = getLoginPresetById(novoPresetId).label;
+                setMensagem(
+                  `Preset ${presetLabel} aplicado; voce pode ajustar os campos abaixo.`
+                );
+              }
+            }}
+            style={{ width: "100%", marginTop: 8 }}
+          >
+            <option value="manual">Manual</option>
+            <option value="aly137">ALY-137</option>
+          </select>
+          <p style={{ marginTop: 8, opacity: 0.85 }}>
+            {loginPresetSelecionado.id === "manual"
+              ? "Manual: define os campos de login individualmente."
+              : "Preset aplicado; voce pode ajustar os campos abaixo."}
+          </p>
+        </div>
+      ) : null}
+
       <div style={{ border: "1px solid #ccc", borderRadius: 8, padding: 12, marginBottom: 12 }}>
         <h3 style={{ marginTop: 0 }}>Configuracao de layout</h3>
         <p style={{ marginTop: 0 }}>
@@ -345,6 +508,31 @@ function PropriedadesSistema({
         </select>
 
         <h4 style={{ marginTop: 16, marginBottom: 8 }}>Layout de login</h4>
+        <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <input
+            type="checkbox"
+            checked={loginPresetId === "aly137"}
+            onChange={(event) => {
+              const ativarPreset = event.target.checked;
+              setConfig((prev) => {
+                if (!ativarPreset) {
+                  return normalizarConfigSistema({
+                    ...prev,
+                    loginPresetId: "manual",
+                  });
+                }
+                return normalizarConfigSistema(applyLoginPresetToConfig(prev, "aly137"));
+              });
+              setErro("");
+              setMensagem(
+                ativarPreset
+                  ? "Preset ALY-137 aplicado; voce pode ajustar os campos abaixo."
+                  : "Preset ALY-137 desativado. Configuracao manual ativa."
+              );
+            }}
+          />
+          Aplicar preset de login ALY-137
+        </label>
         <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <input
             type="checkbox"
@@ -416,198 +604,285 @@ function PropriedadesSistema({
           style={{ width: "100%", marginTop: 8 }}
         />
         <p style={{ marginTop: 6, opacity: 0.8 }}>
-          Deixe vazio para usar a largura padrao do tema. Novos metodos de login poderao ser adicionados nesta mesma secao.
+          Deixe vazio para usar a largura padrao do tema. O preset ALY-137 e os metodos Google/X/Email podem ser combinados nesta secao.
         </p>
       </div>
 
-      <div style={{ border: "1px solid #ccc", borderRadius: 8, padding: 12, marginBottom: 12 }}>
-        <h3 style={{ marginTop: 0 }}>Nomenclatura e limites</h3>
+      {exibindoConfiguracoesProjeto ? (
+        <div style={{ border: "1px solid #ccc", borderRadius: 8, padding: 12, marginBottom: 12 }}>
+          <h3 style={{ marginTop: 0 }}>Modo do projeto</h3>
 
-        <label htmlFor="nomeSkinSingular">Nome singular da skin</label>
-        <input
-          id="nomeSkinSingular"
-          type="text"
-          value={config.nomeSkinSingular}
-          onChange={(event) =>
-            setConfig((prev) => ({
-              ...prev,
-              nomeSkinSingular: event.target.value,
-            }))
-          }
-          placeholder="Ex: perfil"
-          style={{ width: "100%", marginTop: 8 }}
-        />
-
-        <label htmlFor="nomeSkinPlural" style={{ display: "block", marginTop: 10 }}>
-          Nome plural da skin
-        </label>
-        <input
-          id="nomeSkinPlural"
-          type="text"
-          value={config.nomeSkinPlural}
-          onChange={(event) =>
-            setConfig((prev) => ({
-              ...prev,
-              nomeSkinPlural: event.target.value,
-            }))
-          }
-          placeholder="Ex: perfis"
-          style={{ width: "100%", marginTop: 8 }}
-        />
-
-        <label htmlFor="nomeEspacoSingular" style={{ display: "block", marginTop: 10 }}>
-          Nome singular de espaco
-        </label>
-        <input
-          id="nomeEspacoSingular"
-          type="text"
-          value={config.nomeEspacoSingular || ""}
-          onChange={(event) =>
-            setConfig((prev) => ({
-              ...prev,
-              nomeEspacoSingular: event.target.value,
-            }))
-          }
-          placeholder="Ex: ambiente"
-          style={{ width: "100%", marginTop: 8 }}
-        />
-
-        <label htmlFor="nomeEspacoPlural" style={{ display: "block", marginTop: 10 }}>
-          Nome plural de espaco
-        </label>
-        <input
-          id="nomeEspacoPlural"
-          type="text"
-          value={config.nomeEspacoPlural || ""}
-          onChange={(event) =>
-            setConfig((prev) => ({
-              ...prev,
-              nomeEspacoPlural: event.target.value,
-            }))
-          }
-          placeholder="Ex: ambientes"
-          style={{ width: "100%", marginTop: 8 }}
-        />
-
-        <label htmlFor="nomeBlocoSingular" style={{ display: "block", marginTop: 10 }}>
-          Nome singular de bloco
-        </label>
-        <input
-          id="nomeBlocoSingular"
-          type="text"
-          value={config.nomeBlocoSingular || ""}
-          onChange={(event) =>
-            setConfig((prev) => ({
-              ...prev,
-              nomeBlocoSingular: event.target.value,
-            }))
-          }
-          placeholder="Ex: item"
-          style={{ width: "100%", marginTop: 8 }}
-        />
-
-        <label htmlFor="nomeBlocoPlural" style={{ display: "block", marginTop: 10 }}>
-          Nome plural de bloco
-        </label>
-        <input
-          id="nomeBlocoPlural"
-          type="text"
-          value={config.nomeBlocoPlural || ""}
-          onChange={(event) =>
-            setConfig((prev) => ({
-              ...prev,
-              nomeBlocoPlural: event.target.value,
-            }))
-          }
-          placeholder="Ex: itens"
-          style={{ width: "100%", marginTop: 8 }}
-        />
-
-        <label htmlFor="limiteSkinsPorUsuario" style={{ display: "block", marginTop: 10 }}>
-          Quantidade de skins por usuario
-        </label>
-        <select
-          id="limiteSkinsPorUsuario"
-          value={config.limiteSkinsPorUsuario}
-          onChange={(event) =>
-            setConfig((prev) => ({
-              ...prev,
-              limiteSkinsPorUsuario: event.target.value,
-            }))
-          }
-          style={{ width: "100%", marginTop: 8 }}
-        >
-          <option value="1">Apenas 1</option>
-          <option value="ilimitado">Ilimitado</option>
-        </select>
-        <p style={{ marginTop: 8, opacity: 0.8 }}>
-          Administradores sempre podem criar quantidade ilimitada.
-        </p>
-
-        <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
-          <input
-            type="checkbox"
-            checked={!!config.permitirTemasSkinSecundarios}
+          <label htmlFor="tipoExperiencia">Tipo de experiencia</label>
+          <select
+            id="tipoExperiencia"
+            value={config.tipoExperiencia || "multipage"}
             onChange={(event) =>
               setConfig((prev) => ({
                 ...prev,
-                permitirTemasSkinSecundarios: event.target.checked,
+                tipoExperiencia: event.target.value,
               }))
             }
-          />
-          Permitir temas secundarios de skin
-        </label>
-        <p style={{ marginTop: 6, opacity: 0.8 }}>
-          Quando desativado, todas as skins herdam automaticamente o tema base da familia do
-          tema do sistema.
-        </p>
-      </div>
+            style={{ width: "100%", marginTop: 8 }}
+          >
+            <option value="multipage">Multipage</option>
+            <option value="onepage">Onepage</option>
+          </select>
 
-      <div style={{ border: "1px solid #ccc", borderRadius: 8, padding: 12, marginBottom: 12 }}>
-        <h3 style={{ marginTop: 0 }}>Modulos do sistema</h3>
-
-        <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-          <input
-            type="checkbox"
-            checked={!!config.chatHabilitado}
+          <label htmlFor="modoAcessoProjeto" style={{ display: "block", marginTop: 12 }}>
+            Modelo de acesso
+          </label>
+          <select
+            id="modoAcessoProjeto"
+            value={config.modoAcessoProjeto || "privado_com_login"}
             onChange={(event) =>
               setConfig((prev) => ({
                 ...prev,
-                chatHabilitado: event.target.checked,
+                modoAcessoProjeto: event.target.value,
               }))
             }
-          />
-          Habilitar sistema de chat
-        </label>
+            style={{ width: "100%", marginTop: 8 }}
+          >
+            <option value="privado_com_login">Privado com login</option>
+            <option value="publico_com_area_restrita">Publico com area restrita</option>
+            <option value="publico_sem_login">Publico sem login de usuario</option>
+          </select>
 
-        <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <p style={{ marginTop: 8, opacity: 0.85 }}>
+            Em <code>publico_sem_login</code>, a pagina principal fica publica e o login admin passa
+            a usar a rota <code>/login</code>.
+          </p>
+
+          <label htmlFor="adminUidProjeto" style={{ display: "block", marginTop: 12 }}>
+            UID do administrador do projeto
+          </label>
           <input
-            type="checkbox"
-            checked={!!config.mercadoPagoHabilitado}
+            id="adminUidProjeto"
+            type="text"
+            value={config.adminUid || ""}
             onChange={(event) =>
               setConfig((prev) => ({
                 ...prev,
-                mercadoPagoHabilitado: event.target.checked,
+                adminUid: event.target.value,
               }))
             }
+            placeholder="UID do Firebase Auth"
+            style={{ width: "100%", marginTop: 8 }}
           />
-          Habilitar integracao com Mercado Pago
-        </label>
-
-        <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+          <label htmlFor="adminEmailProjeto" style={{ display: "block", marginTop: 10 }}>
+            Email do administrador do projeto
+          </label>
           <input
-            type="checkbox"
-            checked={!!config.blocoCardsHabilitado}
+            id="adminEmailProjeto"
+            type="email"
+            value={config.adminEmail || ""}
             onChange={(event) =>
               setConfig((prev) => ({
                 ...prev,
-                blocoCardsHabilitado: event.target.checked,
+                adminEmail: event.target.value,
               }))
             }
+            placeholder="admin@seuprojeto.com"
+            style={{ width: "100%", marginTop: 8 }}
           />
-          Habilitar conteudo de bloco tipo Card
-        </label>
-      </div>
+          <p style={{ marginTop: 6, opacity: 0.85 }}>
+            No modo <code>publico_sem_login</code>, somente este UID ou email pode entrar em{" "}
+            <code>/login</code> e acessar <code>/menu/admin</code>.
+          </p>
+        </div>
+      ) : null}
+
+      {exibindoConfiguracoesProjeto ? (
+        <div style={{ border: "1px solid #ccc", borderRadius: 8, padding: 12, marginBottom: 12 }}>
+          <h3 style={{ marginTop: 0 }}>Nomenclatura e limites</h3>
+
+          <label htmlFor="nomeSkinSingular">Nome singular da skin</label>
+          <input
+            id="nomeSkinSingular"
+            type="text"
+            value={config.nomeSkinSingular}
+            onChange={(event) =>
+              setConfig((prev) => ({
+                ...prev,
+                nomeSkinSingular: event.target.value,
+              }))
+            }
+            placeholder="Ex: perfil"
+            style={{ width: "100%", marginTop: 8 }}
+          />
+
+          <label htmlFor="nomeSkinPlural" style={{ display: "block", marginTop: 10 }}>
+            Nome plural da skin
+          </label>
+          <input
+            id="nomeSkinPlural"
+            type="text"
+            value={config.nomeSkinPlural}
+            onChange={(event) =>
+              setConfig((prev) => ({
+                ...prev,
+                nomeSkinPlural: event.target.value,
+              }))
+            }
+            placeholder="Ex: perfis"
+            style={{ width: "100%", marginTop: 8 }}
+          />
+
+          <label htmlFor="nomeEspacoSingular" style={{ display: "block", marginTop: 10 }}>
+            Nome singular de espaco
+          </label>
+          <input
+            id="nomeEspacoSingular"
+            type="text"
+            value={config.nomeEspacoSingular || ""}
+            onChange={(event) =>
+              setConfig((prev) => ({
+                ...prev,
+                nomeEspacoSingular: event.target.value,
+              }))
+            }
+            placeholder="Ex: ambiente"
+            style={{ width: "100%", marginTop: 8 }}
+          />
+
+          <label htmlFor="nomeEspacoPlural" style={{ display: "block", marginTop: 10 }}>
+            Nome plural de espaco
+          </label>
+          <input
+            id="nomeEspacoPlural"
+            type="text"
+            value={config.nomeEspacoPlural || ""}
+            onChange={(event) =>
+              setConfig((prev) => ({
+                ...prev,
+                nomeEspacoPlural: event.target.value,
+              }))
+            }
+            placeholder="Ex: ambientes"
+            style={{ width: "100%", marginTop: 8 }}
+          />
+
+          <label htmlFor="nomeBlocoSingular" style={{ display: "block", marginTop: 10 }}>
+            Nome singular de bloco
+          </label>
+          <input
+            id="nomeBlocoSingular"
+            type="text"
+            value={config.nomeBlocoSingular || ""}
+            onChange={(event) =>
+              setConfig((prev) => ({
+                ...prev,
+                nomeBlocoSingular: event.target.value,
+              }))
+            }
+            placeholder="Ex: item"
+            style={{ width: "100%", marginTop: 8 }}
+          />
+
+          <label htmlFor="nomeBlocoPlural" style={{ display: "block", marginTop: 10 }}>
+            Nome plural de bloco
+          </label>
+          <input
+            id="nomeBlocoPlural"
+            type="text"
+            value={config.nomeBlocoPlural || ""}
+            onChange={(event) =>
+              setConfig((prev) => ({
+                ...prev,
+                nomeBlocoPlural: event.target.value,
+              }))
+            }
+            placeholder="Ex: itens"
+            style={{ width: "100%", marginTop: 8 }}
+          />
+
+          <label htmlFor="limiteSkinsPorUsuario" style={{ display: "block", marginTop: 10 }}>
+            Quantidade de skins por usuario
+          </label>
+          <select
+            id="limiteSkinsPorUsuario"
+            value={config.limiteSkinsPorUsuario}
+            onChange={(event) =>
+              setConfig((prev) => ({
+                ...prev,
+                limiteSkinsPorUsuario: event.target.value,
+              }))
+            }
+            style={{ width: "100%", marginTop: 8 }}
+          >
+            <option value="1">Apenas 1</option>
+            <option value="ilimitado">Ilimitado</option>
+          </select>
+          <p style={{ marginTop: 8, opacity: 0.8 }}>
+            Administradores sempre podem criar quantidade ilimitada.
+          </p>
+
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
+            <input
+              type="checkbox"
+              checked={!!config.permitirTemasSkinSecundarios}
+              onChange={(event) =>
+                setConfig((prev) => ({
+                  ...prev,
+                  permitirTemasSkinSecundarios: event.target.checked,
+                }))
+              }
+            />
+            Permitir temas secundarios de skin
+          </label>
+          <p style={{ marginTop: 6, opacity: 0.8 }}>
+            Quando desativado, todas as skins herdam automaticamente o tema base da familia do
+            tema do sistema.
+          </p>
+        </div>
+      ) : null}
+
+      {exibindoConfiguracoesProjeto ? (
+        <div style={{ border: "1px solid #ccc", borderRadius: 8, padding: 12, marginBottom: 12 }}>
+          <h3 style={{ marginTop: 0 }}>Modulos do sistema</h3>
+
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <input
+              type="checkbox"
+              checked={!!config.chatHabilitado}
+              onChange={(event) =>
+                setConfig((prev) => ({
+                  ...prev,
+                  chatHabilitado: event.target.checked,
+                }))
+              }
+            />
+            Habilitar sistema de chat
+          </label>
+
+          <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input
+              type="checkbox"
+              checked={!!config.mercadoPagoHabilitado}
+              onChange={(event) =>
+                setConfig((prev) => ({
+                  ...prev,
+                  mercadoPagoHabilitado: event.target.checked,
+                }))
+              }
+            />
+            Habilitar integracao com Mercado Pago
+          </label>
+
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+            <input
+              type="checkbox"
+              checked={!!config.blocoCardsHabilitado}
+              onChange={(event) =>
+                setConfig((prev) => ({
+                  ...prev,
+                  blocoCardsHabilitado: event.target.checked,
+                }))
+              }
+            />
+            Habilitar conteudo de bloco tipo Card
+          </label>
+        </div>
+      ) : null}
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <button onClick={salvar} disabled={salvando}>

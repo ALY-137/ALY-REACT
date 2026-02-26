@@ -1,17 +1,129 @@
-import React, { useState, useEffect, Suspense  } from "react";
-import { useLocation, useNavigate, Outlet } from "react-router-dom";
-import { useAuth } from "../../../hooks/auth/useAuth";
-import { collection, collectionGroup, doc, getDocs, limit, query, setDoc, where } from "firebase/firestore";
-import { db } from "../../Banco/init-firebase";
+import React, { Suspense, useEffect, useState } from "react";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import {
+  collection,
+  collectionGroup,
+  doc,
+  getDocs,
+  limit,
+  query,
+  serverTimestamp,
+  setDoc,
+  where,
+} from "firebase/firestore";
 
-import Layout from "../Temas/Layout.jsx";
-import { resolverTemaSkinEfetivo } from "../Temas/themesRegistry";
-import { DEFAULT_SISTEMA_CONFIG, obterConfigSistema } from "../Sistema/configSistema";
+import { useAuth } from "../../../hooks/auth/useAuth";
+import { db } from "../../Banco/init-firebase";
 import Navegacoes from "../../Scripts/navegacoes/Navegacoes";
-import Navbar from "../Navbar/Navbar";
-import LoginButton from "../Geral/LoginButton";
-import { getEspacosDaSkin } from "./firebaseEspacos";
+import { seforAdm } from "../../Scripts/verificacoes/verificaAdm";
 import FirebaseProjectBadge from "../Geral/FirebaseProjectBadge";
+import LoginButton from "../Geral/LoginButton";
+import Navbar from "../Navbar/Navbar";
+import {
+  DEFAULT_SISTEMA_CONFIG,
+  obterConfigSistema,
+  obterConfigSistemaCacheLocal,
+} from "../Sistema/configSistema";
+import Layout from "../Temas/Layout.jsx";
+import { obterTemaSkinPadrao, resolverTemaSkinEfetivo } from "../Temas/themesRegistry";
+import { verificarESalvarskins } from "../Skins/verificaSkins";
+import { getEspacosDaSkin } from "./firebaseEspacos";
+
+const limparUsername = (valor = "") =>
+  String(valor || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+
+const construirBaseUsernameOnePage = (firebaseUser = null) => {
+  const nome = limparUsername(firebaseUser?.displayName || "");
+  if (nome) return nome.slice(0, 18);
+
+  const emailPrefix = limparUsername(String(firebaseUser?.email || "").split("@")[0] || "");
+  if (emailPrefix) return emailPrefix.slice(0, 18);
+
+  const uid = limparUsername(firebaseUser?.uid || "");
+  return `user${uid.slice(0, 8) || "one"}`.slice(0, 18);
+};
+
+const criarSkinUnicaOnePage = async ({ firebaseUser, temaPadraoSkin }) => {
+  if (!firebaseUser?.uid) return false;
+
+  const base = construirBaseUsernameOnePage(firebaseUser);
+  const temaCriacao = String(temaPadraoSkin || "").trim() || "CYBERPINK";
+
+  for (let tentativa = 0; tentativa < 8; tentativa += 1) {
+    const sufixo = tentativa === 0 ? "" : String(Math.floor(Math.random() * 900) + 100);
+    const candidato = `${base}${sufixo}`.slice(0, 24);
+    if (!candidato) continue;
+
+    const resultado = await verificarESalvarskins(firebaseUser.uid, candidato, temaCriacao);
+    if (resultado?.sucesso) {
+      return true;
+    }
+    if (resultado?.errorCode === "permission-denied") {
+      break;
+    }
+  }
+
+  const candidatoDireto = `${base}${Math.floor(Math.random() * 9000 + 1000)}`.slice(0, 24);
+  try {
+    const userRef = doc(db, "users", firebaseUser.uid);
+    const skinRef = doc(collection(db, "users", firebaseUser.uid, "skins"));
+    const espacoRef = doc(collection(db, "users", firebaseUser.uid, "espacos"));
+    const temaCriacaoDireta = String(temaPadraoSkin || "").trim() || "CYBERPINK";
+
+    await setDoc(
+      userRef,
+      {
+        uid: firebaseUser.uid,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    await setDoc(
+      skinRef,
+      {
+        ownerUserId: firebaseUser.uid,
+        id_skin: skinRef.id,
+        username: candidatoDireto,
+        theme: temaCriacaoDireta,
+        is_main: true,
+        visibilidade: "publico",
+        data: serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    await setDoc(
+      espacoRef,
+      {
+        id_espaco: espacoRef.id,
+        nome: "home",
+        conteudo: "Conteudo da pagina principal",
+        ordem: 0,
+        ownerUserId: firebaseUser.uid,
+        skinOwner: skinRef.id,
+        coCriadoresUids: [],
+        visibilidade: "publico",
+        createdAt: serverTimestamp(),
+        isHome: true,
+        skins_relacionadas: [skinRef.id],
+      },
+      { merge: true }
+    );
+
+    localStorage.setItem("targetUsername", candidatoDireto);
+    localStorage.setItem("skinLogadoUser", candidatoDireto);
+    localStorage.setItem("skinIdAtual", skinRef.id);
+    return true;
+  } catch {
+    // Deixa fallback visual assumir sem bloquear a pagina.
+  }
+
+  return false;
+};
 
 function Estrutura({ username: propUsername, skins: propSkins }) {
   const location = useLocation();
@@ -20,41 +132,191 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
 
   const [username, setUsername] = useState(propUsername || "");
   const [skins, setSkins] = useState(propSkins || []);
-  const [theme, setTheme] = useState(false);
+  const [theme, setTheme] = useState("");
   const [espacos, setEspacos] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-
   const [menuOpen, setMenuOpen] = useState(false);
   const [hasNavigated, setHasNavigated] = useState(false);
+  const [configSistemaAtual, setConfigSistemaAtual] = useState(
+    () => obterConfigSistemaCacheLocal() || DEFAULT_SISTEMA_CONFIG
+  );
+  const [retryNonce, setRetryNonce] = useState(0);
 
   const urlUsername = location.pathname.split("/")[1];
   const skinLogadoUser = localStorage.getItem("skinLogadoUser");
   const skinIdAtual = localStorage.getItem("skinIdAtual") || null;
+  const targetUsernameInicial =
+    urlUsername ||
+    localStorage.getItem("targetUsername") ||
+    skinLogadoUser ||
+    "";
+  const tipoExperiencia =
+    configSistemaAtual?.tipoExperiencia || DEFAULT_SISTEMA_CONFIG.tipoExperiencia;
+  const modoAcessoProjeto =
+    configSistemaAtual?.modoAcessoProjeto || DEFAULT_SISTEMA_CONFIG.modoAcessoProjeto;
+  const onePagePublicaAtiva =
+    tipoExperiencia === "onepage" && modoAcessoProjeto === "publico_sem_login";
+  const adminUidProjetoConfigurado = String(
+    configSistemaAtual?.adminUid || localStorage.getItem("systemAdminUid") || ""
+  ).trim();
+  const adminEmailProjetoConfigurado = String(
+    configSistemaAtual?.adminEmail || localStorage.getItem("systemAdminEmail") || ""
+  )
+    .trim()
+    .toLowerCase();
+  const emailUsuarioAtual = String(user?.email || "")
+    .trim()
+    .toLowerCase();
+  const adminProjetoConfigurado = Boolean(
+    adminUidProjetoConfigurado || adminEmailProjetoConfigurado
+  );
+  const usuarioPodeAbrirMenuOnePage = Boolean(
+    user?.uid &&
+      (
+        (adminUidProjetoConfigurado && user.uid === adminUidProjetoConfigurado) ||
+        (adminEmailProjetoConfigurado &&
+          emailUsuarioAtual === adminEmailProjetoConfigurado) ||
+        (!adminProjetoConfigurado &&
+          (onePagePublicaAtiva || seforAdm(user)))
+      )
+  );
 
+  const aplicarFallbackOnePage = (configSistemaProjeto, usernameFallback = "") => {
+    const temaPadraoSkin = obterTemaSkinPadrao(configSistemaProjeto?.temaPadraoSistema);
+    const temaEfetivo = resolverTemaSkinEfetivo(
+      temaPadraoSkin,
+      configSistemaProjeto?.temaPadraoSistema,
+      configSistemaProjeto?.permitirTemasSkinSecundarios !== false
+    );
+    const usernameLocal =
+      usernameFallback ||
+      localStorage.getItem("targetUsername") ||
+      construirBaseUsernameOnePage(user);
+    const ownerUid = user?.uid || "";
 
-  // --------------------------
-  // Buscar skin e páginas
-  // --------------------------
+    setUsername(usernameLocal);
+    setSkins([]);
+    setTheme(temaEfetivo);
+    setEspacos([
+      {
+        id_espaco: "home",
+        nome: "home",
+        ownerUserId: ownerUid,
+        skinOwner: localStorage.getItem("skinIdAtual") || null,
+        visibilidade: "publico",
+        isHome: true,
+      },
+    ]);
+  };
+
   useEffect(() => {
     if (loading) return;
 
-    const targetUsername = urlUsername || localStorage.getItem("targetUsername");
-
-    localStorage.setItem("targetUsername", targetUsername);
+    let targetUsername = String(targetUsernameInicial || "").trim();
 
     const fetchSkinData = async () => {
       setIsLoading(true);
+      let configSistemaProjeto =
+        obterConfigSistemaCacheLocal() || configSistemaAtual || DEFAULT_SISTEMA_CONFIG;
       try {
-        let configSistemaAtual = DEFAULT_SISTEMA_CONFIG;
         try {
-          configSistemaAtual = await obterConfigSistema();
+          configSistemaProjeto = await obterConfigSistema();
         } catch {
-          configSistemaAtual = DEFAULT_SISTEMA_CONFIG;
+          configSistemaProjeto = obterConfigSistemaCacheLocal() || configSistemaProjeto;
+        }
+        setConfigSistemaAtual(configSistemaProjeto);
+
+        const onePagePublicaProjeto =
+          configSistemaProjeto?.tipoExperiencia === "onepage" &&
+          configSistemaProjeto?.modoAcessoProjeto === "publico_sem_login";
+        const adminUidProjeto = String(configSistemaProjeto?.adminUid || "").trim();
+
+        if (onePagePublicaProjeto) {
+          targetUsername = "";
         }
 
-        // 1) Quando logado, tenta primeiro no caminho do próprio usuário.
+        let skinDocResolvido = null;
+        if (!targetUsername && onePagePublicaProjeto) {
+          if (user?.uid) {
+            const skinUsuarioQuery = query(
+              collection(db, "users", user.uid, "skins"),
+              limit(1)
+            );
+            let skinUsuarioSnap = await getDocs(skinUsuarioQuery);
+
+            if (skinUsuarioSnap.empty) {
+              const temaPadraoSkin = obterTemaSkinPadrao(configSistemaProjeto?.temaPadraoSistema);
+              await criarSkinUnicaOnePage({
+                firebaseUser: user,
+                temaPadraoSkin,
+              });
+              skinUsuarioSnap = await getDocs(skinUsuarioQuery);
+            }
+
+            if (!skinUsuarioSnap.empty) {
+              skinDocResolvido = skinUsuarioSnap.docs[0];
+            }
+          }
+
+          if (!skinDocResolvido && adminUidProjeto) {
+            const skinAdminQuery = query(
+              collection(db, "users", adminUidProjeto, "skins"),
+              limit(1)
+            );
+            const skinAdminSnap = await getDocs(skinAdminQuery);
+            if (!skinAdminSnap.empty) {
+              skinDocResolvido = skinAdminSnap.docs[0];
+            }
+          }
+
+          if (!skinDocResolvido) {
+            const skinPublicaQuery = query(
+              collectionGroup(db, "skins"),
+              where("visibilidade", "==", "publico"),
+              limit(1)
+            );
+            const skinPublicaSnap = await getDocs(skinPublicaQuery);
+            if (!skinPublicaSnap.empty) {
+              skinDocResolvido = skinPublicaSnap.docs[0];
+            }
+          }
+
+          if (!skinDocResolvido) {
+            const skinLegacyQuery = query(
+              collectionGroup(db, "skins"),
+              where("visibilidade", "==", null),
+              limit(1)
+            );
+            const skinLegacySnap = await getDocs(skinLegacyQuery);
+            if (!skinLegacySnap.empty) {
+              skinDocResolvido = skinLegacySnap.docs[0];
+            }
+          }
+
+          if (!skinDocResolvido) {
+            if (onePagePublicaProjeto) {
+              aplicarFallbackOnePage(configSistemaProjeto, targetUsername);
+              return;
+            }
+            navigate("/Error");
+            return;
+          }
+
+          targetUsername = String(skinDocResolvido.data()?.username || "").trim();
+          if (!targetUsername) {
+            if (onePagePublicaProjeto) {
+              aplicarFallbackOnePage(configSistemaProjeto, targetUsername);
+              return;
+            }
+            navigate("/Error");
+            return;
+          }
+        }
+
         let skinsSnap = { empty: true, docs: [] };
-        if (user?.uid) {
+        if (skinDocResolvido) {
+          skinsSnap = { empty: false, docs: [skinDocResolvido] };
+        } else if (user?.uid) {
           const ownerQuery = query(
             collection(db, "users", user.uid, "skins"),
             where("username", "==", targetUsername),
@@ -63,7 +325,6 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
           skinsSnap = await getDocs(ownerQuery);
         }
 
-        // 2) Se não encontrar no usuário logado, faz fallback para busca pública/global.
         if (skinsSnap.empty) {
           const publicQuery = query(
             collectionGroup(db, "skins"),
@@ -84,7 +345,6 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
               skinsSnap = await getDocs(preferredQuery);
             } catch (err) {
               if (err?.code !== "permission-denied") throw err;
-
               const compatQuery = query(
                 collectionGroup(db, "skins"),
                 where("username", "==", targetUsername),
@@ -112,40 +372,45 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
           }
         }
 
-if (skinsSnap.empty) {
-  navigate("/Error");
-  console.log(targetUsername);
-  return;
-}
+        if (skinsSnap.empty) {
+          if (onePagePublicaProjeto) {
+            aplicarFallbackOnePage(configSistemaProjeto, targetUsername);
+            return;
+          }
+          navigate("/Error");
+          return;
+        }
 
-const skinDoc = skinsSnap.docs[0];
-const skinData = skinDoc.data();
+        const skinDoc = skinsSnap.docs[0];
+        const skinData = skinDoc.data();
 
-// 🔐 REGRA DE VISIBILIDADE
-const isOwner = user && user.uid === skinData.ownerUserId;
-const isPublic =
-  !skinData.visibilidade || skinData.visibilidade === "publico";
-const isAuthPublic =
-  (skinData.visibilidade === "publico_restritivo" ||
-    skinData.visibilidade === "privado") &&
-  !!user;
+        const isOwner = user && user.uid === skinData.ownerUserId;
+        const isPublic = !skinData.visibilidade || skinData.visibilidade === "publico";
+        const isAuthPublic =
+          (skinData.visibilidade === "publico_restritivo" ||
+            skinData.visibilidade === "privado") &&
+          !!user;
 
-if (!isOwner && !isPublic && !isAuthPublic) {
-  navigate("/Error"); // ou /acesso-negado
-  return;
-}
-
+        if (!isOwner && !isPublic && !isAuthPublic) {
+          if (onePagePublicaProjeto) {
+            aplicarFallbackOnePage(configSistemaProjeto, targetUsername);
+            return;
+          }
+          navigate("/Error");
+          return;
+        }
 
         const skinId = skinDoc.id;
         const temaEfetivo = resolverTemaSkinEfetivo(
           skinData.theme,
-          configSistemaAtual.temaPadraoSistema,
-          configSistemaAtual.permitirTemasSkinSecundarios !== false
+          configSistemaProjeto.temaPadraoSistema,
+          configSistemaProjeto.permitirTemasSkinSecundarios !== false
         );
 
         setUsername(targetUsername);
         setSkins([skinData]);
         setTheme(temaEfetivo);
+        localStorage.setItem("targetUsername", targetUsername);
 
         let pagesList = [];
         try {
@@ -164,16 +429,22 @@ if (!isOwner && !isPublic && !isAuthPublic) {
 
         setEspacos(pagesList);
 
-        if (user?.uid === skinData.ownerUserId) {
+        if (user?.uid === skinData.ownerUserId || (onePagePublicaProjeto && user?.uid)) {
           localStorage.setItem("skinIdAtual", skinId);
           localStorage.setItem("skinLogadoUser", targetUsername);
+        }
+
+        if (user?.uid === skinData.ownerUserId) {
           try {
-            await setDoc(doc(db, "users", user.uid), {
-              uid: user.uid,
-              skinAtivaId: skinId,
-            }, { merge: true });
+            await setDoc(
+              doc(db, "users", user.uid),
+              {
+                uid: user.uid,
+                skinAtivaId: skinId,
+              },
+              { merge: true }
+            );
           } catch (updateErr) {
-            // Nao bloqueia renderizacao da skin caso falhe apenas a metadata do user.
             console.warn(
               "Falha ao atualizar skinAtivaId:",
               updateErr?.code,
@@ -182,17 +453,41 @@ if (!isOwner && !isPublic && !isAuthPublic) {
           }
         }
       } catch (err) {
-        console.error(
-          "Erro ao buscar skin:",
-          err?.code,
-          err?.message,
-          err
-        );
+        const configEmErro =
+          obterConfigSistemaCacheLocal() || configSistemaProjeto || configSistemaAtual;
+        const onePageProjetoAtual =
+          configEmErro?.tipoExperiencia === "onepage" &&
+          configEmErro?.modoAcessoProjeto === "publico_sem_login";
+
         if (err?.code === "permission-denied") {
+          if (onePageProjetoAtual) {
+            if (user?.uid) {
+              const temaPadraoSkin = obterTemaSkinPadrao(configEmErro?.temaPadraoSistema);
+              await criarSkinUnicaOnePage({
+                firebaseUser: user,
+                temaPadraoSkin,
+              });
+            }
+
+            if (retryNonce < 3) {
+              setTimeout(() => {
+                setRetryNonce((valor) => valor + 1);
+              }, 700);
+              return;
+            }
+
+            aplicarFallbackOnePage(configEmErro, targetUsername);
+            return;
+          }
+
           console.warn(
             "Permissao negada ao ler skin. Confirme deploy das regras com: npm run firestore:rules:deploy"
           );
+          navigate("/Error");
+          return;
         }
+
+        console.error("Erro ao buscar skin:", err?.code, err?.message, err);
         navigate("/Error");
       } finally {
         setIsLoading(false);
@@ -200,104 +495,77 @@ if (!isOwner && !isPublic && !isAuthPublic) {
     };
 
     fetchSkinData();
-  }, [urlUsername, loading, navigate, user]);
+  }, [loading, navigate, retryNonce, targetUsernameInicial, user]);
 
-  // --------------------------
-  // Navega para página principal
-  // --------------------------
   useEffect(() => {
     if (!espacos.length || !username || hasNavigated) return;
 
-    const mainPage = espacos.find(p => p.isHome === true);
-
+    const mainPage = espacos.find((p) => p.isHome === true);
     if (!mainPage) {
-      console.warn("Página principal não encontrada!");
-      navigate("/Error"); // redireciona para página de erro
+      console.warn("Pagina principal nao encontrada.");
+      navigate("/Error");
       setHasNavigated(true);
       return;
     }
 
-    navigate(`/${username}/${mainPage.nome}`, { replace: true });
+    const destinoPrincipal = onePagePublicaAtiva
+      ? `/${mainPage.nome}`
+      : `/${username}/${mainPage.nome}`;
+    if (location.pathname !== destinoPrincipal) {
+      navigate(destinoPrincipal, { replace: true });
+    }
     setHasNavigated(true);
-  }, [espacos, username, hasNavigated, navigate, skinIdAtual]);
+  }, [espacos, hasNavigated, location.pathname, navigate, onePagePublicaAtiva, username]);
 
-  // --------------------------
-  // Permissão de criar blocos
-  // --------------------------
-
-
-  // --------------------------
-  // Toggle menu
-  // --------------------------
   const toggleMenu = () => {
+    if (onePagePublicaAtiva && !usuarioPodeAbrirMenuOnePage) {
+      alert("Acesso ao menu restrito ao administrador configurado neste projeto.");
+      return;
+    }
     setMenuOpen(!menuOpen);
-    navigate(menuOpen ? "/home" : `/menu/${skinLogadoUser}`);
+    const usernameMenu = skinLogadoUser || username || targetUsernameInicial;
+    const destinoMenu = onePagePublicaAtiva ? "/menu/admin" : `/menu/${usernameMenu}`;
+    const destinoFechar =
+      onePagePublicaAtiva || !usernameMenu ? "/" : `/${usernameMenu}/home`;
+    navigate(menuOpen ? destinoFechar : destinoMenu);
   };
 
-// --------------------------
-// JSX do profile
-// --------------------------
-const profileJSX = (
-  <>
-    <div id="navbar-menu" style={{ textAlign: "center" }}>
-      {!user ? (
-        <LoginButton />
-      ) : (
-        <p onClick={toggleMenu} style={{ cursor: "pointer" }}>㆔</p>
-      )}
-    </div>
+  const profileJSX = (
+    <>
+      <div id="navbar-menu" style={{ textAlign: "center" }}>
+        {!user ? (
+          <LoginButton />
+        ) : !onePagePublicaAtiva || usuarioPodeAbrirMenuOnePage ? (
+          <p onClick={toggleMenu} style={{ cursor: "pointer" }}>
+            ㆔
+          </p>
+        ) : null}
+      </div>
 
-    {/* 🔥 cardProfile EXISTE APENAS AQUI */}
-    <div
-      id="cardProfile"
-      style={{ display: menuOpen ? "none" : "block" }}
-    >
-      <Navegacoes />
-      <img
-        src="/imagens/imgHome/busto.png"
-        id="imgBustoHome"
-        alt="imagem"
-      />
-    </div>
-  </>
-);
+      <div id="cardProfile" style={{ display: menuOpen ? "none" : "block" }}>
+        <Navegacoes />
+        <img src="/imagens/imgHome/busto.png" id="imgBustoHome" alt="imagem" />
+      </div>
+    </>
+  );
 
-  
-
-  // --------------------------
-  // JSX do conteúdo
-  // --------------------------
   const contentJSX = (
     <>
       <Navbar pages={espacos} username={username} />
-       
+
       <Suspense fallback={<div>Carregando...</div>}>
-
-        <Outlet  context={{    user,    skinIdAtual,    espacos  }}/>
-
+        <Outlet context={{ user, skinIdAtual, espacos }} />
       </Suspense>
     </>
   );
 
-  // --------------------------
-  // Loader
-  // --------------------------
   if (loading || isLoading || !theme) return <div>Carregando...</div>;
 
-  // --------------------------
-  // Render
-  // --------------------------
   return (
     <>
-      <Layout
-        theme={theme}
-        profile={profileJSX}
-        content={contentJSX}
-      />
+      <Layout theme={theme} profile={profileJSX} content={contentJSX} />
       <FirebaseProjectBadge />
     </>
-
-   
   );
 }
 
