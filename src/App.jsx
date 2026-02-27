@@ -418,7 +418,11 @@ const App = () => {
     return <div className="loader">Validando acesso do administrador...</div>;
   }
 
-  if (exibindoFluxoSistema && !configSistemaPronta) {
+  if (isAuthHandlerRoute && !authLoading) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (exibindoFluxoSistema && !configSistemaPronta && !isAuthHandlerRoute) {
     return <div className="loader" aria-live="polite" />;
   }
 
