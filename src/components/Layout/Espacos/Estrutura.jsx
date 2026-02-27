@@ -28,6 +28,8 @@ import Layout from "../Temas/Layout.jsx";
 import { obterTemaSkinPadrao, resolverTemaSkinEfetivo } from "../Temas/themesRegistry";
 import { getEspacosDaSkin } from "./firebaseEspacos";
 
+const ONEPAGE_ADMIN_USERNAME_KEY = "onePageAdminUsername";
+
 const limparUsername = (valor = "") =>
   String(valor || "")
     .trim()
@@ -170,16 +172,17 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
   const adminProjetoConfigurado = Boolean(
     adminUidProjetoConfigurado || adminEmailProjetoConfigurado
   );
-  const usuarioPodeAbrirMenuOnePage = Boolean(
+  const usuarioEhAdminOnePage = Boolean(
     user?.uid &&
       (
         (adminUidProjetoConfigurado && user.uid === adminUidProjetoConfigurado) ||
         (adminEmailProjetoConfigurado &&
           emailUsuarioAtual === adminEmailProjetoConfigurado) ||
         (!adminProjetoConfigurado &&
-          (onePagePublicaAtiva || seforAdm(user)))
+          seforAdm(user))
       )
   );
+  const usuarioPodeAbrirMenuOnePage = Boolean(user?.uid);
 
   const aplicarFallbackOnePage = (configSistemaProjeto, usernameFallback = "") => {
     const temaPadraoSkin = obterTemaSkinPadrao(configSistemaProjeto?.temaPadraoSistema);
@@ -188,10 +191,16 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
       configSistemaProjeto?.temaPadraoSistema,
       configSistemaProjeto?.permitirTemasSkinSecundarios !== false
     );
-    const usernameLocal =
-      usernameFallback ||
-      localStorage.getItem("targetUsername") ||
-      construirBaseUsernameOnePage(user);
+    const usernameAdminCache = String(
+      localStorage.getItem(ONEPAGE_ADMIN_USERNAME_KEY) || ""
+    ).trim();
+    const usernameLocal = onePagePublicaAtiva && !usuarioEhAdminOnePage
+      ? (usernameFallback || usernameAdminCache)
+      : (
+          usernameFallback ||
+          localStorage.getItem("targetUsername") ||
+          construirBaseUsernameOnePage(user)
+        );
     const ownerUid = user?.uid || "";
 
     setUsername(usernameLocal);
@@ -229,7 +238,9 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
         const onePagePublicaProjeto =
           configSistemaProjeto?.tipoExperiencia === "onepage" &&
           configSistemaProjeto?.modoAcessoProjeto === "publico_sem_login";
-        const adminUidProjeto = String(configSistemaProjeto?.adminUid || "").trim();
+        const adminUidProjeto = String(
+          configSistemaProjeto?.adminUid || localStorage.getItem("systemAdminUid") || ""
+        ).trim();
         const adminEmailProjeto = String(configSistemaProjeto?.adminEmail || "")
           .trim()
           .toLowerCase();
@@ -426,6 +437,9 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
         setSkins([skinData]);
         setTheme(temaEfetivo);
         localStorage.setItem("targetUsername", targetUsername);
+        if (onePagePublicaProjeto && targetUsername) {
+          localStorage.setItem(ONEPAGE_ADMIN_USERNAME_KEY, targetUsername);
+        }
 
         let pagesList = [];
         try {
@@ -550,34 +564,85 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
     setHasNavigated(true);
   }, [espacos, hasNavigated, location.pathname, navigate, onePagePublicaAtiva, username]);
 
-  const toggleMenu = () => {
+  const resolverUsernameMenuOnePage = async () => {
+    if (!user?.uid) return "";
+
+    const usernameStorage = String(localStorage.getItem("skinLogadoUser") || "").trim();
+    if (usernameStorage) return usernameStorage;
+
+    const skinUsuarioQuery = query(
+      collection(db, "users", user.uid, "skins"),
+      limit(1)
+    );
+    let skinUsuarioSnap = await getDocs(skinUsuarioQuery);
+
+    if (skinUsuarioSnap.empty) {
+      const temaPadraoSkin = obterTemaSkinPadrao(configSistemaAtual?.temaPadraoSistema);
+      await criarSkinUnicaOnePage({
+        firebaseUser: user,
+        temaPadraoSkin,
+      });
+      skinUsuarioSnap = await getDocs(skinUsuarioQuery);
+    }
+
+    if (skinUsuarioSnap.empty) return "";
+
+    const skinDoc = skinUsuarioSnap.docs[0];
+    const skinData = skinDoc.data() || {};
+    const usernameUsuario = String(skinData.username || "").trim();
+    if (!usernameUsuario) return "";
+
+    localStorage.setItem("skinLogadoUser", usernameUsuario);
+    localStorage.setItem("targetUsername", usernameUsuario);
+    localStorage.setItem("skinIdAtual", skinDoc.id);
+    return usernameUsuario;
+  };
+
+  const toggleMenu = async () => {
     if (onePagePublicaAtiva && !usuarioPodeAbrirMenuOnePage) {
-      alert("Acesso ao menu restrito ao administrador configurado neste projeto.");
+      alert("Faca login para abrir o menu.");
       return;
     }
-    const usernameMenu = skinLogadoUser || username || targetUsernameInicial;
-    if (!onePagePublicaAtiva && usernameMenu) {
-      localStorage.setItem("skinLogadoUser", usernameMenu);
-      localStorage.setItem("targetUsername", usernameMenu);
+
+    let destinoMenu = "";
+    let destinoFechar = "/";
+
+    if (onePagePublicaAtiva) {
+      if (usuarioEhAdminOnePage) {
+        destinoMenu = "/menu/admin";
+      } else {
+        const usernameMenuOnePage = await resolverUsernameMenuOnePage();
+        if (!usernameMenuOnePage) {
+          alert("Nao foi possivel identificar sua skin para abrir o menu.");
+          return;
+        }
+        destinoMenu = `/menu/${usernameMenuOnePage}`;
+      }
+      destinoFechar = "/home";
+    } else {
+      const usernameMenu = skinLogadoUser || username || targetUsernameInicial;
+      if (usernameMenu) {
+        localStorage.setItem("skinLogadoUser", usernameMenu);
+        localStorage.setItem("targetUsername", usernameMenu);
+      }
+      if (!usernameMenu) {
+        alert("Nao foi possivel identificar a skin ativa para abrir o menu.");
+        return;
+      }
+      destinoMenu = `/menu/${usernameMenu}`;
+      destinoFechar = `/${usernameMenu}/home`;
     }
-    if (!onePagePublicaAtiva && !usernameMenu) {
-      alert("Nao foi possivel identificar a skin ativa para abrir o menu.");
-      return;
-    }
-    setMenuOpen(!menuOpen);
-    const destinoMenu = onePagePublicaAtiva
-      ? "/menu/admin"
-      : `/menu/${usernameMenu}`;
-    const destinoFechar =
-      onePagePublicaAtiva || !usernameMenu ? "/" : `/${usernameMenu}/home`;
-    navigate(menuOpen ? destinoFechar : destinoMenu);
+
+    const proximoMenuAberto = !menuOpen;
+    setMenuOpen(proximoMenuAberto);
+    navigate(proximoMenuAberto ? destinoMenu : destinoFechar);
   };
 
   const profileJSX = (
     <>
       <div id="navbar-menu" style={{ textAlign: "center" }}>
         {!user ? (
-          onePagePublicaAtiva ? null : <LoginButton />
+          <LoginButton />
         ) : !onePagePublicaAtiva || usuarioPodeAbrirMenuOnePage ? (
           <p onClick={toggleMenu} style={{ cursor: "pointer" }}>
             ㆔

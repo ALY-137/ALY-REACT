@@ -160,7 +160,6 @@ export default function EspacoPage() {
     skinIdAtual,
     user,
     onePagePublicaAtiva: onePagePublicaAtivaContexto = false,
-    usuarioPodeAbrirMenuOnePage = false,
   } = useOutletContext();
   const [blocos, setBlocos] = useState([]);
   const [erroBlocos, setErroBlocos] = useState("");
@@ -214,9 +213,7 @@ export default function EspacoPage() {
     espacoAtual.coCriadoresUids.includes(currentUid);
   const podeGerenciarPadrao = isOwner || isCoCriador;
   const onePagePublicaAtivaEfetiva = Boolean(onePagePublicaAtivaContexto || onePagePublicaAtiva);
-  const podeGerenciar = onePagePublicaAtivaEfetiva
-    ? Boolean(usuarioPodeAbrirMenuOnePage)
-    : podeGerenciarPadrao;
+  const podeGerenciar = podeGerenciarPadrao;
   const visibilidadeEspaco = espacoAtual?.visibilidade || "publico";
 
   const idsAssinantePossiveis = useMemo(
@@ -972,6 +969,11 @@ export default function EspacoPage() {
       : doc(db, "users", ownerUserId, "espacos", espacoId, "blocos", bloco.id);
 
   const atualizarBloco = async (blocoId, updates = {}) => {
+    if (!podeGerenciar) {
+      setErroAcaoBloco(`Apenas o administrador pode editar ${nomeBlocoPlural}.`);
+      return false;
+    }
+
     const bloco = blocos.find((item) => item.id === blocoId);
     if (!bloco) return false;
     if (!ownerUserId || !espacoId) {
@@ -1171,6 +1173,11 @@ export default function EspacoPage() {
   };
 
   const excluirBloco = async (blocoId) => {
+    if (!podeGerenciar) {
+      setErroAcaoBloco(`Apenas o administrador pode excluir ${nomeBlocoPlural}.`);
+      return;
+    }
+
     const bloco = blocos.find((item) => item.id === blocoId);
     if (!bloco) return;
 

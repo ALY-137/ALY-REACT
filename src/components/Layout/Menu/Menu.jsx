@@ -46,12 +46,18 @@ function Menu({ menuOpen }) {
     !isManagerProject &&
     tipoExperiencia === "onepage" &&
     modoAcessoProjeto === "publico_sem_login";
-  const loginAdminSeparado =
-    !isManagerProject && modoAcessoProjeto === "publico_sem_login";
-  const skinLogadoUser = !isManagerProject && !loginAdminSeparado
-    ? (skinLogadoUserStorage || String(menuUserId || "").trim())
-    : skinLogadoUserStorage;
-  const exigeSkinAtiva = !isManagerProject && !loginAdminSeparado;
+  const loginAdminSeparado = onePagePublicaAtiva;
+  const rotaAdminMenuOnePage =
+    onePagePublicaAtiva && String(menuUserId || "").trim().toLowerCase() === "admin";
+  const skinLogadoUser = !isManagerProject
+    ? onePagePublicaAtiva
+      ? rotaAdminMenuOnePage
+        ? skinLogadoUserStorage
+        : (skinLogadoUserStorage || String(menuUserId || "").trim())
+      : (skinLogadoUserStorage || String(menuUserId || "").trim())
+    : "";
+  const exigeSkinAtiva =
+    !isManagerProject && (!onePagePublicaAtiva || !rotaAdminMenuOnePage);
   const aguardandoAuthInicial =
     loading && !usuarioAuthAtual && (isManagerProject || !userIdCache);
   const temUsuarioAutenticado = isManagerProject
@@ -59,16 +65,16 @@ function Menu({ menuOpen }) {
     : Boolean(usuarioAuthAtual || userIdCache);
   const menuTargetUser = isManagerProject
     ? (menuUserId || "gerenciador").trim()
-    : loginAdminSeparado
-      ? (menuUserId || "admin").trim()
-      : skinLogadoUser;
+    : rotaAdminMenuOnePage
+      ? "admin"
+      : (skinLogadoUser || String(menuUserId || "").trim());
   const nomeSkinPlural = (configSistema.nomeSkinPlural || "skins").trim() || "skins";
   const nomeSkinPluralUpper = nomeSkinPlural.toUpperCase();
   const nomeEspacoPlural = (configSistema.nomeEspacoPlural || "espacos").trim() || "espacos";
   const nomeEspacoPluralUpper = nomeEspacoPlural.toUpperCase();
   const chatHabilitado = configSistema.chatHabilitado !== false;
   const mercadoPagoHabilitado = configSistema.mercadoPagoHabilitado !== false;
-  const rotaLoginProjeto = loginAdminSeparado ? "/login" : "/";
+  const rotaLoginProjeto = onePagePublicaAtiva ? "/login" : "/";
   const adminUidProjetoConfigurado = String(
     configSistema?.adminUid || localStorage.getItem("systemAdminUid") || ""
   ).trim();
@@ -91,8 +97,7 @@ function Menu({ menuOpen }) {
         (adminEmailProjetoConfigurado &&
           emailUsuarioAtual === adminEmailProjetoConfigurado) ||
         (!adminProjetoConfigurado &&
-          ((loginAdminSeparado && Boolean(usuarioAuthAtual?.uid)) ||
-            seforAdm(usuarioAuthAtual)))
+          seforAdm(usuarioAuthAtual))
       )
   );
   const limiteSkinsPorUsuario = String(
@@ -100,11 +105,14 @@ function Menu({ menuOpen }) {
   )
     .trim()
     .toLowerCase();
-  const projetoComSkinUnica = onePagePublicaAtiva || limiteSkinsPorUsuario === "1";
+  const menuOnePageUsuarioComum = onePagePublicaAtiva && !rotaAdminMenuOnePage;
+  const projetoComSkinUnica = limiteSkinsPorUsuario === "1";
   const podeGerenciarUsuarios = usuarioEhAdminProjeto && !onePagePublicaAtiva;
-  const exibirGestaoSkins = Boolean(skinLogadoUser) && !projetoComSkinUnica;
-  const exibirGestaoEspacos = Boolean(skinLogadoUser);
+  const exibirGestaoSkins =
+    Boolean(skinLogadoUser) && (!projetoComSkinUnica || menuOnePageUsuarioComum);
+  const exibirGestaoEspacos = Boolean(skinLogadoUser) && !menuOnePageUsuarioComum;
   const exibirContatos = chatHabilitado && Boolean(skinLogadoUser) && !onePagePublicaAtiva;
+  const exibirPropriedades = !menuOnePageUsuarioComum;
   const adminUidGerenciadorConfigurado = String(
     configSistema?.adminUid ||
       localStorage.getItem("systemAdminUid") ||
@@ -131,11 +139,10 @@ function Menu({ menuOpen }) {
   );
   const semAutenticacao = !temUsuarioAutenticado;
   const semSkinObrigatoria = exigeSkinAtiva && !skinLogadoUser;
-  const semPermissaoAdminProjeto = loginAdminSeparado && !usuarioEhAdminProjeto;
+  const semPermissaoAdminProjeto = rotaAdminMenuOnePage && !usuarioEhAdminProjeto;
   const semPermissaoAdminGerenciador =
     isManagerProject && temUsuarioAutenticado && !usuarioEhAdminGerenciador;
-  const semSessaoValida =
-    semAutenticacao || semSkinObrigatoria || semPermissaoAdminProjeto;
+  const semSessaoValida = semAutenticacao || semSkinObrigatoria;
 
   function navigateIfChanged(path, options = undefined) {
     if (!path) return;
@@ -148,8 +155,12 @@ function Menu({ menuOpen }) {
       navigateIfChanged(`/menu/${menuTargetUser}`);
       return;
     }
-    if (loginAdminSeparado) {
+    if (onePagePublicaAtiva && rotaAdminMenuOnePage) {
       navigateIfChanged("/");
+      return;
+    }
+    if (onePagePublicaAtiva) {
+      navigateIfChanged("/home");
       return;
     }
     navigateIfChanged(`/${skinLogadoUser}/home`);
@@ -290,7 +301,8 @@ function Menu({ menuOpen }) {
   }, []);
 
   useEffect(() => {
-    if (isManagerProject || loginAdminSeparado) return;
+    if (isManagerProject) return;
+    if (onePagePublicaAtiva && rotaAdminMenuOnePage) return;
     if (!skinLogadoUser) return;
     if (skinLogadoUserStorage === skinLogadoUser) return;
 
@@ -298,7 +310,13 @@ function Menu({ menuOpen }) {
     if (!localStorage.getItem("targetUsername")) {
       localStorage.setItem("targetUsername", skinLogadoUser);
     }
-  }, [isManagerProject, loginAdminSeparado, skinLogadoUser, skinLogadoUserStorage]);
+  }, [
+    isManagerProject,
+    onePagePublicaAtiva,
+    rotaAdminMenuOnePage,
+    skinLogadoUser,
+    skinLogadoUserStorage,
+  ]);
 
   useEffect(() => {
     if (isManagerProject) return;
@@ -314,7 +332,7 @@ function Menu({ menuOpen }) {
     if (isManagerProject) return;
     const path = location.pathname;
 
-    if (projetoComSkinUnica && path.endsWith("/skins")) {
+    if (projetoComSkinUnica && !menuOnePageUsuarioComum && path.endsWith("/skins")) {
       navigateIfChanged(`/menu/${menuTargetUser}`, { replace: true });
       return;
     }
@@ -326,6 +344,7 @@ function Menu({ menuOpen }) {
   }, [
     isManagerProject,
     projetoComSkinUnica,
+    menuOnePageUsuarioComum,
     onePagePublicaAtiva,
     location.pathname,
     menuTargetUser,
@@ -422,6 +441,12 @@ function Menu({ menuOpen }) {
     if (!configSistemaPronta) return;
     if (aguardandoAuthInicial) return;
     if (semPermissaoAdminGerenciador) return;
+    if (semPermissaoAdminProjeto) {
+      if (location.pathname !== "/") {
+        navigate("/", { replace: true });
+      }
+      return;
+    }
     if (!semSessaoValida) return;
 
     if (location.pathname === rotaLoginProjeto) return;
@@ -429,6 +454,7 @@ function Menu({ menuOpen }) {
   }, [
     aguardandoAuthInicial,
     semSessaoValida,
+    semPermissaoAdminProjeto,
     semPermissaoAdminGerenciador,
     configSistemaPronta,
     location.pathname,
@@ -515,7 +541,9 @@ function Menu({ menuOpen }) {
             {exibirContatos && (
               <div onClick={abrirContatos} className="gavetaOption">CONTATOS</div>
             )}
-            <div onClick={abrirPropriedades} className="gavetaOption">PROPRIEDADES</div>
+            {exibirPropriedades ? (
+              <div onClick={abrirPropriedades} className="gavetaOption">PROPRIEDADES</div>
+            ) : null}
           </>
         ) : null}
         <div onClick={logoff} className="gavetaOption">ENCERRAR</div>

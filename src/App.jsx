@@ -36,19 +36,7 @@ let primeiroNomeCap = null;
 let emailCap = null;
 let picGoogleCap = null;
 let fullnameCap = null;
-const CHAVES_SESSAO = [
-  "targetUsername",
-  "skinLogadoUser",
-  "skinLogado",
-  "skinIdAtual",
-  "selectedTheme",
-  "userId",
-  "nomeSkin",
-  "skinOwner",
-];
 const POST_LOGIN_REDIRECT_KEY = "postLoginRedirectPath";
-const AVISO_LOGIN_RESTRITO_ONEPAGE =
-  "Acesso restrito: neste projeto apenas o administrador pode fazer login.";
 
 const App = () => {
   const isManagerProject = activeFirebaseProjectKey === "gerenciador-aly";
@@ -69,7 +57,6 @@ const App = () => {
   const [setupAdminBootstrap, setSetupAdminBootstrap] = useState(false);
   const [encerrandoSessaoGerenciador, setEncerrandoSessaoGerenciador] = useState(false);
   const [erroAcessoGerenciador, setErroAcessoGerenciador] = useState("");
-  const [avisoLoginRestritoOnePage, setAvisoLoginRestritoOnePage] = useState("");
 
   const location = useLocation();
 
@@ -144,29 +131,6 @@ const App = () => {
     if (!configSistemaPronta) return;
     if (!user?.uid) return;
 
-    const onePagePublicaAtivaProjeto =
-      configSistema?.tipoExperiencia === "onepage" &&
-      configSistema?.modoAcessoProjeto === "publico_sem_login";
-    const adminUidProjeto = String(
-      configSistema?.adminUid || localStorage.getItem("systemAdminUid") || ""
-    ).trim();
-    const adminEmailProjeto = String(
-      configSistema?.adminEmail || localStorage.getItem("systemAdminEmail") || ""
-    )
-      .trim()
-      .toLowerCase();
-    const emailUsuarioAtual = String(user?.email || "")
-      .trim()
-      .toLowerCase();
-    const adminProjetoConfigurado = Boolean(adminUidProjeto || adminEmailProjeto);
-    const usuarioEhAdminProjeto = Boolean(
-      (adminUidProjeto && user.uid === adminUidProjeto) ||
-        (adminEmailProjeto && emailUsuarioAtual === adminEmailProjeto) ||
-        (!adminProjetoConfigurado && seforAdm(user))
-    );
-
-    if (onePagePublicaAtivaProjeto && !usuarioEhAdminProjeto) return;
-
     const garantirDocumentoUsuario = async () => {
       try {
         await bootstrapUser(user);
@@ -181,113 +145,7 @@ const App = () => {
   }, [
     isManagerProject,
     configSistemaPronta,
-    configSistema?.tipoExperiencia,
-    configSistema?.modoAcessoProjeto,
-    configSistema?.adminUid,
-    configSistema?.adminEmail,
     user,
-  ]);
-
-  useEffect(() => {
-    if (isManagerProject) return;
-    if (authLoading) return;
-    if (!configSistemaPronta) return;
-    if (!user?.uid) return;
-
-    const onePagePublicaAtivaProjeto =
-      configSistema?.tipoExperiencia === "onepage" &&
-      configSistema?.modoAcessoProjeto === "publico_sem_login";
-    if (!onePagePublicaAtivaProjeto) return;
-
-    const adminUidProjeto = String(
-      configSistema?.adminUid || localStorage.getItem("systemAdminUid") || ""
-    ).trim();
-    const adminEmailProjeto = String(
-      configSistema?.adminEmail || localStorage.getItem("systemAdminEmail") || ""
-    )
-      .trim()
-      .toLowerCase();
-    const emailUsuarioAtual = String(user?.email || "")
-      .trim()
-      .toLowerCase();
-    const adminProjetoConfigurado = Boolean(adminUidProjeto || adminEmailProjeto);
-    const usuarioEhAdminProjeto = Boolean(
-      (adminUidProjeto && user.uid === adminUidProjeto) ||
-        (adminEmailProjeto && emailUsuarioAtual === adminEmailProjeto) ||
-        (!adminProjetoConfigurado && seforAdm(user))
-    );
-
-    if (usuarioEhAdminProjeto) return;
-
-    const encerrarSessaoNaoAdmin = async () => {
-      setAvisoLoginRestritoOnePage(AVISO_LOGIN_RESTRITO_ONEPAGE);
-      CHAVES_SESSAO.forEach((chave) => localStorage.removeItem(chave));
-      localStorage.removeItem("userId");
-      localStorage.removeItem(POST_LOGIN_REDIRECT_KEY);
-      try {
-        await signOut(auth);
-      } catch {
-        // Mantem fallback em modo anonimo mesmo se provider falhar.
-      }
-    };
-
-    encerrarSessaoNaoAdmin();
-  }, [
-    isManagerProject,
-    authLoading,
-    configSistemaPronta,
-    configSistema?.tipoExperiencia,
-    configSistema?.modoAcessoProjeto,
-    configSistema?.adminUid,
-    configSistema?.adminEmail,
-    user?.uid,
-    user?.email,
-  ]);
-
-  useEffect(() => {
-    if (!avisoLoginRestritoOnePage) return;
-    if (isManagerProject) return;
-    if (authLoading) return;
-    if (!configSistemaPronta) return;
-    if (!user?.uid) return;
-
-    const onePagePublicaAtivaProjeto =
-      configSistema?.tipoExperiencia === "onepage" &&
-      configSistema?.modoAcessoProjeto === "publico_sem_login";
-    if (!onePagePublicaAtivaProjeto) return;
-
-    const adminUidProjeto = String(
-      configSistema?.adminUid || localStorage.getItem("systemAdminUid") || ""
-    ).trim();
-    const adminEmailProjeto = String(
-      configSistema?.adminEmail || localStorage.getItem("systemAdminEmail") || ""
-    )
-      .trim()
-      .toLowerCase();
-    const emailUsuarioAtual = String(user?.email || "")
-      .trim()
-      .toLowerCase();
-    const adminProjetoConfigurado = Boolean(adminUidProjeto || adminEmailProjeto);
-    const usuarioEhAdminProjeto = Boolean(
-      (adminUidProjeto && user.uid === adminUidProjeto) ||
-        (adminEmailProjeto && emailUsuarioAtual === adminEmailProjeto) ||
-        (!adminProjetoConfigurado && seforAdm(user))
-    );
-
-    if (usuarioEhAdminProjeto) {
-      setAvisoLoginRestritoOnePage("");
-    }
-  }, [
-    avisoLoginRestritoOnePage,
-    isManagerProject,
-    authLoading,
-    configSistemaPronta,
-    configSistema?.tipoExperiencia,
-    configSistema?.modoAcessoProjeto,
-    configSistema?.adminUid,
-    configSistema?.adminEmail,
-    user?.uid,
-    user?.email,
   ]);
 
   useEffect(() => {
@@ -577,9 +435,6 @@ const App = () => {
     configSistema?.metodosLoginHabilitados?.emailSenha !== false;
   const possuiMetodoLoginHabilitado =
     loginComGoogleHabilitado || loginComTwitterHabilitado || loginComEmailSenhaHabilitado;
-  const mostrarAvisoLoginRestritoOnePage = Boolean(
-    avisoLoginRestritoOnePage && acessoPublicoSemLogin && isLoginUiRoute && !user
-  );
   const uidAdminProjetoConfigurado = String(
     configSistema?.adminUid || localStorage.getItem("systemAdminUid") || ""
   ).trim();
@@ -629,7 +484,7 @@ const App = () => {
     if (usuarioEhAdminProjeto) {
       return <Navigate to="/menu/admin" replace />;
     }
-    return <div className="loader">Encerrando sessao...</div>;
+    return <Navigate to="/home" replace />;
   }
 
   return (
@@ -681,17 +536,6 @@ const App = () => {
         ) : (
           <div id="login" className={`containerLogin ${mostrarLogin ? "fadeIn" : ""}`}>
             <Navegacoes />
-            {mostrarAvisoLoginRestritoOnePage ? (
-              <p
-                style={{
-                  margin: "0 auto 12px auto",
-                  maxWidth: 460,
-                  textAlign: "center",
-                }}
-              >
-                {avisoLoginRestritoOnePage}
-              </p>
-            ) : null}
             {erroAcessoGerenciador ? (
               <p
                 style={{
