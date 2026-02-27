@@ -206,12 +206,7 @@ export default function EspacoPage() {
     !!currentUid &&
     Array.isArray(espacoAtual?.coCriadoresUids) &&
     espacoAtual.coCriadoresUids.includes(currentUid);
-  const isSkinOwner =
-    !!currentUid &&
-    !!skinIdAtual &&
-    !!espacoAtual?.skinOwner &&
-    espacoAtual.skinOwner === skinIdAtual;
-  const podeGerenciar = isOwner || isCoCriador || isSkinOwner;
+  const podeGerenciar = isOwner || isCoCriador;
   const visibilidadeEspaco = espacoAtual?.visibilidade || "publico";
 
   const idsAssinantePossiveis = useMemo(

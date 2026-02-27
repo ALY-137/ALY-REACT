@@ -1,5 +1,6 @@
 const DEFAULT_FUNCTIONS_REGION = "us-central1";
 const LOCAL_STORAGE_PROJECT_KEY = "firebaseProjectTarget";
+const LOCAL_STORAGE_PROJECT_ALIASES_KEY = "firebaseProjectAliases";
 const LOCAL_QUERY_PARAM = "firebaseProject";
 const FIREBASE_ENV_PREFIX = "REACT_APP_FIREBASE_";
 const FIREBASE_PROJECT_KEYS_ENV = "REACT_APP_FIREBASE_PROJECT_KEYS";
@@ -165,6 +166,75 @@ function safeReadLocalProjectFromStorage() {
   }
 }
 
+function safeReadProjectAliasesFromStorage() {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_PROJECT_ALIASES_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {};
+    }
+    return parsed;
+  } catch {
+    return {};
+  }
+}
+
+function safeWriteProjectAliasToStorage(aliasKey, projectKey) {
+  if (typeof window === "undefined") return;
+  const alias = String(aliasKey || "").trim().toLowerCase();
+  const target = String(projectKey || "").trim();
+  if (!alias || !target) return;
+
+  try {
+    const existentes = safeReadProjectAliasesFromStorage();
+    const atualizados = {
+      ...existentes,
+      [alias]: target,
+    };
+    localStorage.setItem(
+      LOCAL_STORAGE_PROJECT_ALIASES_KEY,
+      JSON.stringify(atualizados)
+    );
+  } catch {
+    // Ignora erros de storage.
+  }
+}
+
+function resolveProjectKeyByProjectId(projects, projectId) {
+  const normalizedProjectId = String(projectId || "").trim().toLowerCase();
+  if (!normalizedProjectId) return "";
+
+  const match = Object.values(projects).find(
+    (project) =>
+      String(project?.config?.projectId || "").trim().toLowerCase() === normalizedProjectId
+  );
+
+  return match?.key || "";
+}
+
+function getOnepageRuntimeProjectKey(projects) {
+  const keyConfigurada = String(
+    process.env.REACT_APP_FIREBASE_ALY_ONEPAGES_RUNTIME_KEY || ""
+  ).trim();
+  if (keyConfigurada && projects[keyConfigurada]) {
+    return keyConfigurada;
+  }
+
+  const byProjectId = resolveProjectKeyByProjectId(
+    projects,
+    "aly-onepages-runtime"
+  );
+  return byProjectId || "";
+}
+
+function isProbablySystemKey(value) {
+  const normalized = String(value || "").trim();
+  if (!normalized) return false;
+  return /^[a-z0-9][a-z0-9-_]{1,79}$/i.test(normalized);
+}
+
 function safeWriteLocalProjectToStorage(projectKey) {
   if (typeof window === "undefined") return;
   try {
@@ -193,9 +263,48 @@ function resolveRequestedProjectKey(projects, hostProjectMap) {
       return queryTarget;
     }
 
+    if (queryTarget) {
+      const byProjectId = resolveProjectKeyByProjectId(projects, queryTarget);
+      if (byProjectId) {
+        safeWriteLocalProjectToStorage(byProjectId);
+        return byProjectId;
+      }
+
+      const aliases = safeReadProjectAliasesFromStorage();
+      const aliasValue =
+        aliases[queryTarget] || aliases[queryTarget.toLowerCase()] || "";
+      if (aliasValue && projects[aliasValue]) {
+        safeWriteLocalProjectToStorage(aliasValue);
+        return aliasValue;
+      }
+
+      if (aliasValue) {
+        const aliasByProjectId = resolveProjectKeyByProjectId(projects, aliasValue);
+        if (aliasByProjectId) {
+          safeWriteLocalProjectToStorage(aliasByProjectId);
+          return aliasByProjectId;
+        }
+      }
+
+      // Fallback para onepage: permite usar ?firebaseProject=<systemKey>
+      // mesmo quando o runtime real e compartilhado.
+      const onepageRuntimeKey = getOnepageRuntimeProjectKey(projects);
+      if (onepageRuntimeKey && isProbablySystemKey(queryTarget)) {
+        safeWriteProjectAliasToStorage(queryTarget, onepageRuntimeKey);
+        safeWriteLocalProjectToStorage(onepageRuntimeKey);
+        return onepageRuntimeKey;
+      }
+    }
+
     const storageTarget = safeReadLocalProjectFromStorage();
     if (storageTarget && projects[storageTarget]) {
       return storageTarget;
+    }
+    if (storageTarget) {
+      const storageByProjectId = resolveProjectKeyByProjectId(projects, storageTarget);
+      if (storageByProjectId) {
+        return storageByProjectId;
+      }
     }
   }
 

@@ -39,11 +39,11 @@ const SHARED_BUCKET_NAME =
   sanitizeString(process.env.SHARED_STORAGE_BUCKET) ||
   `${sanitizeString(process.env.GCLOUD_PROJECT) || "teste-aa015"}.appspot.com`;
 const SHARED_BUCKET_ALLOWED_AUTH_PROJECTS = [
-  sanitizeString(process.env.GCLOUD_PROJECT),
-  ...sanitizeString(process.env.SHARED_BUCKET_AUTH_PROJECTS)
-    .split(",")
-    .map((item) => sanitizeString(item)),
+  sanitizeString(process.env.GCLOUD_PROJECT) || "teste-aa015",
+  ...parseCsv(process.env.SHARED_BUCKET_AUTH_PROJECTS),
   "obeyon-project",
+  "aly-onepages-runtime",
+  "gerenciador-aly",
 ].filter(Boolean);
 const UNIQUE_SHARED_BUCKET_AUTH_PROJECTS = [...new Set(SHARED_BUCKET_ALLOWED_AUTH_PROJECTS)];
 const sharedVerifierApps = new Map();

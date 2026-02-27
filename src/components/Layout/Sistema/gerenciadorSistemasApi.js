@@ -64,6 +64,52 @@ function toEnvPrefix(systemKey) {
   return normalizeText(systemKey).replace(/[^a-zA-Z0-9]+/g, "_").toUpperCase();
 }
 
+function getOnepageRuntimeConfigFromEnv() {
+  const apiKey = normalizeText(process.env.REACT_APP_FIREBASE_ALY_ONEPAGES_RUNTIME_API_KEY);
+  const authDomain = normalizeText(
+    process.env.REACT_APP_FIREBASE_ALY_ONEPAGES_RUNTIME_AUTH_DOMAIN
+  );
+  const projectId = normalizeText(
+    process.env.REACT_APP_FIREBASE_ALY_ONEPAGES_RUNTIME_PROJECT_ID
+  );
+  const storageBucket = normalizeText(
+    process.env.REACT_APP_FIREBASE_ALY_ONEPAGES_RUNTIME_STORAGE_BUCKET
+  );
+  const messagingSenderId = normalizeText(
+    process.env.REACT_APP_FIREBASE_ALY_ONEPAGES_RUNTIME_MESSAGING_SENDER_ID
+  );
+  const appId = normalizeText(process.env.REACT_APP_FIREBASE_ALY_ONEPAGES_RUNTIME_APP_ID);
+  const databaseURL = normalizeText(
+    process.env.REACT_APP_FIREBASE_ALY_ONEPAGES_RUNTIME_DATABASE_URL
+  );
+  const functionsRegion = normalizeText(
+    process.env.REACT_APP_FIREBASE_ALY_ONEPAGES_RUNTIME_FUNCTIONS_REGION || "us-central1"
+  );
+
+  const hasRequired =
+    !!apiKey &&
+    !!authDomain &&
+    !!projectId &&
+    !!storageBucket &&
+    !!messagingSenderId &&
+    !!appId;
+
+  if (!hasRequired) {
+    return null;
+  }
+
+  return {
+    apiKey,
+    authDomain,
+    projectId,
+    storageBucket,
+    messagingSenderId,
+    appId,
+    databaseURL,
+    functionsRegion,
+  };
+}
+
 function buildManagerConfigFromEnv() {
   const apiKey = normalizeText(process.env.REACT_APP_SYSTEM_MANAGER_API_KEY);
   const authDomain = normalizeText(process.env.REACT_APP_SYSTEM_MANAGER_AUTH_DOMAIN);
@@ -280,6 +326,7 @@ export async function listarSistemasNoGerenciador() {
           sourceCollection: collectionName,
           systemKey: normalizeText(data.systemKey || docItem.id),
           nomeProjeto: normalizeText(data.nomeProjeto || data.systemName || docItem.id),
+          tipoProjeto: normalizeText(data.tipoProjeto || "multipage").toLowerCase(),
           firebaseProjectId: normalizeText(data.firebaseProjectId),
           domains: Array.isArray(data.domains)
             ? data.domains.map((d) => normalizeHost(d)).filter(Boolean)
@@ -325,6 +372,7 @@ export async function criarSistemaNoGerenciador({
   nomeProjeto = "",
   systemKey = "",
   domains = [],
+  tipoProjeto = "multipage",
   firebaseConfig = {},
   criadoPorUid = null,
 }) {
@@ -335,21 +383,32 @@ export async function criarSistemaNoGerenciador({
 
   const nomeNormalizado = normalizeText(nomeProjeto);
   const keyNormalizada = normalizeSystemKey(systemKey || nomeNormalizado);
+  const tipoProjetoNormalizado =
+    normalizeText(tipoProjeto).toLowerCase() === "onepage" ? "onepage" : "multipage";
   if (!keyNormalizada) {
     throw new Error("Nome/chave do projeto invalido.");
   }
 
   const domainsNorm = normalizeList(domains).map((host) => normalizeHost(host)).filter(Boolean);
-  const payloadFirebase = {
-    apiKey: normalizeText(firebaseConfig.apiKey),
-    authDomain: normalizeText(firebaseConfig.authDomain),
-    projectId: normalizeText(firebaseConfig.projectId),
-    storageBucket: normalizeText(firebaseConfig.storageBucket),
-    messagingSenderId: normalizeText(firebaseConfig.messagingSenderId),
-    appId: normalizeText(firebaseConfig.appId),
-    databaseURL: normalizeText(firebaseConfig.databaseURL),
-    functionsRegion: normalizeText(firebaseConfig.functionsRegion || "us-central1"),
-  };
+  const payloadFirebase =
+    tipoProjetoNormalizado === "onepage"
+      ? getOnepageRuntimeConfigFromEnv()
+      : {
+          apiKey: normalizeText(firebaseConfig.apiKey),
+          authDomain: normalizeText(firebaseConfig.authDomain),
+          projectId: normalizeText(firebaseConfig.projectId),
+          storageBucket: normalizeText(firebaseConfig.storageBucket),
+          messagingSenderId: normalizeText(firebaseConfig.messagingSenderId),
+          appId: normalizeText(firebaseConfig.appId),
+          databaseURL: normalizeText(firebaseConfig.databaseURL),
+          functionsRegion: normalizeText(firebaseConfig.functionsRegion || "us-central1"),
+        };
+
+  if (!payloadFirebase) {
+    throw new Error(
+      "Runtime onepage nao configurado no .env (REACT_APP_FIREBASE_ALY_ONEPAGES_RUNTIME_*)."
+    );
+  }
 
   const obrigatorios = [
     payloadFirebase.apiKey,
@@ -376,6 +435,12 @@ export async function criarSistemaNoGerenciador({
     loginPresetId: "manual",
     exibirTituloSistemaNoLogin: true,
     textoLogin: "EMBARQUE COM O GOOGLE",
+    ...(tipoProjetoNormalizado === "onepage"
+      ? {
+          tipoExperiencia: "onepage",
+          modoAcessoProjeto: "publico_sem_login",
+        }
+      : {}),
   };
 
   await setDoc(
@@ -383,6 +448,7 @@ export async function criarSistemaNoGerenciador({
     {
       systemKey: keyNormalizada,
       nomeProjeto: nomeNormalizado || keyNormalizada,
+      tipoProjeto: tipoProjetoNormalizado,
       firebaseProjectId: payloadFirebase.projectId,
       domains: domainsNorm,
       firebaseRuntimeConfig: payloadFirebase,
@@ -397,6 +463,7 @@ export async function criarSistemaNoGerenciador({
   return {
     systemKey: keyNormalizada,
     nomeProjeto: nomeNormalizado || keyNormalizada,
+    tipoProjeto: tipoProjetoNormalizado,
     domains: domainsNorm,
     firebaseRuntimeConfig: payloadFirebase,
     configSistema: configSistemaInicial,

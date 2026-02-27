@@ -21,6 +21,7 @@ import FirebaseProjectBadge from "../Geral/FirebaseProjectBadge";
 
 function Menu({ menuOpen }) {
   const { user, loading } = useAuth();
+  const usuarioAuthAtual = user || auth.currentUser || null;
 
   const [backAction, setBackAction] = useState(() => closeMenu);
   const [backText, setBackText] = useState("VOLTAR");
@@ -37,7 +38,7 @@ function Menu({ menuOpen }) {
   const { userId: menuUserId, contactId } = useParams();
   const isManagerProject = activeFirebaseProjectKey === "gerenciador-aly";
 
-  const skinLogadoUser = localStorage.getItem("skinLogadoUser");
+  const skinLogadoUserStorage = localStorage.getItem("skinLogadoUser");
   const userIdCache = localStorage.getItem("userId");
   const modoAcessoProjeto = configSistema?.modoAcessoProjeto || "privado_com_login";
   const tipoExperiencia = configSistema?.tipoExperiencia || "multipage";
@@ -47,12 +48,15 @@ function Menu({ menuOpen }) {
     modoAcessoProjeto === "publico_sem_login";
   const loginAdminSeparado =
     !isManagerProject && modoAcessoProjeto === "publico_sem_login";
+  const skinLogadoUser = !isManagerProject && !loginAdminSeparado
+    ? (skinLogadoUserStorage || String(menuUserId || "").trim())
+    : skinLogadoUserStorage;
   const exigeSkinAtiva = !isManagerProject && !loginAdminSeparado;
   const aguardandoAuthInicial =
-    loading && !user && !auth.currentUser && (isManagerProject || !userIdCache);
+    loading && !usuarioAuthAtual && (isManagerProject || !userIdCache);
   const temUsuarioAutenticado = isManagerProject
-    ? Boolean(user || auth.currentUser)
-    : Boolean(user || auth.currentUser || userIdCache);
+    ? Boolean(usuarioAuthAtual)
+    : Boolean(usuarioAuthAtual || userIdCache);
   const menuTargetUser = isManagerProject
     ? (menuUserId || "gerenciador").trim()
     : loginAdminSeparado
@@ -73,20 +77,22 @@ function Menu({ menuOpen }) {
   )
     .trim()
     .toLowerCase();
-  const emailUsuarioAtual = String(user?.email || "")
+  const emailUsuarioAtual = String(usuarioAuthAtual?.email || "")
     .trim()
     .toLowerCase();
   const adminProjetoConfigurado = Boolean(
     adminUidProjetoConfigurado || adminEmailProjetoConfigurado
   );
   const usuarioEhAdminProjeto = Boolean(
-    user?.uid &&
+    usuarioAuthAtual?.uid &&
       (
-        (adminUidProjetoConfigurado && user.uid === adminUidProjetoConfigurado) ||
+        (adminUidProjetoConfigurado &&
+          usuarioAuthAtual.uid === adminUidProjetoConfigurado) ||
         (adminEmailProjetoConfigurado &&
           emailUsuarioAtual === adminEmailProjetoConfigurado) ||
         (!adminProjetoConfigurado &&
-          ((loginAdminSeparado && Boolean(user?.uid)) || seforAdm(user)))
+          ((loginAdminSeparado && Boolean(usuarioAuthAtual?.uid)) ||
+            seforAdm(usuarioAuthAtual)))
       )
   );
   const limiteSkinsPorUsuario = String(
@@ -114,14 +120,14 @@ function Menu({ menuOpen }) {
     .trim()
     .toLowerCase();
   const usuarioEhAdminGerenciador = Boolean(
-    user?.uid &&
+    usuarioAuthAtual?.uid &&
       ((adminUidGerenciadorConfigurado &&
-        user.uid === adminUidGerenciadorConfigurado) ||
+        usuarioAuthAtual.uid === adminUidGerenciadorConfigurado) ||
         (adminEmailGerenciadorConfigurado &&
           emailUsuarioAtual === adminEmailGerenciadorConfigurado) ||
         (!adminUidGerenciadorConfigurado &&
           !adminEmailGerenciadorConfigurado &&
-          seforAdm(user)))
+          seforAdm(usuarioAuthAtual)))
   );
   const semAutenticacao = !temUsuarioAutenticado;
   const semSkinObrigatoria = exigeSkinAtiva && !skinLogadoUser;
@@ -284,6 +290,17 @@ function Menu({ menuOpen }) {
   }, []);
 
   useEffect(() => {
+    if (isManagerProject || loginAdminSeparado) return;
+    if (!skinLogadoUser) return;
+    if (skinLogadoUserStorage === skinLogadoUser) return;
+
+    localStorage.setItem("skinLogadoUser", skinLogadoUser);
+    if (!localStorage.getItem("targetUsername")) {
+      localStorage.setItem("targetUsername", skinLogadoUser);
+    }
+  }, [isManagerProject, loginAdminSeparado, skinLogadoUser, skinLogadoUserStorage]);
+
+  useEffect(() => {
     if (isManagerProject) return;
     if (!chatHabilitado) {
       const estaEmRotasChat = location.pathname.includes("/contatos");
@@ -402,6 +419,7 @@ function Menu({ menuOpen }) {
   ]);
 
   useEffect(() => {
+    if (!configSistemaPronta) return;
     if (aguardandoAuthInicial) return;
     if (semPermissaoAdminGerenciador) return;
     if (!semSessaoValida) return;
@@ -412,6 +430,7 @@ function Menu({ menuOpen }) {
     aguardandoAuthInicial,
     semSessaoValida,
     semPermissaoAdminGerenciador,
+    configSistemaPronta,
     location.pathname,
     rotaLoginProjeto,
     navigate,

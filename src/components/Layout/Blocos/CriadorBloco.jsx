@@ -147,14 +147,7 @@ export default function CriadorBloco({ espacoAtual, skinIdAtual, onCreate }) {
     !!user?.uid &&
     Array.isArray(espacoAtual?.coCriadoresUids) &&
     espacoAtual.coCriadoresUids.includes(user.uid);
-  const isCoCriadorPorSkin =
-    activeSkinId &&
-    Array.isArray(espacoAtual?.coCriadoresSkins) &&
-    espacoAtual.coCriadoresSkins.includes(activeSkinId);
-  const fallbackSkinOwner =
-    !!activeSkinId && espacoAtual?.skinOwner === activeSkinId;
-
-  const podeCriar = isOwner || isCoCriador || isCoCriadorPorSkin || fallbackSkinOwner;
+  const podeCriar = isOwner || isCoCriador;
 
   useEffect(() => {
     let cancelado = false;

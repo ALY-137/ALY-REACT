@@ -498,9 +498,19 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
       alert("Acesso ao menu restrito ao administrador configurado neste projeto.");
       return;
     }
-    setMenuOpen(!menuOpen);
     const usernameMenu = skinLogadoUser || username || targetUsernameInicial;
-    const destinoMenu = onePagePublicaAtiva ? "/menu/admin" : `/menu/${usernameMenu}`;
+    if (!onePagePublicaAtiva && usernameMenu) {
+      localStorage.setItem("skinLogadoUser", usernameMenu);
+      localStorage.setItem("targetUsername", usernameMenu);
+    }
+    if (!onePagePublicaAtiva && !usernameMenu) {
+      alert("Nao foi possivel identificar a skin ativa para abrir o menu.");
+      return;
+    }
+    setMenuOpen(!menuOpen);
+    const destinoMenu = onePagePublicaAtiva
+      ? "/menu/admin"
+      : `/menu/${usernameMenu}`;
     const destinoFechar =
       onePagePublicaAtiva || !usernameMenu ? "/" : `/${usernameMenu}/home`;
     navigate(menuOpen ? destinoFechar : destinoMenu);

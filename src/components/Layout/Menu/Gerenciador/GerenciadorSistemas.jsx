@@ -14,6 +14,7 @@ import PropriedadesSistema from "../PropriedadesSistema/PropriedadesSistema";
 const VERCEL_ENV_AUTOMATION_ENABLED =
   String(process.env.REACT_APP_VERCEL_ENV_AUTOMATION || "").toLowerCase() === "true";
 const SYSTEM_KEYS_OCULTAS_STORAGE_KEY = "gerenciadorProjetos.systemKeysOcultas";
+const FIREBASE_PROJECT_ALIASES_STORAGE_KEY = "firebaseProjectAliases";
 
 function prefixoEnvPorSystemKey(systemKey = "") {
   return String(systemKey || "").replace(/[^a-zA-Z0-9]+/g, "_").toUpperCase();
@@ -68,6 +69,7 @@ function montarChecklistRemocaoEnvVercel(systemKey = "") {
 const FORM_INICIAL = {
   nomeProjeto: "",
   systemKey: "",
+  tipoProjeto: "multipage",
   domains: "",
   apiKey: "",
   authDomain: "",
@@ -119,9 +121,70 @@ function nomeProjetoFallback(systemKey = "") {
   return NOMES_FIXOS_PROJETOS[key] || key.toUpperCase();
 }
 
+function resolverFirebaseTargetPorProjeto(projeto) {
+  const systemKey = normalizeText(projeto?.systemKey).toLowerCase();
+  const firebaseProjectId = normalizeText(projeto?.firebaseProjectId).toLowerCase();
+  const projetosConfigurados = listConfiguredFirebaseProjects();
+
+  const matchByKey = projetosConfigurados.find(
+    (item) => normalizeText(item?.key).toLowerCase() === systemKey
+  );
+  if (matchByKey?.key) {
+    return normalizeText(matchByKey.key);
+  }
+
+  const matchByProjectId = projetosConfigurados.find(
+    (item) => normalizeText(item?.projectId).toLowerCase() === firebaseProjectId
+  );
+  if (matchByProjectId?.key) {
+    return normalizeText(matchByProjectId.key);
+  }
+
+  return systemKey;
+}
+
+function validarFormularioCriacao(form, onepageRuntimeProjectId) {
+  const nomeProjeto = normalizeText(form?.nomeProjeto);
+  if (!nomeProjeto) {
+    return "Informe o nome do projeto.";
+  }
+
+  const tipoProjeto = normalizeText(form?.tipoProjeto).toLowerCase();
+  if (tipoProjeto === "onepage") {
+    if (!normalizeText(onepageRuntimeProjectId)) {
+      return "Runtime onepage nao configurado no .env.local.";
+    }
+    return "";
+  }
+
+  const camposObrigatorios = [
+    { key: "apiKey", label: "API Key" },
+    { key: "authDomain", label: "Auth Domain" },
+    { key: "projectId", label: "Project ID" },
+    { key: "storageBucket", label: "Storage Bucket" },
+    { key: "messagingSenderId", label: "Messaging Sender ID" },
+    { key: "appId", label: "App ID" },
+  ];
+
+  const faltando = camposObrigatorios
+    .filter((campo) => !normalizeText(form?.[campo.key]))
+    .map((campo) => campo.label);
+
+  if (faltando.length > 0) {
+    return `Preencha os campos obrigatorios: ${faltando.join(", ")}.`;
+  }
+
+  return "";
+}
+
 function projetoComCamposPadrao(projeto = {}) {
   const keyNormalizada = normalizeText(projeto.systemKey || projeto.key || projeto.id).toLowerCase();
   const nomeProjeto = normalizeText(projeto.nomeProjeto || nomeProjetoFallback(keyNormalizada));
+  const tipoProjeto = normalizeText(
+    projeto.tipoProjeto || (projeto.configSistema?.tipoExperiencia === "onepage" ? "onepage" : "multipage")
+  )
+    .toLowerCase()
+    .trim();
   const domainsNormalizados = Array.isArray(projeto.domains)
     ? projeto.domains.map((domain) => normalizeHost(domain)).filter(Boolean)
     : [];
@@ -131,6 +194,7 @@ function projetoComCamposPadrao(projeto = {}) {
     sourceCollection: projeto.sourceCollection || "systems",
     systemKey: keyNormalizada,
     nomeProjeto,
+    tipoProjeto: tipoProjeto === "onepage" ? "onepage" : "multipage",
     firebaseProjectId: normalizeText(projeto.firebaseProjectId || projeto.projectId),
     domains: domainsNormalizados,
     firebaseRuntimeConfig:
@@ -218,6 +282,9 @@ function GerenciadorProjetos() {
   const [systemKeysOcultas, setSystemKeysOcultas] = useState(() =>
     carregarSystemKeysOcultasStorage()
   );
+  const onepageRuntimeProjectId = normalizeText(
+    process.env.REACT_APP_FIREBASE_ALY_ONEPAGES_RUNTIME_PROJECT_ID
+  );
 
   const projetosOrdenados = useMemo(
     () => [...projetos].sort((a, b) => a.systemKey.localeCompare(b.systemKey)),
@@ -264,6 +331,25 @@ function GerenciadorProjetos() {
     }
   }, [systemKeysOcultas]);
 
+  useEffect(() => {
+    const aliases = {};
+    projetos.forEach((projeto) => {
+      const key = normalizeText(projeto?.systemKey).toLowerCase();
+      const target = resolverFirebaseTargetPorProjeto(projeto);
+      if (!key || !target) return;
+      aliases[key] = target;
+    });
+
+    try {
+      localStorage.setItem(
+        FIREBASE_PROJECT_ALIASES_STORAGE_KEY,
+        JSON.stringify(aliases)
+      );
+    } catch {
+      // Segue sem persistencia de aliases.
+    }
+  }, [projetos]);
+
   const atualizarCampo = (campo, valor) => {
     setForm((prev) => ({
       ...prev,
@@ -275,6 +361,13 @@ function GerenciadorProjetos() {
     event.preventDefault();
     setErro("");
     setMensagem("");
+
+    const erroValidacao = validarFormularioCriacao(form, onepageRuntimeProjectId);
+    if (erroValidacao) {
+      setErro(erroValidacao);
+      return;
+    }
+
     setSalvando(true);
     setEnvGerada("");
     setChecklistRemocaoEnv("");
@@ -283,17 +376,21 @@ function GerenciadorProjetos() {
       const criado = await criarProjetoNoGerenciador({
         nomeProjeto: form.nomeProjeto,
         systemKey: form.systemKey,
+        tipoProjeto: form.tipoProjeto,
         domains: form.domains,
-        firebaseConfig: {
-          apiKey: form.apiKey,
-          authDomain: form.authDomain,
-          projectId: form.projectId,
-          storageBucket: form.storageBucket,
-          messagingSenderId: form.messagingSenderId,
-          appId: form.appId,
-          databaseURL: form.databaseURL,
-          functionsRegion: form.functionsRegion,
-        },
+        firebaseConfig:
+          form.tipoProjeto === "onepage"
+            ? {}
+            : {
+                apiKey: form.apiKey,
+                authDomain: form.authDomain,
+                projectId: form.projectId,
+                storageBucket: form.storageBucket,
+                messagingSenderId: form.messagingSenderId,
+                appId: form.appId,
+                databaseURL: form.databaseURL,
+                functionsRegion: form.functionsRegion,
+              },
         criadoPorUid: user?.uid || null,
       });
 
@@ -432,7 +529,8 @@ function GerenciadorProjetos() {
 
   const abrirLoginDoProjeto = (projeto) => {
     const systemKey = normalizeText(projeto?.systemKey).toLowerCase();
-    if (!systemKey) return;
+    const firebaseTarget = resolverFirebaseTargetPorProjeto(projeto);
+    if (!systemKey || !firebaseTarget) return;
 
     const hostAtual = String(window.location.hostname || "").toLowerCase();
     const executandoNoLocalhost =
@@ -442,13 +540,13 @@ function GerenciadorProjetos() {
       : "";
 
     try {
-      localStorage.setItem("firebaseProjectTarget", systemKey);
+      localStorage.setItem("firebaseProjectTarget", firebaseTarget);
     } catch {
       // Segue mesmo sem storage.
     }
 
     if (executandoNoLocalhost) {
-      window.location.assign(`/?firebaseProject=${encodeURIComponent(systemKey)}`);
+      window.location.assign(`/?firebaseProject=${encodeURIComponent(firebaseTarget)}`);
       return;
     }
 
@@ -457,7 +555,7 @@ function GerenciadorProjetos() {
       return;
     }
 
-    window.location.assign(`/?firebaseProject=${encodeURIComponent(systemKey)}`);
+    window.location.assign(`/?firebaseProject=${encodeURIComponent(firebaseTarget)}`);
   };
 
   const abrirGerenciadorDoProjeto = (projeto) => {
@@ -496,9 +594,12 @@ function GerenciadorProjetos() {
       {mostrarCriacao ? (
         <form
           onSubmit={criarProjeto}
+          noValidate
           style={{ border: "1px solid #999", borderRadius: 8, padding: 12, marginBottom: 14 }}
         >
           <h3 style={{ marginTop: 0 }}>Novo projeto</h3>
+          {erro ? <p style={{ marginTop: 0 }}>{erro}</p> : null}
+          {mensagem ? <p style={{ marginTop: 0 }}>{mensagem}</p> : null}
 
           <label htmlFor="nomeProjeto">Nome do projeto</label>
           <input
@@ -522,6 +623,25 @@ function GerenciadorProjetos() {
             style={{ width: "100%", marginTop: 6 }}
           />
 
+          <label htmlFor="tipoProjeto" style={{ display: "block", marginTop: 8 }}>
+            Tipo do projeto
+          </label>
+          <select
+            id="tipoProjeto"
+            value={form.tipoProjeto}
+            onChange={(event) => atualizarCampo("tipoProjeto", event.target.value)}
+            style={{ width: "100%", marginTop: 6 }}
+          >
+            <option value="multipage">Multipage</option>
+            <option value="onepage">Onepage</option>
+          </select>
+
+          {form.tipoProjeto === "onepage" ? (
+            <p style={{ marginTop: 8, opacity: 0.8 }}>
+              {`Onepage usa runtime padrao: ${onepageRuntimeProjectId || "nao configurado"}.`}
+            </p>
+          ) : null}
+
           <label htmlFor="domains" style={{ display: "block", marginTop: 8 }}>
             Dominios (separados por virgula)
           </label>
@@ -534,99 +654,103 @@ function GerenciadorProjetos() {
             style={{ width: "100%", marginTop: 6 }}
           />
 
-          <h4 style={{ marginTop: 12, marginBottom: 8 }}>Credenciais Firebase</h4>
+          {form.tipoProjeto !== "onepage" ? (
+            <>
+              <h4 style={{ marginTop: 12, marginBottom: 8 }}>Credenciais Firebase</h4>
 
-          <label htmlFor="apiKey">API Key</label>
-          <input
-            id="apiKey"
-            type="text"
-            required
-            value={form.apiKey}
-            onChange={(event) => atualizarCampo("apiKey", event.target.value)}
-            style={{ width: "100%", marginTop: 6 }}
-          />
+              <label htmlFor="apiKey">API Key</label>
+              <input
+                id="apiKey"
+                type="text"
+                required
+                value={form.apiKey}
+                onChange={(event) => atualizarCampo("apiKey", event.target.value)}
+                style={{ width: "100%", marginTop: 6 }}
+              />
 
-          <label htmlFor="authDomain" style={{ display: "block", marginTop: 8 }}>
-            Auth Domain
-          </label>
-          <input
-            id="authDomain"
-            type="text"
-            required
-            value={form.authDomain}
-            onChange={(event) => atualizarCampo("authDomain", event.target.value)}
-            style={{ width: "100%", marginTop: 6 }}
-          />
+              <label htmlFor="authDomain" style={{ display: "block", marginTop: 8 }}>
+                Auth Domain
+              </label>
+              <input
+                id="authDomain"
+                type="text"
+                required
+                value={form.authDomain}
+                onChange={(event) => atualizarCampo("authDomain", event.target.value)}
+                style={{ width: "100%", marginTop: 6 }}
+              />
 
-          <label htmlFor="projectId" style={{ display: "block", marginTop: 8 }}>
-            Project ID
-          </label>
-          <input
-            id="projectId"
-            type="text"
-            required
-            value={form.projectId}
-            onChange={(event) => atualizarCampo("projectId", event.target.value)}
-            style={{ width: "100%", marginTop: 6 }}
-          />
+              <label htmlFor="projectId" style={{ display: "block", marginTop: 8 }}>
+                Project ID
+              </label>
+              <input
+                id="projectId"
+                type="text"
+                required
+                value={form.projectId}
+                onChange={(event) => atualizarCampo("projectId", event.target.value)}
+                style={{ width: "100%", marginTop: 6 }}
+              />
 
-          <label htmlFor="storageBucket" style={{ display: "block", marginTop: 8 }}>
-            Storage Bucket
-          </label>
-          <input
-            id="storageBucket"
-            type="text"
-            required
-            value={form.storageBucket}
-            onChange={(event) => atualizarCampo("storageBucket", event.target.value)}
-            style={{ width: "100%", marginTop: 6 }}
-          />
+              <label htmlFor="storageBucket" style={{ display: "block", marginTop: 8 }}>
+                Storage Bucket
+              </label>
+              <input
+                id="storageBucket"
+                type="text"
+                required
+                value={form.storageBucket}
+                onChange={(event) => atualizarCampo("storageBucket", event.target.value)}
+                style={{ width: "100%", marginTop: 6 }}
+              />
 
-          <label htmlFor="messagingSenderId" style={{ display: "block", marginTop: 8 }}>
-            Messaging Sender ID
-          </label>
-          <input
-            id="messagingSenderId"
-            type="text"
-            required
-            value={form.messagingSenderId}
-            onChange={(event) => atualizarCampo("messagingSenderId", event.target.value)}
-            style={{ width: "100%", marginTop: 6 }}
-          />
+              <label htmlFor="messagingSenderId" style={{ display: "block", marginTop: 8 }}>
+                Messaging Sender ID
+              </label>
+              <input
+                id="messagingSenderId"
+                type="text"
+                required
+                value={form.messagingSenderId}
+                onChange={(event) => atualizarCampo("messagingSenderId", event.target.value)}
+                style={{ width: "100%", marginTop: 6 }}
+              />
 
-          <label htmlFor="appId" style={{ display: "block", marginTop: 8 }}>
-            App ID
-          </label>
-          <input
-            id="appId"
-            type="text"
-            required
-            value={form.appId}
-            onChange={(event) => atualizarCampo("appId", event.target.value)}
-            style={{ width: "100%", marginTop: 6 }}
-          />
+              <label htmlFor="appId" style={{ display: "block", marginTop: 8 }}>
+                App ID
+              </label>
+              <input
+                id="appId"
+                type="text"
+                required
+                value={form.appId}
+                onChange={(event) => atualizarCampo("appId", event.target.value)}
+                style={{ width: "100%", marginTop: 6 }}
+              />
 
-          <label htmlFor="databaseURL" style={{ display: "block", marginTop: 8 }}>
-            Database URL (opcional)
-          </label>
-          <input
-            id="databaseURL"
-            type="text"
-            value={form.databaseURL}
-            onChange={(event) => atualizarCampo("databaseURL", event.target.value)}
-            style={{ width: "100%", marginTop: 6 }}
-          />
+              <label htmlFor="databaseURL" style={{ display: "block", marginTop: 8 }}>
+                Database URL (opcional)
+              </label>
+              <input
+                id="databaseURL"
+                type="text"
+                value={form.databaseURL}
+                onChange={(event) => atualizarCampo("databaseURL", event.target.value)}
+                style={{ width: "100%", marginTop: 6 }}
+              />
 
-          <label htmlFor="functionsRegion" style={{ display: "block", marginTop: 8 }}>
-            Functions Region
-          </label>
-          <input
-            id="functionsRegion"
-            type="text"
-            value={form.functionsRegion}
-            onChange={(event) => atualizarCampo("functionsRegion", event.target.value)}
-            style={{ width: "100%", marginTop: 6 }}
-          />
+              <label htmlFor="functionsRegion" style={{ display: "block", marginTop: 8 }}>
+                Functions Region
+              </label>
+              <input
+                id="functionsRegion"
+                type="text"
+                value={form.functionsRegion}
+                onChange={(event) => atualizarCampo("functionsRegion", event.target.value)}
+                style={{ width: "100%", marginTop: 6 }}
+              />
+            </>
+          ) : null}
 
           <div style={{ marginTop: 12 }}>
             <button type="submit" disabled={salvando}>
@@ -657,6 +781,9 @@ function GerenciadorProjetos() {
                 <strong>{projeto.nomeProjeto || projeto.systemKey}</strong>
               </p>
               <p style={{ margin: "6px 0 0 0" }}>Key: {projeto.systemKey}</p>
+              <p style={{ margin: "2px 0 0 0" }}>
+                Tipo: {projeto.tipoProjeto === "onepage" ? "Onepage" : "Multipage"}
+              </p>
               <p style={{ margin: "2px 0 0 0" }}>
                 Firebase Project: {projeto.firebaseProjectId || "-"}
               </p>
