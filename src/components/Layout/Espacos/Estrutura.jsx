@@ -540,7 +540,15 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
       <Navbar pages={espacos} username={username} />
 
       <Suspense fallback={<div>Carregando...</div>}>
-        <Outlet context={{ user, skinIdAtual, espacos }} />
+        <Outlet
+          context={{
+            user,
+            skinIdAtual,
+            espacos,
+            onePagePublicaAtiva,
+            usuarioPodeAbrirMenuOnePage,
+          }}
+        />
       </Suspense>
     </>
   );

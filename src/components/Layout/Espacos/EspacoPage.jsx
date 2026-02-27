@@ -155,7 +155,13 @@ async function gerarPreviewDesfocado(file) {
 export default function EspacoPage() {
   const navigate = useNavigate();
   const { espacoNome } = useParams();
-  const { espacos, skinIdAtual, user } = useOutletContext();
+  const {
+    espacos,
+    skinIdAtual,
+    user,
+    onePagePublicaAtiva: onePagePublicaAtivaContexto = false,
+    usuarioPodeAbrirMenuOnePage = false,
+  } = useOutletContext();
   const [blocos, setBlocos] = useState([]);
   const [erroBlocos, setErroBlocos] = useState("");
   const [isAssinante, setIsAssinante] = useState(false);
@@ -206,7 +212,11 @@ export default function EspacoPage() {
     !!currentUid &&
     Array.isArray(espacoAtual?.coCriadoresUids) &&
     espacoAtual.coCriadoresUids.includes(currentUid);
-  const podeGerenciar = isOwner || isCoCriador;
+  const podeGerenciarPadrao = isOwner || isCoCriador;
+  const onePagePublicaAtivaEfetiva = Boolean(onePagePublicaAtivaContexto || onePagePublicaAtiva);
+  const podeGerenciar = onePagePublicaAtivaEfetiva
+    ? Boolean(usuarioPodeAbrirMenuOnePage)
+    : podeGerenciarPadrao;
   const visibilidadeEspaco = espacoAtual?.visibilidade || "publico";
 
   const idsAssinantePossiveis = useMemo(
@@ -1243,6 +1253,7 @@ export default function EspacoPage() {
           onCreate={adicionarBloco}
           espacoAtual={espacoAtual}
           skinIdAtual={skinIdAtual}
+          podeCriarOverride={podeGerenciar}
         />
       )}
 

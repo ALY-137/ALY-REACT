@@ -114,7 +114,12 @@ const normalizarCardsDoBloco = (cards = []) => {
     );
 };
 
-export default function CriadorBloco({ espacoAtual, skinIdAtual, onCreate }) {
+export default function CriadorBloco({
+  espacoAtual,
+  skinIdAtual,
+  onCreate,
+  podeCriarOverride = null,
+}) {
   const { user, loading } = useAuth();
   const [files, setFiles] = useState([]);
   const [tipoConteudo, setTipoConteudo] = useState("imagem");
@@ -147,7 +152,9 @@ export default function CriadorBloco({ espacoAtual, skinIdAtual, onCreate }) {
     !!user?.uid &&
     Array.isArray(espacoAtual?.coCriadoresUids) &&
     espacoAtual.coCriadoresUids.includes(user.uid);
-  const podeCriar = isOwner || isCoCriador;
+  const podeCriarPadrao = isOwner || isCoCriador;
+  const podeCriar =
+    typeof podeCriarOverride === "boolean" ? podeCriarOverride : podeCriarPadrao;
 
   useEffect(() => {
     let cancelado = false;
@@ -348,6 +355,11 @@ export default function CriadorBloco({ espacoAtual, skinIdAtual, onCreate }) {
   };
 
   async function criarBloco() {
+    if (!podeCriar) {
+      alert("Voce nao tem permissao para criar blocos neste projeto.");
+      return;
+    }
+
     if (!espacoId) return alert(`${nomeEspacoSingularCapitalizado} sem id valido.`);
     if (!ownerUserId) return alert(`${nomeEspacoSingularCapitalizado} sem ownerUserId valido.`);
     if (!blocoEhCards && !files.length) return alert("Selecione ao menos uma imagem");
