@@ -230,6 +230,19 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
           configSistemaProjeto?.tipoExperiencia === "onepage" &&
           configSistemaProjeto?.modoAcessoProjeto === "publico_sem_login";
         const adminUidProjeto = String(configSistemaProjeto?.adminUid || "").trim();
+        const adminEmailProjeto = String(configSistemaProjeto?.adminEmail || "")
+          .trim()
+          .toLowerCase();
+        const emailUsuarioAtual = String(user?.email || "")
+          .trim()
+          .toLowerCase();
+        const adminProjetoConfigurado = Boolean(adminUidProjeto || adminEmailProjeto);
+        const usuarioEhAdminOnePage = Boolean(
+          user?.uid &&
+            ((adminUidProjeto && user.uid === adminUidProjeto) ||
+              (adminEmailProjeto && emailUsuarioAtual === adminEmailProjeto) ||
+              (!adminProjetoConfigurado && seforAdm(user)))
+        );
 
         if (onePagePublicaProjeto) {
           targetUsername = "";
@@ -237,7 +250,32 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
 
         let skinDocResolvido = null;
         if (!targetUsername && onePagePublicaProjeto) {
-          if (user?.uid) {
+          if (adminUidProjeto) {
+            const skinAdminQuery = query(
+              collection(db, "users", adminUidProjeto, "skins"),
+              limit(1)
+            );
+            let skinAdminSnap = await getDocs(skinAdminQuery);
+
+            if (
+              skinAdminSnap.empty &&
+              user?.uid &&
+              user.uid === adminUidProjeto
+            ) {
+              const temaPadraoSkin = obterTemaSkinPadrao(configSistemaProjeto?.temaPadraoSistema);
+              await criarSkinUnicaOnePage({
+                firebaseUser: user,
+                temaPadraoSkin,
+              });
+              skinAdminSnap = await getDocs(skinAdminQuery);
+            }
+
+            if (!skinAdminSnap.empty) {
+              skinDocResolvido = skinAdminSnap.docs[0];
+            }
+          }
+
+          if (!skinDocResolvido && usuarioEhAdminOnePage && user?.uid) {
             const skinUsuarioQuery = query(
               collection(db, "users", user.uid, "skins"),
               limit(1)
@@ -258,14 +296,15 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
             }
           }
 
-          if (!skinDocResolvido && adminUidProjeto) {
-            const skinAdminQuery = query(
-              collection(db, "users", adminUidProjeto, "skins"),
+          if (!skinDocResolvido) {
+            const skinPublicaQuery = query(
+              collectionGroup(db, "skins"),
+              where("visibilidade", "==", "publico"),
               limit(1)
             );
-            const skinAdminSnap = await getDocs(skinAdminQuery);
-            if (!skinAdminSnap.empty) {
-              skinDocResolvido = skinAdminSnap.docs[0];
+            const skinPublicaSnap = await getDocs(skinPublicaQuery);
+            if (!skinPublicaSnap.empty) {
+              skinDocResolvido = skinPublicaSnap.docs[0];
             }
           }
 
@@ -405,7 +444,10 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
 
         setEspacos(pagesList);
 
-        if (user?.uid === skinData.ownerUserId || (onePagePublicaProjeto && user?.uid)) {
+        if (
+          user?.uid === skinData.ownerUserId ||
+          (onePagePublicaProjeto && usuarioEhAdminOnePage && user?.uid)
+        ) {
           localStorage.setItem("skinIdAtual", skinId);
           localStorage.setItem("skinLogadoUser", targetUsername);
         }
@@ -437,7 +479,22 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
 
         if (err?.code === "permission-denied") {
           if (onePageProjetoAtual) {
-            if (user?.uid) {
+            const adminUidErro = String(configEmErro?.adminUid || "").trim();
+            const adminEmailErro = String(configEmErro?.adminEmail || "")
+              .trim()
+              .toLowerCase();
+            const emailAtualErro = String(user?.email || "")
+              .trim()
+              .toLowerCase();
+            const adminConfiguradoErro = Boolean(adminUidErro || adminEmailErro);
+            const usuarioEhAdminOnePageErro = Boolean(
+              user?.uid &&
+                ((adminUidErro && user.uid === adminUidErro) ||
+                  (adminEmailErro && emailAtualErro === adminEmailErro) ||
+                  (!adminConfiguradoErro && seforAdm(user)))
+            );
+
+            if (usuarioEhAdminOnePageErro) {
               const temaPadraoSkin = obterTemaSkinPadrao(configEmErro?.temaPadraoSistema);
               await criarSkinUnicaOnePage({
                 firebaseUser: user,
@@ -520,7 +577,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
     <>
       <div id="navbar-menu" style={{ textAlign: "center" }}>
         {!user ? (
-          <LoginButton />
+          onePagePublicaAtiva ? null : <LoginButton />
         ) : !onePagePublicaAtiva || usuarioPodeAbrirMenuOnePage ? (
           <p onClick={toggleMenu} style={{ cursor: "pointer" }}>
             ㆔
