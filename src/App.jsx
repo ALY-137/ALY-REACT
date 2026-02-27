@@ -386,9 +386,12 @@ const App = () => {
 
   const isPublicProfileRoute = useMemo(() => {
     if (isManagerProject) return false;
-    if (isAdminLoginRoute) return false;
-    return location.pathname.split("/").length >= 2 && location.pathname !== "/";
-  }, [isManagerProject, isAdminLoginRoute, location.pathname]);
+    const path = String(location.pathname || "").toLowerCase();
+    if (path === "/" || path === "/login") return false;
+    if (path.startsWith("/menu")) return false;
+    if (path.startsWith("/__/")) return false;
+    return path.split("/").length >= 2;
+  }, [isManagerProject, location.pathname]);
 
   const exibindoFluxoSistema =
     !isPublicProfileRoute && (exibirHomePublica || !user || skins.length !== 1);
