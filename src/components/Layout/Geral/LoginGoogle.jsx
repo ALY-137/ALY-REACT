@@ -33,6 +33,11 @@ const isErroAcessoAdmin = (erro) => {
   );
 };
 
+const isAmbienteLocal = () => {
+  const host = String(window.location.hostname || "").toLowerCase();
+  return host === "localhost" || host === "127.0.0.1" || host === "::1";
+};
+
 function LoginGoogle({ onLogin }) {
   const navigate = useNavigate();
 
@@ -103,6 +108,11 @@ function LoginGoogle({ onLogin }) {
 
   const handleLogin = async () => {
     try {
+      if (!isAmbienteLocal()) {
+        await signInWithRedirect(auth, providerGoogle);
+        return;
+      }
+
       const result = await signInWithPopup(auth, providerGoogle);
       await finalizarLogin(result.user);
     } catch (err) {
@@ -125,6 +135,11 @@ function LoginGoogle({ onLogin }) {
         return;
       }
 
+      if (codigo === "auth/operation-not-allowed") {
+        alert("Login com Google nao habilitado no Firebase Authentication deste projeto.");
+        return;
+      }
+
       if (codigo === "auth/network-request-failed") {
         mostrarAjudaRedeAuth();
         return;
@@ -133,6 +148,13 @@ function LoginGoogle({ onLogin }) {
       if (isErroAcessoAdmin(err)) {
         alert("Acesso permitido apenas para administradores.");
         return;
+      }
+
+      try {
+        await signInWithRedirect(auth, providerGoogle);
+        return;
+      } catch {
+        // Cai no log de erro original.
       }
 
       console.error("Erro no login:", err);

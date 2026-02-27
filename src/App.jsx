@@ -477,9 +477,6 @@ const App = () => {
   );
 
   if (!authLoading && user && acessoPublicoSemLogin && isAdminLoginRoute) {
-    if (onePagePublicaAtiva) {
-      return <Navigate to="/" replace />;
-    }
     if (usuarioEhAdminProjeto) {
       return <Navigate to="/menu/admin" replace />;
     }
