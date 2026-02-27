@@ -1,6 +1,7 @@
 const admin = require("firebase-admin");
 const { randomUUID } = require("crypto");
 const { onCall, onRequest, HttpsError } = require("firebase-functions/v2/https");
+const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const {
   beforeUserCreated,
   beforeUserSignedIn,
@@ -76,6 +77,17 @@ function parseCsv(value) {
     .split(",")
     .map((item) => sanitizeString(item))
     .filter(Boolean);
+}
+
+function normalizePushTokens(value) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.map((item) => sanitizeString(item)).filter(Boolean))];
+}
+
+function formatarValorCentavos(precoCentavos) {
+  const valor = Number(precoCentavos);
+  if (!Number.isFinite(valor) || valor <= 0) return "";
+  return `R$ ${(valor / 100).toFixed(2).replace(".", ",")}`;
 }
 
 function normalizeSystemKeyToEnvPrefix(systemKey) {
@@ -435,6 +447,10 @@ function getOwnerIntegrationRef(ownerUserId) {
   return db.doc(`users/${ownerUserId}/integracoes/mercadoPago`);
 }
 
+function getOwnerPixManualRef(ownerUserId) {
+  return db.doc(`users/${ownerUserId}/integracoes/pixManual`);
+}
+
 async function getOwnerMercadoPagoAccessToken(ownerUserId) {
   const integrationSnap = await getOwnerIntegrationRef(ownerUserId).get();
   const integrationData = integrationSnap.exists ? integrationSnap.data() : null;
@@ -611,6 +627,238 @@ exports.desconectarMercadoPago = onCall(CALLABLE_OPTIONS, async (request) => {
     conectado: false,
   };
 });
+
+exports.salvarPixManualConfig = onCall(CALLABLE_OPTIONS, async (request) => {
+  const uid = ensureAuth(request);
+  const enabled = Boolean(request.data?.enabled);
+  const chavePix = sanitizeString(request.data?.chavePix);
+  const nomeRecebedor = sanitizeString(request.data?.nomeRecebedor);
+  const cidadeRecebedor = sanitizeString(request.data?.cidadeRecebedor);
+  const instrucoes = sanitizeString(request.data?.instrucoes);
+  const pixCopiaECola = sanitizeString(request.data?.pixCopiaECola);
+
+  if (enabled && !chavePix) {
+    throw new HttpsError("invalid-argument", "Informe a chave PIX para ativar pagamento manual.");
+  }
+
+  await getOwnerPixManualRef(uid).set(
+    {
+      enabled,
+      chavePix: chavePix || null,
+      nomeRecebedor: nomeRecebedor || null,
+      cidadeRecebedor: cidadeRecebedor || null,
+      instrucoes: instrucoes || null,
+      pixCopiaECola: pixCopiaECola || null,
+      updatedAt: serverTimestamp(),
+      connectedAt: enabled ? serverTimestamp() : null,
+    },
+    { merge: true }
+  );
+
+  return {
+    ok: true,
+    conectado: Boolean(enabled && chavePix),
+    enabled,
+    hasPixCopiaECola: Boolean(pixCopiaECola),
+  };
+});
+
+exports.obterStatusPixManual = onCall(CALLABLE_OPTIONS, async (request) => {
+  const uid = ensureAuth(request);
+  const pixSnap = await getOwnerPixManualRef(uid).get();
+  const pixData = pixSnap.exists ? pixSnap.data() : {};
+
+  const enabled = Boolean(pixData?.enabled);
+  const chavePix = sanitizeString(pixData?.chavePix);
+
+  return {
+    conectado: Boolean(enabled && chavePix),
+    enabled,
+    chavePix: chavePix || "",
+    nomeRecebedor: sanitizeString(pixData?.nomeRecebedor) || "",
+    cidadeRecebedor: sanitizeString(pixData?.cidadeRecebedor) || "",
+    instrucoes: sanitizeString(pixData?.instrucoes) || "",
+    pixCopiaECola: sanitizeString(pixData?.pixCopiaECola) || "",
+  };
+});
+
+exports.obterCheckoutPixManualBloco = onCall(CALLABLE_OPTIONS, async (request) => {
+  const compradorUid = ensureAuth(request);
+  const ownerUserId = ensureRequiredString(request.data?.ownerUserId, "ownerUserId");
+  const espacoId = ensureRequiredString(request.data?.espacoId, "espacoId");
+  const blocoId = ensureRequiredString(request.data?.blocoId, "blocoId");
+
+  if (ownerUserId === compradorUid) {
+    throw new HttpsError(
+      "failed-precondition",
+      "O criador nao pode comprar o proprio bloco."
+    );
+  }
+
+  const blocoRef = getBlockDocRef(ownerUserId, espacoId, blocoId);
+  const blocoSnap = await blocoRef.get();
+  if (!blocoSnap.exists) {
+    throw new HttpsError("not-found", "Bloco nao encontrado.");
+  }
+
+  const blocoData = blocoSnap.data() || {};
+  const { precoCentavos, moeda } = ensureValidBlockForPurchase(blocoData);
+  const buyerContext = await getBuyerContext(compradorUid);
+
+  const alreadyPurchased = await buyerAlreadyHasAccess({
+    ownerUserId,
+    espacoId,
+    blocoId,
+    compradorUid,
+    activeSkinId: buyerContext.activeSkinId,
+  });
+  if (alreadyPurchased) {
+    return {
+      ok: true,
+      alreadyPurchased: true,
+      message: "Esse bloco ja esta liberado para este comprador.",
+    };
+  }
+
+  const pixSnap = await getOwnerPixManualRef(ownerUserId).get();
+  const pixData = pixSnap.exists ? pixSnap.data() : {};
+  const enabled = Boolean(pixData?.enabled);
+  const chavePix = sanitizeString(pixData?.chavePix);
+
+  if (!enabled || !chavePix) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Pagamento manual por PIX indisponivel para este criador."
+    );
+  }
+
+  return {
+    ok: true,
+    alreadyPurchased: false,
+    bloco: {
+      blocoId,
+      espacoId,
+      ownerUserId,
+      precoCentavos,
+      moeda,
+    },
+    pagamento: {
+      tipo: "pix_manual",
+      chavePix,
+      nomeRecebedor: sanitizeString(pixData?.nomeRecebedor) || "",
+      cidadeRecebedor: sanitizeString(pixData?.cidadeRecebedor) || "",
+      instrucoes: sanitizeString(pixData?.instrucoes) || "",
+      pixCopiaECola: sanitizeString(pixData?.pixCopiaECola) || "",
+    },
+  };
+});
+
+exports.notificarAdminNovaSolicitacaoPix = onDocumentCreated(
+  {
+    region: REGION,
+    document: "users/{ownerUserId}/pedidos/{pedidoId}",
+    ...(runtimeServiceAccount ? { serviceAccount: runtimeServiceAccount } : {}),
+  },
+  async (event) => {
+    try {
+      const ownerUserId = sanitizeString(event?.params?.ownerUserId);
+      const pedidoId = sanitizeString(event?.params?.pedidoId);
+      const pedidoData = event?.data?.data() || {};
+      if (!ownerUserId || !pedidoId) return;
+
+      const status = sanitizeString(pedidoData?.status).toLowerCase();
+      if (status && status !== "pedido_solicitado") {
+        return;
+      }
+
+      const ownerRef = db.doc(`users/${ownerUserId}`);
+      const ownerSnap = await ownerRef.get();
+      if (!ownerSnap.exists) {
+        return;
+      }
+
+      const ownerData = ownerSnap.data() || {};
+      const tokens = normalizePushTokens(ownerData?.adminPushTokens);
+      if (!tokens.length) {
+        console.log(
+          `[PUSH-SOLICITACAO] Admin sem token registrado. owner=${ownerUserId}, pedido=${pedidoId}`
+        );
+        return;
+      }
+
+      const blocoId = sanitizeString(pedidoData?.blocoId);
+      const espacoId = sanitizeString(pedidoData?.espacoId);
+      const compradorNome =
+        sanitizeString(pedidoData?.compradorNome) ||
+        sanitizeString(pedidoData?.compradorEmail) ||
+        sanitizeString(pedidoData?.compradorUid) ||
+        "Usuario";
+      const valor = formatarValorCentavos(pedidoData?.precoCentavos);
+      const body = valor
+        ? `${compradorNome} solicitou desbloqueio de ${valor}.`
+        : `${compradorNome} solicitou desbloqueio de bloco.`;
+      const link = `/menu/admin/solicitacoes?ownerUserId=${encodeURIComponent(ownerUserId)}`;
+
+      const result = await admin.messaging().sendEachForMulticast({
+        tokens,
+        notification: {
+          title: "Nova solicitacao de desbloqueio",
+          body,
+        },
+        data: {
+          type: "solicitacao_desbloqueio",
+          ownerUserId,
+          pedidoId,
+          blocoId,
+          espacoId,
+          link,
+        },
+        android: {
+          priority: "high",
+          notification: {
+            sound: "default",
+            channelId: "solicitacoes",
+          },
+        },
+        webpush: {
+          fcmOptions: {
+            link,
+          },
+          notification: {
+            title: "Nova solicitacao de desbloqueio",
+            body,
+            icon: "/favicon.ico",
+            badge: "/favicon.ico",
+          },
+        },
+      });
+
+      const invalidTokens = [];
+      result.responses.forEach((responseItem, index) => {
+        if (responseItem.success) return;
+        const code = sanitizeString(responseItem?.error?.code);
+        if (
+          code === "messaging/invalid-registration-token" ||
+          code === "messaging/registration-token-not-registered"
+        ) {
+          invalidTokens.push(tokens[index]);
+        }
+      });
+
+      if (invalidTokens.length) {
+        await ownerRef.set(
+          {
+            adminPushTokens: admin.firestore.FieldValue.arrayRemove(...invalidTokens),
+            adminPushTokensUpdatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+      }
+    } catch (error) {
+      console.error("[PUSH-SOLICITACAO] Falha ao enviar notificacao:", error);
+    }
+  }
+);
 
 exports.limparEnvsProjetoNoVercel = onCall(CALLABLE_OPTIONS, async (request) => {
   await assertSystemManagerAdminPermission(request);

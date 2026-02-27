@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import ContaManager from "./Conta/ContaManager";
 import MercadoPagoConfig from "./Conta/MercadoPagoConfig";
+import PixManualConfig from "./Conta/PixManualConfig";
 import {
   DEFAULT_SISTEMA_CONFIG,
   obterConfigSistema,
@@ -54,6 +55,13 @@ function Propriedades() {
             ) : (
               <p>
                 Integracao com Mercado Pago desativada em PROPRIEDADES DO SISTEMA.
+              </p>
+            )}
+            {configSistema.pixManualHabilitado ? (
+              <PixManualConfig />
+            ) : (
+              <p>
+                Pagamento manual por PIX desativado em PROPRIEDADES DO SISTEMA.
               </p>
             )}
           </div>

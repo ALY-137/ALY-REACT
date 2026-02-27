@@ -31,6 +31,7 @@ import {
   obterRotulosEspaco,
   obterRotulosSkin,
 } from "../Sistema/configSistema";
+import { solicitarPedidoPixManualBloco } from "../Pagamentos/mercadoPagoApi";
 
 const isRenderableUrl = (valor) =>
   typeof valor === "string" &&
@@ -176,6 +177,9 @@ export default function EspacoPage() {
   const [mercadoPagoSistemaHabilitado, setMercadoPagoSistemaHabilitado] = useState(
     DEFAULT_SISTEMA_CONFIG.mercadoPagoHabilitado
   );
+  const [pixManualSistemaHabilitado, setPixManualSistemaHabilitado] = useState(
+    DEFAULT_SISTEMA_CONFIG.pixManualHabilitado
+  );
   const [onePagePublicaAtiva, setOnePagePublicaAtiva] = useState(false);
   const [nomeSkinSingular, setNomeSkinSingular] = useState(
     DEFAULT_SISTEMA_CONFIG.nomeSkinSingular
@@ -298,6 +302,7 @@ export default function EspacoPage() {
         const config = await obterConfigSistema();
         if (!ativo) return;
         setMercadoPagoSistemaHabilitado(config?.mercadoPagoHabilitado !== false);
+        setPixManualSistemaHabilitado(config?.pixManualHabilitado !== false);
         setOnePagePublicaAtiva(
           config?.tipoExperiencia === "onepage" &&
             config?.modoAcessoProjeto === "publico_sem_login"
@@ -315,6 +320,7 @@ export default function EspacoPage() {
       } catch {
         if (!ativo) return;
         setMercadoPagoSistemaHabilitado(DEFAULT_SISTEMA_CONFIG.mercadoPagoHabilitado);
+        setPixManualSistemaHabilitado(DEFAULT_SISTEMA_CONFIG.pixManualHabilitado);
         setOnePagePublicaAtiva(false);
         setNomeSkinSingular(DEFAULT_SISTEMA_CONFIG.nomeSkinSingular);
         setNomeEspacoSingular(DEFAULT_SISTEMA_CONFIG.nomeEspacoSingular);
@@ -895,35 +901,65 @@ export default function EspacoPage() {
 
   const irParaAssinatura = () => {
     const skinLogadoUser = localStorage.getItem("skinLogadoUser");
-    const menuBase = onePagePublicaAtiva ? "/menu/admin" : `/menu/${skinLogadoUser}`;
-    if (!skinLogadoUser && !onePagePublicaAtiva) {
+    const menuBase = onePagePublicaAtivaEfetiva
+      ? (isOwner ? "/menu/admin" : `/menu/${skinLogadoUser || ""}`)
+      : `/menu/${skinLogadoUser}`;
+    if (!skinLogadoUser && !isOwner) {
       alert(`Selecione uma ${nomeSkinSingular} para assinar ${nomeEspacoPlural}.`);
       return;
     }
     navigate(`${menuBase}/espacos`);
   };
 
-  const irParaCompra = (bloco = null) => {
-    if (!mercadoPagoSistemaHabilitado) {
+  const irParaCompra = async (bloco = null) => {
+    if (!mercadoPagoSistemaHabilitado && !pixManualSistemaHabilitado) {
       alert("Pagamentos desativados neste projeto.");
       return;
     }
 
     const skinLogadoUser = localStorage.getItem("skinLogadoUser");
-    const menuBase = onePagePublicaAtiva ? "/menu/admin" : `/menu/${skinLogadoUser}`;
-    if (!skinLogadoUser && !onePagePublicaAtiva) {
+    const menuBase = onePagePublicaAtivaEfetiva
+      ? (isOwner ? "/menu/admin" : `/menu/${skinLogadoUser || ""}`)
+      : `/menu/${skinLogadoUser}`;
+    if (!currentUid) {
+      alert("Voce precisa estar autenticado para solicitar desbloqueio.");
+      return;
+    }
+    if (!skinLogadoUser && !isOwner && !onePagePublicaAtivaEfetiva) {
       alert(`Selecione uma ${nomeSkinSingular} para comprar ${nomeBlocoPlural}.`);
       return;
     }
     if (bloco?.id) {
-      const returnTo = `${window.location.pathname}${window.location.search || ""}`;
-      const params = new URLSearchParams({
-        comprarBloco: bloco.id,
-        espacoId: espacoId || "",
-        ownerUserId: ownerUserId || "",
-        returnTo,
-      });
-      navigate(`${menuBase}?${params.toString()}`);
+      if (!pixManualSistemaHabilitado && mercadoPagoSistemaHabilitado) {
+        const returnTo = `${window.location.pathname}${window.location.search || ""}`;
+        const params = new URLSearchParams({
+          comprarBloco: bloco.id,
+          espacoId: espacoId || "",
+          ownerUserId: ownerUserId || "",
+          returnTo,
+        });
+        navigate(`${menuBase}?${params.toString()}`);
+        return;
+      }
+
+      try {
+        const solicitacao = await solicitarPedidoPixManualBloco({
+          ownerUserId: ownerUserId || "",
+          espacoId: espacoId || "",
+          blocoId: bloco.id,
+        });
+        if (solicitacao?.alreadyPurchased) {
+          alert(solicitacao?.message || `${nomeBlocoSingularCapitalizado} ja desbloqueado.`);
+          navigate(menuBase);
+          return;
+        }
+        const ownerQuery = ownerUserId
+          ? `?ownerUserId=${encodeURIComponent(String(ownerUserId))}`
+          : "";
+        navigate(`${menuBase}/solicitacoes${ownerQuery}`);
+      } catch (err) {
+        alert(err?.message || "Nao foi possivel solicitar desbloqueio.");
+      }
       return;
     }
     navigate(menuBase);
@@ -937,13 +973,13 @@ export default function EspacoPage() {
       return <button onClick={irParaAssinatura}>Assinar para desbloquear</button>;
     }
     if (tipoRestricao === "comprador") {
-      if (!mercadoPagoSistemaHabilitado) {
+      if (!mercadoPagoSistemaHabilitado && !pixManualSistemaHabilitado) {
         return <p>Pagamento indisponivel neste projeto.</p>;
       }
       const precoFormatado = formatarPreco(bloco?.precoCentavos, bloco?.moeda || "BRL");
       return (
         <button onClick={() => irParaCompra(bloco)}>
-          {precoFormatado ? `Comprar por ${precoFormatado}` : "Comprar para desbloquear"}
+          {precoFormatado ? `Desbloquear por ${precoFormatado}` : "Desbloquear conteudo"}
         </button>
       );
     }

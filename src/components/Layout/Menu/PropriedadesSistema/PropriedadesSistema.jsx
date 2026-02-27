@@ -871,6 +871,23 @@ function PropriedadesSistema({
           <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
             <input
               type="checkbox"
+              checked={!!config.pixManualHabilitado}
+              onChange={(event) =>
+                setConfig((prev) => ({
+                  ...prev,
+                  pixManualHabilitado: event.target.checked,
+                }))
+              }
+            />
+            Habilitar pagamento manual por PIX (alternativa ao Mercado Pago)
+          </label>
+          <p style={{ marginTop: 6, opacity: 0.8 }}>
+            O PIX manual funciona como alternativa ao Mercado Pago para conteudos de comprador.
+          </p>
+
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+            <input
+              type="checkbox"
               checked={!!config.blocoCardsHabilitado}
               onChange={(event) =>
                 setConfig((prev) => ({

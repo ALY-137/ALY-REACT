@@ -90,6 +90,9 @@ function buildProjectFromEnvPrefix(prefixoBruto) {
     process.env[`${envKey}MESSAGING_SENDER_ID`]
   );
   const appId = sanitizeEnvScalar(process.env[`${envKey}APP_ID`]);
+  const messagingVapidKey = sanitizeEnvScalar(
+    process.env[`${envKey}VAPID_KEY`] || process.env.REACT_APP_FIREBASE_VAPID_KEY
+  );
   const functionsRegion =
     sanitizeEnvScalar(process.env[`${envKey}FUNCTIONS_REGION`]) ||
     DEFAULT_FUNCTIONS_REGION;
@@ -121,6 +124,7 @@ function buildProjectFromEnvPrefix(prefixoBruto) {
     functionsRegion,
     domains,
     envPrefix: prefixo,
+    messagingVapidKey,
   };
 }
 
@@ -373,6 +377,7 @@ function resolveRequestedProjectKey(projects, hostProjectMap) {
 
 function buildProjectsMap() {
   const testeConfig = applySharedStorageBucket(TESTE_AA015_CONFIG);
+  const defaultMessagingVapidKey = sanitizeEnvScalar(process.env.REACT_APP_FIREBASE_VAPID_KEY);
 
   const projects = {
     "teste-aa015": {
@@ -380,6 +385,7 @@ function buildProjectsMap() {
       config: testeConfig,
       functionsRegion: DEFAULT_FUNCTIONS_REGION,
       domains: [],
+      messagingVapidKey: defaultMessagingVapidKey,
     },
   };
 
@@ -390,6 +396,7 @@ function buildProjectsMap() {
       functionsRegion: project.functionsRegion || DEFAULT_FUNCTIONS_REGION,
       domains: project.domains || [],
       envPrefix: project.envPrefix || "",
+      messagingVapidKey: project.messagingVapidKey || defaultMessagingVapidKey,
     };
   });
 
@@ -406,6 +413,7 @@ export function listConfiguredFirebaseProjects() {
     functionsRegion: project.functionsRegion || DEFAULT_FUNCTIONS_REGION,
     firebaseConfig: project.config || {},
     envPrefix: project.envPrefix || "",
+    messagingVapidKey: project.messagingVapidKey || "",
   }));
 }
 
@@ -430,5 +438,6 @@ export function resolveFirebaseProject() {
     projectKey: selectedProject.key,
     firebaseConfig: selectedProject.config,
     functionsRegion: selectedProject.functionsRegion || DEFAULT_FUNCTIONS_REGION,
+    messagingVapidKey: selectedProject.messagingVapidKey || "",
   };
 }

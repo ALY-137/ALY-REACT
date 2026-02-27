@@ -199,6 +199,24 @@ service cloud.firestore {
         allow read, write: if isAdmin() || isOwner(userId);
       }
 
+      match /integracoes/{integracaoId} {
+        allow read: if isAdmin() ||
+          isOwner(userId) ||
+          (signedIn() && integracaoId == "pixManual");
+        allow write: if isAdmin() || isOwner(userId);
+      }
+
+      match /pedidos/{pedidoId} {
+        allow read: if isAdmin() ||
+          isOwner(userId) ||
+          (signedIn() && resource.data.compradorUid == request.auth.uid);
+        allow create: if signedIn() &&
+          request.resource.data.ownerUserId == userId &&
+          request.resource.data.compradorUid == request.auth.uid &&
+          request.resource.data.status == "pedido_solicitado";
+        allow update, delete: if isAdmin() || isOwner(userId);
+      }
+
       match /skins/{skinId} {
         allow get, list: if isAdmin() ||
           isOwner(userId) ||

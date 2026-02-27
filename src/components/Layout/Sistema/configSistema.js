@@ -59,6 +59,7 @@ export const DEFAULT_SISTEMA_CONFIG = {
   metodosLoginHabilitados: { ...METODOS_LOGIN_PADRAO },
   chatHabilitado: true,
   mercadoPagoHabilitado: true,
+  pixManualHabilitado: true,
   blocoCardsHabilitado: false,
   adminEmail: "",
 };
@@ -356,6 +357,10 @@ export function normalizarConfigSistema(data = {}) {
     mercadoPagoHabilitado: normalizarBoolean(
       data.mercadoPagoHabilitado,
       DEFAULT_SISTEMA_CONFIG.mercadoPagoHabilitado
+    ),
+    pixManualHabilitado: normalizarBoolean(
+      data.pixManualHabilitado,
+      DEFAULT_SISTEMA_CONFIG.pixManualHabilitado
     ),
     blocoCardsHabilitado: normalizarBoolean(
       data.blocoCardsHabilitado,

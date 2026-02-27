@@ -26,7 +26,8 @@ import { resolveFirebaseProject } from "../../config/firebaseProjects";
 // ===============================
 // CONFIG
 // ===============================
-const { projectKey, firebaseConfig, functionsRegion } = resolveFirebaseProject();
+const { projectKey, firebaseConfig, functionsRegion, messagingVapidKey } =
+  resolveFirebaseProject();
 
 // ===============================
 // INIT
@@ -35,6 +36,8 @@ export const app = initializeApp(firebaseConfig);
 export const activeFirebaseProjectKey = projectKey;
 export const activeFirebaseProjectId = firebaseConfig.projectId;
 export const activeFirebaseStorageBucket = firebaseConfig.storageBucket || "";
+export const activeFirebaseConfig = firebaseConfig;
+export const activeFirebaseMessagingVapidKey = messagingVapidKey || "";
 
 // ===============================
 // SERVICES

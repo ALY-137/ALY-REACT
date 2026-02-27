@@ -11,7 +11,7 @@ import {
   uploadArquivoNoBucketCompartilhado,
   usandoBucketCompartilhadoCrossProject,
 } from "../Storage/sharedBucketApi";
-import { obterStatusMercadoPago } from "../Pagamentos/mercadoPagoApi";
+import { obterStatusMercadoPago, obterStatusPixManual } from "../Pagamentos/mercadoPagoApi";
 import {
   DEFAULT_SISTEMA_CONFIG,
   obterConfigSistema,
@@ -129,11 +129,16 @@ export default function CriadorBloco({
   const [visibilidade, setVisibilidade] = useState("publico");
   const [valorCompra, setValorCompra] = useState("");
   const [mpConectado, setMpConectado] = useState(false);
+  const [pixManualConectado, setPixManualConectado] = useState(false);
+  const [pixManualQrsDisponiveis, setPixManualQrsDisponiveis] = useState([]);
   const [blocoCardsHabilitado, setBlocoCardsHabilitado] = useState(
     DEFAULT_SISTEMA_CONFIG.blocoCardsHabilitado
   );
   const [mercadoPagoSistemaHabilitado, setMercadoPagoSistemaHabilitado] = useState(
     DEFAULT_SISTEMA_CONFIG.mercadoPagoHabilitado
+  );
+  const [pixManualSistemaHabilitado, setPixManualSistemaHabilitado] = useState(
+    DEFAULT_SISTEMA_CONFIG.pixManualHabilitado
   );
   const [nomeEspacoSingular, setNomeEspacoSingular] = useState(
     DEFAULT_SISTEMA_CONFIG.nomeEspacoSingular
@@ -163,7 +168,10 @@ export default function CriadorBloco({
       if (loading || !user || !espacoAtual || !podeCriar) {
         if (!cancelado) {
           setMpConectado(false);
+          setPixManualConectado(false);
+          setPixManualQrsDisponiveis([]);
           setBlocoCardsHabilitado(DEFAULT_SISTEMA_CONFIG.blocoCardsHabilitado);
+          setPixManualSistemaHabilitado(DEFAULT_SISTEMA_CONFIG.pixManualHabilitado);
           setNomeEspacoSingular(DEFAULT_SISTEMA_CONFIG.nomeEspacoSingular);
           setNomeBlocoSingular(DEFAULT_SISTEMA_CONFIG.nomeBlocoSingular);
           setNomeBlocoPlural(DEFAULT_SISTEMA_CONFIG.nomeBlocoPlural);
@@ -172,6 +180,7 @@ export default function CriadorBloco({
       }
 
       let moduloMercadoPagoAtivo = DEFAULT_SISTEMA_CONFIG.mercadoPagoHabilitado;
+      let moduloPixManualAtivo = DEFAULT_SISTEMA_CONFIG.pixManualHabilitado;
       let cardsBlocoHabilitado = DEFAULT_SISTEMA_CONFIG.blocoCardsHabilitado;
       let nomeEspacoSingularAtual = DEFAULT_SISTEMA_CONFIG.nomeEspacoSingular;
       let nomeBlocoSingularAtual = DEFAULT_SISTEMA_CONFIG.nomeBlocoSingular;
@@ -179,6 +188,7 @@ export default function CriadorBloco({
       try {
         const configSistema = await obterConfigSistema();
         moduloMercadoPagoAtivo = configSistema?.mercadoPagoHabilitado !== false;
+        moduloPixManualAtivo = configSistema?.pixManualHabilitado !== false;
         cardsBlocoHabilitado = configSistema?.blocoCardsHabilitado === true;
         const rotulosEspaco = obterRotulosEspaco(configSistema);
         const rotulosBloco = obterRotulosBloco(configSistema);
@@ -193,26 +203,47 @@ export default function CriadorBloco({
 
       if (!cancelado) {
         setMercadoPagoSistemaHabilitado(moduloMercadoPagoAtivo);
+        setPixManualSistemaHabilitado(moduloPixManualAtivo);
         setBlocoCardsHabilitado(cardsBlocoHabilitado);
         setNomeEspacoSingular(nomeEspacoSingularAtual);
         setNomeBlocoSingular(nomeBlocoSingularAtual);
         setNomeBlocoPlural(nomeBlocoPluralAtual);
       }
 
-      if (!moduloMercadoPagoAtivo) {
-        if (!cancelado) setMpConectado(false);
-        return;
+      if (moduloMercadoPagoAtivo) {
+        try {
+          const status = await obterStatusMercadoPago();
+          if (!cancelado) {
+            setMpConectado(Boolean(status?.conectado));
+          }
+        } catch (err) {
+          if (!cancelado) {
+            setMpConectado(false);
+          }
+        }
+      } else if (!cancelado) {
+        setMpConectado(false);
       }
 
-      try {
-        const status = await obterStatusMercadoPago();
-        if (!cancelado) {
-          setMpConectado(Boolean(status?.conectado));
+      if (moduloPixManualAtivo) {
+        try {
+          const statusPix = await obterStatusPixManual();
+          if (!cancelado) {
+            const pixManualDisponivel = Boolean(
+              statusPix?.chavePix || statusPix?.conectado
+            );
+            setPixManualConectado(pixManualDisponivel);
+            setPixManualQrsDisponiveis(Array.isArray(statusPix?.qrs) ? statusPix.qrs : []);
+          }
+        } catch {
+          if (!cancelado) {
+            setPixManualConectado(false);
+            setPixManualQrsDisponiveis([]);
+          }
         }
-      } catch (err) {
-        if (!cancelado) {
-          setMpConectado(false);
-        }
+      } else if (!cancelado) {
+        setPixManualConectado(false);
+        setPixManualQrsDisponiveis([]);
       }
     }
 
@@ -222,15 +253,19 @@ export default function CriadorBloco({
     };
   }, [loading, user?.uid, espacoId, podeCriar]);
 
+  const metodoPagamentoCompradorDisponivel =
+    (mercadoPagoSistemaHabilitado && mpConectado) ||
+    (pixManualSistemaHabilitado && pixManualConectado);
+
   useEffect(() => {
     const visibilidadeExclusiva =
       visibilidade === "exclusivo_assinante" || visibilidade === "exclusivo_comprador";
 
-    if ((!mercadoPagoSistemaHabilitado || !mpConectado) && visibilidadeExclusiva) {
+    if (!metodoPagamentoCompradorDisponivel && visibilidadeExclusiva) {
       setVisibilidade("publico");
       setValorCompra("");
     }
-  }, [mercadoPagoSistemaHabilitado, mpConectado, visibilidade]);
+  }, [metodoPagamentoCompradorDisponivel, visibilidade]);
 
   useEffect(() => {
     if (!blocoCardsHabilitado && tipoConteudo === "cards") {
@@ -239,10 +274,21 @@ export default function CriadorBloco({
     }
   }, [blocoCardsHabilitado, tipoConteudo]);
 
-  if (loading || !user || !espacoAtual) return null;
-  if (!podeCriar) return null;
-
   const isExclusivoComprador = visibilidade === "exclusivo_comprador";
+  const pixManualValoresDisponiveis = Array.isArray(pixManualQrsDisponiveis)
+    ? [...pixManualQrsDisponiveis]
+        .map((item) => ({
+          valorCentavos: Number(item?.valorCentavos) || 0,
+          titulo: String(item?.titulo || "").trim(),
+        }))
+        .filter((item) => item.valorCentavos > 0)
+        .sort((a, b) => a.valorCentavos - b.valorCentavos)
+    : [];
+  const usarValoresPixManual =
+    isExclusivoComprador &&
+    pixManualSistemaHabilitado &&
+    pixManualConectado &&
+    pixManualValoresDisponiveis.length > 0;
   const blocoEhCards = tipoConteudo === "cards" && blocoCardsHabilitado;
   const nomeEspacoSingularCapitalizado = capitalizar(nomeEspacoSingular);
   const nomeBlocoSingularCapitalizado = capitalizar(nomeBlocoSingular);
@@ -254,6 +300,31 @@ export default function CriadorBloco({
     if (!Number.isFinite(valorNumerico) || valorNumerico <= 0) return null;
     return Math.round(valorNumerico * 100);
   };
+
+  const formatarPreco = (precoCentavos, moeda = "BRL") => {
+    const valorNumerico = Number(precoCentavos);
+    if (!Number.isFinite(valorNumerico) || valorNumerico <= 0) return null;
+    try {
+      return new Intl.NumberFormat("pt-BR", {
+        style: "currency",
+        currency: moeda || "BRL",
+      }).format(valorNumerico / 100);
+    } catch {
+      return `R$ ${(valorNumerico / 100).toFixed(2)}`;
+    }
+  };
+
+  useEffect(() => {
+    if (!usarValoresPixManual) return;
+    const valoresPermitidos = new Set(
+      pixManualValoresDisponiveis.map((item) => String(item.valorCentavos))
+    );
+    if (valoresPermitidos.has(String(valorCompra || ""))) return;
+    setValorCompra(String(pixManualValoresDisponiveis[0]?.valorCentavos || ""));
+  }, [usarValoresPixManual, pixManualValoresDisponiveis, valorCompra]);
+
+  if (loading || !user || !espacoAtual) return null;
+  if (!podeCriar) return null;
 
   const criarNomeArquivoSeguro = (nome = "imagem") => {
     const nomeLimpo = String(nome || "imagem")
@@ -365,7 +436,9 @@ export default function CriadorBloco({
     if (!blocoEhCards && !files.length) return alert("Selecione ao menos uma imagem");
 
     const precoCentavos = isExclusivoComprador
-      ? parseValorCompraEmCentavos(valorCompra)
+      ? usarValoresPixManual
+        ? Number(valorCompra) || null
+        : parseValorCompraEmCentavos(valorCompra)
       : null;
 
     if (isExclusivoComprador && !precoCentavos) {
@@ -766,7 +839,7 @@ export default function CriadorBloco({
         <option value="publico">Publico</option>
         <option value="publico_restritivo">Publico restritivo</option>
         <option value="privado">Privado (autenticado)</option>
-        {mercadoPagoSistemaHabilitado && mpConectado && (
+        {metodoPagamentoCompradorDisponivel && (
           <>
             <option value="exclusivo_assinante">Exclusivo assinante</option>
             <option value="exclusivo_comprador">Exclusivo comprador</option>
@@ -774,25 +847,46 @@ export default function CriadorBloco({
         )}
       </select>
 
-      {!mercadoPagoSistemaHabilitado ? (
+      {!mercadoPagoSistemaHabilitado && !pixManualSistemaHabilitado ? (
         <p style={{ margin: "8px 0 0", fontSize: 12, color: "#666" }}>
-          Mercado Pago desativado em PROPRIEDADES DO SISTEMA.
+          Metodos de pagamento desativados em PROPRIEDADES DO SISTEMA.
         </p>
-      ) : !mpConectado && (
+      ) : !metodoPagamentoCompradorDisponivel && (
         <p style={{ margin: "8px 0 0", fontSize: 12, color: "#666" }}>
-          {`Conecte o Mercado Pago para habilitar visibilidade exclusiva para assinantes/compradores de ${nomeBlocoPlural}.`}
+          {`Conecte o Mercado Pago ou configure PIX manual para habilitar visibilidade exclusiva para assinantes/compradores de ${nomeBlocoPlural}.`}
         </p>
       )}
 
       {isExclusivoComprador && (
-        <input
-          type="number"
-          min="0.01"
-          step="0.01"
-          placeholder="Valor (R$)"
-          value={valorCompra}
-          onChange={(e) => setValorCompra(e.target.value)}
-        />
+        <>
+          {usarValoresPixManual ? (
+            <select value={valorCompra} onChange={(e) => setValorCompra(e.target.value)}>
+              {pixManualValoresDisponiveis.map((item) => (
+                <option key={item.valorCentavos} value={item.valorCentavos}>
+                  {item.titulo
+                    ? `${item.titulo} - ${formatarPreco(item.valorCentavos)}`
+                    : formatarPreco(item.valorCentavos)}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              type="number"
+              min="0.01"
+              step="0.01"
+              placeholder="Valor (R$)"
+              value={valorCompra}
+              onChange={(e) => setValorCompra(e.target.value)}
+            />
+          )}
+          {pixManualSistemaHabilitado &&
+          pixManualConectado &&
+          !pixManualValoresDisponiveis.length ? (
+            <p style={{ margin: "6px 0 0", fontSize: 12, color: "#666" }}>
+              Configure ao menos um QR por valor no PIX manual para compra automatica por valor.
+            </p>
+          ) : null}
+        </>
       )}
 
       <button onClick={criarBloco} disabled={enviando}>

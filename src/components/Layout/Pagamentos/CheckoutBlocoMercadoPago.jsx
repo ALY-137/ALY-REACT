@@ -5,6 +5,8 @@ import { db } from "../../Banco/init-firebase";
 import {
   confirmarPagamentoBlocoMercadoPago,
   criarCheckoutBlocoMercadoPago,
+  obterCheckoutPixManualBloco,
+  solicitarPedidoPixManualBloco,
 } from "./mercadoPagoApi";
 
 const painelStyle = {
@@ -29,13 +31,21 @@ function formatarPreco(precoCentavos, moeda = "BRL") {
   }
 }
 
-export default function CheckoutBlocoMercadoPago({ skinLogadoUser }) {
+export default function CheckoutBlocoMercadoPago({
+  skinLogadoUser,
+  mercadoPagoHabilitado = true,
+  pixManualHabilitado = true,
+}) {
   const location = useLocation();
   const navigate = useNavigate();
   const [carregandoBloco, setCarregandoBloco] = useState(false);
   const [blocoInfo, setBlocoInfo] = useState(null);
   const [processando, setProcessando] = useState(false);
+  const [processandoPix, setProcessandoPix] = useState(false);
+  const [processandoPedido, setProcessandoPedido] = useState(false);
   const [mensagem, setMensagem] = useState("");
+  const [pixCheckoutInfo, setPixCheckoutInfo] = useState(null);
+  const [pedidoPixInfo, setPedidoPixInfo] = useState(null);
   const confirmedPaymentIdRef = useRef("");
 
   const params = useMemo(() => new URLSearchParams(location.search), [location.search]);
@@ -131,8 +141,14 @@ export default function CheckoutBlocoMercadoPago({ skinLogadoUser }) {
   const precoFormatado = formatarPreco(blocoInfo?.precoCentavos, blocoInfo?.moeda || "BRL");
 
   const abrirCheckout = async () => {
+    if (!mercadoPagoHabilitado) {
+      setMensagem("Checkout do Mercado Pago desativado neste projeto.");
+      return;
+    }
     setProcessando(true);
     setMensagem("");
+    setPixCheckoutInfo(null);
+    setPedidoPixInfo(null);
     try {
       const data = await criarCheckoutBlocoMercadoPago({
         ownerUserId,
@@ -161,6 +177,86 @@ export default function CheckoutBlocoMercadoPago({ skinLogadoUser }) {
     }
   };
 
+  const abrirPixManual = async () => {
+    if (!pixManualHabilitado) {
+      setMensagem("Pagamento manual por PIX desativado neste projeto.");
+      return;
+    }
+    setProcessandoPix(true);
+    setMensagem("");
+    setPedidoPixInfo(null);
+    try {
+      const data = await obterCheckoutPixManualBloco({
+        ownerUserId,
+        espacoId,
+        blocoId,
+      });
+
+      if (data?.alreadyPurchased) {
+        setMensagem(data?.message || "Esse bloco ja foi comprado e esta liberado.");
+        setPixCheckoutInfo(null);
+        return;
+      }
+
+      if (!data?.pagamento?.chavePix) {
+        throw new Error("Dados do PIX manual indisponiveis para este bloco.");
+      }
+
+      setPixCheckoutInfo(data.pagamento);
+      setMensagem(
+        "Pagamento manual por PIX carregado. Realize o pagamento e envie comprovante ao vendedor."
+      );
+    } catch (err) {
+      setMensagem(err?.message || "Erro ao iniciar pagamento manual por PIX.");
+      setPixCheckoutInfo(null);
+    } finally {
+      setProcessandoPix(false);
+    }
+  };
+
+  const copiarTexto = async (texto = "") => {
+    const valor = String(texto || "").trim();
+    if (!valor) return;
+    try {
+      await navigator.clipboard.writeText(valor);
+      setMensagem("Copiado para a area de transferencia.");
+    } catch {
+      setMensagem("Nao foi possivel copiar automaticamente.");
+    }
+  };
+
+  const solicitarPedidoPix = async () => {
+    if (!pixCheckoutInfo?.chavePix) {
+      setMensagem("Carregue o PIX manual antes de enviar a solicitacao.");
+      return;
+    }
+    setProcessandoPedido(true);
+    setMensagem("");
+    try {
+      const data = await solicitarPedidoPixManualBloco({
+        ownerUserId,
+        espacoId,
+        blocoId,
+      });
+
+      if (data?.alreadyPurchased) {
+        setMensagem(data?.message || "Esse bloco ja foi comprado e esta liberado.");
+        setPedidoPixInfo(null);
+        return;
+      }
+
+      setPedidoPixInfo({
+        pedidoId: data?.pedidoId || "",
+        status: data?.status || "pedido_solicitado",
+      });
+      setMensagem("Solicitacao enviada. Aguarde confirmacao do pagamento pelo administrador.");
+    } catch (err) {
+      setMensagem(err?.message || "Erro ao enviar solicitacao de pagamento.");
+    } finally {
+      setProcessandoPedido(false);
+    }
+  };
+
   const fecharCheckout = () => {
     navigate(menuBasePath, { replace: true });
   };
@@ -176,6 +272,11 @@ export default function CheckoutBlocoMercadoPago({ skinLogadoUser }) {
   return (
     <div style={painelStyle}>
       <h3 style={{ marginTop: 0 }}>Checkout do Bloco</h3>
+      {mercadoPagoHabilitado && pixManualHabilitado ? (
+        <p style={{ margin: "4px 0 8px" }}>
+          Escolha como pagar: Mercado Pago ou PIX manual (alternativo).
+        </p>
+      ) : null}
       {!!statusRetorno && (
         <p style={{ margin: "4px 0 8px" }}>
           Retorno Mercado Pago: <strong>{statusRetorno}</strong>
@@ -197,16 +298,90 @@ export default function CheckoutBlocoMercadoPago({ skinLogadoUser }) {
       )}
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <button onClick={abrirCheckout} disabled={processando || carregandoBloco}>
-          {processando ? "Processando..." : "Pagar com Mercado Pago (PIX e Cartao)"}
-        </button>
-        <button onClick={fecharCheckout} disabled={processando}>
+        {mercadoPagoHabilitado ? (
+          <button
+            onClick={abrirCheckout}
+            disabled={processando || processandoPix || processandoPedido || carregandoBloco}
+          >
+            {processando ? "Processando..." : "Pagar com Mercado Pago (PIX e Cartao)"}
+          </button>
+        ) : null}
+        {pixManualHabilitado ? (
+          <button
+            onClick={abrirPixManual}
+            disabled={processando || processandoPix || processandoPedido || carregandoBloco}
+          >
+            {processandoPix ? "Carregando PIX..." : "Pagar por PIX manual"}
+          </button>
+        ) : null}
+        <button onClick={fecharCheckout} disabled={processando || processandoPix || processandoPedido}>
           Fechar
         </button>
-        <button onClick={voltarAoEspaco} disabled={processando}>
+        <button onClick={voltarAoEspaco} disabled={processando || processandoPix || processandoPedido}>
           Voltar ao espaco
         </button>
       </div>
+
+      {pixCheckoutInfo?.chavePix ? (
+        <div style={{ marginTop: 12, borderTop: "1px solid #ccc", paddingTop: 12 }}>
+          <p style={{ margin: "0 0 6px" }}>
+            <strong>Chave PIX:</strong> {pixCheckoutInfo.chavePix}
+          </p>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+            <button onClick={() => copiarTexto(pixCheckoutInfo.chavePix)}>
+              Copiar chave PIX
+            </button>
+            {pixCheckoutInfo.pixCopiaECola ? (
+              <button onClick={() => copiarTexto(pixCheckoutInfo.pixCopiaECola)}>
+                Copiar PIX copia e cola
+              </button>
+            ) : null}
+          </div>
+          {pixCheckoutInfo?.qrSelecionado?.imagemUrl ? (
+            <div style={{ margin: "8px 0" }}>
+              <p style={{ margin: "0 0 6px" }}>
+                <strong>QR para este valor:</strong>
+              </p>
+              <img
+                src={pixCheckoutInfo.qrSelecionado.imagemUrl}
+                alt="QR code PIX"
+                style={{ width: 220, height: 220, objectFit: "cover", border: "1px solid #ddd" }}
+              />
+            </div>
+          ) : null}
+          {!!pixCheckoutInfo.nomeRecebedor && (
+            <p style={{ margin: "4px 0" }}>
+              Recebedor: <strong>{pixCheckoutInfo.nomeRecebedor}</strong>
+            </p>
+          )}
+          {!!pixCheckoutInfo.cidadeRecebedor && (
+            <p style={{ margin: "4px 0" }}>
+              Cidade: <strong>{pixCheckoutInfo.cidadeRecebedor}</strong>
+            </p>
+          )}
+          {!!pixCheckoutInfo.instrucoes && (
+            <p style={{ margin: "6px 0 0" }}>{pixCheckoutInfo.instrucoes}</p>
+          )}
+          <div style={{ marginTop: 10 }}>
+            <button
+              onClick={solicitarPedidoPix}
+              disabled={processandoPedido || pedidoPixInfo?.status === "pedido_solicitado"}
+            >
+              {processandoPedido
+                ? "Enviando solicitacao..."
+                : pedidoPixInfo?.status === "pedido_solicitado"
+                  ? "Solicitacao enviada"
+                  : "Ja fiz o pagamento"}
+            </button>
+          </div>
+          {pedidoPixInfo?.pedidoId ? (
+            <p style={{ marginTop: 8 }}>
+              Solicitacao: <strong>{pedidoPixInfo.pedidoId}</strong> | Status:{" "}
+              <strong>{pedidoPixInfo.status}</strong>
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       {!!mensagem && <p style={{ marginTop: 10 }}>{mensagem}</p>}
     </div>

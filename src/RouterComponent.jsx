@@ -27,6 +27,7 @@ import EspacoManager from "./components/Layout/Espacos/EspacoManager";
 import EspacoPage from "./components/Layout/Espacos/EspacoPage";
 import PropriedadesSistema from "./components/Layout/Menu/PropriedadesSistema/PropriedadesSistema";
 import GerenciadorProjetos from "./components/Layout/Menu/Gerenciador/GerenciadorProjetos";
+import PedidosPixManual from "./components/Layout/Pagamentos/PedidosPixManual";
 
 function RedirectOnePageLegacyPath() {
   const { espacoNome } = useParams();
@@ -73,6 +74,8 @@ export default function RouterComponent() {
         { path: "skins", element: <SkinsManager /> },
         { path: "acessos", element: <ListaAcessos /> },
         { path: "propriedades", element: <Propriedades /> },
+        { path: "solicitacoes", element: <PedidosPixManual /> },
+        { path: "pedidos", element: <Navigate to="../solicitacoes" replace /> },
         { path: "propriedades-sistema", element: <PropriedadesSistema /> },
         { path: "espacos", element: <EspacoManager /> },
       ];

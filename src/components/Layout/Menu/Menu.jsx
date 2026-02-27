@@ -10,6 +10,7 @@ import { useAuth } from "../../../hooks/auth/useAuth";
 import { signOut } from "firebase/auth";
 import { auth } from "../../Banco/init-firebase";
 import CheckoutBlocoMercadoPago from "../Pagamentos/CheckoutBlocoMercadoPago";
+import { registrarTokenPushAdmin } from "../Notificacoes/adminPush";
 import {
   DEFAULT_SISTEMA_CONFIG,
   aplicarBrandingNoDocumento,
@@ -74,6 +75,8 @@ function Menu({ menuOpen }) {
   const nomeEspacoPluralUpper = nomeEspacoPlural.toUpperCase();
   const chatHabilitado = configSistema.chatHabilitado !== false;
   const mercadoPagoHabilitado = configSistema.mercadoPagoHabilitado !== false;
+  const pixManualHabilitado = configSistema.pixManualHabilitado !== false;
+  const pagamentosCompradorHabilitados = mercadoPagoHabilitado || pixManualHabilitado;
   const rotaLoginProjeto = onePagePublicaAtiva ? "/login" : "/";
   const adminUidProjetoConfigurado = String(
     configSistema?.adminUid || localStorage.getItem("systemAdminUid") || ""
@@ -113,6 +116,10 @@ function Menu({ menuOpen }) {
   const exibirGestaoEspacos = Boolean(skinLogadoUser) && !menuOnePageUsuarioComum;
   const exibirContatos = chatHabilitado && Boolean(skinLogadoUser) && !onePagePublicaAtiva;
   const exibirPropriedades = !menuOnePageUsuarioComum;
+  const exibirSolicitacoes =
+    !isManagerProject &&
+    pixManualHabilitado &&
+    temUsuarioAutenticado;
   const adminUidGerenciadorConfigurado = String(
     configSistema?.adminUid ||
       localStorage.getItem("systemAdminUid") ||
@@ -196,6 +203,16 @@ function Menu({ menuOpen }) {
 
   function abrirPropriedades() {
     navigateIfChanged(`/menu/${menuTargetUser}/propriedades`);
+  }
+
+  function abrirSolicitacoes() {
+    const ownerQuery =
+      onePagePublicaAtiva && adminUidProjetoConfigurado
+        ? `?ownerUserId=${encodeURIComponent(adminUidProjetoConfigurado)}`
+        : "";
+    const destino = `/menu/${menuTargetUser}/solicitacoes${ownerQuery}`;
+    if (`${location.pathname}${location.search}` === destino) return;
+    navigate(destino);
   }
 
   function abrirEspacos() {
@@ -395,6 +412,10 @@ function Menu({ menuOpen }) {
         setAtualTxt("PROPRIEDADES");
         setBackText("MENU");
         setBackAction(() => returnMenu);
+      } else if (path.endsWith("/solicitacoes") || path.endsWith("/pedidos")) {
+        setAtualTxt("SOLICITACOES");
+        setBackText("MENU");
+        setBackAction(() => returnMenu);
       } else if (path.endsWith("/contatos") && chatHabilitado) {
         setAtualTxt("CONTATOS");
         setBackText("MENU");
@@ -461,6 +482,19 @@ function Menu({ menuOpen }) {
     rotaLoginProjeto,
     navigate,
   ]);
+
+  useEffect(() => {
+    if (isManagerProject) return;
+    if (!usuarioEhAdminProjeto) return;
+    if (!usuarioAuthAtual?.uid) return;
+
+    registrarTokenPushAdmin().catch((err) => {
+      console.warn(
+        "[PUSH-ADMIN] Falha ao registrar token de notificacao:",
+        err?.code || err?.message || err
+      );
+    });
+  }, [isManagerProject, usuarioEhAdminProjeto, usuarioAuthAtual?.uid]);
 
   if (aguardandoAuthInicial) {
     return <div className="loader">Carregando menu...</div>;
@@ -544,6 +578,9 @@ function Menu({ menuOpen }) {
             {exibirPropriedades ? (
               <div onClick={abrirPropriedades} className="gavetaOption">PROPRIEDADES</div>
             ) : null}
+            {exibirSolicitacoes ? (
+              <div onClick={abrirSolicitacoes} className="gavetaOption">SOLICITACOES</div>
+            ) : null}
           </>
         ) : null}
         <div onClick={logoff} className="gavetaOption">ENCERRAR</div>
@@ -552,8 +589,14 @@ function Menu({ menuOpen }) {
 
       <div className="menuContentArea">
         {!isManagerProject
-          ? mercadoPagoHabilitado
-            ? <CheckoutBlocoMercadoPago skinLogadoUser={skinLogadoUser} />
+          ? pagamentosCompradorHabilitados
+            ? (
+                <CheckoutBlocoMercadoPago
+                  skinLogadoUser={skinLogadoUser}
+                  mercadoPagoHabilitado={mercadoPagoHabilitado}
+                  pixManualHabilitado={pixManualHabilitado}
+                />
+              )
             : (
                 location.search.includes("comprarBloco=") && (
                   <div style={{ marginTop: 16, padding: 12, border: "1px solid #999", borderRadius: 8 }}>
