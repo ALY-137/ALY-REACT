@@ -50,6 +50,21 @@ function parseDomains(value) {
   return parseCsv(value).map((host) => normalizeHost(host)).filter(Boolean);
 }
 
+function normalizeAuthDomain(value, projectId) {
+  const host = normalizeHost(value);
+  const fallback = projectId ? `${projectId}.firebaseapp.com` : "";
+
+  if (!host) return fallback;
+
+  // Em deploy na Vercel, usar authDomain da Vercel quebra popup/redirect do Firebase Auth.
+  // Nesses casos sempre volta ao dominio padrao do projeto Firebase.
+  if (host.endsWith(".vercel.app")) {
+    return fallback || host;
+  }
+
+  return host;
+}
+
 function applySharedStorageBucket(firebaseConfig) {
   return {
     ...firebaseConfig,
@@ -64,9 +79,12 @@ function buildProjectFromEnvPrefix(prefixoBruto) {
   const envKey = `${FIREBASE_ENV_PREFIX}${prefixo}_`;
   const keyPersonalizada = sanitizeEnvScalar(process.env[`${envKey}KEY`]);
   const apiKey = sanitizeEnvScalar(process.env[`${envKey}API_KEY`]);
-  const authDomain = sanitizeEnvScalar(process.env[`${envKey}AUTH_DOMAIN`]);
-  const databaseURL = sanitizeEnvScalar(process.env[`${envKey}DATABASE_URL`]);
   const projectId = sanitizeEnvScalar(process.env[`${envKey}PROJECT_ID`]);
+  const authDomain = normalizeAuthDomain(
+    sanitizeEnvScalar(process.env[`${envKey}AUTH_DOMAIN`]),
+    projectId
+  );
+  const databaseURL = sanitizeEnvScalar(process.env[`${envKey}DATABASE_URL`]);
   const storageBucket = sanitizeEnvScalar(process.env[`${envKey}STORAGE_BUCKET`]);
   const messagingSenderId = sanitizeEnvScalar(
     process.env[`${envKey}MESSAGING_SENDER_ID`]
