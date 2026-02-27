@@ -235,6 +235,13 @@ function isProbablySystemKey(value) {
   return /^[a-z0-9][a-z0-9-_]{1,79}$/i.test(normalized);
 }
 
+function extrairSlugDeHostname(hostname) {
+  const host = normalizeHost(hostname);
+  if (!host) return "";
+  const partes = host.split(".");
+  return String(partes[0] || "").trim().toLowerCase();
+}
+
 function safeWriteLocalProjectToStorage(projectKey) {
   if (typeof window === "undefined") return;
   try {
@@ -311,6 +318,27 @@ function resolveRequestedProjectKey(projects, hostProjectMap) {
   const hostTarget = hostProjectMap[hostname];
   if (hostTarget && projects[hostTarget]) {
     return hostTarget;
+  }
+
+  if (!localHost) {
+    const slugHost = extrairSlugDeHostname(hostname);
+    if (slugHost && projects[slugHost]) {
+      return slugHost;
+    }
+
+    const aliases = safeReadProjectAliasesFromStorage();
+    const aliasSlug = aliases[slugHost] || aliases[String(slugHost).toLowerCase()] || "";
+    if (aliasSlug && projects[aliasSlug]) {
+      return aliasSlug;
+    }
+
+    // Fallback para onepage em dominios sem mapeamento explicito:
+    // usa o runtime compartilhado e registra alias local pelo slug do host.
+    const onepageRuntimeKey = getOnepageRuntimeProjectKey(projects);
+    if (onepageRuntimeKey && isProbablySystemKey(slugHost)) {
+      safeWriteProjectAliasToStorage(slugHost, onepageRuntimeKey);
+      return onepageRuntimeKey;
+    }
   }
 
   return "teste-aa015";
