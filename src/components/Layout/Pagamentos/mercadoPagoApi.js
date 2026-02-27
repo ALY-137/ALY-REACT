@@ -410,45 +410,55 @@ export async function solicitarPedidoPixManualBloco({
   const pedidoId = buildPedidoId(bloco, compradorUid);
   const pedidoRef = getPedidoRef(ownerUid, pedidoId);
   const compradorAtual = auth.currentUser;
-  const pedidoExistenteSnap = await getDoc(pedidoRef);
-  if (pedidoExistenteSnap.exists()) {
-    const pedidoExistente = pedidoExistenteSnap.data() || {};
-    const mesmoComprador = sanitizeString(pedidoExistente?.compradorUid) === compradorUid;
-    const mesmoOwner = sanitizeString(pedidoExistente?.ownerUserId) === ownerUid;
-    if (mesmoComprador && mesmoOwner) {
-      return {
-        ok: true,
-        alreadyPurchased: false,
-        alreadyRequested: true,
+  try {
+    await setDoc(
+      pedidoRef,
+      {
         pedidoId,
-        status: sanitizeString(pedidoExistente?.status) || "pedido_solicitado",
-      };
+        ownerUserId: ownerUid,
+        espacoId: espaco,
+        blocoId: bloco,
+        compradorUid,
+        compradorSkinId: buyerContext.skinAtivaId || null,
+        compradorEmail: sanitizeString(compradorAtual?.email) || null,
+        compradorNome: sanitizeString(compradorAtual?.displayName) || null,
+        observacaoComprador: sanitizeString(observacaoComprador) || null,
+        precoCentavos: blocoInfo.precoCentavos,
+        moeda: blocoInfo.moeda,
+        qrSelecionado,
+        status: "pedido_solicitado",
+        atualizadoEm: serverTimestamp(),
+        criadoEm: serverTimestamp(),
+        confirmadoEm: null,
+        confirmadoPorUid: null,
+      },
+      { merge: true }
+    );
+  } catch (err) {
+    if (String(err?.code || "") !== "permission-denied") {
+      throw err;
     }
-  }
 
-  await setDoc(
-    pedidoRef,
-    {
-      pedidoId,
-      ownerUserId: ownerUid,
-      espacoId: espaco,
-      blocoId: bloco,
-      compradorUid,
-      compradorSkinId: buyerContext.skinAtivaId || null,
-      compradorEmail: sanitizeString(compradorAtual?.email) || null,
-      compradorNome: sanitizeString(compradorAtual?.displayName) || null,
-      observacaoComprador: sanitizeString(observacaoComprador) || null,
-      precoCentavos: blocoInfo.precoCentavos,
-      moeda: blocoInfo.moeda,
-      qrSelecionado,
-      status: "pedido_solicitado",
-      atualizadoEm: serverTimestamp(),
-      criadoEm: serverTimestamp(),
-      confirmadoEm: null,
-      confirmadoPorUid: null,
-    },
-    { merge: true }
-  );
+    // Se a escrita falhou por permissao, pode ser que a solicitacao ja exista
+    // (update bloqueado para comprador). Nessa situacao, retornamos a solicitacao existente.
+    const pedidoExistenteSnap = await getDoc(pedidoRef).catch(() => null);
+    if (pedidoExistenteSnap?.exists?.()) {
+      const pedidoExistente = pedidoExistenteSnap.data() || {};
+      const mesmoComprador = sanitizeString(pedidoExistente?.compradorUid) === compradorUid;
+      const mesmoOwner = sanitizeString(pedidoExistente?.ownerUserId) === ownerUid;
+      if (mesmoComprador && mesmoOwner) {
+        return {
+          ok: true,
+          alreadyPurchased: false,
+          alreadyRequested: true,
+          pedidoId,
+          status: sanitizeString(pedidoExistente?.status) || "pedido_solicitado",
+        };
+      }
+    }
+
+    throw err;
+  }
 
   return {
     ok: true,

@@ -1,0 +1,92 @@
+[debug] [2026-02-27T17:58:58.432Z] ----------------------------------------------------------------------
+[debug] [2026-02-27T17:58:58.443Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\ALY\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js functions:list --project aly-onepages-runtime
+[debug] [2026-02-27T17:58:58.444Z] CLI Version:   15.7.0
+[debug] [2026-02-27T17:58:58.445Z] Platform:      win32
+[debug] [2026-02-27T17:58:58.445Z] Node Version:  v24.14.0
+[debug] [2026-02-27T17:58:58.446Z] Time:          Fri Feb 27 2026 14:58:58 GMT-0300 (Horário Padrão de Brasília)
+[debug] [2026-02-27T17:58:58.446Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-02-27T17:58:59.867Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-02-27T17:58:59.871Z] > authorizing via signed-in user (savannapassarela@gmail.com)
+[debug] [2026-02-27T17:58:59.872Z] [iam] checking project aly-onepages-runtime for permissions ["cloudfunctions.functions.list","firebase.projects.get","run.services.list"]
+[debug] [2026-02-27T17:58:59.878Z] Checked if tokens are valid: true, expires at: 1772218225883
+[debug] [2026-02-27T17:58:59.879Z] Checked if tokens are valid: true, expires at: 1772218225883
+[debug] [2026-02-27T17:58:59.884Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/aly-onepages-runtime:testIamPermissions [none]
+[debug] [2026-02-27T17:58:59.885Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/aly-onepages-runtime:testIamPermissions  x-goog-user-project=aly-onepages-runtime
+[debug] [2026-02-27T17:58:59.887Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/aly-onepages-runtime:testIamPermissions {"permissions":["cloudfunctions.functions.list","firebase.projects.get","run.services.list"]}
+[debug] [2026-02-27T17:59:00.964Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/aly-onepages-runtime:testIamPermissions 200
+[debug] [2026-02-27T17:59:00.964Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/aly-onepages-runtime:testIamPermissions {"permissions":["cloudfunctions.functions.list","firebase.projects.get","run.services.list"]}
+[debug] [2026-02-27T17:59:00.968Z] Checked if tokens are valid: true, expires at: 1772218225883
+[debug] [2026-02-27T17:59:00.968Z] Checked if tokens are valid: true, expires at: 1772218225883
+[debug] [2026-02-27T17:59:00.969Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v1/projects/aly-onepages-runtime/locations/-/functions [none]
+[debug] [2026-02-27T17:59:02.065Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v1/projects/aly-onepages-runtime/locations/-/functions 200
+[debug] [2026-02-27T17:59:02.066Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v1/projects/aly-onepages-runtime/locations/-/functions {}
+[debug] [2026-02-27T17:59:02.067Z] Checked if tokens are valid: true, expires at: 1772218225883
+[debug] [2026-02-27T17:59:02.068Z] Checked if tokens are valid: true, expires at: 1772218225883
+[debug] [2026-02-27T17:59:02.069Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v2/projects/aly-onepages-runtime/locations/-/functions filter=environment%3D%22GEN_2%22
+[debug] [2026-02-27T17:59:03.452Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v2/projects/aly-onepages-runtime/locations/-/functions 200
+[debug] [2026-02-27T17:59:44.390Z] ----------------------------------------------------------------------
+[debug] [2026-02-27T17:59:44.401Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\ALY\AppData\Local\npm-cache\_npx\e05a72ff2428b88b\node_modules\firebase-tools\lib\bin\firebase.js deploy --only functions --project aly-onepages-runtime
+[debug] [2026-02-27T17:59:44.402Z] CLI Version:   14.27.0
+[debug] [2026-02-27T17:59:44.403Z] Platform:      win32
+[debug] [2026-02-27T17:59:44.403Z] Node Version:  v24.14.0
+[debug] [2026-02-27T17:59:44.404Z] Time:          Fri Feb 27 2026 14:59:44 GMT-0300 (Horário Padrão de Brasília)
+[debug] [2026-02-27T17:59:44.405Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-02-27T17:59:45.145Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-02-27T17:59:45.149Z] > authorizing via signed-in user (savannapassarela@gmail.com)
+[debug] [2026-02-27T17:59:45.152Z] [iam] checking project aly-onepages-runtime for permissions ["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]
+[debug] [2026-02-27T17:59:45.158Z] Checked if tokens are valid: true, expires at: 1772218225883
+[debug] [2026-02-27T17:59:45.159Z] Checked if tokens are valid: true, expires at: 1772218225883
+[debug] [2026-02-27T17:59:45.166Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/aly-onepages-runtime:testIamPermissions [none]
+[debug] [2026-02-27T17:59:45.166Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/aly-onepages-runtime:testIamPermissions x-goog-quota-user=projects/aly-onepages-runtime
+[debug] [2026-02-27T17:59:45.167Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/aly-onepages-runtime:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2026-02-27T17:59:46.241Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/aly-onepages-runtime:testIamPermissions 200
+[debug] [2026-02-27T17:59:46.242Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/aly-onepages-runtime:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2026-02-27T17:59:46.244Z] Checked if tokens are valid: true, expires at: 1772218225883
+[debug] [2026-02-27T17:59:46.245Z] Checked if tokens are valid: true, expires at: 1772218225883
+[debug] [2026-02-27T17:59:46.245Z] >>> [apiv2][query] POST https://iam.googleapis.com/v1/projects/aly-onepages-runtime/serviceAccounts/aly-onepages-runtime@appspot.gserviceaccount.com:testIamPermissions [none]
+[debug] [2026-02-27T17:59:46.246Z] >>> [apiv2][body] POST https://iam.googleapis.com/v1/projects/aly-onepages-runtime/serviceAccounts/aly-onepages-runtime@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[debug] [2026-02-27T17:59:47.267Z] <<< [apiv2][status] POST https://iam.googleapis.com/v1/projects/aly-onepages-runtime/serviceAccounts/aly-onepages-runtime@appspot.gserviceaccount.com:testIamPermissions 200
+[debug] [2026-02-27T17:59:47.267Z] <<< [apiv2][body] POST https://iam.googleapis.com/v1/projects/aly-onepages-runtime/serviceAccounts/aly-onepages-runtime@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[info] 
+[info] === Deploying to 'aly-onepages-runtime'...
+[info] 
+[info] i  deploying functions 
+[debug] [2026-02-27T17:59:47.279Z] Checked if tokens are valid: true, expires at: 1772218225883
+[debug] [2026-02-27T17:59:47.280Z] Checked if tokens are valid: true, expires at: 1772218225883
+[debug] [2026-02-27T17:59:47.280Z] >>> [apiv2][query] GET https://cloudresourcemanager.googleapis.com/v1/projects/aly-onepages-runtime [none]
+[debug] [2026-02-27T17:59:47.489Z] <<< [apiv2][status] GET https://cloudresourcemanager.googleapis.com/v1/projects/aly-onepages-runtime 200
+[debug] [2026-02-27T17:59:47.490Z] <<< [apiv2][body] GET https://cloudresourcemanager.googleapis.com/v1/projects/aly-onepages-runtime {"projectNumber":"1012754077336","projectId":"aly-onepages-runtime","lifecycleState":"ACTIVE","name":"aly-onepages-runtime","labels":{"firebase":"enabled","firebase-core":"disabled"},"createTime":"2026-02-27T05:56:19.229784Z"}
+[info] i  functions: preparing codebase default for deployment 
+[info] i  functions: ensuring required API cloudfunctions.googleapis.com is enabled... 
+[info] i  functions: ensuring required API cloudbuild.googleapis.com is enabled... 
+[debug] [2026-02-27T17:59:47.498Z] Checked if tokens are valid: true, expires at: 1772218225883
+[debug] [2026-02-27T17:59:47.499Z] Checked if tokens are valid: true, expires at: 1772218225883
+[info] i  artifactregistry: ensuring required API artifactregistry.googleapis.com is enabled... 
+[debug] [2026-02-27T17:59:47.501Z] Checked if tokens are valid: true, expires at: 1772218225883
+[debug] [2026-02-27T17:59:47.502Z] Checked if tokens are valid: true, expires at: 1772218225883
+[debug] [2026-02-27T17:59:47.503Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/aly-onepages-runtime/services/cloudbuild.googleapis.com [none]
+[debug] [2026-02-27T17:59:47.503Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/aly-onepages-runtime/services/cloudbuild.googleapis.com x-goog-quota-user=projects/aly-onepages-runtime
+[debug] [2026-02-27T17:59:47.508Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/aly-onepages-runtime/services/artifactregistry.googleapis.com [none]
+[debug] [2026-02-27T17:59:47.509Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/aly-onepages-runtime/services/artifactregistry.googleapis.com x-goog-quota-user=projects/aly-onepages-runtime
+[debug] [2026-02-27T17:59:48.627Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/aly-onepages-runtime/services/cloudbuild.googleapis.com 200
+[debug] [2026-02-27T17:59:48.628Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/aly-onepages-runtime/services/cloudbuild.googleapis.com [omitted]
+[warn] !  functions: missing required API cloudbuild.googleapis.com. Enabling now... 
+[debug] [2026-02-27T17:59:48.630Z] Checked if tokens are valid: true, expires at: 1772218225883
+[debug] [2026-02-27T17:59:48.630Z] Checked if tokens are valid: true, expires at: 1772218225883
+[debug] [2026-02-27T17:59:48.631Z] >>> [apiv2][query] POST https://serviceusage.googleapis.com/v1/projects/aly-onepages-runtime/services/cloudbuild.googleapis.com:enable [none]
+[debug] [2026-02-27T17:59:48.632Z] >>> [apiv2][(partial)header] POST https://serviceusage.googleapis.com/v1/projects/aly-onepages-runtime/services/cloudbuild.googleapis.com:enable x-goog-quota-user=projects/aly-onepages-runtime
+[debug] [2026-02-27T17:59:48.645Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/aly-onepages-runtime/services/artifactregistry.googleapis.com 200
+[debug] [2026-02-27T17:59:48.646Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/aly-onepages-runtime/services/artifactregistry.googleapis.com [omitted]
+[warn] !  artifactregistry: missing required API artifactregistry.googleapis.com. Enabling now... 
+[debug] [2026-02-27T17:59:48.647Z] Checked if tokens are valid: true, expires at: 1772218225883
+[debug] [2026-02-27T17:59:48.647Z] Checked if tokens are valid: true, expires at: 1772218225883
+[debug] [2026-02-27T17:59:48.648Z] >>> [apiv2][query] POST https://serviceusage.googleapis.com/v1/projects/aly-onepages-runtime/services/artifactregistry.googleapis.com:enable [none]
+[debug] [2026-02-27T17:59:48.649Z] >>> [apiv2][(partial)header] POST https://serviceusage.googleapis.com/v1/projects/aly-onepages-runtime/services/artifactregistry.googleapis.com:enable x-goog-quota-user=projects/aly-onepages-runtime
+[debug] [2026-02-27T17:59:48.997Z] <<< [apiv2][status] POST https://serviceusage.googleapis.com/v1/projects/aly-onepages-runtime/services/cloudbuild.googleapis.com:enable 400
+[debug] [2026-02-27T17:59:48.998Z] <<< [apiv2][body] POST https://serviceusage.googleapis.com/v1/projects/aly-onepages-runtime/services/cloudbuild.googleapis.com:enable [omitted]
+[error] 
+[error] Error: Your project aly-onepages-runtime must be on the Blaze (pay-as-you-go) plan to complete this command. Required API cloudbuild.googleapis.com can't be enabled until the upgrade is complete. To upgrade, visit the following URL:
+
+https://console.firebase.google.com/project/aly-onepages-runtime/usage/details

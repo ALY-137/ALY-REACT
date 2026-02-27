@@ -1,7 +1,7 @@
-import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { collection, doc, getDocs } from "firebase/firestore";
+import { collection, doc, getDocs, onSnapshot, query, where } from "firebase/firestore";
 
 import {
   activeFirebaseProjectKey,
@@ -57,6 +57,8 @@ const App = () => {
   const [setupAdminBootstrap, setSetupAdminBootstrap] = useState(false);
   const [encerrandoSessaoGerenciador, setEncerrandoSessaoGerenciador] = useState(false);
   const [erroAcessoGerenciador, setErroAcessoGerenciador] = useState("");
+  const snapshotSolicitacoesInicializadoRef = useRef(false);
+  const solicitacoesVistasRef = useRef(new Set());
 
   const location = useLocation();
 
@@ -479,6 +481,76 @@ const App = () => {
           !adminEmailGerenciadorConfigurado &&
           seforAdm(user)))
   );
+
+  useEffect(() => {
+    if (isManagerProject) return undefined;
+    if (!usuarioEhAdminProjeto) return undefined;
+
+    const adminUid = String(user?.uid || "").trim();
+    if (!adminUid) return undefined;
+
+    const pedidosRef = collection(db, "users", adminUid, "pedidos");
+    const pedidosQuery = query(pedidosRef, where("status", "==", "pedido_solicitado"));
+
+    const unsubscribe = onSnapshot(
+      pedidosQuery,
+      (snapshot) => {
+        if (!snapshotSolicitacoesInicializadoRef.current) {
+          snapshot.docs.forEach((docSnap) => solicitacoesVistasRef.current.add(docSnap.id));
+          snapshotSolicitacoesInicializadoRef.current = true;
+          return;
+        }
+
+        snapshot.docChanges().forEach((change) => {
+          if (change.type !== "added") return;
+
+          const pedidoId = String(change.doc.id || "").trim();
+          if (!pedidoId || solicitacoesVistasRef.current.has(pedidoId)) return;
+          solicitacoesVistasRef.current.add(pedidoId);
+
+          const data = change.doc.data() || {};
+          const compradorNome =
+            String(data?.compradorNome || "").trim() ||
+            String(data?.compradorEmail || "").trim() ||
+            String(data?.compradorUid || "").trim() ||
+            "Usuario";
+          const valorCentavos = Number(data?.precoCentavos);
+          const valorTexto =
+            Number.isFinite(valorCentavos) && valorCentavos > 0
+              ? ` de R$ ${(valorCentavos / 100).toFixed(2).replace(".", ",")}`
+              : "";
+          const destino = `/menu/admin/solicitacoes?ownerUserId=${encodeURIComponent(adminUid)}`;
+
+          if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+            try {
+              const notification = new Notification("Nova solicitacao de desbloqueio", {
+                body: `${compradorNome} solicitou desbloqueio${valorTexto}.`,
+                icon: "/favicon.ico",
+              });
+              notification.onclick = () => {
+                window.focus();
+                window.location.assign(destino);
+              };
+            } catch {
+              // Mantem fallback silencioso em navegadores que bloqueiam Notification().
+            }
+          }
+        });
+      },
+      (err) => {
+        console.warn(
+          "[SOLICITACOES-ONSNAPSHOT] Falha ao observar solicitacoes:",
+          err?.code || err?.message || err
+        );
+      }
+    );
+
+    return () => {
+      unsubscribe();
+      snapshotSolicitacoesInicializadoRef.current = false;
+      solicitacoesVistasRef.current = new Set();
+    };
+  }, [isManagerProject, usuarioEhAdminProjeto, user?.uid]);
 
   if (!authLoading && user && acessoPublicoSemLogin && isLoginUiRoute) {
     if (usuarioEhAdminProjeto) {
