@@ -374,13 +374,15 @@ const App = () => {
   }, [configSistema.larguraIconsLoginPx]);
 
   const rotaAtual = String(location.pathname || "").toLowerCase();
+  const isAuthHandlerRoute = rotaAtual.startsWith("/__/auth/handler");
   const isAdminLoginRoute = !isManagerProject && rotaAtual === "/login";
+  const isLoginUiRoute = isAdminLoginRoute || isAuthHandlerRoute;
   const modoAcessoProjeto = configSistema?.modoAcessoProjeto || DEFAULT_SISTEMA_CONFIG.modoAcessoProjeto;
   const tipoExperiencia = configSistema?.tipoExperiencia || DEFAULT_SISTEMA_CONFIG.tipoExperiencia;
   const acessoPublicoSemLogin =
     !isManagerProject && modoAcessoProjeto === "publico_sem_login";
   const onePagePublicaAtiva = acessoPublicoSemLogin && tipoExperiencia === "onepage";
-  const exibirHomePublica = acessoPublicoSemLogin && !isAdminLoginRoute;
+  const exibirHomePublica = acessoPublicoSemLogin && !isLoginUiRoute;
 
   const isPublicProfileRoute = useMemo(() => {
     if (isManagerProject) return false;
@@ -476,7 +478,7 @@ const App = () => {
           seforAdm(user)))
   );
 
-  if (!authLoading && user && acessoPublicoSemLogin && isAdminLoginRoute) {
+  if (!authLoading && user && acessoPublicoSemLogin && isLoginUiRoute) {
     if (usuarioEhAdminProjeto) {
       return <Navigate to="/menu/admin" replace />;
     }
@@ -498,9 +500,9 @@ const App = () => {
       ) : isPublicProfileRoute ? (
         <Estrutura />
       ) : (!user || exibirHomePublica) && !authLoading ? (
-        onePagePublicaAtiva && !isAdminLoginRoute ? (
+        onePagePublicaAtiva && !isLoginUiRoute ? (
           <Estrutura />
-        ) : acessoPublicoSemLogin && !isAdminLoginRoute ? (
+        ) : acessoPublicoSemLogin && !isLoginUiRoute ? (
           <div id="login" className={`containerLogin ${mostrarLogin ? "fadeIn" : ""}`}>
             <Navegacoes />
             <div id="iconsLogin">
@@ -604,7 +606,6 @@ const App = () => {
                   }}
                 >
                   TROCAR CONTA
-                  
                 </button>
               </div>
             </div>
