@@ -111,6 +111,11 @@ export default function RouterComponent() {
       errorElement: <Error />,
     },
     {
+      path: "/__/auth/*",
+      element: <App />,
+      errorElement: <Error />,
+    },
+    {
       path: "/login",
       element: <App />,
       errorElement: <Error />,
