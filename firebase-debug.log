@@ -1147,3 +1147,243 @@
 [warn] !  functions: No cleanup policy detected for repositories in us-central1. This may result in a small monthly bill as container images accumulate over time. 
 [error] 
 [error] Error: Functions successfully deployed but could not set up cleanup policy in location us-central1. Pass the --force option to automatically set up a cleanup policy or run 'firebase functions:artifacts:setpolicy' to manually set up a cleanup policy.
+[debug] [2026-02-27T11:11:06.820Z] ----------------------------------------------------------------------
+[debug] [2026-02-27T11:11:06.832Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\firebase-tools\lib\bin\firebase.js deploy --only firestore:rules --project aly-onepages-runtime
+[debug] [2026-02-27T11:11:06.833Z] CLI Version:   13.35.1
+[debug] [2026-02-27T11:11:06.833Z] Platform:      win32
+[debug] [2026-02-27T11:11:06.834Z] Node Version:  v24.14.0
+[debug] [2026-02-27T11:11:06.835Z] Time:          Fri Feb 27 2026 08:11:06 GMT-0300 (Horário Padrão de Brasília)
+[debug] [2026-02-27T11:11:06.835Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-02-27T11:11:07.884Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-02-27T11:11:07.887Z] > authorizing via signed-in user (savannapassarela@gmail.com)
+[debug] [2026-02-27T11:11:07.889Z] [iam] checking project aly-onepages-runtime for permissions ["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]
+[debug] [2026-02-27T11:11:07.897Z] Checked if tokens are valid: false, expires at: 1772183463284
+[debug] [2026-02-27T11:11:07.898Z] Checked if tokens are valid: false, expires at: 1772183463284
+[debug] [2026-02-27T11:11:07.904Z] > refreshing access token with scopes: []
+[debug] [2026-02-27T11:11:07.913Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-02-27T11:11:07.914Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-02-27T11:11:06.814Z] ----------------------------------------------------------------------
+[debug] [2026-02-27T11:11:06.825Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\firebase-tools\lib\bin\firebase.js deploy --only firestore:rules --project aly-onepages-runtime
+[debug] [2026-02-27T11:11:06.826Z] CLI Version:   13.35.1
+[debug] [2026-02-27T11:11:06.826Z] Platform:      win32
+[debug] [2026-02-27T11:11:06.827Z] Node Version:  v24.14.0
+[debug] [2026-02-27T11:11:06.828Z] Time:          Fri Feb 27 2026 08:11:06 GMT-0300 (Horário Padrão de Brasília)
+[debug] [2026-02-27T11:11:06.828Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-02-27T11:11:07.860Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-02-27T11:11:07.863Z] > authorizing via signed-in user (savannapassarela@gmail.com)
+[debug] [2026-02-27T11:11:07.864Z] [iam] checking project aly-onepages-runtime for permissions ["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]
+[debug] [2026-02-27T11:11:07.868Z] Checked if tokens are valid: false, expires at: 1772183463284
+[debug] [2026-02-27T11:11:07.869Z] Checked if tokens are valid: false, expires at: 1772183463284
+[debug] [2026-02-27T11:11:07.870Z] > refreshing access token with scopes: []
+[debug] [2026-02-27T11:11:07.876Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-02-27T11:11:07.877Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-02-27T11:11:07.943Z] Error: EPIPE: broken pipe, write
+    at Socket._write (node:internal/net:75:18)
+    at writeOrBuffer (node:internal/streams/writable:570:12)
+    at _write (node:internal/streams/writable:499:10)
+    at Writable.write (node:internal/streams/writable:508:10)
+    at Console.log (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston\lib\winston\transports\console.js:87:23)
+    at Console._write (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\modern.js:103:17)
+    at doWrite (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\node_modules\readable-stream\lib\_stream_writable.js:390:139)
+    at writeOrBuffer (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\node_modules\readable-stream\lib\_stream_writable.js:381:5)
+    at Writable.write (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\node_modules\readable-stream\lib\_stream_writable.js:302:11)
+    at DerivedLogger.ondata (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston\node_modules\readable-stream\lib\_stream_readable.js:629:20)
+[error] 
+[error] Error: An unexpected error has occurred.
+[debug] [2026-02-27T11:11:07.948Z] Error: EPIPE: broken pipe, write
+    at Socket._write (node:internal/net:75:18)
+    at writeOrBuffer (node:internal/streams/writable:570:12)
+    at _write (node:internal/streams/writable:499:10)
+    at Writable.write (node:internal/streams/writable:508:10)
+    at Console.log (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston\lib\winston\transports\console.js:87:23)
+    at Console._write (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\modern.js:103:17)
+    at doWrite (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\node_modules\readable-stream\lib\_stream_writable.js:390:139)
+    at writeOrBuffer (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\node_modules\readable-stream\lib\_stream_writable.js:381:5)
+    at Writable.write (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\node_modules\readable-stream\lib\_stream_writable.js:302:11)
+    at DerivedLogger.ondata (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston\node_modules\readable-stream\lib\_stream_readable.js:629:20)
+[error] 
+[error] Error: An unexpected error has occurred.
+[debug] [2026-02-27T11:11:07.951Z] Error: EPIPE: broken pipe, write
+    at Socket._write (node:internal/net:75:18)
+    at writeOrBuffer (node:internal/streams/writable:570:12)
+    at _write (node:internal/streams/writable:499:10)
+    at Writable.write (node:internal/streams/writable:508:10)
+    at Console.log (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston\lib\winston\transports\console.js:87:23)
+    at Console._write (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\modern.js:103:17)
+    at doWrite (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\node_modules\readable-stream\lib\_stream_writable.js:390:139)
+    at writeOrBuffer (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\node_modules\readable-stream\lib\_stream_writable.js:381:5)
+    at Writable.write (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\node_modules\readable-stream\lib\_stream_writable.js:302:11)
+    at DerivedLogger.ondata (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston\node_modules\readable-stream\lib\_stream_readable.js:629:20)
+[error] 
+[error] Error: An unexpected error has occurred.
+[debug] [2026-02-27T11:11:07.953Z] Error: EPIPE: broken pipe, write
+    at Socket._write (node:internal/net:75:18)
+    at writeOrBuffer (node:internal/streams/writable:570:12)
+    at _write (node:internal/streams/writable:499:10)
+    at Writable.write (node:internal/streams/writable:508:10)
+    at Console.log (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston\lib\winston\transports\console.js:87:23)
+    at Console._write (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\modern.js:103:17)
+    at doWrite (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\node_modules\readable-stream\lib\_stream_writable.js:390:139)
+    at writeOrBuffer (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\node_modules\readable-stream\lib\_stream_writable.js:381:5)
+    at Writable.write (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\node_modules\readable-stream\lib\_stream_writable.js:302:11)
+    at DerivedLogger.ondata (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston\node_modules\readable-stream\lib\_stream_readable.js:629:20)
+[error] 
+[error] Error: An unexpected error has occurred.
+[debug] [2026-02-27T11:11:07.955Z] Error: EPIPE: broken pipe, write
+    at Socket._write (node:internal/net:75:18)
+    at writeOrBuffer (node:internal/streams/writable:570:12)
+    at _write (node:internal/streams/writable:499:10)
+    at Writable.write (node:internal/streams/writable:508:10)
+    at Console.log (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston\lib\winston\transports\console.js:87:23)
+    at Console._write (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\modern.js:103:17)
+    at doWrite (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\node_modules\readable-stream\lib\_stream_writable.js:390:139)
+    at writeOrBuffer (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\node_modules\readable-stream\lib\_stream_writable.js:381:5)
+    at Writable.write (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\node_modules\readable-stream\lib\_stream_writable.js:302:11)
+    at DerivedLogger.ondata (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston\node_modules\readable-stream\lib\_stream_readable.js:629:20)
+[error] 
+[error] Error: An unexpected error has occurred.
+[debug] [2026-02-27T11:11:07.959Z] Error: EPIPE: broken pipe, write
+    at Socket._write (node:internal/net:75:18)
+    at writeOrBuffer (node:internal/streams/writable:570:12)
+    at _write (node:internal/streams/writable:499:10)
+    at Writable.write (node:internal/streams/writable:508:10)
+    at Console.log (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston\lib\winston\transports\console.js:87:23)
+    at Console._write (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\modern.js:103:17)
+    at doWrite (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\node_modules\readable-stream\lib\_stream_writable.js:390:139)
+    at writeOrBuffer (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\node_modules\readable-stream\lib\_stream_writable.js:381:5)
+    at Writable.write (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\node_modules\readable-stream\lib\_stream_writable.js:302:11)
+    at DerivedLogger.ondata (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston\node_modules\readable-stream\lib\_stream_readable.js:629:20)
+[error] 
+[error] Error: An unexpected error has occurred.
+[debug] [2026-02-27T11:11:07.961Z] Error: EPIPE: broken pipe, write
+    at Socket._write (node:internal/net:75:18)
+    at writeOrBuffer (node:internal/streams/writable:570:12)
+    at _write (node:internal/streams/writable:499:10)
+    at Writable.write (node:internal/streams/writable:508:10)
+    at Console.log (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston\lib\winston\transports\console.js:87:23)
+    at Console._write (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\modern.js:103:17)
+    at doWrite (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\node_modules\readable-stream\lib\_stream_writable.js:390:139)
+    at writeOrBuffer (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\node_modules\readable-stream\lib\_stream_writable.js:381:5)
+    at Writable.write (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\node_modules\readable-stream\lib\_stream_writable.js:302:11)
+    at DerivedLogger.ondata (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston\node_modules\readable-stream\lib\_stream_readable.js:629:20)
+[error] 
+[error] Error: An unexpected error has occurred.
+[debug] [2026-02-27T11:11:07.964Z] Error: EPIPE: broken pipe, write
+    at Socket._write (node:internal/net:75:18)
+    at writeOrBuffer (node:internal/streams/writable:570:12)
+    at _write (node:internal/streams/writable:499:10)
+    at Writable.write (node:internal/streams/writable:508:10)
+    at Console.log (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston\lib\winston\transports\console.js:87:23)
+    at Console._write (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\modern.js:103:17)
+    at doWrite (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\node_modules\readable-stream\lib\_stream_writable.js:390:139)
+    at writeOrBuffer (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\node_modules\readable-stream\lib\_stream_writable.js:381:5)
+    at Writable.write (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\node_modules\readable-stream\lib\_stream_writable.js:302:11)
+    at DerivedLogger.ondata (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston\node_modules\readable-stream\lib\_stream_readable.js:629:20)
+[error] 
+[error] Error: An unexpected error has occurred.
+[debug] [2026-02-27T11:11:07.966Z] Error: EPIPE: broken pipe, write
+    at Socket._write (node:internal/net:75:18)
+    at writeOrBuffer (node:internal/streams/writable:570:12)
+    at _write (node:internal/streams/writable:499:10)
+    at Writable.write (node:internal/streams/writable:508:10)
+    at Console.log (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston\lib\winston\transports\console.js:87:23)
+    at Console._write (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\modern.js:103:17)
+    at doWrite (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\node_modules\readable-stream\lib\_stream_writable.js:390:139)
+    at writeOrBuffer (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\node_modules\readable-stream\lib\_stream_writable.js:381:5)
+    at Writable.write (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\node_modules\readable-stream\lib\_stream_writable.js:302:11)
+    at DerivedLogger.ondata (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston\node_modules\readable-stream\lib\_stream_readable.js:629:20)
+[error] 
+[error] Error: An unexpected error has occurred.
+[debug] [2026-02-27T11:11:07.969Z] Error: EPIPE: broken pipe, write
+    at Socket._write (node:internal/net:75:18)
+    at writeOrBuffer (node:internal/streams/writable:570:12)
+    at _write (node:internal/streams/writable:499:10)
+    at Writable.write (node:internal/streams/writable:508:10)
+    at Console.log (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston\lib\winston\transports\console.js:87:23)
+    at Console._write (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\modern.js:103:17)
+    at doWrite (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\node_modules\readable-stream\lib\_stream_writable.js:390:139)
+    at writeOrBuffer (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\node_modules\readable-stream\lib\_stream_writable.js:381:5)
+    at Writable.write (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\node_modules\readable-stream\lib\_stream_writable.js:302:11)
+    at DerivedLogger.ondata (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston\node_modules\readable-stream\lib\_stream_readable.js:629:20)
+[error] 
+[error] Error: An unexpected error has occurred.
+[debug] [2026-02-27T11:11:08.048Z] Error: EPIPE: broken pipe, write
+    at Socket._write (node:internal/net:75:18)
+    at writeOrBuffer (node:internal/streams/writable:570:12)
+    at _write (node:internal/streams/writable:499:10)
+    at Writable.write (node:internal/streams/writable:508:10)
+    at Console.log (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston\lib\winston\transports\console.js:87:23)
+    at Console._write (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\modern.js:103:17)
+    at doWrite (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\node_modules\readable-stream\lib\_stream_writable.js:390:139)
+    at writeOrBuffer (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\node_modules\readable-stream\lib\_stream_writable.js:381:5)
+    at Writable.write (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\node_modules\readable-stream\lib\_stream_writable.js:302:11)
+    at DerivedLogger.ondata (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston\node_modules\readable-stream\lib\_stream_readable.js:629:20)
+[error] 
+[error] Error: An unexpected error has occurred.
+[debug] [2026-02-27T11:11:08.052Z] Error: EPIPE: broken pipe, write
+    at Socket._write (node:internal/net:75:18)
+    at writeOrBuffer (node:internal/streams/writable:570:12)
+    at _write (node:internal/streams/writable:499:10)
+    at Writable.write (node:internal/streams/writable:508:10)
+    at Console.log (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston\lib\winston\transports\console.js:87:23)
+    at Console._write (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\modern.js:103:17)
+    at doWrite (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\node_modules\readable-stream\lib\_stream_writable.js:390:139)
+    at writeOrBuffer (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\node_modules\readable-stream\lib\_stream_writable.js:381:5)
+    at Writable.write (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston-transport\node_modules\readable-stream\lib\_stream_writable.js:302:11)
+    at DerivedLogger.ondata (C:\Users\ALY\AppData\Local\npm-cache\_npx\872b751b2f16d338\node_modules\winston\node_modules\readable-stream\lib\_stream_readable.js:629:20)
+[debug] [2026-02-27T11:11:08.726Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2026-02-27T11:11:08.727Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-02-27T11:11:08.832Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/aly-onepages-runtime:testIamPermissions [none]
+[debug] [2026-02-27T11:11:08.833Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/aly-onepages-runtime:testIamPermissions x-goog-quota-user=projects/aly-onepages-runtime
+[debug] [2026-02-27T11:11:08.836Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/aly-onepages-runtime:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]}
+[debug] [2026-02-27T11:11:10.101Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/aly-onepages-runtime:testIamPermissions 200
+[debug] [2026-02-27T11:11:10.102Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/aly-onepages-runtime:testIamPermissions {"permissions":["datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get"]}
+[info] 
+[info] === Deploying to 'aly-onepages-runtime'...
+[info] 
+[info] i  deploying firestore 
+[info] i  firestore: reading indexes from firestore.indexes.json... 
+[info] i  cloud.firestore: checking firestore.rules for compilation errors... 
+[debug] [2026-02-27T11:11:10.119Z] Checked if tokens are valid: true, expires at: 1772194267728
+[debug] [2026-02-27T11:11:10.120Z] Checked if tokens are valid: true, expires at: 1772194267728
+[debug] [2026-02-27T11:11:10.120Z] >>> [apiv2][query] POST https://firebaserules.googleapis.com/v1/projects/aly-onepages-runtime:test [none]
+[debug] [2026-02-27T11:11:10.121Z] >>> [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/aly-onepages-runtime:test [omitted]
+[debug] [2026-02-27T11:11:11.970Z] <<< [apiv2][status] POST https://firebaserules.googleapis.com/v1/projects/aly-onepages-runtime:test 200
+[debug] [2026-02-27T11:11:11.970Z] <<< [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/aly-onepages-runtime:test {"issues":[{"sourcePosition":{"fileName":"firestore.rules","line":114,"column":14,"currentOffset":3789,"endOffset":3810},"description":"Unused function: isLegacyBlocoComprador.","severity":"WARNING"},{"sourcePosition":{"fileName":"firestore.rules","line":116,"column":9,"currentOffset":3860,"endOffset":3865},"description":"Invalid function name: exists.","severity":"WARNING"},{"sourcePosition":{"fileName":"firestore.rules","line":116,"column":81,"currentOffset":3932,"endOffset":3938},"description":"Invalid variable name: request.","severity":"WARNING"},{"sourcePosition":{"fileName":"firestore.rules","line":118,"column":11,"currentOffset":3994,"endOffset":3999},"description":"Invalid function name: exists.","severity":"WARNING"},{"sourcePosition":{"fileName":"firestore.rules","line":122,"column":14,"currentOffset":4113,"endOffset":4134},"description":"Unused function: isEspacoBlocoComprador.","severity":"WARNING"},{"sourcePosition":{"fileName":"firestore.rules","line":124,"column":9,"currentOffset":4202,"endOffset":4207},"description":"Invalid function name: exists.","severity":"WARNING"},{"sourcePosition":{"fileName":"firestore.rules","line":124,"column":117,"currentOffset":4310,"endOffset":4316},"description":"Invalid variable name: request.","severity":"WARNING"},{"sourcePosition":{"fileName":"firestore.rules","line":126,"column":11,"currentOffset":4372,"endOffset":4377},"description":"Invalid function name: exists.","severity":"WARNING"},{"sourcePosition":{"fileName":"firestore.rules","line":130,"column":43,"currentOffset":4556,"endOffset":4562},"description":"Unused variable: blocoId.","severity":"WARNING"},{"sourcePosition":{"fileName":"firestore.rules","line":141,"column":61,"currentOffset":4998,"endOffset":5004},"description":"Unused variable: blocoId.","severity":"WARNING"}]}
+[warn] !  [W] 114:14 - Unused function: isLegacyBlocoComprador. 
+[warn] !  [W] 116:9 - Invalid function name: exists. 
+[warn] !  [W] 116:81 - Invalid variable name: request. 
+[warn] !  [W] 118:11 - Invalid function name: exists. 
+[warn] !  [W] 122:14 - Unused function: isEspacoBlocoComprador. 
+[warn] !  [W] 124:9 - Invalid function name: exists. 
+[warn] !  [W] 124:117 - Invalid variable name: request. 
+[warn] !  [W] 126:11 - Invalid function name: exists. 
+[warn] !  [W] 130:43 - Unused variable: blocoId. 
+[warn] !  [W] 141:61 - Unused variable: blocoId. 
+[info] +  cloud.firestore: rules file firestore.rules compiled successfully 
+[debug] [2026-02-27T11:11:11.978Z] Checked if tokens are valid: true, expires at: 1772194267728
+[debug] [2026-02-27T11:11:11.979Z] Checked if tokens are valid: true, expires at: 1772194267728
+[debug] [2026-02-27T11:11:11.981Z] >>> [apiv2][query] GET https://firebaserules.googleapis.com/v1/projects/aly-onepages-runtime/releases pageSize=10&pageToken=
+[debug] [2026-02-27T11:11:13.413Z] <<< [apiv2][status] GET https://firebaserules.googleapis.com/v1/projects/aly-onepages-runtime/releases 200
+[debug] [2026-02-27T11:11:13.414Z] <<< [apiv2][body] GET https://firebaserules.googleapis.com/v1/projects/aly-onepages-runtime/releases {"releases":[{"name":"projects/aly-onepages-runtime/releases/cloud.firestore","rulesetName":"projects/aly-onepages-runtime/rulesets/92379a80-5a1f-43cb-8bff-75bc02f8c7ee","createTime":"2026-02-27T05:58:07.566499Z","updateTime":"2026-02-27T08:13:15.481623Z"}]}
+[debug] [2026-02-27T11:11:13.415Z] Checked if tokens are valid: true, expires at: 1772194267728
+[debug] [2026-02-27T11:11:13.416Z] Checked if tokens are valid: true, expires at: 1772194267728
+[debug] [2026-02-27T11:11:13.416Z] >>> [apiv2][query] GET https://firebaserules.googleapis.com/v1/projects/aly-onepages-runtime/rulesets/92379a80-5a1f-43cb-8bff-75bc02f8c7ee [none]
+[debug] [2026-02-27T11:11:14.688Z] <<< [apiv2][status] GET https://firebaserules.googleapis.com/v1/projects/aly-onepages-runtime/rulesets/92379a80-5a1f-43cb-8bff-75bc02f8c7ee 200
+[debug] [2026-02-27T11:11:14.689Z] <<< [apiv2][body] GET https://firebaserules.googleapis.com/v1/projects/aly-onepages-runtime/rulesets/92379a80-5a1f-43cb-8bff-75bc02f8c7ee [omitted]
+[info] i  firestore: uploading rules firestore.rules... 
+[debug] [2026-02-27T11:11:14.694Z] Checked if tokens are valid: true, expires at: 1772194267728
+[debug] [2026-02-27T11:11:14.694Z] Checked if tokens are valid: true, expires at: 1772194267728
+[debug] [2026-02-27T11:11:14.695Z] >>> [apiv2][query] POST https://firebaserules.googleapis.com/v1/projects/aly-onepages-runtime/rulesets [none]
+[debug] [2026-02-27T11:11:14.696Z] >>> [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/aly-onepages-runtime/rulesets [omitted]
+[debug] [2026-02-27T11:11:16.389Z] <<< [apiv2][status] POST https://firebaserules.googleapis.com/v1/projects/aly-onepages-runtime/rulesets 200
+[debug] [2026-02-27T11:11:16.389Z] <<< [apiv2][body] POST https://firebaserules.googleapis.com/v1/projects/aly-onepages-runtime/rulesets {"name":"projects/aly-onepages-runtime/rulesets/0da6fb6e-604f-4938-9ed8-049b05d9b8dd","source":{"files":[{"content":"rules_version = '2';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    function hasSistemaConfig() {\n      return exists(/databases/$(database)/documents/add_ons/sistema_config);\n    }\n\n    function isAdminDinamico() {\n      return signedIn() &&\n        hasSistemaConfig() &&\n        (get(/databases/$(database)/documents/add_ons/sistema_config).data.adminUid is string) &&\n        request.auth.uid == get(/databases/$(database)/documents/add_ons/sistema_config).data.adminUid;\n    }\n\n    function signedIn() {\n      return request.auth != null;\n    }\n\n    function isAdmin() {\n      return signedIn() && (\n        request.auth.uid == \"WnGJjmU6btgKmMMFAQq5Hpupsap1\" ||\n        isAdminDinamico()\n      );\n    }\n\n    function isOwner(userId) {\n      return signedIn() && request.auth.uid == userId;\n    }\n\n    function hasOwnSkin(skinId) {\n      return signedIn() &&\n        exists(/databases/$(database)/documents/users/$(request.auth.uid)/skins/$(skinId));\n    }\n\n    function hasActiveSkinId() {\n      return signedIn() &&\n        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&\n        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.skinAtivaId is string);\n    }\n\n    function activeSkinId() {\n      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.skinAtivaId;\n    }\n\n    function isSelfOrOwnSkinId(refId) {\n      return signedIn() && (refId == request.auth.uid || hasOwnSkin(refId));\n    }\n\n    function canReadPublic(visibilidade) {\n      return visibilidade == null ||\n        visibilidade == \"publico\" ||\n        ((visibilidade == \"publico_restritivo\" || visibilidade == \"privado\") && signedIn());\n    }\n\n    function canReadSkin(userId, skinId) {\n      return isAdmin() ||\n        isOwner(userId) ||\n        (\n          exists(/databases/$(database)/documents/users/$(userId)/skins/$(skinId)) &&\n          canReadPublic(\n            get(/databases/$(database)/documents/users/$(userId)/skins/$(skinId)).data.visibilidade\n          )\n        );\n    }\n\n    function isEspacoCoCriadorData(data) {\n      return signedIn() &&\n        (data.coCriadoresUids is list) &&\n        data.coCriadoresUids.hasAny([request.auth.uid]);\n    }\n\n    function canManageEspacoData(data, userId) {\n      return isAdmin() || isOwner(userId) || isEspacoCoCriadorData(data);\n    }\n\n    function canManageEspacoByPath(userId, espacoId) {\n      return exists(/databases/$(database)/documents/users/$(userId)/espacos/$(espacoId)) &&\n        canManageEspacoData(\n          get(/databases/$(database)/documents/users/$(userId)/espacos/$(espacoId)).data,\n          userId\n        );\n    }\n\n    function isEspacoAssinante(userId, espacoId) {\n      return signedIn() && (\n        exists(/databases/$(database)/documents/users/$(userId)/espacos/$(espacoId)/assinantes/$(request.auth.uid)) ||\n        (hasActiveSkinId() &&\n          exists(/databases/$(database)/documents/users/$(userId)/espacos/$(espacoId)/assinantes/$(activeSkinId())))\n      );\n    }\n\n    function canReadEspacoData(data, userId, espacoId) {\n      return canManageEspacoData(data, userId) ||\n        data.visibilidade == null ||\n        data.visibilidade == \"publico\" ||\n        ((data.visibilidade == \"publico_restritivo\" || data.visibilidade == \"privado\") && signedIn()) ||\n        (data.visibilidade == \"exclusivo_assinante\" && isEspacoAssinante(userId, espacoId));\n    }\n\n    function isBlocoCoCriador(data) {\n      return signedIn() &&\n        (data.coCriadoresUids is list) &&\n        data.coCriadoresUids.hasAny([request.auth.uid]);\n    }\n\n    function canManageBlocoData(data) {\n      return isAdmin() ||\n        (signedIn() && (\n          data.criadoPor == request.auth.uid ||\n          isBlocoCoCriador(data)\n        ));\n    }\n\n    function isLegacyBlocoComprador(blocoId) {\n      return signedIn() && (\n        exists(/databases/$(database)/documents/blocos/$(blocoId)/compradores/$(request.auth.uid)) ||\n        (hasActiveSkinId() &&\n          exists(/databases/$(database)/documents/blocos/$(blocoId)/compradores/$(activeSkinId())))\n      );\n    }\n\n    function isEspacoBlocoComprador(userId, espacoId, blocoId) {\n      return signedIn() && (\n        exists(/databases/$(database)/documents/users/$(userId)/espacos/$(espacoId)/blocos/$(blocoId)/compradores/$(request.auth.uid)) ||\n        (hasActiveSkinId() &&\n          exists(/databases/$(database)/documents/users/$(userId)/espacos/$(espacoId)/blocos/$(blocoId)/compradores/$(activeSkinId())))\n      );\n    }\n\n    function canReadLegacyBlocoData(data, blocoId) {\n      return canManageBlocoData(data) ||\n        data.visibilidade == null ||\n        data.visibilidade == \"publico\" ||\n        data.visibilidade == \"publico_restritivo\" ||\n        data.visibilidade == \"privado\" ||\n        data.visibilidade == \"exclusivo_assinante\" ||\n        data.visibilidade == \"exclusivo_comprador\" ||\n        data.visibilidade == \"comprado\";\n    }\n\n    function canReadEspacoBlocoData(data, userId, espacoId, blocoId) {\n      return canManageEspacoByPath(userId, espacoId) ||\n        canManageBlocoData(data) ||\n        (\n          exists(/databases/$(database)/documents/users/$(userId)/espacos/$(espacoId)) &&\n          canReadEspacoData(\n            get(/databases/$(database)/documents/users/$(userId)/espacos/$(espacoId)).data,\n            userId,\n            espacoId\n          ) &&\n          (\n            data.visibilidade == null ||\n            data.visibilidade == \"publico\" ||\n            data.visibilidade == \"publico_restritivo\" ||\n            data.visibilidade == \"privado\" ||\n            data.visibilidade == \"exclusivo_assinante\" ||\n            data.visibilidade == \"exclusivo_comprador\" ||\n            data.visibilidade == \"comprado\"\n          )\n        );\n    }\n\n    function isOnePagePublicMode() {\n      return hasSistemaConfig() &&\n        (get(/databases/$(database)/documents/add_ons/sistema_config).data.tipoExperiencia is string) &&\n        get(/databases/$(database)/documents/add_ons/sistema_config).data.tipoExperiencia == \"onepage\" &&\n        (get(/databases/$(database)/documents/add_ons/sistema_config).data.modoAcessoProjeto is string) &&\n        get(/databases/$(database)/documents/add_ons/sistema_config).data.modoAcessoProjeto == \"publico_sem_login\";\n    }\n\n    function canWriteBlocosNoProjetoAtual() {\n      return !isOnePagePublicMode() || isAdmin();\n    }\n\n    function canCreateEspacoBloco(userId, espacoId, data) {\n      return signedIn() &&\n        canWriteBlocosNoProjetoAtual() &&\n        canManageEspacoByPath(userId, espacoId) &&\n        (!('espacoId' in data) || data.espacoId == espacoId) &&\n        (!('ownerUserId' in data) || data.ownerUserId == userId) &&\n        (!('criadoPor' in data) || data.criadoPor == request.auth.uid);\n    }\n\n    function canManageLegacyBloco(blocoId) {\n      return exists(/databases/$(database)/documents/blocos/$(blocoId)) &&\n        canManageBlocoData(get(/databases/$(database)/documents/blocos/$(blocoId)).data);\n    }\n\n    match /users/{userId} {\n      allow read: if isAdmin() || isOwner(userId);\n      allow create: if isAdmin() || isOwner(userId);\n      allow update, delete: if isAdmin() || isOwner(userId);\n\n      match /logins/{loginId} {\n        allow read, write: if isAdmin() || isOwner(userId);\n      }\n\n      match /navegacoes_users/{sessaoId} {\n        allow read, write: if isAdmin() || isOwner(userId);\n      }\n\n      match /skins/{skinId} {\n        allow get, list: if isAdmin() ||\n          isOwner(userId) ||\n          (signedIn() && resource.data.ownerUserId == request.auth.uid) ||\n          canReadPublic(resource.data.visibilidade);\n        allow create: if isAdmin() ||\n          (isOwner(userId) && request.resource.data.ownerUserId == userId);\n        allow update, delete: if isAdmin() || isOwner(userId);\n\n        match /{subPath=**} {\n          allow read: if canReadSkin(userId, skinId);\n          allow write: if isAdmin() || isOwner(userId);\n        }\n      }\n\n      match /espacos/{espacoId} {\n        allow get, list: if canReadEspacoData(resource.data, userId, espacoId);\n        allow create: if isAdmin() ||\n          (isOwner(userId) &&\n            (!('ownerUserId' in request.resource.data) || request.resource.data.ownerUserId == userId));\n        allow update, delete: if canManageEspacoData(resource.data, userId);\n\n        match /blocos/{blocoId} {\n          allow get, list: if canReadEspacoBlocoData(resource.data, userId, espacoId, blocoId);\n          allow create: if isAdmin() || canCreateEspacoBloco(userId, espacoId, request.resource.data);\n          allow update, delete: if isAdmin() ||\n            (canWriteBlocosNoProjetoAtual() && (\n            canManageEspacoByPath(userId, espacoId) ||\n            canManageBlocoData(resource.data)\n            ));\n\n          match /cards/{cardId} {\n            allow read: if exists(/databases/$(database)/documents/users/$(userId)/espacos/$(espacoId)/blocos/$(blocoId)) &&\n              canReadEspacoBlocoData(\n                get(/databases/$(database)/documents/users/$(userId)/espacos/$(espacoId)/blocos/$(blocoId)).data,\n                userId,\n                espacoId,\n                blocoId\n              );\n            allow create, update, delete: if isAdmin() ||\n              (canWriteBlocosNoProjetoAtual() && (\n              canManageEspacoByPath(userId, espacoId) ||\n              (\n                exists(/databases/$(database)/documents/users/$(userId)/espacos/$(espacoId)/blocos/$(blocoId)) &&\n                canManageBlocoData(\n                  get(/databases/$(database)/documents/users/$(userId)/espacos/$(espacoId)/blocos/$(blocoId)).data\n                )\n              )\n              ));\n\n            match /addOnsRefs/{addOnRefId} {\n              allow read: if exists(/databases/$(database)/documents/users/$(userId)/espacos/$(espacoId)/blocos/$(blocoId)) &&\n                canReadEspacoBlocoData(\n                  get(/databases/$(database)/documents/users/$(userId)/espacos/$(espacoId)/blocos/$(blocoId)).data,\n                  userId,\n                  espacoId,\n                  blocoId\n                );\n              allow create, update, delete: if isAdmin() ||\n                (canWriteBlocosNoProjetoAtual() && (\n                canManageEspacoByPath(userId, espacoId) ||\n                (\n                  exists(/databases/$(database)/documents/users/$(userId)/espacos/$(espacoId)/blocos/$(blocoId)) &&\n                  canManageBlocoData(\n                    get(/databases/$(database)/documents/users/$(userId)/espacos/$(espacoId)/blocos/$(blocoId)).data\n                  )\n                )\n                ));\n            }\n          }\n\n          match /compradores/{compradorId} {\n            allow read: if canManageEspacoByPath(userId, espacoId) || isSelfOrOwnSkinId(compradorId);\n            allow create, delete: if canManageEspacoByPath(userId, espacoId) || isSelfOrOwnSkinId(compradorId);\n            allow update: if canManageEspacoByPath(userId, espacoId);\n          }\n        }\n\n        match /assinantes/{assinanteId} {\n          allow read: if canManageEspacoByPath(userId, espacoId) || isSelfOrOwnSkinId(assinanteId);\n          allow create, delete: if canManageEspacoByPath(userId, espacoId) || isSelfOrOwnSkinId(assinanteId);\n          allow update: if canManageEspacoByPath(userId, espacoId);\n        }\n      }\n    }\n\n    match /blocos/{blocoId} {\n      allow read: if canReadLegacyBlocoData(resource.data, blocoId);\n      allow create: if canWriteBlocosNoProjetoAtual() &&\n        signedIn() &&\n        (isAdmin() || request.resource.data.criadoPor == request.auth.uid);\n      allow update, delete: if canWriteBlocosNoProjetoAtual() &&\n        canManageBlocoData(resource.data);\n\n      match /cards/{cardId} {\n        allow read: if exists(/databases/$(database)/documents/blocos/$(blocoId)) &&\n          canReadLegacyBlocoData(\n            get(/databases/$(database)/documents/blocos/$(blocoId)).data,\n            blocoId\n          );\n        allow create, update, delete: if canWriteBlocosNoProjetoAtual() &&\n          canManageLegacyBloco(blocoId);\n\n        match /addOnsRefs/{addOnRefId} {\n          allow read: if exists(/databases/$(database)/documents/blocos/$(blocoId)) &&\n            canReadLegacyBlocoData(\n              get(/databases/$(database)/documents/blocos/$(blocoId)).data,\n              blocoId\n            );\n          allow create, update, delete: if canWriteBlocosNoProjetoAtual() &&\n            canManageLegacyBloco(blocoId);\n        }\n      }\n\n      match /compradores/{compradorId} {\n        allow read: if canManageLegacyBloco(blocoId) || isSelfOrOwnSkinId(compradorId);\n        allow create, delete: if canManageLegacyBloco(blocoId) || isSelfOrOwnSkinId(compradorId);\n        allow update: if canManageLegacyBloco(blocoId);\n      }\n    }\n\n    match /contatos/{contatoId} {\n      allow create: if true;\n      allow read, update, delete: if isAdmin() || signedIn();\n\n      match /conversas/{conversaId} {\n        allow create: if true;\n        allow read, update, delete: if isAdmin() || signedIn();\n\n        match /chat/{chatId} {\n          allow create: if true;\n          allow read, update, delete: if isAdmin() || signedIn();\n        }\n\n        // Compatibilidade com legado que ainda usa \"chats\".\n        match /chats/{chatId} {\n          allow create: if true;\n          allow read, update, delete: if isAdmin() || signedIn();\n        }\n      }\n    }\n\n    match /acessos/{acessoId} {\n      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;\n      allow read, update, delete: if isAdmin();\n    }\n\n        match /add_ons/{addonId} {\n      allow read: if true;\n      allow create: if isAdmin() || (\n        addonId == \"sistema_config\" &&\n        signedIn() &&\n        !hasSistemaConfig() &&\n        request.resource.data.adminUid == request.auth.uid\n      );\n      allow update, delete: if isAdmin();\n    }\n\n    // Cadastro central de sistemas (projeto gerenciador).\n    // Leitura publica para carregar configuracoes globais sem login.\n    match /systems/{systemId} {\n      allow read: if true;\n      allow create: if isAdmin() || (\n        signedIn() &&\n        (request.resource.data.criadoPorUid is string) &&\n        request.resource.data.criadoPorUid == request.auth.uid &&\n        (request.resource.data.atualizadoPorUid is string) &&\n        request.resource.data.atualizadoPorUid == request.auth.uid\n      );\n      allow update, delete: if isAdmin() || (\n        signedIn() &&\n        (\n          (\n            (resource.data.criadoPorUid is string) &&\n            resource.data.criadoPorUid == request.auth.uid\n          ) ||\n          (\n            !(resource.data.criadoPorUid is string) &&\n            (request.resource.data.criadoPorUid is string) &&\n            request.resource.data.criadoPorUid == request.auth.uid &&\n            (request.resource.data.atualizadoPorUid is string) &&\n            request.resource.data.atualizadoPorUid == request.auth.uid\n          )\n        )\n      );\n    }\n\n    // Necessario para consultas collectionGroup(\"skins\")\n    // em qualquer profundidade de caminho.\n    match /{path=**}/skins/{skinId} {\n      allow get, list: if isAdmin() ||\n        (signedIn() && resource.data.ownerUserId == request.auth.uid) ||\n        canReadPublic(resource.data.visibilidade);\n    }\n\n    match /{doc=**} {\n      allow read, write: if false;\n    }\n  }\n}\n\r\n\r\n","name":"firestore.rules"}]},"createTime":"2026-02-27T11:11:16.039183Z","metadata":{"services":["cloud.firestore"]}}
+[debug] [2026-02-27T11:11:16.390Z] [rules] created ruleset projects/aly-onepages-runtime/rulesets/0da6fb6e-604f-4938-9ed8-049b05d9b8dd
+[debug] [2026-02-27T11:11:16.392Z] [rules] releasing cloud.firestore/(default) with ruleset projects/aly-onepages-runtime/rulesets/0da6fb6e-604f-4938-9ed8-049b05d9b8dd
+[debug] [2026-02-27T11:11:16.394Z] Checked if tokens are valid: true, expires at: 1772194267728
+[debug] [2026-02-27T11:11:16.395Z] Checked if tokens are valid: true, expires at: 1772194267728
+[debug] [2026-02-27T11:11:16.395Z] >>> [apiv2][query] PATCH https://firebaserules.googleapis.com/v1/projects/aly-onepages-runtime/releases/cloud.firestore/(default) [none]
+[debug] [2026-02-27T11:11:16.396Z] >>> [apiv2][body] PATCH https://firebaserules.googleapis.com/v1/projects/aly-onepages-runtime/releases/cloud.firestore/(default) {"release":{"name":"projects/aly-onepages-runtime/releases/cloud.firestore/(default)","rulesetName":"projects/aly-onepages-runtime/rulesets/0da6fb6e-604f-4938-9ed8-049b05d9b8dd"}}
+[debug] [2026-02-27T11:11:17.741Z] <<< [apiv2][status] PATCH https://firebaserules.googleapis.com/v1/projects/aly-onepages-runtime/releases/cloud.firestore/(default) 200

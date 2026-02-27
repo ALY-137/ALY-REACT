@@ -160,8 +160,21 @@ service cloud.firestore {
         );
     }
 
+    function isOnePagePublicMode() {
+      return hasSistemaConfig() &&
+        (get(/databases/$(database)/documents/add_ons/sistema_config).data.tipoExperiencia is string) &&
+        get(/databases/$(database)/documents/add_ons/sistema_config).data.tipoExperiencia == "onepage" &&
+        (get(/databases/$(database)/documents/add_ons/sistema_config).data.modoAcessoProjeto is string) &&
+        get(/databases/$(database)/documents/add_ons/sistema_config).data.modoAcessoProjeto == "publico_sem_login";
+    }
+
+    function canWriteBlocosNoProjetoAtual() {
+      return !isOnePagePublicMode() || isAdmin();
+    }
+
     function canCreateEspacoBloco(userId, espacoId, data) {
       return signedIn() &&
+        canWriteBlocosNoProjetoAtual() &&
         canManageEspacoByPath(userId, espacoId) &&
         (!('espacoId' in data) || data.espacoId == espacoId) &&
         (!('ownerUserId' in data) || data.ownerUserId == userId) &&
@@ -212,8 +225,10 @@ service cloud.firestore {
           allow get, list: if canReadEspacoBlocoData(resource.data, userId, espacoId, blocoId);
           allow create: if isAdmin() || canCreateEspacoBloco(userId, espacoId, request.resource.data);
           allow update, delete: if isAdmin() ||
+            (canWriteBlocosNoProjetoAtual() && (
             canManageEspacoByPath(userId, espacoId) ||
-            canManageBlocoData(resource.data);
+            canManageBlocoData(resource.data)
+            ));
 
           match /cards/{cardId} {
             allow read: if exists(/databases/$(database)/documents/users/$(userId)/espacos/$(espacoId)/blocos/$(blocoId)) &&
@@ -224,13 +239,15 @@ service cloud.firestore {
                 blocoId
               );
             allow create, update, delete: if isAdmin() ||
+              (canWriteBlocosNoProjetoAtual() && (
               canManageEspacoByPath(userId, espacoId) ||
               (
                 exists(/databases/$(database)/documents/users/$(userId)/espacos/$(espacoId)/blocos/$(blocoId)) &&
                 canManageBlocoData(
                   get(/databases/$(database)/documents/users/$(userId)/espacos/$(espacoId)/blocos/$(blocoId)).data
                 )
-              );
+              )
+              ));
 
             match /addOnsRefs/{addOnRefId} {
               allow read: if exists(/databases/$(database)/documents/users/$(userId)/espacos/$(espacoId)/blocos/$(blocoId)) &&
@@ -241,13 +258,15 @@ service cloud.firestore {
                   blocoId
                 );
               allow create, update, delete: if isAdmin() ||
+                (canWriteBlocosNoProjetoAtual() && (
                 canManageEspacoByPath(userId, espacoId) ||
                 (
                   exists(/databases/$(database)/documents/users/$(userId)/espacos/$(espacoId)/blocos/$(blocoId)) &&
                   canManageBlocoData(
                     get(/databases/$(database)/documents/users/$(userId)/espacos/$(espacoId)/blocos/$(blocoId)).data
                   )
-                );
+                )
+                ));
             }
           }
 
@@ -268,9 +287,11 @@ service cloud.firestore {
 
     match /blocos/{blocoId} {
       allow read: if canReadLegacyBlocoData(resource.data, blocoId);
-      allow create: if signedIn() &&
+      allow create: if canWriteBlocosNoProjetoAtual() &&
+        signedIn() &&
         (isAdmin() || request.resource.data.criadoPor == request.auth.uid);
-      allow update, delete: if canManageBlocoData(resource.data);
+      allow update, delete: if canWriteBlocosNoProjetoAtual() &&
+        canManageBlocoData(resource.data);
 
       match /cards/{cardId} {
         allow read: if exists(/databases/$(database)/documents/blocos/$(blocoId)) &&
@@ -278,7 +299,8 @@ service cloud.firestore {
             get(/databases/$(database)/documents/blocos/$(blocoId)).data,
             blocoId
           );
-        allow create, update, delete: if canManageLegacyBloco(blocoId);
+        allow create, update, delete: if canWriteBlocosNoProjetoAtual() &&
+          canManageLegacyBloco(blocoId);
 
         match /addOnsRefs/{addOnRefId} {
           allow read: if exists(/databases/$(database)/documents/blocos/$(blocoId)) &&
@@ -286,7 +308,8 @@ service cloud.firestore {
               get(/databases/$(database)/documents/blocos/$(blocoId)).data,
               blocoId
             );
-          allow create, update, delete: if canManageLegacyBloco(blocoId);
+          allow create, update, delete: if canWriteBlocosNoProjetoAtual() &&
+            canManageLegacyBloco(blocoId);
         }
       }
 
