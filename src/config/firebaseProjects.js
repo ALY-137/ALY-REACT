@@ -6,6 +6,12 @@ const FIREBASE_ENV_PREFIX = "REACT_APP_FIREBASE_";
 const FIREBASE_PROJECT_KEYS_ENV = "REACT_APP_FIREBASE_PROJECT_KEYS";
 const FORCED_SHARED_STORAGE_BUCKET = "teste-aa015.appspot.com";
 
+function sanitizeEnvScalar(value) {
+  return String(value || "")
+    .replace(/[\r\n]+/g, "")
+    .trim();
+}
+
 const TESTE_AA015_CONFIG = {
   apiKey: "AIzaSyCJMHDdf-GwLwyqKQLRWR8kkyWXDP2v02A",
   authDomain: "teste-aa015.firebaseapp.com",
@@ -52,20 +58,23 @@ function applySharedStorageBucket(firebaseConfig) {
 }
 
 function buildProjectFromEnvPrefix(prefixoBruto) {
-  const prefixo = String(prefixoBruto || "").trim().toUpperCase();
+  const prefixo = sanitizeEnvScalar(prefixoBruto).toUpperCase();
   if (!prefixo) return null;
 
   const envKey = `${FIREBASE_ENV_PREFIX}${prefixo}_`;
-  const keyPersonalizada = process.env[`${envKey}KEY`] || "";
-  const apiKey = process.env[`${envKey}API_KEY`] || "";
-  const authDomain = process.env[`${envKey}AUTH_DOMAIN`] || "";
-  const databaseURL = process.env[`${envKey}DATABASE_URL`] || "";
-  const projectId = process.env[`${envKey}PROJECT_ID`] || "";
-  const storageBucket = process.env[`${envKey}STORAGE_BUCKET`] || "";
-  const messagingSenderId = process.env[`${envKey}MESSAGING_SENDER_ID`] || "";
-  const appId = process.env[`${envKey}APP_ID`] || "";
+  const keyPersonalizada = sanitizeEnvScalar(process.env[`${envKey}KEY`]);
+  const apiKey = sanitizeEnvScalar(process.env[`${envKey}API_KEY`]);
+  const authDomain = sanitizeEnvScalar(process.env[`${envKey}AUTH_DOMAIN`]);
+  const databaseURL = sanitizeEnvScalar(process.env[`${envKey}DATABASE_URL`]);
+  const projectId = sanitizeEnvScalar(process.env[`${envKey}PROJECT_ID`]);
+  const storageBucket = sanitizeEnvScalar(process.env[`${envKey}STORAGE_BUCKET`]);
+  const messagingSenderId = sanitizeEnvScalar(
+    process.env[`${envKey}MESSAGING_SENDER_ID`]
+  );
+  const appId = sanitizeEnvScalar(process.env[`${envKey}APP_ID`]);
   const functionsRegion =
-    process.env[`${envKey}FUNCTIONS_REGION`] || DEFAULT_FUNCTIONS_REGION;
+    sanitizeEnvScalar(process.env[`${envKey}FUNCTIONS_REGION`]) ||
+    DEFAULT_FUNCTIONS_REGION;
   const domains = parseDomains(process.env[`${envKey}DOMAINS`]);
 
   const hasRequired =
