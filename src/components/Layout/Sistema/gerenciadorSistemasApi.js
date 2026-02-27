@@ -1,6 +1,8 @@
 import { initializeApp } from "firebase/app";
+import { httpsCallable } from "firebase/functions";
 import {
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -14,14 +16,20 @@ import {
 import {
   activeFirebaseProjectId,
   db as dbProjetoAtivo,
+  functions as functionsProjetoAtivo,
 } from "../../Banco/init-firebase";
 
 const MANAGER_APP_NAME = "system-manager-app";
 const MANAGER_COLLECTION = "systems";
-const MANAGER_COLLECTIONS = ["systems", "sistemas"];
+const MANAGER_COLLECTIONS_READ = ["systems"];
+const MANAGER_COLLECTIONS_DELETE = ["systems", "sistemas"];
 const FORCED_SHARED_STORAGE_BUCKET = "teste-aa015.appspot.com";
 
 let managerDbSingleton = null;
+const callLimparEnvsProjetoNoVercel = httpsCallable(
+  functionsProjetoAtivo,
+  "limparEnvsProjetoNoVercel"
+);
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -262,7 +270,7 @@ export async function listarSistemasNoGerenciador() {
   if (!managerDb) return [];
 
   const registros = [];
-  for (const collectionName of MANAGER_COLLECTIONS) {
+  for (const collectionName of MANAGER_COLLECTIONS_READ) {
     try {
       const snap = await getDocs(collection(managerDb, collectionName));
       snap.docs.forEach((docItem) => {
@@ -409,4 +417,85 @@ export async function obterConfigProjetoDoGerenciador(params = {}) {
 
 export async function salvarConfigProjetoNoGerenciador(params = {}) {
   return salvarConfigSistemaNoGerenciador(params);
+}
+
+export async function limparEnvsProjetoNoVercel({ systemKey = "" } = {}) {
+  const keyNormalizada = normalizeSystemKey(systemKey);
+  if (!keyNormalizada) {
+    throw new Error("Chave do projeto invalida para limpar ENV no Vercel.");
+  }
+
+  const response = await callLimparEnvsProjetoNoVercel({
+    systemKey: keyNormalizada,
+  });
+  return response?.data || { ok: false };
+}
+
+export async function removerProjetoNoGerenciador({
+  systemKey = "",
+  removerEnvVercel = true,
+  ignorarErroLimpezaEnv = false,
+} = {}) {
+  const keyNormalizada = normalizeSystemKey(systemKey);
+  if (!keyNormalizada) {
+    throw new Error("Chave do projeto invalida para remocao.");
+  }
+
+  const managerDb = getManagerDb();
+  if (!managerDb) {
+    throw new Error("Gerenciador de projetos nao configurado.");
+  }
+
+  let resultadoLimpezaEnv = null;
+  let erroLimpezaEnv = null;
+  if (removerEnvVercel) {
+    try {
+      resultadoLimpezaEnv = await limparEnvsProjetoNoVercel({
+        systemKey: keyNormalizada,
+      });
+    } catch (error) {
+      erroLimpezaEnv = normalizeText(error?.message || "Falha ao limpar ENV no Vercel.");
+      if (!ignorarErroLimpezaEnv) {
+        throw error;
+      }
+    }
+  }
+
+  const docsRemovidos = [];
+  const idsRemovidos = new Set();
+
+  for (const collectionName of MANAGER_COLLECTIONS_DELETE) {
+    const docRefDireta = doc(managerDb, collectionName, keyNormalizada);
+    const docSnapDireta = await getDoc(docRefDireta);
+
+    if (docSnapDireta.exists()) {
+      await deleteDoc(docRefDireta);
+      docsRemovidos.push(`${collectionName}/${keyNormalizada}`);
+      idsRemovidos.add(`${collectionName}:${keyNormalizada}`);
+    }
+
+    const bySystemKeyQuery = query(
+      collection(managerDb, collectionName),
+      where("systemKey", "==", keyNormalizada),
+      limit(25)
+    );
+    const bySystemKeySnap = await getDocs(bySystemKeyQuery);
+
+    for (const item of bySystemKeySnap.docs) {
+      const dedupeKey = `${collectionName}:${item.id}`;
+      if (idsRemovidos.has(dedupeKey)) continue;
+
+      await deleteDoc(doc(managerDb, collectionName, item.id));
+      docsRemovidos.push(`${collectionName}/${item.id}`);
+      idsRemovidos.add(dedupeKey);
+    }
+  }
+
+  return {
+    ok: true,
+    systemKey: keyNormalizada,
+    envCleanup: resultadoLimpezaEnv || null,
+    envCleanupError: erroLimpezaEnv || null,
+    docsRemovidos,
+  };
 }

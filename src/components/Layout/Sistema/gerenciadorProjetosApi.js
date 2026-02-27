@@ -1,5 +1,7 @@
 export {
   gerarBlocoEnvProjeto,
+  limparEnvsProjetoNoVercel,
+  removerProjetoNoGerenciador,
   listarProjetosNoGerenciador,
   criarProjetoNoGerenciador,
   obterConfigProjetoDoGerenciador,
@@ -14,4 +16,3 @@ export {
   obterConfigSistemaDoGerenciador,
   salvarConfigSistemaNoGerenciador,
 } from "./gerenciadorSistemasApi";
-

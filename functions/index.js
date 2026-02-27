@@ -19,6 +19,7 @@ const runtimeServiceAccount =
   `functions-runtime@${sanitizeString(process.env.GCLOUD_PROJECT) || "teste-aa015"}.iam.gserviceaccount.com`;
 const CALLABLE_OPTIONS = {
   region: REGION,
+  cors: true,
 };
 const HTTP_OPTIONS = {
   region: REGION,
@@ -75,6 +76,120 @@ function parseCsv(value) {
     .split(",")
     .map((item) => sanitizeString(item))
     .filter(Boolean);
+}
+
+function normalizeSystemKeyToEnvPrefix(systemKey) {
+  return sanitizeString(systemKey).replace(/[^a-zA-Z0-9]+/g, "_").toUpperCase();
+}
+
+function getVercelRuntimeConfig() {
+  return {
+    token: sanitizeString(process.env.VERCEL_TOKEN),
+    projectId: sanitizeString(process.env.VERCEL_PROJECT_ID),
+    teamId: sanitizeString(process.env.VERCEL_TEAM_ID),
+  };
+}
+
+function buildVercelApiUrl(pathname, teamId = "", query = {}) {
+  const url = new URL(`https://api.vercel.com${pathname}`);
+  if (teamId) {
+    url.searchParams.set("teamId", teamId);
+  }
+
+  Object.entries(query || {}).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === "") {
+      return;
+    }
+
+    if (Array.isArray(value)) {
+      value.forEach((item) => {
+        const normalized = sanitizeString(item);
+        if (normalized) {
+          url.searchParams.append(key, normalized);
+        }
+      });
+      return;
+    }
+
+    url.searchParams.set(key, String(value));
+  });
+
+  return url.toString();
+}
+
+async function callVercelApi({
+  token,
+  teamId = "",
+  method = "GET",
+  pathname,
+  query = {},
+  body = null,
+}) {
+  const url = buildVercelApiUrl(pathname, teamId, query);
+  const response = await fetch(url, {
+    method,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(body ? { "Content-Type": "application/json" } : {}),
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
+
+  if (!response.ok) {
+    const errorMessage =
+      sanitizeString(payload?.error?.message) ||
+      sanitizeString(payload?.error?.code) ||
+      sanitizeString(payload?.message) ||
+      `Falha na API da Vercel (${response.status}).`;
+    throw new HttpsError("internal", errorMessage);
+  }
+
+  return payload || {};
+}
+
+async function assertSystemManagerAdminPermission(request) {
+  const uid = ensureAuth(request);
+  const email = sanitizeString(request?.auth?.token?.email).toLowerCase();
+  const dynamicAdminUid = await getDynamicAdminUidFromConfig();
+  const hasAnyAdminConfigured =
+    ADMIN_ONLY_ALLOWED_UIDS.size > 0 ||
+    ADMIN_ONLY_ALLOWED_EMAILS.size > 0 ||
+    Boolean(dynamicAdminUid);
+
+  if (!hasAnyAdminConfigured) {
+    if (shouldEnforceAdminOnlyAuth()) {
+      return uid;
+    }
+
+    throw new HttpsError(
+      "permission-denied",
+      "Admin do gerenciador nao configurado para executar esta acao."
+    );
+  }
+
+  if (ADMIN_ONLY_ALLOWED_UIDS.has(uid)) {
+    return uid;
+  }
+
+  if (email && ADMIN_ONLY_ALLOWED_EMAILS.has(email)) {
+    return uid;
+  }
+
+  if (dynamicAdminUid && dynamicAdminUid === uid) {
+    return uid;
+  }
+
+  throw new HttpsError(
+    "permission-denied",
+    "Apenas administrador pode executar esta acao."
+  );
 }
 
 function shouldEnforceAdminOnlyAuth() {
@@ -494,6 +609,121 @@ exports.desconectarMercadoPago = onCall(CALLABLE_OPTIONS, async (request) => {
   return {
     ok: true,
     conectado: false,
+  };
+});
+
+exports.limparEnvsProjetoNoVercel = onCall(CALLABLE_OPTIONS, async (request) => {
+  await assertSystemManagerAdminPermission(request);
+
+  const systemKey = ensureRequiredString(request.data?.systemKey, "systemKey");
+  const envPrefixSuffix = normalizeSystemKeyToEnvPrefix(systemKey);
+  if (!envPrefixSuffix) {
+    throw new HttpsError("invalid-argument", "systemKey invalida.");
+  }
+
+  const { token, projectId, teamId } = getVercelRuntimeConfig();
+  if (!token || !projectId) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Defina VERCEL_TOKEN e VERCEL_PROJECT_ID no ambiente das Functions."
+    );
+  }
+
+  const envPrefix = `REACT_APP_FIREBASE_${envPrefixSuffix}_`;
+  const listResponse = await callVercelApi({
+    token,
+    teamId,
+    method: "GET",
+    pathname: `/v10/projects/${encodeURIComponent(projectId)}/env`,
+    query: { limit: 100, decrypt: "true" },
+  });
+
+  const envs = Array.isArray(listResponse?.envs) ? listResponse.envs : [];
+  const prefixedEnvs = envs.filter((item) =>
+    sanitizeString(item?.key).startsWith(envPrefix)
+  );
+  const removedKeys = new Set();
+
+  for (const envItem of prefixedEnvs) {
+    const envId = sanitizeString(envItem?.id);
+    if (!envId) continue;
+
+    await callVercelApi({
+      token,
+      teamId,
+      method: "DELETE",
+      pathname: `/v10/projects/${encodeURIComponent(projectId)}/env/${encodeURIComponent(envId)}`,
+    });
+
+    removedKeys.add(sanitizeString(envItem?.key));
+  }
+
+  const projectKeysToken = envPrefixSuffix;
+  const projectKeysEnvs = envs.filter(
+    (item) => sanitizeString(item?.key) === "REACT_APP_FIREBASE_PROJECT_KEYS"
+  );
+  let updatedProjectKeysCount = 0;
+  let skippedProjectKeysCount = 0;
+
+  for (const envItem of projectKeysEnvs) {
+    const envId = sanitizeString(envItem?.id);
+    const rawValue = sanitizeString(envItem?.value);
+    if (!envId || !rawValue) {
+      skippedProjectKeysCount += 1;
+      continue;
+    }
+
+    const keysAtuais = parseCsv(rawValue).map((item) => item.toUpperCase());
+    const keysFiltradas = keysAtuais.filter((item) => item !== projectKeysToken);
+
+    if (keysFiltradas.length === keysAtuais.length) {
+      continue;
+    }
+
+    const target = Array.isArray(envItem?.target) ? envItem.target : [];
+    const type = sanitizeString(envItem?.type) || "encrypted";
+    const customEnvironmentIds = Array.isArray(envItem?.customEnvironmentIds)
+      ? envItem.customEnvironmentIds
+          .map((item) => sanitizeString(item))
+          .filter(Boolean)
+      : [];
+
+    await callVercelApi({
+      token,
+      teamId,
+      method: "DELETE",
+      pathname: `/v10/projects/${encodeURIComponent(projectId)}/env/${encodeURIComponent(envId)}`,
+    });
+
+    if (keysFiltradas.length > 0) {
+      await callVercelApi({
+        token,
+        teamId,
+        method: "POST",
+        pathname: `/v10/projects/${encodeURIComponent(projectId)}/env`,
+        body: {
+          key: "REACT_APP_FIREBASE_PROJECT_KEYS",
+          value: keysFiltradas.join(","),
+          type,
+          target,
+          ...(customEnvironmentIds.length > 0
+            ? { customEnvironmentIds }
+            : {}),
+        },
+      });
+    }
+
+    updatedProjectKeysCount += 1;
+  }
+
+  return {
+    ok: true,
+    systemKey: sanitizeString(systemKey).toLowerCase(),
+    envPrefix,
+    removedCount: prefixedEnvs.length,
+    removedKeys: Array.from(removedKeys.values()),
+    updatedProjectKeysCount,
+    skippedProjectKeysCount,
   };
 });
 

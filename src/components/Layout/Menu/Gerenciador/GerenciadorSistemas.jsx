@@ -4,10 +4,16 @@ import { seforAdm } from "../../../Scripts/verificacoes/verificaAdm";
 import {
   criarProjetoNoGerenciador,
   gerarBlocoEnvProjeto,
+  limparEnvsProjetoNoVercel,
   listarProjetosNoGerenciador,
+  removerProjetoNoGerenciador,
 } from "../../Sistema/gerenciadorProjetosApi";
 import { listConfiguredFirebaseProjects } from "../../../../config/firebaseProjects";
 import PropriedadesSistema from "../PropriedadesSistema/PropriedadesSistema";
+
+const VERCEL_ENV_AUTOMATION_ENABLED =
+  String(process.env.REACT_APP_VERCEL_ENV_AUTOMATION || "").toLowerCase() === "true";
+const SYSTEM_KEYS_OCULTAS_STORAGE_KEY = "gerenciadorProjetos.systemKeysOcultas";
 
 function prefixoEnvPorSystemKey(systemKey = "") {
   return String(systemKey || "").replace(/[^a-zA-Z0-9]+/g, "_").toUpperCase();
@@ -29,6 +35,36 @@ function montarBlocoEnvFinal({ systemKey, domains, firebaseConfig }) {
   return `${linhaProjectKeys}\n\n${blocoProjeto}`;
 }
 
+function montarChecklistRemocaoEnvVercel(systemKey = "") {
+  const prefixo = prefixoEnvPorSystemKey(systemKey);
+  if (!prefixo) return "";
+
+  const envsProjeto = [
+    `REACT_APP_FIREBASE_${prefixo}_KEY`,
+    `REACT_APP_FIREBASE_${prefixo}_API_KEY`,
+    `REACT_APP_FIREBASE_${prefixo}_AUTH_DOMAIN`,
+    `REACT_APP_FIREBASE_${prefixo}_PROJECT_ID`,
+    `REACT_APP_FIREBASE_${prefixo}_STORAGE_BUCKET`,
+    `REACT_APP_FIREBASE_${prefixo}_MESSAGING_SENDER_ID`,
+    `REACT_APP_FIREBASE_${prefixo}_APP_ID`,
+    `REACT_APP_FIREBASE_${prefixo}_DATABASE_URL`,
+    `REACT_APP_FIREBASE_${prefixo}_FUNCTIONS_REGION`,
+    `REACT_APP_FIREBASE_${prefixo}_DOMAINS`,
+  ];
+
+  return [
+    `# Limpeza manual de ENV no Vercel para ${systemKey}`,
+    "",
+    "1) No Vercel: Project > Settings > Environment Variables",
+    "2) Remova (se existirem) as chaves abaixo:",
+    ...envsProjeto.map((item) => `- ${item}`),
+    "",
+    `3) Edite REACT_APP_FIREBASE_PROJECT_KEYS removendo ${prefixo}`,
+    "",
+    "4) Faça um novo Deploy no Vercel para aplicar a mudanca.",
+  ].join("\n");
+}
+
 const FORM_INICIAL = {
   nomeProjeto: "",
   systemKey: "",
@@ -46,14 +82,12 @@ const FORM_INICIAL = {
 const NOMES_FIXOS_PROJETOS = {
   "teste-aa015": "ALY-137",
   "teste-aa15": "ALY-137",
-  passyrela: "PASSYRELA",
   obeyon: "OBEYDON",
   obeydon: "OBEYDON",
 };
 
 const PROJETOS_FIXOS_MINIMOS = [
   { key: "teste-aa015", nomeProjeto: "ALY-137" },
-  { key: "passyrela", nomeProjeto: "PASSYRELA" },
   { key: "obeyon", nomeProjeto: "OBEYDON" },
 ];
 
@@ -63,6 +97,20 @@ function normalizeText(value) {
 
 function normalizeHost(value) {
   return normalizeText(value).toLowerCase().replace(/^https?:\/\//i, "").split("/")[0];
+}
+
+function carregarSystemKeysOcultasStorage() {
+  try {
+    const raw = localStorage.getItem(SYSTEM_KEYS_OCULTAS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return Array.from(
+      new Set(parsed.map((item) => normalizeText(item).toLowerCase()).filter(Boolean))
+    );
+  } catch {
+    return [];
+  }
 }
 
 function nomeProjetoFallback(systemKey = "") {
@@ -162,8 +210,14 @@ function GerenciadorProjetos() {
   const [projetos, setProjetos] = useState([]);
   const [form, setForm] = useState(FORM_INICIAL);
   const [envGerada, setEnvGerada] = useState("");
+  const [checklistRemocaoEnv, setChecklistRemocaoEnv] = useState("");
   const [mostrarCriacao, setMostrarCriacao] = useState(false);
   const [projetoEmGerenciamento, setProjetoEmGerenciamento] = useState(null);
+  const [limpandoEnvSystemKey, setLimpandoEnvSystemKey] = useState("");
+  const [removendoProjetoSystemKey, setRemovendoProjetoSystemKey] = useState("");
+  const [systemKeysOcultas, setSystemKeysOcultas] = useState(() =>
+    carregarSystemKeysOcultasStorage()
+  );
 
   const projetosOrdenados = useMemo(
     () => [...projetos].sort((a, b) => a.systemKey.localeCompare(b.systemKey)),
@@ -175,9 +229,19 @@ function GerenciadorProjetos() {
     setErro("");
     try {
       const lista = await listarProjetosNoGerenciador();
-      setProjetos(mesclarProjetosGerenciadorComEnv(lista));
+      const projetosMesclados = mesclarProjetosGerenciadorComEnv(lista);
+      setProjetos(
+        projetosMesclados.filter(
+          (item) => !systemKeysOcultas.includes(normalizeText(item?.systemKey).toLowerCase())
+        )
+      );
     } catch (error) {
-      setProjetos(mesclarProjetosGerenciadorComEnv([]));
+      const projetosMesclados = mesclarProjetosGerenciadorComEnv([]);
+      setProjetos(
+        projetosMesclados.filter(
+          (item) => !systemKeysOcultas.includes(normalizeText(item?.systemKey).toLowerCase())
+        )
+      );
       setErro("Falha ao carregar projetos do Firestore. Exibindo projetos configurados via ENV.");
     } finally {
       setCarregando(false);
@@ -187,7 +251,18 @@ function GerenciadorProjetos() {
   useEffect(() => {
     if (loading) return;
     carregarProjetos();
-  }, [loading]);
+  }, [loading, systemKeysOcultas]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        SYSTEM_KEYS_OCULTAS_STORAGE_KEY,
+        JSON.stringify(systemKeysOcultas)
+      );
+    } catch {
+      // Segue sem persistencia caso localStorage esteja indisponivel.
+    }
+  }, [systemKeysOcultas]);
 
   const atualizarCampo = (campo, valor) => {
     setForm((prev) => ({
@@ -202,6 +277,7 @@ function GerenciadorProjetos() {
     setMensagem("");
     setSalvando(true);
     setEnvGerada("");
+    setChecklistRemocaoEnv("");
 
     try {
       const criado = await criarProjetoNoGerenciador({
@@ -226,6 +302,8 @@ function GerenciadorProjetos() {
         domains: criado.domains,
         firebaseConfig: criado.firebaseRuntimeConfig,
       });
+      const keyCriada = normalizeText(criado.systemKey).toLowerCase();
+      setSystemKeysOcultas((prev) => prev.filter((item) => item !== keyCriada));
       setEnvGerada(bloco);
       setMensagem("Projeto criado com sucesso.");
       setForm(FORM_INICIAL);
@@ -245,8 +323,111 @@ function GerenciadorProjetos() {
       firebaseConfig: projeto.firebaseRuntimeConfig || {},
     });
     setEnvGerada(bloco);
+    setChecklistRemocaoEnv("");
     setMensagem(`ENV gerada para ${projeto.systemKey}.`);
     setErro("");
+  };
+
+  const limparEnvVercelDoProjeto = async (projeto) => {
+    const systemKey = normalizeText(projeto?.systemKey).toLowerCase();
+    if (!systemKey || limpandoEnvSystemKey || removendoProjetoSystemKey) return;
+
+    if (!VERCEL_ENV_AUTOMATION_ENABLED) {
+      setErro("");
+      setEnvGerada("");
+      setChecklistRemocaoEnv(montarChecklistRemocaoEnvVercel(systemKey));
+      setMensagem(
+        `Automacao de limpeza no Vercel esta desativada neste ambiente. Use o checklist manual para ${systemKey}.`
+      );
+      return;
+    }
+
+    setErro("");
+    setMensagem("");
+    setChecklistRemocaoEnv("");
+    setLimpandoEnvSystemKey(systemKey);
+
+    try {
+      const resultado = await limparEnvsProjetoNoVercel({ systemKey });
+      const removidas = Number(resultado?.removedCount || 0);
+      const projectKeysAtualizados = Number(resultado?.updatedProjectKeysCount || 0);
+      const projectKeysIgnorados = Number(resultado?.skippedProjectKeysCount || 0);
+
+      let detalhes = `ENV removidas: ${removidas}.`;
+      if (projectKeysAtualizados > 0) {
+        detalhes += ` REACT_APP_FIREBASE_PROJECT_KEYS atualizado em ${projectKeysAtualizados} ambiente(s).`;
+      }
+      if (projectKeysIgnorados > 0) {
+        detalhes += ` ${projectKeysIgnorados} ambiente(s) sem valor legivel de REACT_APP_FIREBASE_PROJECT_KEYS.`;
+      }
+
+      setMensagem(`Limpeza no Vercel concluida para ${systemKey}. ${detalhes}`);
+    } catch (error) {
+      setErro(error?.message || "Falha ao limpar ENV no Vercel.");
+    } finally {
+      setLimpandoEnvSystemKey("");
+    }
+  };
+
+  const removerProjetoComEnvs = async (projeto) => {
+    const systemKey = normalizeText(projeto?.systemKey).toLowerCase();
+    if (!systemKey || limpandoEnvSystemKey || removendoProjetoSystemKey) return;
+
+    const nomeProjeto = projeto?.nomeProjeto || systemKey;
+    const mensagemFluxoEnv = VERCEL_ENV_AUTOMATION_ENABLED
+      ? "1. Limpar as ENV desse projeto no Vercel automaticamente."
+      : "1. Nao sera possivel limpar ENV automaticamente (modo manual).";
+    const confirma = window.confirm(
+      `Remover o projeto "${nomeProjeto}"?\n\nIsso vai:\n${mensagemFluxoEnv}\n2. Remover o projeto da lista no Gerenciador.`
+    );
+
+    if (!confirma) return;
+
+    setErro("");
+    setMensagem("");
+    setChecklistRemocaoEnv("");
+    setRemovendoProjetoSystemKey(systemKey);
+
+    try {
+      const resultado = await removerProjetoNoGerenciador({
+        systemKey,
+        removerEnvVercel: VERCEL_ENV_AUTOMATION_ENABLED,
+        ignorarErroLimpezaEnv: true,
+      });
+      const envRemovidas = Number(resultado?.envCleanup?.removedCount || 0);
+      const docsRemovidos = Array.isArray(resultado?.docsRemovidos)
+        ? resultado.docsRemovidos.length
+        : 0;
+      const envCleanupError = normalizeText(resultado?.envCleanupError);
+
+      setProjetos((prev) =>
+        prev.filter((item) => normalizeText(item?.systemKey).toLowerCase() !== systemKey)
+      );
+      setSystemKeysOcultas((prev) =>
+        prev.includes(systemKey) ? prev : [...prev, systemKey]
+      );
+      setProjetoEmGerenciamento((atual) =>
+        normalizeText(atual?.systemKey).toLowerCase() === systemKey ? null : atual
+      );
+
+      if (VERCEL_ENV_AUTOMATION_ENABLED && !envCleanupError) {
+        setMensagem(
+          `Projeto ${systemKey} removido. ENV removidas no Vercel: ${envRemovidas}. Registros removidos: ${docsRemovidos}.`
+        );
+      } else {
+        setChecklistRemocaoEnv(montarChecklistRemocaoEnvVercel(systemKey));
+        const detalheErro = envCleanupError
+          ? ` Erro da automacao: ${envCleanupError}`
+          : "";
+        setMensagem(
+          `Projeto ${systemKey} removido do gerenciador. Limpeza de ENV no Vercel precisa ser manual.${detalheErro}`
+        );
+      }
+    } catch (error) {
+      setErro(error?.message || "Falha ao remover projeto e ENV no Vercel.");
+    } finally {
+      setRemovendoProjetoSystemKey("");
+    }
   };
 
   const abrirLoginDoProjeto = (projeto) => {
@@ -495,6 +676,26 @@ function GerenciadorProjetos() {
                 <button type="button" onClick={() => gerarEnvParaProjetoExistente(projeto)}>
                   Gerar ENV
                 </button>
+                <button
+                  type="button"
+                  onClick={() => limparEnvVercelDoProjeto(projeto)}
+                  disabled={Boolean(limpandoEnvSystemKey || removendoProjetoSystemKey)}
+                >
+                  {limpandoEnvSystemKey === projeto.systemKey
+                    ? "Limpando ENV..."
+                    : VERCEL_ENV_AUTOMATION_ENABLED
+                      ? "Limpar ENV no Vercel"
+                      : "Limpeza ENV (manual)"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removerProjetoComEnvs(projeto)}
+                  disabled={Boolean(limpandoEnvSystemKey || removendoProjetoSystemKey)}
+                >
+                  {removendoProjetoSystemKey === projeto.systemKey
+                    ? "Removendo projeto..."
+                    : "Remover projeto"}
+                </button>
               </div>
             </div>
           ))
@@ -549,6 +750,18 @@ function GerenciadorProjetos() {
           <h3 style={{ marginTop: 0 }}>ENV pronta para Vercel</h3>
           <textarea
             value={envGerada}
+            readOnly
+            rows={16}
+            style={{ width: "100%", fontFamily: "monospace", fontSize: 12 }}
+          />
+        </div>
+      ) : null}
+
+      {checklistRemocaoEnv ? (
+        <div style={{ marginTop: 12, border: "1px solid #999", borderRadius: 8, padding: 12 }}>
+          <h3 style={{ marginTop: 0 }}>Checklist de remocao de ENV (manual)</h3>
+          <textarea
+            value={checklistRemocaoEnv}
             readOnly
             rows={16}
             style={{ width: "100%", fontFamily: "monospace", fontSize: 12 }}

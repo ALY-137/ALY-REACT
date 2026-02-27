@@ -26,7 +26,6 @@ import {
 } from "../Sistema/configSistema";
 import Layout from "../Temas/Layout.jsx";
 import { obterTemaSkinPadrao, resolverTemaSkinEfetivo } from "../Temas/themesRegistry";
-import { verificarESalvarskins } from "../Skins/verificaSkins";
 import { getEspacosDaSkin } from "./firebaseEspacos";
 
 const limparUsername = (valor = "") =>
@@ -49,34 +48,35 @@ const construirBaseUsernameOnePage = (firebaseUser = null) => {
 const criarSkinUnicaOnePage = async ({ firebaseUser, temaPadraoSkin }) => {
   if (!firebaseUser?.uid) return false;
 
+  const uid = firebaseUser.uid;
   const base = construirBaseUsernameOnePage(firebaseUser);
+  const usernameOnePage = `${base}-${uid.slice(0, 6)}`.slice(0, 24);
   const temaCriacao = String(temaPadraoSkin || "").trim() || "CYBERPINK";
+  const skinId = `skin_${uid.slice(0, 20)}`;
+  const espacoId = "home";
 
-  for (let tentativa = 0; tentativa < 8; tentativa += 1) {
-    const sufixo = tentativa === 0 ? "" : String(Math.floor(Math.random() * 900) + 100);
-    const candidato = `${base}${sufixo}`.slice(0, 24);
-    if (!candidato) continue;
-
-    const resultado = await verificarESalvarskins(firebaseUser.uid, candidato, temaCriacao);
-    if (resultado?.sucesso) {
-      return true;
-    }
-    if (resultado?.errorCode === "permission-denied") {
-      break;
+  if (typeof firebaseUser.getIdToken === "function") {
+    try {
+      await firebaseUser.getIdToken();
+    } catch {
+      // Continua tentativa de escrita no Firestore com token em cache.
     }
   }
 
-  const candidatoDireto = `${base}${Math.floor(Math.random() * 9000 + 1000)}`.slice(0, 24);
   try {
-    const userRef = doc(db, "users", firebaseUser.uid);
-    const skinRef = doc(collection(db, "users", firebaseUser.uid, "skins"));
-    const espacoRef = doc(collection(db, "users", firebaseUser.uid, "espacos"));
-    const temaCriacaoDireta = String(temaPadraoSkin || "").trim() || "CYBERPINK";
+    const userRef = doc(db, "users", uid);
+    const skinRef = doc(db, "users", uid, "skins", skinId);
+    const espacoRef = doc(db, "users", uid, "espacos", espacoId);
 
     await setDoc(
       userRef,
       {
-        uid: firebaseUser.uid,
+        uid,
+        idGoogle: uid,
+        nomeGoogle: String(firebaseUser.displayName || "").split(" ")[0] || "",
+        nomeCompletoGoogle: firebaseUser.displayName || "",
+        emailGoogle: firebaseUser.email || "",
+        picGoogle: firebaseUser.photoURL || "",
         updatedAt: serverTimestamp(),
       },
       { merge: true }
@@ -85,10 +85,10 @@ const criarSkinUnicaOnePage = async ({ firebaseUser, temaPadraoSkin }) => {
     await setDoc(
       skinRef,
       {
-        ownerUserId: firebaseUser.uid,
-        id_skin: skinRef.id,
-        username: candidatoDireto,
-        theme: temaCriacaoDireta,
+        ownerUserId: uid,
+        id_skin: skinId,
+        username: usernameOnePage,
+        theme: temaCriacao,
         is_main: true,
         visibilidade: "publico",
         data: serverTimestamp(),
@@ -99,24 +99,24 @@ const criarSkinUnicaOnePage = async ({ firebaseUser, temaPadraoSkin }) => {
     await setDoc(
       espacoRef,
       {
-        id_espaco: espacoRef.id,
+        id_espaco: espacoId,
         nome: "home",
         conteudo: "Conteudo da pagina principal",
         ordem: 0,
-        ownerUserId: firebaseUser.uid,
-        skinOwner: skinRef.id,
+        ownerUserId: uid,
+        skinOwner: skinId,
         coCriadoresUids: [],
         visibilidade: "publico",
         createdAt: serverTimestamp(),
         isHome: true,
-        skins_relacionadas: [skinRef.id],
+        skins_relacionadas: [skinId],
       },
       { merge: true }
     );
 
-    localStorage.setItem("targetUsername", candidatoDireto);
-    localStorage.setItem("skinLogadoUser", candidatoDireto);
-    localStorage.setItem("skinIdAtual", skinRef.id);
+    localStorage.setItem("targetUsername", usernameOnePage);
+    localStorage.setItem("skinLogadoUser", usernameOnePage);
+    localStorage.setItem("skinIdAtual", skinId);
     return true;
   } catch {
     // Deixa fallback visual assumir sem bloquear a pagina.
@@ -266,30 +266,6 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
             const skinAdminSnap = await getDocs(skinAdminQuery);
             if (!skinAdminSnap.empty) {
               skinDocResolvido = skinAdminSnap.docs[0];
-            }
-          }
-
-          if (!skinDocResolvido) {
-            const skinPublicaQuery = query(
-              collectionGroup(db, "skins"),
-              where("visibilidade", "==", "publico"),
-              limit(1)
-            );
-            const skinPublicaSnap = await getDocs(skinPublicaQuery);
-            if (!skinPublicaSnap.empty) {
-              skinDocResolvido = skinPublicaSnap.docs[0];
-            }
-          }
-
-          if (!skinDocResolvido) {
-            const skinLegacyQuery = query(
-              collectionGroup(db, "skins"),
-              where("visibilidade", "==", null),
-              limit(1)
-            );
-            const skinLegacySnap = await getDocs(skinLegacyQuery);
-            if (!skinLegacySnap.empty) {
-              skinDocResolvido = skinLegacySnap.docs[0];
             }
           }
 
