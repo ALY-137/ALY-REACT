@@ -38,6 +38,13 @@ const isAmbienteLocal = () => {
   return host === "localhost" || host === "127.0.0.1" || host === "::1";
 };
 
+const authDomainFirebasePadrao = () => {
+  const authDomain = String(auth?.config?.authDomain || "")
+    .trim()
+    .toLowerCase();
+  return authDomain.endsWith(".firebaseapp.com") || authDomain.endsWith(".web.app");
+};
+
 function LoginGoogle({ onLogin }) {
   const navigate = useNavigate();
 
@@ -108,11 +115,6 @@ function LoginGoogle({ onLogin }) {
 
   const handleLogin = async () => {
     try {
-      if (!isAmbienteLocal()) {
-        await signInWithRedirect(auth, providerGoogle);
-        return;
-      }
-
       const result = await signInWithPopup(auth, providerGoogle);
       await finalizarLogin(result.user);
     } catch (err) {
@@ -124,6 +126,14 @@ function LoginGoogle({ onLogin }) {
         codigo === "auth/cancelled-popup-request" ||
         codigo === "auth/operation-not-supported-in-this-environment"
       ) {
+        // Em dominios nao-Firebase (ex.: Vercel), redirect pode ficar preso em /__/auth/handler.
+        // Nesses casos forca o usuario a liberar popup.
+        if (!isAmbienteLocal() && !authDomainFirebasePadrao()) {
+          alert(
+            "Popup bloqueado. Permita popups para este dominio e tente novamente."
+          );
+          return;
+        }
         await signInWithRedirect(auth, providerGoogle);
         return;
       }
@@ -151,8 +161,10 @@ function LoginGoogle({ onLogin }) {
       }
 
       try {
-        await signInWithRedirect(auth, providerGoogle);
-        return;
+        if (isAmbienteLocal() || authDomainFirebasePadrao()) {
+          await signInWithRedirect(auth, providerGoogle);
+          return;
+        }
       } catch {
         // Cai no log de erro original.
       }
