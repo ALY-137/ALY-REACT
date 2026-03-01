@@ -10,6 +10,13 @@ function parseErroMercadoPago(err) {
   const details = err?.details || err?.customData?.details || "";
   const message = err?.message || "";
 
+  if (code === "mercado-pago/unavailable") {
+    return (
+      details ||
+      message ||
+      "Mercado Pago indisponivel neste projeto. Use PIX manual ou um projeto com Functions habilitadas."
+    );
+  }
   if (code === "functions/not-found") {
     return "Functions nao encontradas. Rode: npm run functions:deploy";
   }
@@ -36,6 +43,7 @@ export default function MercadoPagoConfig() {
   const [desconectando, setDesconectando] = useState(false);
   const [carregandoStatus, setCarregandoStatus] = useState(false);
   const [mensagem, setMensagem] = useState("");
+  const indisponivelNoProjeto = status?.disponivel === false;
 
   const carregarStatus = async () => {
     setCarregandoStatus(true);
@@ -43,6 +51,12 @@ export default function MercadoPagoConfig() {
     try {
       const data = await obterStatusMercadoPago();
       setStatus(data);
+      if (data?.disponivel === false) {
+        setMensagem(
+          data?.motivo ||
+            "Mercado Pago indisponivel neste projeto. Use PIX manual ou um projeto com Functions habilitadas."
+        );
+      }
     } catch (err) {
       setMensagem(parseErroMercadoPago(err));
     } finally {
@@ -120,11 +134,18 @@ export default function MercadoPagoConfig() {
         <strong>
           {carregandoStatus
             ? "Verificando..."
-            : status?.conectado
+            : indisponivelNoProjeto
+              ? "Indisponivel neste projeto"
+              : status?.conectado
               ? "Conectado"
               : "Nao conectado"}
         </strong>
       </p>
+      {indisponivelNoProjeto ? (
+        <p style={{ margin: "4px 0 10px" }}>
+          Este projeto nao possui Cloud Functions disponiveis para Mercado Pago.
+        </p>
+      ) : null}
 
       <input
         type="password"
@@ -132,6 +153,7 @@ export default function MercadoPagoConfig() {
         value={accessToken}
         onChange={(event) => setAccessToken(event.target.value)}
         style={{ width: "100%", marginTop: 8 }}
+        disabled={indisponivelNoProjeto}
       />
       <input
         type="text"
@@ -139,10 +161,11 @@ export default function MercadoPagoConfig() {
         value={publicKey}
         onChange={(event) => setPublicKey(event.target.value)}
         style={{ width: "100%", marginTop: 8 }}
+        disabled={indisponivelNoProjeto}
       />
 
       <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-        <button onClick={salvar} disabled={salvando || desconectando}>
+        <button onClick={salvar} disabled={salvando || desconectando || indisponivelNoProjeto}>
           {salvando ? "Salvando..." : "Salvar credenciais"}
         </button>
         <button onClick={carregarStatus} disabled={carregandoStatus || salvando || desconectando}>

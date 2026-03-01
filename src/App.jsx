@@ -18,6 +18,10 @@ import {
 } from "./components/Layout/Sistema/configSistema";
 import PropriedadesSistema from "./components/Layout/Menu/PropriedadesSistema/PropriedadesSistema";
 import { bootstrapUser } from "./components/Layout/Menu/Users/bootstrapUser";
+import {
+  exibirNotificacaoAdminLocal,
+  registrarTokenPushAdmin,
+} from "./components/Layout/Notificacoes/adminPush";
 
 import SkinsManager from "./components/Layout/Skins/SkinsManager";
 import Estrutura from "./components/Layout/Espacos/Estrutura";
@@ -403,27 +407,9 @@ const App = () => {
     aplicarTemaNoBody(temaSistemaEfetivo);
   }, [exibindoFluxoSistema, temaSistemaEfetivo]);
 
-  if (!authLoading && user && skinsLoading) {
-    return <div className="loader">Carregando skins...</div>;
-  }
-
-  if (!authLoading && user && carregandoSetupAdmin) {
-    return <div className="loader">Carregando configuracoes do sistema...</div>;
-  }
-
-  if (encerrandoSessaoGerenciador) {
-    return <div className="loader">Validando acesso do administrador...</div>;
-  }
-
-  if (isAuthHandlerRoute && !authLoading) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (exibindoFluxoSistema && !configSistemaPronta && !isAuthHandlerRoute) {
-    return <div className="loader" aria-live="polite" />;
-  }
-
-  const logoLoginSrc = configSistema.logoLoginUrl || DEFAULT_SISTEMA_CONFIG.logoLoginUrl;
+  const logoLoginSrc = String(
+    configSistema.logoLoginUrl || DEFAULT_SISTEMA_CONFIG.logoLoginUrl || ""
+  ).trim();
   const tituloSistema = isManagerProject
     ? configSistema.tituloSistema || "GERENCIADO DE PROJETOS"
     : configSistema.tituloSistema || DEFAULT_SISTEMA_CONFIG.tituloSistema;
@@ -483,17 +469,34 @@ const App = () => {
   );
 
   useEffect(() => {
+    if (isManagerProject) return;
+    if (!usuarioEhAdminProjeto) return;
+    if (!user?.uid) return;
+
+    registrarTokenPushAdmin().catch((err) => {
+      console.warn(
+        "[PUSH-ADMIN] Falha ao registrar token de notificacao:",
+        err?.code || err?.message || err
+      );
+    });
+  }, [isManagerProject, usuarioEhAdminProjeto, user?.uid]);
+
+  useEffect(() => {
     if (isManagerProject) return undefined;
     if (!usuarioEhAdminProjeto) return undefined;
 
     const adminUid = String(user?.uid || "").trim();
     if (!adminUid) return undefined;
 
-    const pedidosRef = collection(db, "users", adminUid, "pedidos");
-    const pedidosQuery = query(pedidosRef, where("status", "==", "pedido_solicitado"));
+    // A colecao continua "pedidos" no Firestore por compatibilidade.
+    const solicitacoesRef = collection(db, "users", adminUid, "pedidos");
+    const solicitacoesQuery = query(
+      solicitacoesRef,
+      where("status", "==", "pedido_solicitado")
+    );
 
     const unsubscribe = onSnapshot(
-      pedidosQuery,
+      solicitacoesQuery,
       (snapshot) => {
         if (!snapshotSolicitacoesInicializadoRef.current) {
           snapshot.docs.forEach((docSnap) => solicitacoesVistasRef.current.add(docSnap.id));
@@ -504,9 +507,9 @@ const App = () => {
         snapshot.docChanges().forEach((change) => {
           if (change.type !== "added") return;
 
-          const pedidoId = String(change.doc.id || "").trim();
-          if (!pedidoId || solicitacoesVistasRef.current.has(pedidoId)) return;
-          solicitacoesVistasRef.current.add(pedidoId);
+          const solicitacaoId = String(change.doc.id || "").trim();
+          if (!solicitacaoId || solicitacoesVistasRef.current.has(solicitacaoId)) return;
+          solicitacoesVistasRef.current.add(solicitacaoId);
 
           const data = change.doc.data() || {};
           const compradorNome =
@@ -521,20 +524,13 @@ const App = () => {
               : "";
           const destino = `/menu/admin/solicitacoes?ownerUserId=${encodeURIComponent(adminUid)}`;
 
-          if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-            try {
-              const notification = new Notification("Nova solicitacao de desbloqueio", {
-                body: `${compradorNome} solicitou desbloqueio${valorTexto}.`,
-                icon: "/favicon.ico",
-              });
-              notification.onclick = () => {
-                window.focus();
-                window.location.assign(destino);
-              };
-            } catch {
-              // Mantem fallback silencioso em navegadores que bloqueiam Notification().
-            }
-          }
+          exibirNotificacaoAdminLocal({
+            title: "Nova solicitacao de desbloqueio",
+            body: `${compradorNome} solicitou desbloqueio${valorTexto}.`,
+            link: destino,
+          }).catch(() => {
+            // Mantem fallback silencioso em navegadores que bloqueiam notificacao.
+          });
         });
       },
       (err) => {
@@ -551,6 +547,26 @@ const App = () => {
       solicitacoesVistasRef.current = new Set();
     };
   }, [isManagerProject, usuarioEhAdminProjeto, user?.uid]);
+
+  if (!authLoading && user && skinsLoading) {
+    return <div className="loader">Carregando skins...</div>;
+  }
+
+  if (!authLoading && user && carregandoSetupAdmin) {
+    return <div className="loader">Carregando configuracoes do sistema...</div>;
+  }
+
+  if (encerrandoSessaoGerenciador) {
+    return <div className="loader">Validando acesso do administrador...</div>;
+  }
+
+  if (isAuthHandlerRoute && !authLoading) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (exibindoFluxoSistema && !configSistemaPronta && !isAuthHandlerRoute) {
+    return <div className="loader" aria-live="polite" />;
+  }
 
   if (!authLoading && user && acessoPublicoSemLogin && isLoginUiRoute) {
     if (usuarioEhAdminProjeto) {
@@ -581,7 +597,7 @@ const App = () => {
             <Navegacoes />
             <div id="iconsLogin">
               <div id="loginMain">
-                <img src={logoLoginSrc} id="logoLogin" alt="Logo" />
+                {logoLoginSrc ? <img src={logoLoginSrc} id="logoLogin" alt="Logo" /> : null}
                 {exibirTituloSistemaNoLogin ? <p id="logoTxt">{tituloSistema}</p> : null}
               </div>
               <div
@@ -622,7 +638,7 @@ const App = () => {
             <div id="iconsLogin">
 
               <div id="loginMain">
-                <img src={logoLoginSrc} id="logoLogin" alt="Logo" />
+                {logoLoginSrc ? <img src={logoLoginSrc} id="logoLogin" alt="Logo" /> : null}
                 {exibirTituloSistemaNoLogin ? <p id="logoTxt">{tituloSistema}</p> : null}
               </div>
 
@@ -661,7 +677,7 @@ const App = () => {
             <Navegacoes />
             <div id="iconsLogin">
               <div id="loginMain">
-                <img src={logoLoginSrc} id="logoLogin" alt="Logo" />
+                {logoLoginSrc ? <img src={logoLoginSrc} id="logoLogin" alt="Logo" /> : null}
                 {exibirTituloSistemaNoLogin ? <p id="logoTxt">{tituloSistema}</p> : null}
               </div>
               <div id="divLogin" style={{ justifyContent: "center", gap: 10 }}>

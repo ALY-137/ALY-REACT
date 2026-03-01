@@ -7,6 +7,7 @@ import {
   limparEnvsProjetoNoVercel,
   listarProjetosNoGerenciador,
   removerProjetoNoGerenciador,
+  salvarConfigProjetoNoGerenciador,
 } from "../../Sistema/gerenciadorProjetosApi";
 import { listConfiguredFirebaseProjects } from "../../../../config/firebaseProjects";
 import PropriedadesSistema from "../PropriedadesSistema/PropriedadesSistema";
@@ -277,6 +278,8 @@ function GerenciadorProjetos() {
   const [checklistRemocaoEnv, setChecklistRemocaoEnv] = useState("");
   const [mostrarCriacao, setMostrarCriacao] = useState(false);
   const [projetoEmGerenciamento, setProjetoEmGerenciamento] = useState(null);
+  const [domainsProjetoEdicao, setDomainsProjetoEdicao] = useState("");
+  const [salvandoDomainsProjeto, setSalvandoDomainsProjeto] = useState(false);
   const [limpandoEnvSystemKey, setLimpandoEnvSystemKey] = useState("");
   const [removendoProjetoSystemKey, setRemovendoProjetoSystemKey] = useState("");
   const [systemKeysOcultas, setSystemKeysOcultas] = useState(() =>
@@ -349,6 +352,15 @@ function GerenciadorProjetos() {
       // Segue sem persistencia de aliases.
     }
   }, [projetos]);
+
+  useEffect(() => {
+    if (!projetoEmGerenciamento) {
+      setDomainsProjetoEdicao("");
+      return;
+    }
+
+    setDomainsProjetoEdicao((projetoEmGerenciamento.domains || []).join(", "));
+  }, [projetoEmGerenciamento]);
 
   const atualizarCampo = (campo, valor) => {
     setForm((prev) => ({
@@ -562,6 +574,57 @@ function GerenciadorProjetos() {
     setProjetoEmGerenciamento(projeto);
     setMensagem(`Gerenciando projeto: ${projeto.nomeProjeto || projeto.systemKey}.`);
     setErro("");
+  };
+
+  const salvarDomainsProjeto = async () => {
+    const projeto = projetoEmGerenciamento;
+    const systemKey = normalizeText(projeto?.systemKey).toLowerCase();
+    if (!systemKey || salvandoDomainsProjeto) return;
+
+    setSalvandoDomainsProjeto(true);
+    setErro("");
+    setMensagem("");
+
+    try {
+      const domainsNormalizados = Array.from(
+        new Set(
+          normalizeText(domainsProjetoEdicao)
+            .split(",")
+            .map((item) => normalizeHost(item))
+            .filter(Boolean)
+        )
+      );
+
+      await salvarConfigProjetoNoGerenciador({
+        projectKey: projeto.systemKey,
+        projectId: projeto.firebaseProjectId || projeto.firebaseRuntimeConfig?.projectId || "",
+        domains: domainsNormalizados,
+        configSistema: projeto.configSistema || {},
+        atualizadoPorUid: user?.uid || null,
+      });
+
+      const projetoAtualizado = {
+        ...projeto,
+        domains: domainsNormalizados,
+      };
+
+      setProjetoEmGerenciamento(projetoAtualizado);
+      setProjetos((prev) =>
+        prev.map((item) =>
+          item.systemKey === projeto.systemKey
+            ? {
+                ...item,
+                domains: domainsNormalizados,
+              }
+            : item
+        )
+      );
+      setMensagem(`Dominios atualizados para ${projeto.nomeProjeto || projeto.systemKey}.`);
+    } catch (error) {
+      setErro(error?.message || "Falha ao salvar dominios do projeto.");
+    } finally {
+      setSalvandoDomainsProjeto(false);
+    }
   };
 
   if (loading || carregando) {
@@ -848,6 +911,32 @@ function GerenciadorProjetos() {
             <button type="button" onClick={() => setProjetoEmGerenciamento(null)}>
               Fechar gerenciador
             </button>
+          </div>
+
+          <div style={{ border: "1px solid #999", borderRadius: 8, padding: 12, marginBottom: 12 }}>
+            <h3 style={{ marginTop: 0 }}>Dominios do projeto</h3>
+            <label
+              htmlFor="domainsProjetoEdicao"
+              style={{ display: "block", marginBottom: 6 }}
+            >
+              Dominios vinculados a esta onepage/projeto
+            </label>
+            <input
+              id="domainsProjetoEdicao"
+              type="text"
+              value={domainsProjetoEdicao}
+              onChange={(event) => setDomainsProjetoEdicao(event.target.value)}
+              placeholder="ex: passyrela.vercel.app, novodominio.com"
+              style={{ width: "100%", marginBottom: 10 }}
+            />
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button type="button" onClick={salvarDomainsProjeto} disabled={salvandoDomainsProjeto}>
+                {salvandoDomainsProjeto ? "Salvando dominios..." : "Salvar dominios"}
+              </button>
+            </div>
+            <p style={{ marginTop: 8, opacity: 0.75 }}>
+              Esse campo precisa listar todos os hostnames que devem abrir este mesmo projeto.
+            </p>
           </div>
 
           <PropriedadesSistema

@@ -10,7 +10,6 @@ import { useAuth } from "../../../hooks/auth/useAuth";
 import { signOut } from "firebase/auth";
 import { auth } from "../../Banco/init-firebase";
 import CheckoutBlocoMercadoPago from "../Pagamentos/CheckoutBlocoMercadoPago";
-import { registrarTokenPushAdmin } from "../Notificacoes/adminPush";
 import {
   DEFAULT_SISTEMA_CONFIG,
   aplicarBrandingNoDocumento,
@@ -69,7 +68,11 @@ function Menu({ menuOpen }) {
     : rotaAdminMenuOnePage
       ? "admin"
       : (skinLogadoUser || String(menuUserId || "").trim());
+  const nomeSkinSingular = (configSistema.nomeSkinSingular || "skin").trim() || "skin";
   const nomeSkinPlural = (configSistema.nomeSkinPlural || "skins").trim() || "skins";
+  const usarRotuloSkinSingular = tipoExperiencia === "onepage";
+  const nomeSkinMenu = usarRotuloSkinSingular ? nomeSkinSingular : nomeSkinPlural;
+  const nomeSkinMenuUpper = nomeSkinMenu.toUpperCase();
   const nomeSkinPluralUpper = nomeSkinPlural.toUpperCase();
   const nomeEspacoPlural = (configSistema.nomeEspacoPlural || "espacos").trim() || "espacos";
   const nomeEspacoPluralUpper = nomeEspacoPlural.toUpperCase();
@@ -111,8 +114,11 @@ function Menu({ menuOpen }) {
   const menuOnePageUsuarioComum = onePagePublicaAtiva && !rotaAdminMenuOnePage;
   const projetoComSkinUnica = limiteSkinsPorUsuario === "1";
   const podeGerenciarUsuarios = usuarioEhAdminProjeto && !onePagePublicaAtiva;
+  const adminOnePagePodeGerenciarSkins =
+    onePagePublicaAtiva && rotaAdminMenuOnePage && usuarioEhAdminProjeto;
   const exibirGestaoSkins =
-    Boolean(skinLogadoUser) && (!projetoComSkinUnica || menuOnePageUsuarioComum);
+    adminOnePagePodeGerenciarSkins ||
+    (Boolean(skinLogadoUser) && (!projetoComSkinUnica || menuOnePageUsuarioComum));
   const exibirGestaoEspacos = Boolean(skinLogadoUser) && !menuOnePageUsuarioComum;
   const exibirContatos = chatHabilitado && Boolean(skinLogadoUser) && !onePagePublicaAtiva;
   const exibirPropriedades = !menuOnePageUsuarioComum;
@@ -221,6 +227,10 @@ function Menu({ menuOpen }) {
 
   function abrirConfiguracoesGerenciador() {
     navigateIfChanged(`/menu/${menuTargetUser}/configuracoes-gerenciador`);
+  }
+
+  function abrirGerenciarLayouts() {
+    navigateIfChanged(`/menu/${menuTargetUser}/gerenciar-layouts`);
   }
 
   function abrirGerenciadoProjetos() {
@@ -349,7 +359,12 @@ function Menu({ menuOpen }) {
     if (isManagerProject) return;
     const path = location.pathname;
 
-    if (projetoComSkinUnica && !menuOnePageUsuarioComum && path.endsWith("/skins")) {
+    if (
+      projetoComSkinUnica &&
+      !onePagePublicaAtiva &&
+      !menuOnePageUsuarioComum &&
+      path.endsWith("/skins")
+    ) {
       navigateIfChanged(`/menu/${menuTargetUser}`, { replace: true });
       return;
     }
@@ -380,6 +395,10 @@ function Menu({ menuOpen }) {
           setAtualTxt("CONFIGURACOES DO GERENCIADOR");
           setBackText("MENU");
           setBackAction(() => returnMenu);
+        } else if (path.endsWith("/gerenciar-layouts")) {
+          setAtualTxt("GERENCIAR LAYOUTS");
+          setBackText("MENU");
+          setBackAction(() => returnMenu);
         } else if (path.endsWith("/gerenciador-projetos")) {
           setAtualTxt("GERENCIADO DE PROJETOS");
           setBackText("MENU");
@@ -393,7 +412,7 @@ function Menu({ menuOpen }) {
         setBackText("VOLTAR");
         setBackAction(() => closeMenu);
       } else if (path.endsWith("/skins")) {
-        setAtualTxt(nomeSkinPluralUpper);
+        setAtualTxt(nomeSkinMenuUpper);
         setBackText("MENU");
         setBackAction(() => returnMenu);
       } else if (path.endsWith("/users")) {
@@ -413,7 +432,7 @@ function Menu({ menuOpen }) {
         setBackText("MENU");
         setBackAction(() => returnMenu);
       } else if (path.endsWith("/solicitacoes") || path.endsWith("/pedidos")) {
-        setAtualTxt("SOLICITACOES");
+        setAtualTxt("SOLICITAÇÕES");
         setBackText("MENU");
         setBackAction(() => returnMenu);
       } else if (path.endsWith("/contatos") && chatHabilitado) {
@@ -453,7 +472,7 @@ function Menu({ menuOpen }) {
     menuTargetUser,
     location.pathname,
     contactId,
-    nomeSkinPluralUpper,
+    nomeSkinMenuUpper,
     nomeEspacoPluralUpper,
     chatHabilitado,
   ]);
@@ -482,19 +501,6 @@ function Menu({ menuOpen }) {
     rotaLoginProjeto,
     navigate,
   ]);
-
-  useEffect(() => {
-    if (isManagerProject) return;
-    if (!usuarioEhAdminProjeto) return;
-    if (!usuarioAuthAtual?.uid) return;
-
-    registrarTokenPushAdmin().catch((err) => {
-      console.warn(
-        "[PUSH-ADMIN] Falha ao registrar token de notificacao:",
-        err?.code || err?.message || err
-      );
-    });
-  }, [isManagerProject, usuarioEhAdminProjeto, usuarioAuthAtual?.uid]);
 
   if (aguardandoAuthInicial) {
     return <div className="loader">Carregando menu...</div>;
@@ -550,6 +556,9 @@ function Menu({ menuOpen }) {
             <div onClick={abrirConfiguracoesGerenciador} className="gavetaOption">
               CONFIGURACOES DO GERENCIADOR
             </div>
+            <div onClick={abrirGerenciarLayouts} className="gavetaOption">
+              GERENCIAR LAYOUTS
+            </div>
             <div onClick={abrirGerenciadoProjetos} className="gavetaOption">
               GERENCIADO DE PROJETOS
             </div>
@@ -564,7 +573,7 @@ function Menu({ menuOpen }) {
           <>
             {exibirGestaoSkins ? (
               <div onClick={abrirSkins} className="gavetaOption">
-                {`GERENCIAR ${nomeSkinPluralUpper}`}
+                {`GERENCIAR ${nomeSkinMenuUpper}`}
               </div>
             ) : null}
             {exibirGestaoEspacos ? (
@@ -579,7 +588,7 @@ function Menu({ menuOpen }) {
               <div onClick={abrirPropriedades} className="gavetaOption">PROPRIEDADES</div>
             ) : null}
             {exibirSolicitacoes ? (
-              <div onClick={abrirSolicitacoes} className="gavetaOption">SOLICITACOES</div>
+              <div onClick={abrirSolicitacoes} className="gavetaOption">SOLICITAÇÕES</div>
             ) : null}
           </>
         ) : null}

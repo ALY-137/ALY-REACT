@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase/app";
 import {
   getFirestore,
+  initializeFirestore,
   collection,
   doc,
   setDoc,
@@ -39,10 +40,26 @@ export const activeFirebaseStorageBucket = firebaseConfig.storageBucket || "";
 export const activeFirebaseConfig = firebaseConfig;
 export const activeFirebaseMessagingVapidKey = messagingVapidKey || "";
 
+const FIRESTORE_COMPAT_SETTINGS = {
+  experimentalAutoDetectLongPolling: true,
+  useFetchStreams: false,
+};
+
+export function createFirestoreCompatInstance(firebaseApp) {
+  try {
+    return initializeFirestore(firebaseApp, FIRESTORE_COMPAT_SETTINGS);
+  } catch (error) {
+    if (String(error?.code || "") === "failed-precondition") {
+      return getFirestore(firebaseApp);
+    }
+    throw error;
+  }
+}
+
 // ===============================
 // SERVICES
 // ===============================
-export const db = getFirestore(app);
+export const db = createFirestoreCompatInstance(app);
 export const auth = getAuth(app);
 export const storage = activeFirebaseStorageBucket
   ? getStorage(app, `gs://${activeFirebaseStorageBucket}`)

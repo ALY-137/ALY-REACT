@@ -6,7 +6,6 @@ import {
   doc,
   getDoc,
   getDocs,
-  getFirestore,
   limit,
   query,
   serverTimestamp,
@@ -15,6 +14,7 @@ import {
 } from "firebase/firestore";
 import {
   activeFirebaseProjectId,
+  createFirestoreCompatInstance,
   db as dbProjetoAtivo,
   functions as functionsProjetoAtivo,
 } from "../../Banco/init-firebase";
@@ -160,7 +160,7 @@ function getManagerDb() {
   }
 
   const managerApp = initializeApp(managerConfig, MANAGER_APP_NAME);
-  managerDbSingleton = getFirestore(managerApp);
+  managerDbSingleton = createFirestoreCompatInstance(managerApp);
   return managerDbSingleton;
 }
 
@@ -273,6 +273,7 @@ export async function salvarConfigSistemaNoGerenciador({
   projectKey = "",
   projectId = "",
   hostname = "",
+  domains = null,
   configSistema = {},
   atualizadoPorUid = null,
 } = {}) {
@@ -286,13 +287,25 @@ export async function salvarConfigSistemaNoGerenciador({
   const hostNormalizado = normalizeHost(hostname);
   const docRef = doc(managerDb, MANAGER_COLLECTION, keyNormalizada);
   const docSnap = await getDoc(docRef);
+  const dataAtual = docSnap.exists() ? docSnap.data() || {} : {};
 
-  const domainsExistentes = Array.isArray(docSnap.data()?.domains)
-    ? docSnap.data().domains.map((domain) => normalizeHost(domain)).filter(Boolean)
+  const domainsExistentes = Array.isArray(dataAtual?.domains)
+    ? dataAtual.domains.map((domain) => normalizeHost(domain)).filter(Boolean)
     : [];
 
-  const domainsSet = new Set(domainsExistentes);
+  const domainsInformados = Array.isArray(domains)
+    ? domains.map((domain) => normalizeHost(domain)).filter(Boolean)
+    : normalizeList(domains).map((domain) => normalizeHost(domain)).filter(Boolean);
+
+  const domainsSet = domains === null ? new Set(domainsExistentes) : new Set(domainsInformados);
   if (hostNormalizado) domainsSet.add(hostNormalizado);
+
+  const configSistemaFinal =
+    configSistema && typeof configSistema === "object" && Object.keys(configSistema).length > 0
+      ? configSistema
+      : (dataAtual?.configSistema && typeof dataAtual.configSistema === "object"
+          ? dataAtual.configSistema
+          : {});
 
   await setDoc(
     docRef,
@@ -300,7 +313,7 @@ export async function salvarConfigSistemaNoGerenciador({
       systemKey: keyNormalizada,
       firebaseProjectId: normalizeText(projectId),
       domains: Array.from(domainsSet),
-      configSistema,
+      configSistema: configSistemaFinal,
       ...(uidAtualizacao ? { criadoPorUid: uidAtualizacao } : {}),
       atualizadoPorUid: uidAtualizacao || null,
       atualizadoEm: serverTimestamp(),

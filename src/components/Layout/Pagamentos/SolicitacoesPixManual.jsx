@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import {
-  confirmarPedidoPixManual,
-  listarPedidosPixManual,
+  confirmarSolicitacaoPixManual,
+  listarSolicitacoesPixManual,
 } from "./mercadoPagoApi";
 import {
   DEFAULT_SISTEMA_CONFIG,
@@ -25,14 +25,14 @@ function formatarPreco(precoCentavos, moeda = "BRL") {
 function formatarStatus(status = "") {
   const normalizado = String(status || "").trim().toLowerCase();
   if (normalizado === "pagamento_confirmado") return "PAGAMENTO CONFIRMADO";
-  return "SOLICITACAO ENVIADA";
+  return "SOLICITAÇÃO ENVIADA";
 }
 
-export default function PedidosPixManual() {
+export default function SolicitacoesPixManual() {
   const location = useLocation();
-  const [pedidos, setPedidos] = useState([]);
+  const [solicitacoes, setSolicitacoes] = useState([]);
   const [carregando, setCarregando] = useState(false);
-  const [atualizandoPedidoId, setAtualizandoPedidoId] = useState("");
+  const [atualizandoSolicitacaoId, setAtualizandoSolicitacaoId] = useState("");
   const [mensagem, setMensagem] = useState("");
   const [erro, setErro] = useState("");
   const ownerUserIdFiltro = useMemo(() => {
@@ -48,45 +48,48 @@ export default function PedidosPixManual() {
     return String(cfg?.adminUid || "").trim();
   }, [location.search]);
 
-  const pedidosOrdenados = useMemo(
+  const solicitacoesOrdenadas = useMemo(
     () =>
-      [...pedidos].sort(
+      [...solicitacoes].sort(
         (a, b) =>
           Number(b?.__updatedAtMs || b?.__createdAtMs || 0) -
           Number(a?.__updatedAtMs || a?.__createdAtMs || 0)
       ),
-    [pedidos]
+    [solicitacoes]
   );
 
-  const carregarPedidos = async () => {
+  const carregarSolicitacoes = async () => {
     setCarregando(true);
     setErro("");
     try {
-      const lista = await listarPedidosPixManual({ ownerUserId: ownerUserIdFiltro });
-      setPedidos(Array.isArray(lista) ? lista : []);
+      const lista = await listarSolicitacoesPixManual({ ownerUserId: ownerUserIdFiltro });
+      setSolicitacoes(Array.isArray(lista) ? lista : []);
     } catch (err) {
-      setErro(err?.message || "Falha ao carregar solicitacoes.");
+      setErro(err?.message || "Falha ao carregar solicitações.");
     } finally {
       setCarregando(false);
     }
   };
 
   useEffect(() => {
-    carregarPedidos();
+    carregarSolicitacoes();
   }, [ownerUserIdFiltro]);
 
-  const confirmarPedido = async (pedido) => {
-    const pedidoId = String(pedido?.pedidoId || pedido?.id || "").trim();
-    if (!pedidoId) return;
+  const confirmarSolicitacao = async (solicitacao) => {
+    const solicitacaoId = String(
+      solicitacao?.solicitacaoId || solicitacao?.pedidoId || solicitacao?.id || ""
+    ).trim();
+    if (!solicitacaoId) return;
 
-    setAtualizandoPedidoId(pedidoId);
+    setAtualizandoSolicitacaoId(solicitacaoId);
     setErro("");
     setMensagem("");
     try {
-      await confirmarPedidoPixManual({ pedidoId });
-      setPedidos((prev) =>
+      await confirmarSolicitacaoPixManual({ solicitacaoId });
+      setSolicitacoes((prev) =>
         prev.map((item) =>
-          String(item?.pedidoId || item?.id || "").trim() === pedidoId
+          String(item?.solicitacaoId || item?.pedidoId || item?.id || "").trim() ===
+          solicitacaoId
             ? {
                 ...item,
                 status: "pagamento_confirmado",
@@ -94,19 +97,22 @@ export default function PedidosPixManual() {
             : item
         )
       );
-      setMensagem("Solicitacao confirmada e acesso liberado.");
+      setMensagem("Solicitação confirmada e acesso liberado.");
     } catch (err) {
-      setErro(err?.message || "Falha ao confirmar solicitacao.");
+      setErro(err?.message || "Falha ao confirmar solicitação.");
     } finally {
-      setAtualizandoPedidoId("");
+      setAtualizandoSolicitacaoId("");
     }
   };
 
   return (
     <div>
-      <h2>SOLICITACOES</h2>
+      <h2>SOLICITAÇÕES</h2>
       <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-        <button onClick={carregarPedidos} disabled={carregando || !!atualizandoPedidoId}>
+        <button
+          onClick={carregarSolicitacoes}
+          disabled={carregando || !!atualizandoSolicitacaoId}
+        >
           {carregando ? "Atualizando..." : "Atualizar lista"}
         </button>
       </div>
@@ -114,36 +120,46 @@ export default function PedidosPixManual() {
       {!!mensagem && <p>{mensagem}</p>}
       {!!erro && <p style={{ color: "red" }}>{erro}</p>}
 
-      {!carregando && !pedidosOrdenados.length ? <p>Nenhuma solicitacao encontrada.</p> : null}
+      {!carregando && !solicitacoesOrdenadas.length ? (
+        <p>Nenhuma solicitação encontrada.</p>
+      ) : null}
 
       <div style={{ display: "grid", gap: 10 }}>
-        {pedidosOrdenados.map((pedido) => {
-          const pedidoId = String(pedido?.pedidoId || pedido?.id || "").trim();
-          const status = String(pedido?.status || "pedido_solicitado").toLowerCase();
-          const precoFormatado = formatarPreco(pedido?.precoCentavos, pedido?.moeda || "BRL");
-          const qrUrl = String(pedido?.qrSelecionado?.imagemUrl || "").trim();
-          const qrTitulo = String(pedido?.qrSelecionado?.titulo || "").trim();
-          const podeConfirmar = Boolean(pedido?.__isOwner) && status !== "pagamento_confirmado";
+        {solicitacoesOrdenadas.map((solicitacao) => {
+          const solicitacaoId = String(
+            solicitacao?.solicitacaoId || solicitacao?.pedidoId || solicitacao?.id || ""
+          ).trim();
+          const status = String(
+            solicitacao?.status || "pedido_solicitado"
+          ).toLowerCase();
+          const precoFormatado = formatarPreco(
+            solicitacao?.precoCentavos,
+            solicitacao?.moeda || "BRL"
+          );
+          const qrUrl = String(solicitacao?.qrSelecionado?.imagemUrl || "").trim();
+          const qrTitulo = String(solicitacao?.qrSelecionado?.titulo || "").trim();
+          const podeConfirmar =
+            Boolean(solicitacao?.__isOwner) && status !== "pagamento_confirmado";
           return (
             <div
-              key={pedidoId}
+              key={solicitacaoId}
               style={{ border: "1px solid #ccc", borderRadius: 8, padding: 10 }}
             >
               <p style={{ margin: "0 0 6px" }}>
-                <strong>Solicitacao:</strong> {pedidoId}
+                <strong>Solicitação:</strong> {solicitacaoId}
               </p>
               <p style={{ margin: "0 0 4px" }}>
-                <strong>Bloco:</strong> {String(pedido?.blocoId || "-")}
+                <strong>Bloco:</strong> {String(solicitacao?.blocoId || "-")}
               </p>
               <p style={{ margin: "0 0 4px" }}>
-                <strong>Espaco:</strong> {String(pedido?.espacoId || "-")}
+                <strong>Espaço:</strong> {String(solicitacao?.espacoId || "-")}
               </p>
               <p style={{ margin: "0 0 4px" }}>
-                <strong>Comprador UID:</strong> {String(pedido?.compradorUid || "-")}
+                <strong>Comprador UID:</strong> {String(solicitacao?.compradorUid || "-")}
               </p>
-              {!!pedido?.compradorEmail && (
+              {!!solicitacao?.compradorEmail && (
                 <p style={{ margin: "0 0 4px" }}>
-                  <strong>Email:</strong> {String(pedido.compradorEmail)}
+                  <strong>Email:</strong> {String(solicitacao.compradorEmail)}
                 </p>
               )}
               {!!precoFormatado && (
@@ -164,7 +180,7 @@ export default function PedidosPixManual() {
                   )}
                   <img
                     src={qrUrl}
-                    alt="QR code PIX da solicitacao"
+                    alt="QR code PIX da solicitação"
                     style={{ width: 220, height: 220, objectFit: "cover", border: "1px solid #ddd" }}
                   />
                 </div>
@@ -172,12 +188,12 @@ export default function PedidosPixManual() {
 
               {podeConfirmar ? (
                 <button
-                  onClick={() => confirmarPedido(pedido)}
-                  disabled={!!atualizandoPedidoId}
+                  onClick={() => confirmarSolicitacao(solicitacao)}
+                  disabled={!!atualizandoSolicitacaoId}
                 >
-                  {atualizandoPedidoId === pedidoId
+                  {atualizandoSolicitacaoId === solicitacaoId
                     ? "Confirmando..."
-                    : "Confirmar solicitacao e liberar acesso"}
+                    : "Confirmar solicitação e liberar acesso"}
                 </button>
               ) : null}
             </div>

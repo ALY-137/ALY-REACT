@@ -3,25 +3,23 @@
 
 body.theme-passy {
   --passy-pink-carnation: #ff7fb6;
-  --passy-cool-horizon: #66adff;
-  --passy-cornflower-blue: #5e89ff;
+  --passy-cool-horizon: #9cb6ff;
+  --passy-cornflower-blue: #ffdff6;
   --passy-blush-pop: #ffbef8;
   --passy-lavender-veil: #ffe3fc;
   --passy-ink: #2a2145;
-  --passy-deep: #1d1736;
-  --passy-text: #2f2554;
+  --passy-deep: #db308e;
+  --passy-text: #db308e;
   --passy-text-soft: #5d5185;
   --passy-border: rgba(94, 137, 255, 0.35);
-  --passy-shadow: 0 12px 32px rgba(94, 137, 255, 0.16);
+  --passy-shadow: 0 12px 32px rgba(255, 94, 175, 0.16);
 
-  color: var(--passy-text);
-  background-color: #fef7ff;
-  background-image:
-    radial-gradient(1200px 480px at 15% -10%, rgba(255, 127, 182, 0.24), transparent 68%),
-    radial-gradient(980px 420px at 85% -5%, rgba(102, 173, 255, 0.28), transparent 72%),
-    linear-gradient(180deg, #fff8ff 0%, #f7f3ff 38%, #f8f2ff 100%);
+  color: #ff57a3;
+  background-color: #f3dfdf;
+
   font-family: "Manrope", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.10em;
+  initial-letter: 10px;
 }
 
 body.theme-passy * {
@@ -30,6 +28,10 @@ body.theme-passy * {
     border-color 220ms ease,
     background-color 220ms ease,
     box-shadow 220ms ease;
+}
+
+body.theme-passy img {
+  border-radius: 16px;
 }
 
 body.theme-passy #login {
@@ -82,7 +84,6 @@ body.theme-passy #textoLogin {
 body.theme-passy #loginDivider {
   max-width: 320px;
   margin: 12px auto 16px;
-  background: linear-gradient(90deg, rgba(255, 127, 182, 0.4), rgba(102, 173, 255, 0.45));
   opacity: 0.9;
 }
 
@@ -94,70 +95,123 @@ body.theme-passy #rodapeLogin {
 
 body.theme-passy .firebaseProjectBadge {
   border: 1px solid rgba(94, 137, 255, 0.3);
-  background: rgba(255, 236, 252, 0.94);
+  background: rgba(255, 207, 247, 0.94);
   color: var(--passy-text);
   font-family: "Manrope", sans-serif;
 }
 
 body.theme-passy #cabecalho {
-  border: 1px solid var(--passy-border);
+  max-width: calc(100% );
+  min-height: 200px;
+  height: auto;
+  position: sticky;
+  justify-content: center;
+  padding: 0 14px;
+  box-sizing: border-box;
+  overflow: visible;
   border-radius: 14px;
-  background: rgba(255, 244, 252, 0.85);
-  box-shadow: 0 8px 20px rgba(94, 137, 255, 0.1);
+  box-shadow: none;
+
 }
 
+body.theme-passy #navbar-menu,
 body.theme-passy #navbar-menu p {
   margin: 0;
   color: var(--passy-cornflower-blue);
 }
 
+body.theme-passy #navbar-menu {
+  width: 100%;
+  max-width: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: #ffb8d3;
+  padding: 12px;
+  border-radius: 14px;
+}
+
+body.theme-passy #cardProfile {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  width: 300px;
+  height: 200px;
+  margin-top: 0;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+body.theme-passy #imgBustoHome {
+  right: 0;
+  left: auto;
+  height: 100%;
+}
+
 body.theme-passy #abas.navbar-tabs {
-  gap: 10px;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+
+  align-self: stretch;
+  box-sizing: border-box;
+
 }
 
 body.theme-passy #abas.navbar-tabs .navbar-tab {
-  border-radius: 12px;
-  border-color: rgba(94, 137, 255, 0.3);
-  background: linear-gradient(135deg, rgba(255, 190, 248, 0.66), rgba(255, 227, 252, 0.94));
-  color: var(--passy-text);
-  font-family: "Space Grotesk", "Manrope", sans-serif;
+  border: 1px solid #ffa2b9;
+  background: linear-gradient(180deg, #f3dfdf, #ffbece);
+  color: #ff68ae;
+
 }
 
 body.theme-passy #abas.navbar-tabs .navbar-tab p {
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 700;
   letter-spacing: 0.06em;
 }
 
 body.theme-passy #abas.navbar-tabs .navbar-tab:hover,
 body.theme-passy #abas.navbar-tabs .navbar-tab.navbar-tab--active {
-  border-color: rgba(94, 137, 255, 0.5);
-  background: linear-gradient(135deg, rgba(255, 127, 182, 0.34), rgba(102, 173, 255, 0.34));
-  color: var(--passy-deep);
-  box-shadow: 0 8px 20px rgba(94, 137, 255, 0.18);
+  border: 1px solid #ffa2b9;
+  background: linear-gradient(180deg, #f3dfdf, #ffa2b9);
+  color: #ff2389;
+
 }
 
-body.theme-passy #MenuContainer,
-body.theme-passy .openMenu,
-body.theme-passy .mostra {
+body.theme-passy #MenuContainer {
   width: 100%;
   min-height: 100dvh;
+  background-color: #f3dfdf;
+}
+
+body.theme-passy #MenuContainer.openMenu,
+body.theme-passy #MenuContainer.mostra {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
 }
 
+body.theme-passy #cardProfile,
+body.theme-passy #conteudo,
+body.theme-passy .pages-navbar {
+  margin-top: 14px;
+}
+
+
 body.theme-passy .headMenu {
   width: min(96vw, 1120px);
+  max-width: calc(100% - 12px);
   position: sticky;
   top: 0;
   margin: 14px auto 0;
   padding: 14px 16px;
+  box-sizing: border-box;
   border-radius: 14px;
-  border: 1px solid rgba(94, 137, 255, 0.3);
-  background: linear-gradient(135deg, rgba(255, 190, 248, 0.84), rgba(255, 227, 252, 0.92));
-  box-shadow: 0 10px 26px rgba(94, 137, 255, 0.16);
+  background: linear-gradient(90deg, #ffb8d3, #f3dfdf);
+
 }
 
 body.theme-passy .back {
@@ -182,12 +236,15 @@ body.theme-passy #Gavetas {
   top: auto;
   left: auto;
   transform: none;
-  width: min(96vw, 1120px);
-  margin: 22px auto 0;
-  padding: 0 0 32px;
+  width: min(80vw, 1000px);
+  max-width: calc(100% - 30px);
+  min-height: auto;
+  margin: 12px auto 0;
+  padding: 0 0 20px;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 5px;
+  align-content: start;
   box-sizing: border-box;
 }
 
@@ -198,10 +255,12 @@ body.theme-passy .gavetaOption {
   justify-content: center;
   padding: 12px;
   border-radius: 12px;
-  border: 1px solid rgba(94, 137, 255, 0.28);
-  background: linear-gradient(135deg, rgba(255, 190, 248, 0.66), rgba(255, 227, 252, 0.94));
-  color: var(--passy-text);
-  font-size: 13px;
+
+
+  background: linear-gradient(180deg, #f3dfdf, #ffbece);
+  color: #ff3694;
+
+  font-size: 15px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -216,17 +275,17 @@ body.theme-passy .gavetaOption::after {
 body.theme-passy .gavetaOption:hover,
 body.theme-passy .gavetaOption.highlight,
 body.theme-passy .gavetaOption:active {
-  background: linear-gradient(135deg, rgba(255, 127, 182, 0.34), rgba(102, 173, 255, 0.34));
-  border-color: rgba(94, 137, 255, 0.5);
-  color: var(--passy-deep);
+  background: linear-gradient(180deg, #f3dfdf, #ffa2b9);
+  color: #ff2389;
   transform: translateY(-1px);
-  box-shadow: 0 8px 22px rgba(94, 137, 255, 0.2);
+
 }
 
 body.theme-passy .menuContentArea {
   width: min(96vw, 1120px);
+  max-width: calc(100% - 12px);
   margin: 0 auto;
-  padding: 12px 0 34px;
+  padding: 14px 0 38px;
   box-sizing: border-box;
 }
 
@@ -247,32 +306,42 @@ body.theme-passy select {
 body.theme-passy button,
 body.theme-passy .buttonEnviarResp,
 body.theme-passy .buttonExcluirForm {
-  border-radius: 10px;
-  border: 1px solid rgba(94, 137, 255, 0.32);
-  background: linear-gradient(135deg, rgba(255, 127, 182, 0.26), rgba(102, 173, 255, 0.26));
-  color: var(--passy-deep);
+  border-radius: 5px;
+  border: 1px solid #ffa2b9;
+  background: linear-gradient(180deg, #f3dfdf, #ffbece);
+  color: #ff3694;
   font-family: "Space Grotesk", "Manrope", sans-serif;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
+  padding: 5px;
+  padding-left: 10px;
+  padding-right:10px;
+  margin: 10px
+  
 }
 
 body.theme-passy button:hover,
 body.theme-passy .buttonEnviarResp:hover,
 body.theme-passy .buttonExcluirForm:hover {
-  border-color: rgba(94, 137, 255, 0.5);
-  background: linear-gradient(135deg, rgba(255, 127, 182, 0.38), rgba(102, 173, 255, 0.36));
+  border: 1px solid #ffa2b9;
+  background: linear-gradient(180deg, #f3dfdf, #ffa2b9);
+  color: #ff2389;
 }
 
 body.theme-passy .bloco-container {
+  margin: 18px 0 24px;
+  padding: 18px 20px 20px;
+  box-sizing: border-box;
   border-radius: 16px;
-  border: 1px solid rgba(94, 137, 255, 0.3);
-  background: linear-gradient(145deg, rgba(255, 227, 252, 0.85), rgba(255, 255, 255, 0.85));
-  box-shadow: var(--passy-shadow);
+  background: rgb(243, 205, 220);
+
 }
 
 body.theme-passy .bloco-container__header {
+  margin: 0 0 14px;
+  padding-bottom: 10px;
   border-bottom: 1px solid rgba(94, 137, 255, 0.22);
 }
 
@@ -287,7 +356,7 @@ body.theme-passy .cardContainerDesktopHome,
 body.theme-passy .cardContainerDesktopDesign {
   border-radius: 14px;
   border: 1px solid rgba(94, 137, 255, 0.3);
-  background: linear-gradient(170deg, rgba(255, 190, 248, 0.8), rgba(255, 227, 252, 0.9));
+  background: linear-gradient(170deg, #ffaaca, #ffffff));
   overflow: hidden;
 }
 
@@ -334,5 +403,10 @@ body.theme-passy .txtDescricao {
   body.theme-passy #Gavetas {
     width: min(96vw, 760px);
     grid-template-columns: 1fr;
+  }
+
+  body.theme-passy .bloco-container {
+    padding: 16px 14px 18px;
+    margin: 14px 0 20px;
   }
 }

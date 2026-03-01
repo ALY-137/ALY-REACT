@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { useAuth } from "../../../../hooks/auth/useAuth";
 import { seforAdm } from "../../../Scripts/verificacoes/verificaAdm";
-import { activeFirebaseProjectKey } from "../../../Banco/init-firebase";
+import {
+  activeFirebaseProjectKey,
+  storage,
+} from "../../../Banco/init-firebase";
 import { SYSTEM_THEMES } from "../../Temas/themesRegistry";
 import {
   DEFAULT_SISTEMA_CONFIG,
@@ -19,14 +23,43 @@ import {
   obterConfigProjetoDoGerenciador,
   salvarConfigProjetoNoGerenciador,
 } from "../../Sistema/gerenciadorProjetosApi";
+import {
+  uploadArquivoNoBucketCompartilhado,
+  usandoBucketCompartilhadoCrossProject,
+} from "../../Storage/sharedBucketApi";
 
-function lerArquivoComoDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(new Error("Falha ao ler arquivo."));
-    reader.readAsDataURL(file);
-  });
+function nomeArquivoSeguro(nome = "branding.png") {
+  return String(nome || "branding.png")
+    .trim()
+    .replace(/[^\w.\-]/g, "_");
+}
+
+async function subirImagemBranding({
+  file,
+  campo,
+  projetoGerenciadoKey = "",
+  currentUid = "",
+  currentUser = null,
+}) {
+  const nome = `${Date.now()}-${nomeArquivoSeguro(file?.name || `${campo}.png`)}`;
+  const chaveProjeto = String(projetoGerenciadoKey || activeFirebaseProjectKey || "default")
+    .trim()
+    .toLowerCase();
+  const uid = String(currentUid || "anon").trim() || "anon";
+  const path = `users/${uid}/branding/${chaveProjeto}/${campo}/${nome}`;
+
+  if (usandoBucketCompartilhadoCrossProject) {
+    const upload = await uploadArquivoNoBucketCompartilhado({
+      user: currentUser,
+      path,
+      file,
+    });
+    return String(upload?.url || "");
+  }
+
+  const arquivoRef = ref(storage, path);
+  await uploadBytes(arquivoRef, file);
+  return getDownloadURL(arquivoRef);
 }
 
 function PropriedadesSistema({
@@ -43,6 +76,7 @@ function PropriedadesSistema({
   const [erro, setErro] = useState("");
   const [config, setConfig] = useState(DEFAULT_SISTEMA_CONFIG);
   const [uploadCampoAtivo, setUploadCampoAtivo] = useState("");
+  const [arquivosBrandingSelecionados, setArquivosBrandingSelecionados] = useState({});
   const loginGoogleHabilitado = config?.metodosLoginHabilitados?.google !== false;
   const loginTwitterHabilitado = config?.metodosLoginHabilitados?.twitter !== false;
   const loginEmailSenhaHabilitado =
@@ -134,16 +168,22 @@ function PropriedadesSistema({
 
   const uploadImagem = async (event, campo) => {
     const arquivo = event.target.files?.[0];
-    event.target.value = "";
     if (!arquivo) return;
+
+    setArquivosBrandingSelecionados((prev) => ({
+      ...prev,
+      [campo]: String(arquivo.name || ""),
+    }));
 
     if (!arquivo.type?.startsWith("image/")) {
       setErro("Selecione um arquivo de imagem valido.");
+      event.target.value = "";
       return;
     }
 
-    if (arquivo.size > 850 * 1024) {
-      setErro("Imagem muito grande. Use arquivo de ate 850KB.");
+    if (arquivo.size > 3 * 1024 * 1024) {
+      setErro("Imagem muito grande. Use arquivo de ate 3MB.");
+      event.target.value = "";
       return;
     }
 
@@ -152,22 +192,35 @@ function PropriedadesSistema({
     setMensagem("");
 
     try {
-      const dataUrl = await lerArquivoComoDataUrl(arquivo);
+      const imagemUrl = await subirImagemBranding({
+        file: arquivo,
+        campo,
+        projetoGerenciadoKey: projetoGerenciado?.systemKey || "",
+        currentUid: user?.uid || "",
+        currentUser: user || null,
+      });
       setConfig((prev) => ({
         ...prev,
-        [campo]: dataUrl,
+        [campo]: imagemUrl,
       }));
-      if (!editandoProjetoExterno && (campo === "faviconUrl" || campo === "tituloSistema")) {
+      if (!editandoProjetoExterno && campo === "faviconUrl") {
         aplicarBrandingNoDocumento({
           ...config,
-          [campo]: dataUrl,
+          [campo]: imagemUrl,
         });
       }
       setMensagem("Imagem carregada. Clique em salvar para persistir.");
     } catch (uploadError) {
-      setErro("Falha ao carregar imagem.");
+      const codigo = String(uploadError?.code || "").trim();
+      const detalhe = String(uploadError?.message || "").trim();
+      setErro(
+        detalhe || codigo
+          ? `Falha ao carregar imagem${codigo ? ` (${codigo})` : ""}: ${detalhe || "erro desconhecido"}.`
+          : "Falha ao carregar imagem."
+      );
     } finally {
       setUploadCampoAtivo("");
+      event.target.value = "";
     }
   };
 
@@ -341,7 +394,7 @@ function PropriedadesSistema({
               logoLoginUrl: event.target.value,
             }))
           }
-          placeholder="/logoNeon.png ou https://..."
+          placeholder="https://... ou use o upload abaixo"
           style={{ width: "100%", marginTop: 8 }}
         />
         <label htmlFor="logoUpload" style={{ display: "block", marginTop: 8 }}>
@@ -354,13 +407,23 @@ function PropriedadesSistema({
           onChange={(event) => uploadImagem(event, "logoLoginUrl")}
           disabled={salvando || uploadCampoAtivo === "logoLoginUrl"}
         />
+        {arquivosBrandingSelecionados.logoLoginUrl ? (
+          <p style={{ marginTop: 6, opacity: 0.8 }}>
+            {uploadCampoAtivo === "logoLoginUrl" ? "Enviando arquivo:" : "Arquivo selecionado:"}{" "}
+            {arquivosBrandingSelecionados.logoLoginUrl}
+          </p>
+        ) : null}
 
         <div style={{ marginTop: 10, display: "flex", justifyContent: "center" }}>
-          <img
-            src={config.logoLoginUrl || DEFAULT_SISTEMA_CONFIG.logoLoginUrl}
-            alt="Preview da logo do projeto"
-            style={{ maxWidth: 150, maxHeight: 150, objectFit: "contain" }}
-          />
+          {String(config.logoLoginUrl || "").trim() ? (
+            <img
+              src={config.logoLoginUrl}
+              alt="Preview da logo do projeto"
+              style={{ maxWidth: 150, maxHeight: 150, objectFit: "contain" }}
+            />
+          ) : (
+            <p style={{ margin: 0, opacity: 0.7 }}>Nenhuma imagem de login carregada.</p>
+          )}
         </div>
 
         <label htmlFor="faviconUrl" style={{ display: "block", marginTop: 12 }}>
@@ -396,6 +459,12 @@ function PropriedadesSistema({
           onChange={(event) => uploadImagem(event, "faviconUrl")}
           disabled={salvando || uploadCampoAtivo === "faviconUrl"}
         />
+        {arquivosBrandingSelecionados.faviconUrl ? (
+          <p style={{ marginTop: 6, opacity: 0.8 }}>
+            {uploadCampoAtivo === "faviconUrl" ? "Enviando arquivo:" : "Arquivo selecionado:"}{" "}
+            {arquivosBrandingSelecionados.faviconUrl}
+          </p>
+        ) : null}
         <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
           <span>Preview favicon:</span>
           <img
@@ -506,6 +575,85 @@ function PropriedadesSistema({
             </option>
           ))}
         </select>
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            marginTop: 10,
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={config?.layoutTema?.headerVisible !== false}
+            onChange={(event) =>
+              setConfig((prev) => ({
+                ...prev,
+                layoutTema: {
+                  ...(prev?.layoutTema || DEFAULT_SISTEMA_CONFIG.layoutTema),
+                  headerVisible: event.target.checked,
+                },
+              }))
+            }
+          />
+          Habilitar cabecalho do projeto
+        </label>
+        <p style={{ marginTop: 6, opacity: 0.8 }}>
+          Quando habilitado, o usuario pode carregar imagem de cardProfile em
+          <code> Gerenciar skins </code>.
+        </p>
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            marginTop: 10,
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={config?.layoutTema?.headerSticky !== false}
+            onChange={(event) =>
+              setConfig((prev) => ({
+                ...prev,
+                layoutTema: {
+                  ...(prev?.layoutTema || DEFAULT_SISTEMA_CONFIG.layoutTema),
+                  headerSticky: event.target.checked,
+                },
+              }))
+            }
+          />
+          Fixar cabecalho ao rolar
+        </label>
+        <p style={{ marginTop: 6, opacity: 0.8 }}>
+          Desative para deixar o cabecalho seguir o fluxo da pagina em vez de ficar preso no topo.
+        </p>
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            marginTop: 10,
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={config?.layoutTema?.navbarTabsSticky !== false}
+            onChange={(event) =>
+              setConfig((prev) => ({
+                ...prev,
+                layoutTema: {
+                  ...(prev?.layoutTema || DEFAULT_SISTEMA_CONFIG.layoutTema),
+                  navbarTabsSticky: event.target.checked,
+                },
+              }))
+            }
+          />
+          Fixar abas do navbar ao rolar
+        </label>
+        <p style={{ marginTop: 6, opacity: 0.8 }}>
+          Controle separado para as abas dos espacos, independente do cabecalho principal.
+        </p>
 
         <h4 style={{ marginTop: 16, marginBottom: 8 }}>Layout de login</h4>
         <label style={{ display: "flex", alignItems: "center", gap: 8 }}>

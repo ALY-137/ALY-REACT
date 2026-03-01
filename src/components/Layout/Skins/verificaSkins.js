@@ -84,6 +84,8 @@ export const verificarESalvarskins = async (userId, username, theme) => {
       id_skin,
       username,
       theme,
+      cardProfileUrl: "",
+      cardProfilePath: "",
       is_main,
       visibilidade: "publico",
       data: serverTimestamp(),

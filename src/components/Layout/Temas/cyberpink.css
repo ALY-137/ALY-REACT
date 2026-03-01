@@ -447,12 +447,16 @@ body.theme-cyberpink .cardNomeDev {
   border: 1px solid #0e62ff;
 }
 
-body.theme-cyberpink .cardCabecalhoHome,
+body.theme-cyberpink .cardCabecalhoHome{
+   border: 1px solid #7e0eff;
+   border-bottom: none;
+}
 body.theme-cyberpink .cardImagemHome,
 body.theme-cyberpink .cardDescricaoHome,
 body.theme-cyberpink .cardDescricaoDivHome,
 body.theme-cyberpink .cardNomeHome {
   border: 1px solid #7e0eff;
+
 }
 
 body.theme-cyberpink .cardCabecalhoDesign,

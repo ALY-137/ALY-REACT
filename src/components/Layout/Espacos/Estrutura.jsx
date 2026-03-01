@@ -91,6 +91,8 @@ const criarSkinUnicaOnePage = async ({ firebaseUser, temaPadraoSkin }) => {
         id_skin: skinId,
         username: usernameOnePage,
         theme: temaCriacao,
+        cardProfileUrl: "",
+        cardProfilePath: "",
         is_main: true,
         visibilidade: "publico",
         data: serverTimestamp(),
@@ -183,6 +185,13 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
       )
   );
   const usuarioPodeAbrirMenuOnePage = Boolean(user?.uid);
+  const segmentosRota = location.pathname
+    .split("/")
+    .map((segmento) => decodeURIComponent(segmento || "").trim())
+    .filter(Boolean);
+  const nomeEspacoAtualRota = onePagePublicaAtiva
+    ? String(segmentosRota[0] || "").trim()
+    : String(segmentosRota[1] || "").trim();
 
   const aplicarFallbackOnePage = (configSistemaProjeto, usernameFallback = "") => {
     const temaPadraoSkin = obterTemaSkinPadrao(configSistemaProjeto?.temaPadraoSistema);
@@ -555,6 +564,14 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
       return;
     }
 
+    const espacoAtualValido = espacos.some(
+      (pagina) => String(pagina?.nome || "").trim() === nomeEspacoAtualRota
+    );
+    if (espacoAtualValido) {
+      setHasNavigated(true);
+      return;
+    }
+
     const destinoPrincipal = onePagePublicaAtiva
       ? `/${mainPage.nome}`
       : `/${username}/${mainPage.nome}`;
@@ -562,7 +579,15 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
       navigate(destinoPrincipal, { replace: true });
     }
     setHasNavigated(true);
-  }, [espacos, hasNavigated, location.pathname, navigate, onePagePublicaAtiva, username]);
+  }, [
+    espacos,
+    hasNavigated,
+    location.pathname,
+    navigate,
+    nomeEspacoAtualRota,
+    onePagePublicaAtiva,
+    username,
+  ]);
 
   const resolverUsernameMenuOnePage = async () => {
     if (!user?.uid) return "";
@@ -650,9 +675,44 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
         ) : null}
       </div>
 
-      <div id="cardProfile" style={{ display: menuOpen ? "none" : "block" }}>
+      <div
+        id="cardProfile"
+        style={
+          onePagePublicaAtiva && configSistemaAtual?.layoutTema?.headerVisible !== false
+            ? {
+                display: menuOpen ? "none" : "block",
+                position: "relative",
+                right: "auto",
+                top: "auto",
+                width: "170px",
+                height: "170px",
+                margin: "0 auto",
+                transform: "none",
+                pointerEvents: "none",
+              }
+            : { display: menuOpen ? "none" : "block" }
+        }
+      >
         <Navegacoes />
-        <img src="/imagens/imgHome/busto.png" id="imgBustoHome" alt="imagem" />
+        {String(skins?.[0]?.cardProfileUrl || "").trim() ? (
+          <img
+            src={String(skins?.[0]?.cardProfileUrl || "").trim()}
+            id="imgBustoHome"
+            alt="imagem"
+            style={
+              onePagePublicaAtiva && configSistemaAtual?.layoutTema?.headerVisible !== false
+                ? {
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    left: "0",
+                    right: "0",
+                    margin: "0 auto",
+                  }
+                : undefined
+            }
+          />
+        ) : null}
       </div>
     </>
   );

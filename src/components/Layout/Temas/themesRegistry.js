@@ -162,6 +162,54 @@ export const SKIN_THEMES = [
 // Compatibilidade com imports antigos no sistema
 export const THEMES = SKIN_THEMES;
 
+export const LAYOUT_STANDARD_OPERATIONS = [
+  {
+    id: "menuPositionOverride",
+    label: "Posicao do menu",
+    description: "Permite herdar o tema base ou forcar gaveta lateral / abas superiores.",
+  },
+  {
+    id: "surfaceDensityOverride",
+    label: "Densidade da interface",
+    description: "Controla o ritmo do layout entre compacto, confortavel e arejado.",
+  },
+  {
+    id: "frameMaxWidth",
+    label: "Largura maxima do frame",
+    description: "Define a largura util maxima da estrutura central do layout.",
+  },
+  {
+    id: "viewportMargin",
+    label: "Margem do viewport",
+    description: "Define o respiro minimo entre a estrutura e as bordas da tela.",
+  },
+  {
+    id: "headerVisible",
+    label: "Visibilidade do cabecalho",
+    description: "Permite exibir ou ocultar o cabecalho principal da estrutura.",
+  },
+  {
+    id: "headerHeightPx",
+    label: "Altura do cabecalho",
+    description: "Padroniza a altura do cabecalho para todos os temas que usam estrutura.",
+  },
+  {
+    id: "headerSticky",
+    label: "Cabecalho fixo ao rolar",
+    description: "Controla se o cabecalho principal permanece fixo durante a rolagem.",
+  },
+  {
+    id: "navbarTabsSticky",
+    label: "Abas do navbar fixas ao rolar",
+    description: "Controla se as abas do navbar permanecem fixas enquanto o conteudo rola.",
+  },
+  {
+    id: "cardProfileShape",
+    label: "Forma do card profile",
+    description: "Alterna o tratamento visual do card profile entre quadrado e arredondado.",
+  },
+];
+
 function normalizarIdTema(value) {
   return String(value || "").trim().toUpperCase();
 }
@@ -267,12 +315,37 @@ export function obterCssTemaSkin(temaSkinId) {
 
 const LAYOUT_MENU_POSITIONS = new Set(["drawer", "top"]);
 const LAYOUT_SURFACE_DENSITIES = new Set(["compact", "comfortable", "airy"]);
+const LAYOUT_MENU_POSITION_OVERRIDES = new Set(["inherit", "drawer", "top"]);
+const LAYOUT_SURFACE_DENSITY_OVERRIDES = new Set([
+  "inherit",
+  "compact",
+  "comfortable",
+  "airy",
+]);
+const LAYOUT_CARD_PROFILE_SHAPES = new Set(["round", "square"]);
 
 const DEFAULT_LAYOUT_TEMA_SKIN = {
   menuPosition: "drawer",
   surfaceDensity: "compact",
   frameMaxWidth: 995,
   viewportMargin: 5,
+  headerVisible: true,
+  headerHeightPx: 40,
+  headerSticky: true,
+  navbarTabsSticky: true,
+  cardProfileShape: "round",
+};
+
+export const DEFAULT_LAYOUT_THEME_OVERRIDES = {
+  menuPositionOverride: "inherit",
+  surfaceDensityOverride: "inherit",
+  frameMaxWidth: null,
+  viewportMargin: null,
+  headerVisible: true,
+  headerHeightPx: 40,
+  headerSticky: true,
+  navbarTabsSticky: true,
+  cardProfileShape: "round",
 };
 
 function normalizarNumeroLayout(value, fallback, min, max) {
@@ -283,32 +356,100 @@ function normalizarNumeroLayout(value, fallback, min, max) {
   return numero;
 }
 
-export function obterConfigLayoutTemaSkin(temaSkinId) {
+function normalizarNumeroLayoutOpcional(value, min, max) {
+  if (value === null || value === undefined || value === "") return null;
+  const numero = Number(value);
+  if (!Number.isFinite(numero)) return null;
+  if (numero < min) return min;
+  if (numero > max) return max;
+  return Math.round(numero);
+}
+
+export function normalizarConfiguracaoLayoutTema(value = {}) {
+  const origem = value && typeof value === "object" ? value : {};
+  const menuPositionOverride = String(origem.menuPositionOverride || "")
+    .trim()
+    .toLowerCase();
+  const surfaceDensityOverride = String(origem.surfaceDensityOverride || "")
+    .trim()
+    .toLowerCase();
+  const cardProfileShape = String(origem.cardProfileShape || "")
+    .trim()
+    .toLowerCase();
+
+  return {
+    menuPositionOverride: LAYOUT_MENU_POSITION_OVERRIDES.has(menuPositionOverride)
+      ? menuPositionOverride
+      : DEFAULT_LAYOUT_THEME_OVERRIDES.menuPositionOverride,
+    surfaceDensityOverride: LAYOUT_SURFACE_DENSITY_OVERRIDES.has(surfaceDensityOverride)
+      ? surfaceDensityOverride
+      : DEFAULT_LAYOUT_THEME_OVERRIDES.surfaceDensityOverride,
+    frameMaxWidth: normalizarNumeroLayoutOpcional(origem.frameMaxWidth, 720, 1600),
+    viewportMargin: normalizarNumeroLayoutOpcional(origem.viewportMargin, 4, 40),
+    headerVisible:
+      typeof origem.headerVisible === "boolean"
+        ? origem.headerVisible
+        : DEFAULT_LAYOUT_THEME_OVERRIDES.headerVisible,
+    headerHeightPx: normalizarNumeroLayout(
+      origem.headerHeightPx,
+      DEFAULT_LAYOUT_THEME_OVERRIDES.headerHeightPx,
+      32,
+      160
+    ),
+    headerSticky:
+      typeof origem.headerSticky === "boolean"
+        ? origem.headerSticky
+        : typeof origem.navbarMenuSticky === "boolean"
+          ? origem.navbarMenuSticky
+          : DEFAULT_LAYOUT_THEME_OVERRIDES.headerSticky,
+    navbarTabsSticky:
+      typeof origem.navbarTabsSticky === "boolean"
+        ? origem.navbarTabsSticky
+        : DEFAULT_LAYOUT_THEME_OVERRIDES.navbarTabsSticky,
+    cardProfileShape: LAYOUT_CARD_PROFILE_SHAPES.has(cardProfileShape)
+      ? cardProfileShape
+      : DEFAULT_LAYOUT_THEME_OVERRIDES.cardProfileShape,
+  };
+}
+
+export function obterConfigLayoutTemaSkin(temaSkinId, layoutOverrides = null) {
   const temaDef = obterTemaSkinDefinicao(temaSkinId);
   const layout = temaDef?.layout || {};
+  const overrides = normalizarConfiguracaoLayoutTema(layoutOverrides || {});
 
   const menuPosition = String(layout.menuPosition || "").toLowerCase();
   const surfaceDensity = String(layout.surfaceDensity || "").toLowerCase();
 
   return {
-    menuPosition: LAYOUT_MENU_POSITIONS.has(menuPosition)
-      ? menuPosition
-      : DEFAULT_LAYOUT_TEMA_SKIN.menuPosition,
-    surfaceDensity: LAYOUT_SURFACE_DENSITIES.has(surfaceDensity)
-      ? surfaceDensity
-      : DEFAULT_LAYOUT_TEMA_SKIN.surfaceDensity,
+    menuPosition:
+      overrides.menuPositionOverride !== "inherit"
+        ? overrides.menuPositionOverride
+        : LAYOUT_MENU_POSITIONS.has(menuPosition)
+          ? menuPosition
+          : DEFAULT_LAYOUT_TEMA_SKIN.menuPosition,
+    surfaceDensity:
+      overrides.surfaceDensityOverride !== "inherit"
+        ? overrides.surfaceDensityOverride
+        : LAYOUT_SURFACE_DENSITIES.has(surfaceDensity)
+          ? surfaceDensity
+          : DEFAULT_LAYOUT_TEMA_SKIN.surfaceDensity,
     frameMaxWidth: normalizarNumeroLayout(
-      layout.frameMaxWidth,
+      overrides.frameMaxWidth ?? layout.frameMaxWidth,
       DEFAULT_LAYOUT_TEMA_SKIN.frameMaxWidth,
       720,
       1600
     ),
     viewportMargin: normalizarNumeroLayout(
-      layout.viewportMargin,
+      overrides.viewportMargin ?? layout.viewportMargin,
       DEFAULT_LAYOUT_TEMA_SKIN.viewportMargin,
       4,
       40
     ),
+    headerVisible: overrides.headerVisible,
+    headerHeightPx: overrides.headerHeightPx,
+    headerSticky: overrides.headerSticky,
+    navbarTabsSticky: overrides.navbarTabsSticky,
+    cardProfileShape: overrides.cardProfileShape,
   };
 }
 

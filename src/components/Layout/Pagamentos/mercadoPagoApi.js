@@ -11,7 +11,12 @@ import {
   where,
   writeBatch,
 } from "firebase/firestore";
-import { auth, db, functions } from "../../Banco/init-firebase";
+import {
+  activeFirebaseProjectKey,
+  auth,
+  db,
+  functions,
+} from "../../Banco/init-firebase";
 
 const callSalvarCredenciais = httpsCallable(functions, "salvarMercadoPagoCredenciais");
 const callStatusCredenciais = httpsCallable(functions, "obterStatusMercadoPago");
@@ -20,6 +25,8 @@ const callCriarCheckout = httpsCallable(functions, "criarCheckoutBlocoMercadoPag
 const callConfirmarPagamento = httpsCallable(functions, "confirmarPagamentoBlocoMercadoPago");
 
 const MAX_PIX_QRS = 20;
+const MERCADO_PAGO_UNAVAILABLE_CODE = "mercado-pago/unavailable";
+const PROJETOS_SEM_FUNCTIONS_MERCADO_PAGO = new Set(["aly-onepages-runtime"]);
 
 function toPositiveInteger(value) {
   const parsed = Number(value);
@@ -29,6 +36,28 @@ function toPositiveInteger(value) {
 
 function sanitizeString(value) {
   return String(value || "").trim();
+}
+
+function mercadoPagoDisponivelNesteProjeto() {
+  return !PROJETOS_SEM_FUNCTIONS_MERCADO_PAGO.has(
+    sanitizeString(activeFirebaseProjectKey)
+  );
+}
+
+function getMercadoPagoIndisponivelPayload() {
+  return {
+    ok: false,
+    conectado: false,
+    disponivel: false,
+    motivo:
+      "Mercado Pago indisponivel neste projeto. Use PIX manual ou habilite Cloud Functions em um projeto com Blaze.",
+  };
+}
+
+function criarErroMercadoPagoIndisponivel() {
+  const erro = new Error(getMercadoPagoIndisponivelPayload().motivo);
+  erro.code = MERCADO_PAGO_UNAVAILABLE_CODE;
+  return erro;
 }
 
 function normalizePixQr(raw, index = 0) {
@@ -78,11 +107,12 @@ function getPixManualRef(uid) {
   return doc(db, "users", sanitizeString(uid), "integracoes", "pixManual");
 }
 
-function getPedidoRef(ownerUid, pedidoId) {
-  return doc(db, "users", sanitizeString(ownerUid), "pedidos", sanitizeString(pedidoId));
+function getSolicitacaoRef(ownerUid, solicitacaoId) {
+  // A colecao permanece "pedidos" por compatibilidade com dados e rules existentes.
+  return doc(db, "users", sanitizeString(ownerUid), "pedidos", sanitizeString(solicitacaoId));
 }
 
-function buildPedidoId(blocoId, compradorUid) {
+function buildSolicitacaoId(blocoId, compradorUid) {
   return `${sanitizeString(blocoId)}__${sanitizeString(compradorUid)}`;
 }
 
@@ -184,16 +214,25 @@ async function carregarPixManualOwner(ownerUserId) {
 }
 
 export async function salvarMercadoPagoCredenciais({ accessToken, publicKey = "" }) {
+  if (!mercadoPagoDisponivelNesteProjeto()) {
+    throw criarErroMercadoPagoIndisponivel();
+  }
   const response = await callSalvarCredenciais({ accessToken, publicKey });
   return response?.data || { ok: false };
 }
 
 export async function obterStatusMercadoPago() {
+  if (!mercadoPagoDisponivelNesteProjeto()) {
+    return getMercadoPagoIndisponivelPayload();
+  }
   const response = await callStatusCredenciais({});
   return response?.data || { conectado: false };
 }
 
 export async function desconectarMercadoPago() {
+  if (!mercadoPagoDisponivelNesteProjeto()) {
+    throw criarErroMercadoPagoIndisponivel();
+  }
   const response = await callDesconectarCredenciais({});
   return response?.data || { ok: true, conectado: false };
 }
@@ -206,6 +245,9 @@ export async function criarCheckoutBlocoMercadoPago({
   returnTo = "",
   baseUrl,
 }) {
+  if (!mercadoPagoDisponivelNesteProjeto()) {
+    throw criarErroMercadoPagoIndisponivel();
+  }
   const response = await callCriarCheckout({
     ownerUserId,
     espacoId,
@@ -223,6 +265,9 @@ export async function confirmarPagamentoBlocoMercadoPago({
   blocoId,
   paymentId,
 }) {
+  if (!mercadoPagoDisponivelNesteProjeto()) {
+    throw criarErroMercadoPagoIndisponivel();
+  }
   const response = await callConfirmarPagamento({
     ownerUserId,
     espacoId,
@@ -363,7 +408,7 @@ export async function obterCheckoutPixManualBloco({ ownerUserId, espacoId, bloco
   };
 }
 
-export async function solicitarPedidoPixManualBloco({
+export async function solicitarSolicitacaoPixManualBloco({
   ownerUserId,
   espacoId,
   blocoId,
@@ -371,17 +416,17 @@ export async function solicitarPedidoPixManualBloco({
 }) {
   const compradorUid = sanitizeString(auth?.currentUser?.uid);
   if (!compradorUid) {
-    throw new Error("Usuario precisa estar autenticado para solicitar o pedido.");
+    throw new Error("Usuario precisa estar autenticado para solicitar a solicitacao.");
   }
 
   const ownerUid = sanitizeString(ownerUserId);
   const espaco = sanitizeString(espacoId);
   const bloco = sanitizeString(blocoId);
   if (!ownerUid || !espaco || !bloco) {
-    throw new Error("Parametros obrigatorios ausentes para criar pedido.");
+    throw new Error("Parametros obrigatorios ausentes para criar solicitacao.");
   }
   if (ownerUid === compradorUid) {
-    throw new Error("O criador nao pode solicitar pedido do proprio bloco.");
+    throw new Error("O criador nao pode solicitar desbloqueio do proprio bloco.");
   }
 
   const blocoInfo = await carregarBlocoCompravel(ownerUid, espaco, bloco);
@@ -407,14 +452,15 @@ export async function solicitarPedidoPixManualBloco({
     throw new Error("PIX manual indisponivel para este bloco no momento.");
   }
 
-  const pedidoId = buildPedidoId(bloco, compradorUid);
-  const pedidoRef = getPedidoRef(ownerUid, pedidoId);
+  const solicitacaoId = buildSolicitacaoId(bloco, compradorUid);
+  const solicitacaoRef = getSolicitacaoRef(ownerUid, solicitacaoId);
   const compradorAtual = auth.currentUser;
   try {
     await setDoc(
-      pedidoRef,
+      solicitacaoRef,
       {
-        pedidoId,
+        solicitacaoId,
+        pedidoId: solicitacaoId,
         ownerUserId: ownerUid,
         espacoId: espaco,
         blocoId: bloco,
@@ -441,7 +487,7 @@ export async function solicitarPedidoPixManualBloco({
 
     // Se a escrita falhou por permissao, pode ser que a solicitacao ja exista
     // (update bloqueado para comprador). Nessa situacao, retornamos a solicitacao existente.
-    const pedidoExistenteSnap = await getDoc(pedidoRef).catch(() => null);
+    const pedidoExistenteSnap = await getDoc(solicitacaoRef).catch(() => null);
     if (pedidoExistenteSnap?.exists?.()) {
       const pedidoExistente = pedidoExistenteSnap.data() || {};
       const mesmoComprador = sanitizeString(pedidoExistente?.compradorUid) === compradorUid;
@@ -451,7 +497,8 @@ export async function solicitarPedidoPixManualBloco({
           ok: true,
           alreadyPurchased: false,
           alreadyRequested: true,
-          pedidoId,
+          solicitacaoId,
+          pedidoId: solicitacaoId,
           status: sanitizeString(pedidoExistente?.status) || "pedido_solicitado",
         };
       }
@@ -463,12 +510,13 @@ export async function solicitarPedidoPixManualBloco({
   return {
     ok: true,
     alreadyPurchased: false,
-    pedidoId,
+    solicitacaoId,
+    pedidoId: solicitacaoId,
     status: "pedido_solicitado",
   };
 }
 
-export async function listarPedidosPixManual({ ownerUserId = "" } = {}) {
+export async function listarSolicitacoesPixManual({ ownerUserId = "" } = {}) {
   const currentUid = sanitizeString(auth?.currentUser?.uid);
   if (!currentUid) {
     throw new Error("Usuario nao autenticado.");
@@ -480,18 +528,23 @@ export async function listarPedidosPixManual({ ownerUserId = "" } = {}) {
       const data = item.data() || {};
       const criadoEm = data?.criadoEm?.toMillis ? data.criadoEm.toMillis() : 0;
       const atualizadoEm = data?.atualizadoEm?.toMillis ? data.atualizadoEm.toMillis() : 0;
+      const solicitacaoId = sanitizeString(
+        data?.solicitacaoId || data?.pedidoId || item.id
+      );
       return {
         id: item.id,
         ...data,
+        solicitacaoId,
+        pedidoId: sanitizeString(data?.pedidoId || solicitacaoId),
         __createdAtMs: criadoEm,
         __updatedAtMs: atualizadoEm,
       };
     });
 
-  const pedidos = [];
+  const solicitacoes = [];
   if (ownerUid) {
     const isOwnerView = ownerUid === currentUid;
-    const pedidosSnap = isOwnerView
+    const solicitacoesSnap = isOwnerView
       ? await getDocs(collection(db, "users", currentUid, "pedidos"))
       : await getDocs(
           query(
@@ -499,31 +552,31 @@ export async function listarPedidosPixManual({ ownerUserId = "" } = {}) {
             where("compradorUid", "==", currentUid)
           )
         );
-    pedidos.push(...parseDocs(pedidosSnap.docs));
+    solicitacoes.push(...parseDocs(solicitacoesSnap.docs));
   } else {
     const ownerSnap = await getDocs(collection(db, "users", currentUid, "pedidos"));
-    pedidos.push(...parseDocs(ownerSnap.docs));
+    solicitacoes.push(...parseDocs(ownerSnap.docs));
 
     try {
       const buyerSnap = await getDocs(
         query(collectionGroup(db, "pedidos"), where("compradorUid", "==", currentUid))
       );
-      pedidos.push(...parseDocs(buyerSnap.docs));
+      solicitacoes.push(...parseDocs(buyerSnap.docs));
     } catch (err) {
       if (String(err?.code || "") !== "permission-denied") {
         throw err;
       }
-      // Em alguns projetos/regras, collectionGroup de pedidos pode ser bloqueado.
+      // Em alguns projetos/regras, collectionGroup da colecao legada "pedidos" pode ser bloqueado.
       // Nesses casos, seguimos com a colecao local do usuario autenticado.
     }
   }
 
   const dedupe = new Map();
-  for (const pedido of pedidos) {
-    const key = `${sanitizeString(pedido?.ownerUserId)}::${sanitizeString(
-      pedido?.pedidoId || pedido?.id
+  for (const solicitacao of solicitacoes) {
+    const key = `${sanitizeString(solicitacao?.ownerUserId)}::${sanitizeString(
+      solicitacao?.solicitacaoId || solicitacao?.pedidoId || solicitacao?.id
     )}`;
-    dedupe.set(key, pedido);
+    dedupe.set(key, solicitacao);
   }
 
   const merged = [...dedupe.values()].map((item) => {
@@ -539,7 +592,10 @@ export async function listarPedidosPixManual({ ownerUserId = "" } = {}) {
   return merged;
 }
 
-export async function confirmarPedidoPixManual({ ownerUserId = "", pedidoId = "" }) {
+export async function confirmarSolicitacaoPixManual({
+  ownerUserId = "",
+  solicitacaoId = "",
+}) {
   const currentUid = sanitizeString(auth?.currentUser?.uid);
   if (!currentUid) {
     throw new Error("Usuario nao autenticado.");
@@ -547,13 +603,14 @@ export async function confirmarPedidoPixManual({ ownerUserId = "", pedidoId = ""
 
   const ownerUid = sanitizeString(ownerUserId) || currentUid;
   if (ownerUid !== currentUid) {
-    throw new Error("Apenas o administrador pode confirmar solicitacoes.");
+    throw new Error("Apenas o administrador pode confirmar solicitações.");
   }
 
-  const pedidoRef = getPedidoRef(ownerUid, pedidoId);
+  const idSolicitacaoNormalizado = sanitizeString(solicitacaoId);
+  const pedidoRef = getSolicitacaoRef(ownerUid, idSolicitacaoNormalizado);
   const pedidoSnap = await getDoc(pedidoRef);
   if (!pedidoSnap.exists()) {
-    throw new Error("Pedido nao encontrado.");
+    throw new Error("Solicitacao nao encontrada.");
   }
 
   const pedido = pedidoSnap.data() || {};
@@ -567,7 +624,7 @@ export async function confirmarPedidoPixManual({ ownerUserId = "", pedidoId = ""
   const compradorSkinId = sanitizeString(pedido?.compradorSkinId);
 
   if (!blocoId || !espacoId || !compradorUid) {
-    throw new Error("Pedido invalido para confirmacao.");
+    throw new Error("Solicitacao invalida para confirmacao.");
   }
 
   const compradorRef = doc(
@@ -586,7 +643,7 @@ export async function confirmarPedidoPixManual({ ownerUserId = "", pedidoId = ""
   batch.set(
     compradorRef,
     {
-      liberadoPorPedidoId: sanitizeString(pedidoId),
+      liberadoPorPedidoId: idSolicitacaoNormalizado,
       liberadoEm: serverTimestamp(),
       confirmadoPorUid: currentUid,
       compradorUid,
@@ -611,7 +668,7 @@ export async function confirmarPedidoPixManual({ ownerUserId = "", pedidoId = ""
     batch.set(
       compradorSkinRef,
       {
-        liberadoPorPedidoId: sanitizeString(pedidoId),
+        liberadoPorPedidoId: idSolicitacaoNormalizado,
         liberadoEm: serverTimestamp(),
         confirmadoPorUid: currentUid,
         compradorUid,
@@ -636,4 +693,22 @@ export async function confirmarPedidoPixManual({ ownerUserId = "", pedidoId = ""
 
   await batch.commit();
   return { ok: true, alreadyConfirmed: false };
+}
+
+export async function solicitarPedidoPixManualBloco(payload = {}) {
+  return solicitarSolicitacaoPixManualBloco(payload);
+}
+
+export async function listarPedidosPixManual(payload = {}) {
+  return listarSolicitacoesPixManual(payload);
+}
+
+export async function confirmarPedidoPixManual({
+  ownerUserId = "",
+  pedidoId = "",
+} = {}) {
+  return confirmarSolicitacaoPixManual({
+    ownerUserId,
+    solicitacaoId: pedidoId,
+  });
 }

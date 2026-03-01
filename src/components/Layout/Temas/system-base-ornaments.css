@@ -139,6 +139,7 @@
   z-index: 3;
   transition: opacity 0.3s ease, transform 0.3s ease;
   position: absolute;
+  border-radius: var(--layout-card-profile-radius, 24px);
 }
 
 #imgBustoHome0{

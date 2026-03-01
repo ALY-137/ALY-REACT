@@ -4,7 +4,11 @@ import {
   activeFirebaseProjectId,
   activeFirebaseProjectKey,
 } from "../../Banco/init-firebase";
-import { SYSTEM_THEMES } from "../Temas/themesRegistry";
+import {
+  DEFAULT_LAYOUT_THEME_OVERRIDES,
+  SYSTEM_THEMES,
+  normalizarConfiguracaoLayoutTema,
+} from "../Temas/themesRegistry";
 import {
   obterConfigProjetoDoGerenciador,
   salvarConfigProjetoNoGerenciador,
@@ -38,13 +42,14 @@ const LOGIN_PRESET_IDS_VALIDOS = Array.isArray(APPLYABLE_LOGIN_PRESET_IDS)
   : ["manual", "aly137"];
 
 export const DEFAULT_SISTEMA_CONFIG = {
-  logoLoginUrl: "/logoNeon.png",
+  logoLoginUrl: "",
   faviconUrl: "/favicon.ico",
   tituloSistema: "ALY-137",
   exibirTituloSistemaNoLogin: true,
   textoLogin: "EMBARQUE COM O GOOGLE",
   larguraIconsLoginPx: null,
   temaPadraoSistema: TEMA_SISTEMA_FALLBACK,
+  layoutTema: { ...DEFAULT_LAYOUT_THEME_OVERRIDES },
   loginPresetId: "manual",
   tipoExperiencia: "multipage",
   modoAcessoProjeto: "privado_com_login",
@@ -269,11 +274,13 @@ function normalizarMetodosLoginHabilitados(
 }
 
 export function normalizarConfigSistema(data = {}) {
-  const logoNormalizada = normalizarTexto(
+  const logoNormalizadaBase = normalizarTexto(
     data.logoLoginUrl,
     DEFAULT_SISTEMA_CONFIG.logoLoginUrl,
     120000
   );
+  const logoNormalizada =
+    logoNormalizadaBase === "/logoNeon.png" ? "" : logoNormalizadaBase;
   const faviconNormalizado = normalizarTexto(
     data.faviconUrl,
     DEFAULT_SISTEMA_CONFIG.faviconUrl,
@@ -296,6 +303,49 @@ export function normalizarConfigSistema(data = {}) {
   const adminEmailNormalizado = normalizarEmailAdmin(data.adminEmail);
   const tipoExperienciaNormalizado = normalizarTipoExperiencia(data.tipoExperiencia);
   const modoAcessoProjetoNormalizado = normalizarModoAcessoProjeto(data.modoAcessoProjeto);
+  const layoutTemaNormalizado = normalizarConfiguracaoLayoutTema({
+    ...(data.layoutTema && typeof data.layoutTema === "object" ? data.layoutTema : {}),
+    headerVisible:
+      Object.prototype.hasOwnProperty.call(data, "layoutHeaderVisible")
+        ? data.layoutHeaderVisible
+        : data?.layoutTema?.headerVisible,
+    headerHeightPx:
+      Object.prototype.hasOwnProperty.call(data, "layoutHeaderHeightPx")
+        ? data.layoutHeaderHeightPx
+        : data?.layoutTema?.headerHeightPx,
+    headerSticky:
+      Object.prototype.hasOwnProperty.call(data, "layoutHeaderSticky")
+        ? data.layoutHeaderSticky
+        : data?.layoutTema?.headerSticky,
+    navbarMenuSticky:
+      Object.prototype.hasOwnProperty.call(data, "layoutNavbarMenuSticky")
+        ? data.layoutNavbarMenuSticky
+        : data?.layoutTema?.navbarMenuSticky,
+    navbarTabsSticky:
+      Object.prototype.hasOwnProperty.call(data, "layoutNavbarTabsSticky")
+        ? data.layoutNavbarTabsSticky
+        : data?.layoutTema?.navbarTabsSticky,
+    cardProfileShape:
+      Object.prototype.hasOwnProperty.call(data, "layoutCardProfileShape")
+        ? data.layoutCardProfileShape
+        : data?.layoutTema?.cardProfileShape,
+    menuPositionOverride:
+      Object.prototype.hasOwnProperty.call(data, "layoutMenuPositionOverride")
+        ? data.layoutMenuPositionOverride
+        : data?.layoutTema?.menuPositionOverride,
+    surfaceDensityOverride:
+      Object.prototype.hasOwnProperty.call(data, "layoutSurfaceDensityOverride")
+        ? data.layoutSurfaceDensityOverride
+        : data?.layoutTema?.surfaceDensityOverride,
+    frameMaxWidth:
+      Object.prototype.hasOwnProperty.call(data, "layoutFrameMaxWidth")
+        ? data.layoutFrameMaxWidth
+        : data?.layoutTema?.frameMaxWidth,
+    viewportMargin:
+      Object.prototype.hasOwnProperty.call(data, "layoutViewportMargin")
+        ? data.layoutViewportMargin
+        : data?.layoutTema?.viewportMargin,
+  });
   const limiteSkinsNormalizado =
     tipoExperienciaNormalizado === "onepage"
       ? "1"
@@ -312,6 +362,7 @@ export function normalizarConfigSistema(data = {}) {
     textoLogin: textoLoginNormalizado,
     larguraIconsLoginPx: normalizarLarguraIconsLogin(data.larguraIconsLoginPx),
     temaPadraoSistema: normalizarTemaSistema(data.temaPadraoSistema),
+    layoutTema: layoutTemaNormalizado,
     loginPresetId: normalizarLoginPresetId(data.loginPresetId),
     tipoExperiencia: tipoExperienciaNormalizado,
     modoAcessoProjeto: modoAcessoProjetoNormalizado,

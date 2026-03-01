@@ -29,6 +29,11 @@
   z-index: 1000;
 }
 
+body.layout-navbar-tabs-sticky-disabled .menu-navbar {
+  position: relative !important;
+  top: auto !important;
+}
+
 .menu-open #cardProfile,
 .menu-open #conteudo,
 .menu-open .pages-navbar {

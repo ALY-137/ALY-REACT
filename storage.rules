@@ -19,6 +19,14 @@ service firebase.storage {
       allow write: if isAdmin();
     }
 
+    // Branding do projeto (logo do login, favicon e ativos semelhantes).
+    // A leitura precisa ser publica porque a tela de login usa esses assets
+    // antes da autenticacao. Escrita fica restrita ao dono do path ou admin.
+    match /branding/{projectKey}/{userId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin() || isOwner(userId);
+    }
+
     // Compatibilidade legado: caminho antigo.
     match /users/{userId}/blocos/{allPaths=**} {
       allow read, write: if isAdmin() || isOwner(userId);

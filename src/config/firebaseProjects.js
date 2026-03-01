@@ -50,6 +50,20 @@ function parseDomains(value) {
   return parseCsv(value).map((host) => normalizeHost(host)).filter(Boolean);
 }
 
+function getHostAliases(host) {
+  const normalized = normalizeHost(host);
+  if (!normalized) return [];
+
+  const aliases = new Set([normalized]);
+  if (normalized.startsWith("www.")) {
+    aliases.add(normalized.replace(/^www\./, ""));
+  } else {
+    aliases.add(`www.${normalized}`);
+  }
+
+  return Array.from(aliases).filter(Boolean);
+}
+
 function normalizeAuthDomain(value, projectId) {
   const host = normalizeHost(value);
   const fallback = projectId ? `${projectId}.firebaseapp.com` : "";
@@ -155,15 +169,23 @@ function coletarProjetosEnv() {
 }
 
 function getHostProjectMap(projects) {
-  const hostMap = {
-    "obeyon.vercel.app": "obeyon",
-    "teste-aa015.web.app": "teste-aa015",
-    "teste-aa015.firebaseapp.com": "teste-aa015",
-  };
+  const hostMap = {};
+
+  [
+    ["obeyon.vercel.app", "obeyon"],
+    ["teste-aa015.web.app", "teste-aa015"],
+    ["teste-aa015.firebaseapp.com", "teste-aa015"],
+  ].forEach(([host, projectKey]) => {
+    getHostAliases(host).forEach((alias) => {
+      hostMap[alias] = projectKey;
+    });
+  });
 
   Object.values(projects).forEach((project) => {
     (project.domains || []).forEach((domainHost) => {
-      hostMap[domainHost] = project.key;
+      getHostAliases(domainHost).forEach((alias) => {
+        hostMap[alias] = project.key;
+      });
     });
   });
 
@@ -368,6 +390,15 @@ function resolveRequestedProjectKey(projects, hostProjectMap) {
     const onepageRuntimeKey = getOnepageRuntimeProjectKey(projects);
     if (onepageRuntimeKey && isProbablySystemKey(slugHost)) {
       safeWriteProjectAliasToStorage(slugHost, onepageRuntimeKey);
+      return onepageRuntimeKey;
+    }
+
+    // Fallback final para custom domains nao mapeados explicitamente:
+    // se houver runtime onepage compartilhado configurado, qualquer hostname
+    // publico desconhecido passa a usar esse runtime. A configuracao especifica
+    // do projeto continua sendo resolvida depois pelo Gerenciador de Projetos
+    // via campo `domains`.
+    if (onepageRuntimeKey) {
       return onepageRuntimeKey;
     }
   }

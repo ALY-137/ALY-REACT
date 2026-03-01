@@ -31,7 +31,7 @@ import {
   obterRotulosEspaco,
   obterRotulosSkin,
 } from "../Sistema/configSistema";
-import { solicitarPedidoPixManualBloco } from "../Pagamentos/mercadoPagoApi";
+import { solicitarSolicitacaoPixManualBloco } from "../Pagamentos/mercadoPagoApi";
 
 const isRenderableUrl = (valor) =>
   typeof valor === "string" &&
@@ -943,7 +943,7 @@ export default function EspacoPage() {
       }
 
       try {
-        const solicitacao = await solicitarPedidoPixManualBloco({
+        const solicitacao = await solicitarSolicitacaoPixManualBloco({
           ownerUserId: ownerUserId || "",
           espacoId: espacoId || "",
           blocoId: bloco.id,

@@ -1,5 +1,6 @@
 ﻿#cabecalho{
-  height: 40px;
+  height: var(--layout-header-height, 40px);
+  min-height: var(--layout-header-height, 40px);
   position: sticky;  
   z-index: 20;
   transition: opacity 0.3s ease, transform 0.3s ease;
@@ -8,6 +9,11 @@
   top:0px;
   transition: top 0.3s;
   box-shadow: 0px 0px 30px rgb(0, 0, 0); 
+}
+
+body.layout-header-sticky-disabled #cabecalho{
+  position: relative !important;
+  top: auto !important;
 }
 
 .rolagem{
@@ -73,6 +79,8 @@
 #cardProfile {
   height: auto;
   position: relative;
+  border-radius: var(--layout-card-profile-radius, 24px);
+  overflow: hidden;
 }
 
 #conteudo {

@@ -1,92 +1,167 @@
-[debug] [2026-02-27T17:58:58.432Z] ----------------------------------------------------------------------
-[debug] [2026-02-27T17:58:58.443Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\ALY\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js functions:list --project aly-onepages-runtime
-[debug] [2026-02-27T17:58:58.444Z] CLI Version:   15.7.0
-[debug] [2026-02-27T17:58:58.445Z] Platform:      win32
-[debug] [2026-02-27T17:58:58.445Z] Node Version:  v24.14.0
-[debug] [2026-02-27T17:58:58.446Z] Time:          Fri Feb 27 2026 14:58:58 GMT-0300 (Horário Padrão de Brasília)
-[debug] [2026-02-27T17:58:58.446Z] ----------------------------------------------------------------------
+[debug] [2026-02-28T21:39:07.426Z] ----------------------------------------------------------------------
+[debug] [2026-02-28T21:39:07.440Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\ALY\AppData\Local\npm-cache\_npx\e05a72ff2428b88b\node_modules\firebase-tools\lib\bin\firebase.js deploy --only functions --project teste-aa015
+[debug] [2026-02-28T21:39:07.441Z] CLI Version:   14.27.0
+[debug] [2026-02-28T21:39:07.441Z] Platform:      win32
+[debug] [2026-02-28T21:39:07.442Z] Node Version:  v24.14.0
+[debug] [2026-02-28T21:39:07.442Z] Time:          Sat Feb 28 2026 18:39:07 GMT-0300 (Horário Padrão de Brasília)
+[debug] [2026-02-28T21:39:07.443Z] ----------------------------------------------------------------------
 [debug] 
-[debug] [2026-02-27T17:58:59.867Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
-[debug] [2026-02-27T17:58:59.871Z] > authorizing via signed-in user (savannapassarela@gmail.com)
-[debug] [2026-02-27T17:58:59.872Z] [iam] checking project aly-onepages-runtime for permissions ["cloudfunctions.functions.list","firebase.projects.get","run.services.list"]
-[debug] [2026-02-27T17:58:59.878Z] Checked if tokens are valid: true, expires at: 1772218225883
-[debug] [2026-02-27T17:58:59.879Z] Checked if tokens are valid: true, expires at: 1772218225883
-[debug] [2026-02-27T17:58:59.884Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/aly-onepages-runtime:testIamPermissions [none]
-[debug] [2026-02-27T17:58:59.885Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/aly-onepages-runtime:testIamPermissions  x-goog-user-project=aly-onepages-runtime
-[debug] [2026-02-27T17:58:59.887Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/aly-onepages-runtime:testIamPermissions {"permissions":["cloudfunctions.functions.list","firebase.projects.get","run.services.list"]}
-[debug] [2026-02-27T17:59:00.964Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/aly-onepages-runtime:testIamPermissions 200
-[debug] [2026-02-27T17:59:00.964Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/aly-onepages-runtime:testIamPermissions {"permissions":["cloudfunctions.functions.list","firebase.projects.get","run.services.list"]}
-[debug] [2026-02-27T17:59:00.968Z] Checked if tokens are valid: true, expires at: 1772218225883
-[debug] [2026-02-27T17:59:00.968Z] Checked if tokens are valid: true, expires at: 1772218225883
-[debug] [2026-02-27T17:59:00.969Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v1/projects/aly-onepages-runtime/locations/-/functions [none]
-[debug] [2026-02-27T17:59:02.065Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v1/projects/aly-onepages-runtime/locations/-/functions 200
-[debug] [2026-02-27T17:59:02.066Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v1/projects/aly-onepages-runtime/locations/-/functions {}
-[debug] [2026-02-27T17:59:02.067Z] Checked if tokens are valid: true, expires at: 1772218225883
-[debug] [2026-02-27T17:59:02.068Z] Checked if tokens are valid: true, expires at: 1772218225883
-[debug] [2026-02-27T17:59:02.069Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v2/projects/aly-onepages-runtime/locations/-/functions filter=environment%3D%22GEN_2%22
-[debug] [2026-02-27T17:59:03.452Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v2/projects/aly-onepages-runtime/locations/-/functions 200
-[debug] [2026-02-27T17:59:44.390Z] ----------------------------------------------------------------------
-[debug] [2026-02-27T17:59:44.401Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\ALY\AppData\Local\npm-cache\_npx\e05a72ff2428b88b\node_modules\firebase-tools\lib\bin\firebase.js deploy --only functions --project aly-onepages-runtime
-[debug] [2026-02-27T17:59:44.402Z] CLI Version:   14.27.0
-[debug] [2026-02-27T17:59:44.403Z] Platform:      win32
-[debug] [2026-02-27T17:59:44.403Z] Node Version:  v24.14.0
-[debug] [2026-02-27T17:59:44.404Z] Time:          Fri Feb 27 2026 14:59:44 GMT-0300 (Horário Padrão de Brasília)
-[debug] [2026-02-27T17:59:44.405Z] ----------------------------------------------------------------------
-[debug] 
-[debug] [2026-02-27T17:59:45.145Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
-[debug] [2026-02-27T17:59:45.149Z] > authorizing via signed-in user (savannapassarela@gmail.com)
-[debug] [2026-02-27T17:59:45.152Z] [iam] checking project aly-onepages-runtime for permissions ["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]
-[debug] [2026-02-27T17:59:45.158Z] Checked if tokens are valid: true, expires at: 1772218225883
-[debug] [2026-02-27T17:59:45.159Z] Checked if tokens are valid: true, expires at: 1772218225883
-[debug] [2026-02-27T17:59:45.166Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/aly-onepages-runtime:testIamPermissions [none]
-[debug] [2026-02-27T17:59:45.166Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/aly-onepages-runtime:testIamPermissions x-goog-quota-user=projects/aly-onepages-runtime
-[debug] [2026-02-27T17:59:45.167Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/aly-onepages-runtime:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
-[debug] [2026-02-27T17:59:46.241Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/aly-onepages-runtime:testIamPermissions 200
-[debug] [2026-02-27T17:59:46.242Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/aly-onepages-runtime:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
-[debug] [2026-02-27T17:59:46.244Z] Checked if tokens are valid: true, expires at: 1772218225883
-[debug] [2026-02-27T17:59:46.245Z] Checked if tokens are valid: true, expires at: 1772218225883
-[debug] [2026-02-27T17:59:46.245Z] >>> [apiv2][query] POST https://iam.googleapis.com/v1/projects/aly-onepages-runtime/serviceAccounts/aly-onepages-runtime@appspot.gserviceaccount.com:testIamPermissions [none]
-[debug] [2026-02-27T17:59:46.246Z] >>> [apiv2][body] POST https://iam.googleapis.com/v1/projects/aly-onepages-runtime/serviceAccounts/aly-onepages-runtime@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
-[debug] [2026-02-27T17:59:47.267Z] <<< [apiv2][status] POST https://iam.googleapis.com/v1/projects/aly-onepages-runtime/serviceAccounts/aly-onepages-runtime@appspot.gserviceaccount.com:testIamPermissions 200
-[debug] [2026-02-27T17:59:47.267Z] <<< [apiv2][body] POST https://iam.googleapis.com/v1/projects/aly-onepages-runtime/serviceAccounts/aly-onepages-runtime@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[debug] [2026-02-28T21:39:07.457Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[debug] [2026-02-28T21:39:08.766Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-02-28T21:39:08.769Z] > authorizing via signed-in user (savannapassarela@gmail.com)
+[debug] [2026-02-28T21:39:08.772Z] [iam] checking project teste-aa015 for permissions ["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]
+[debug] [2026-02-28T21:39:08.778Z] Checked if tokens are valid: false, expires at: 1772314977354
+[debug] [2026-02-28T21:39:08.778Z] Checked if tokens are valid: false, expires at: 1772314977354
+[debug] [2026-02-28T21:39:08.786Z] > refreshing access token with scopes: []
+[debug] [2026-02-28T21:39:08.795Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-02-28T21:39:08.796Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-02-28T21:39:28.409Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2026-02-28T21:39:28.411Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-02-28T21:39:28.551Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/teste-aa015:testIamPermissions [none]
+[debug] [2026-02-28T21:39:28.552Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/teste-aa015:testIamPermissions x-goog-quota-user=projects/teste-aa015
+[debug] [2026-02-28T21:39:28.552Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/teste-aa015:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2026-02-28T21:39:29.533Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/teste-aa015:testIamPermissions 200
+[debug] [2026-02-28T21:39:29.533Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/teste-aa015:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2026-02-28T21:39:29.535Z] Checked if tokens are valid: true, expires at: 1772318367412
+[debug] [2026-02-28T21:39:29.536Z] Checked if tokens are valid: true, expires at: 1772318367412
+[debug] [2026-02-28T21:39:29.537Z] >>> [apiv2][query] POST https://iam.googleapis.com/v1/projects/teste-aa015/serviceAccounts/teste-aa015@appspot.gserviceaccount.com:testIamPermissions [none]
+[debug] [2026-02-28T21:39:29.538Z] >>> [apiv2][body] POST https://iam.googleapis.com/v1/projects/teste-aa015/serviceAccounts/teste-aa015@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[debug] [2026-02-28T21:39:30.559Z] <<< [apiv2][status] POST https://iam.googleapis.com/v1/projects/teste-aa015/serviceAccounts/teste-aa015@appspot.gserviceaccount.com:testIamPermissions 404
+[debug] [2026-02-28T21:39:30.560Z] <<< [apiv2][body] POST https://iam.googleapis.com/v1/projects/teste-aa015/serviceAccounts/teste-aa015@appspot.gserviceaccount.com:testIamPermissions {"error":{"code":404,"message":"Service account projects/teste-aa015/serviceAccounts/teste-aa015@appspot.gserviceaccount.com does not exist.","status":"NOT_FOUND"}}
+[debug] [2026-02-28T21:39:30.562Z] [functions] service account IAM check errored, deploy may fail: Request to https://iam.googleapis.com/v1/projects/teste-aa015/serviceAccounts/teste-aa015@appspot.gserviceaccount.com:testIamPermissions had HTTP Error: 404, Service account projects/teste-aa015/serviceAccounts/teste-aa015@appspot.gserviceaccount.com does not exist. {"name":"FirebaseError","children":[],"context":{"body":{"error":{"code":404,"message":"Service account projects/teste-aa015/serviceAccounts/teste-aa015@appspot.gserviceaccount.com does not exist.","status":"NOT_FOUND"}},"response":{"statusCode":404}},"exit":1,"message":"Request to https://iam.googleapis.com/v1/projects/teste-aa015/serviceAccounts/teste-aa015@appspot.gserviceaccount.com:testIamPermissions had HTTP Error: 404, Service account projects/teste-aa015/serviceAccounts/teste-aa015@appspot.gserviceaccount.com does not exist.","status":404}
 [info] 
-[info] === Deploying to 'aly-onepages-runtime'...
+[info] === Deploying to 'teste-aa015'...
 [info] 
 [info] i  deploying functions 
-[debug] [2026-02-27T17:59:47.279Z] Checked if tokens are valid: true, expires at: 1772218225883
-[debug] [2026-02-27T17:59:47.280Z] Checked if tokens are valid: true, expires at: 1772218225883
-[debug] [2026-02-27T17:59:47.280Z] >>> [apiv2][query] GET https://cloudresourcemanager.googleapis.com/v1/projects/aly-onepages-runtime [none]
-[debug] [2026-02-27T17:59:47.489Z] <<< [apiv2][status] GET https://cloudresourcemanager.googleapis.com/v1/projects/aly-onepages-runtime 200
-[debug] [2026-02-27T17:59:47.490Z] <<< [apiv2][body] GET https://cloudresourcemanager.googleapis.com/v1/projects/aly-onepages-runtime {"projectNumber":"1012754077336","projectId":"aly-onepages-runtime","lifecycleState":"ACTIVE","name":"aly-onepages-runtime","labels":{"firebase":"enabled","firebase-core":"disabled"},"createTime":"2026-02-27T05:56:19.229784Z"}
+[debug] [2026-02-28T21:39:30.579Z] Checked if tokens are valid: true, expires at: 1772318367412
+[debug] [2026-02-28T21:39:30.580Z] Checked if tokens are valid: true, expires at: 1772318367412
+[debug] [2026-02-28T21:39:30.581Z] >>> [apiv2][query] GET https://cloudresourcemanager.googleapis.com/v1/projects/teste-aa015 [none]
+[debug] [2026-02-28T21:39:30.860Z] *** [apiv2] error from fetch(https://firebase-public.firebaseio.com/cli.json, {"headers":{},"method":"GET"}): FetchError: request to https://firebase-public.firebaseio.com/cli.json failed, reason: 
+[warn] !  Unable to fetch the CLI MOTD and remote config. This is not a fatal error, but may indicate an issue with your network connection. 
+[debug] [2026-02-28T21:39:30.863Z] Failed to fetch MOTD FirebaseError: Failed to make request to https://firebase-public.firebaseio.com/cli.json
+[debug] [2026-02-28T21:39:30.933Z] <<< [apiv2][status] GET https://cloudresourcemanager.googleapis.com/v1/projects/teste-aa015 200
+[debug] [2026-02-28T21:39:30.934Z] <<< [apiv2][body] GET https://cloudresourcemanager.googleapis.com/v1/projects/teste-aa015 {"projectNumber":"99960275074","projectId":"teste-aa015","lifecycleState":"ACTIVE","name":"ALY-137","labels":{"firebase":"enabled"},"createTime":"2022-07-14T21:54:29.141Z"}
 [info] i  functions: preparing codebase default for deployment 
 [info] i  functions: ensuring required API cloudfunctions.googleapis.com is enabled... 
 [info] i  functions: ensuring required API cloudbuild.googleapis.com is enabled... 
-[debug] [2026-02-27T17:59:47.498Z] Checked if tokens are valid: true, expires at: 1772218225883
-[debug] [2026-02-27T17:59:47.499Z] Checked if tokens are valid: true, expires at: 1772218225883
 [info] i  artifactregistry: ensuring required API artifactregistry.googleapis.com is enabled... 
-[debug] [2026-02-27T17:59:47.501Z] Checked if tokens are valid: true, expires at: 1772218225883
-[debug] [2026-02-27T17:59:47.502Z] Checked if tokens are valid: true, expires at: 1772218225883
-[debug] [2026-02-27T17:59:47.503Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/aly-onepages-runtime/services/cloudbuild.googleapis.com [none]
-[debug] [2026-02-27T17:59:47.503Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/aly-onepages-runtime/services/cloudbuild.googleapis.com x-goog-quota-user=projects/aly-onepages-runtime
-[debug] [2026-02-27T17:59:47.508Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/aly-onepages-runtime/services/artifactregistry.googleapis.com [none]
-[debug] [2026-02-27T17:59:47.509Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/aly-onepages-runtime/services/artifactregistry.googleapis.com x-goog-quota-user=projects/aly-onepages-runtime
-[debug] [2026-02-27T17:59:48.627Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/aly-onepages-runtime/services/cloudbuild.googleapis.com 200
-[debug] [2026-02-27T17:59:48.628Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/aly-onepages-runtime/services/cloudbuild.googleapis.com [omitted]
-[warn] !  functions: missing required API cloudbuild.googleapis.com. Enabling now... 
-[debug] [2026-02-27T17:59:48.630Z] Checked if tokens are valid: true, expires at: 1772218225883
-[debug] [2026-02-27T17:59:48.630Z] Checked if tokens are valid: true, expires at: 1772218225883
-[debug] [2026-02-27T17:59:48.631Z] >>> [apiv2][query] POST https://serviceusage.googleapis.com/v1/projects/aly-onepages-runtime/services/cloudbuild.googleapis.com:enable [none]
-[debug] [2026-02-27T17:59:48.632Z] >>> [apiv2][(partial)header] POST https://serviceusage.googleapis.com/v1/projects/aly-onepages-runtime/services/cloudbuild.googleapis.com:enable x-goog-quota-user=projects/aly-onepages-runtime
-[debug] [2026-02-27T17:59:48.645Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/aly-onepages-runtime/services/artifactregistry.googleapis.com 200
-[debug] [2026-02-27T17:59:48.646Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/aly-onepages-runtime/services/artifactregistry.googleapis.com [omitted]
-[warn] !  artifactregistry: missing required API artifactregistry.googleapis.com. Enabling now... 
-[debug] [2026-02-27T17:59:48.647Z] Checked if tokens are valid: true, expires at: 1772218225883
-[debug] [2026-02-27T17:59:48.647Z] Checked if tokens are valid: true, expires at: 1772218225883
-[debug] [2026-02-27T17:59:48.648Z] >>> [apiv2][query] POST https://serviceusage.googleapis.com/v1/projects/aly-onepages-runtime/services/artifactregistry.googleapis.com:enable [none]
-[debug] [2026-02-27T17:59:48.649Z] >>> [apiv2][(partial)header] POST https://serviceusage.googleapis.com/v1/projects/aly-onepages-runtime/services/artifactregistry.googleapis.com:enable x-goog-quota-user=projects/aly-onepages-runtime
-[debug] [2026-02-27T17:59:48.997Z] <<< [apiv2][status] POST https://serviceusage.googleapis.com/v1/projects/aly-onepages-runtime/services/cloudbuild.googleapis.com:enable 400
-[debug] [2026-02-27T17:59:48.998Z] <<< [apiv2][body] POST https://serviceusage.googleapis.com/v1/projects/aly-onepages-runtime/services/cloudbuild.googleapis.com:enable [omitted]
-[error] 
-[error] Error: Your project aly-onepages-runtime must be on the Blaze (pay-as-you-go) plan to complete this command. Required API cloudbuild.googleapis.com can't be enabled until the upgrade is complete. To upgrade, visit the following URL:
+[debug] [2026-02-28T21:39:30.946Z] Checked if tokens are valid: true, expires at: 1772318367412
+[debug] [2026-02-28T21:39:30.947Z] Checked if tokens are valid: true, expires at: 1772318367412
+[debug] [2026-02-28T21:39:30.948Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/teste-aa015/adminSdkConfig [none]
+[debug] [2026-02-28T21:39:31.796Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/teste-aa015/adminSdkConfig 200
+[debug] [2026-02-28T21:39:31.796Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/teste-aa015/adminSdkConfig {"projectId":"teste-aa015","databaseURL":"https://teste-aa015-default-rtdb.firebaseio.com","storageBucket":"teste-aa015.appspot.com","locationId":"southamerica-east1"}
+[debug] [2026-02-28T21:39:31.798Z] Checked if tokens are valid: true, expires at: 1772318367412
+[debug] [2026-02-28T21:39:31.799Z] Checked if tokens are valid: true, expires at: 1772318367412
+[debug] [2026-02-28T21:39:31.799Z] >>> [apiv2][query] GET https://runtimeconfig.googleapis.com/v1beta1/projects/teste-aa015/configs [none]
+[debug] [2026-02-28T21:39:33.003Z] <<< [apiv2][status] GET https://runtimeconfig.googleapis.com/v1beta1/projects/teste-aa015/configs 200
+[debug] [2026-02-28T21:39:33.004Z] <<< [apiv2][body] GET https://runtimeconfig.googleapis.com/v1beta1/projects/teste-aa015/configs {}
+[debug] [2026-02-28T21:39:33.012Z] Validating nodejs source
+[warn] !  functions: Runtime Node.js 20 will be deprecated on 2026-04-30 and will be decommissioned on 2026-10-30, after which you will not be able to deploy without upgrading. Consider upgrading now to avoid disruption. See https://cloud.google.com/functions/docs/runtime-support for full details on the lifecycle policy 
+[warn] !  functions: package.json indicates an outdated version of firebase-functions. Please upgrade using npm install --save firebase-functions@latest in your functions directory. 
+[warn] !  functions: Please note that there will be breaking changes when you upgrade. 
+[debug] [2026-02-28T21:39:37.488Z] > [functions] package.json contents: {
+  "name": "aly-react-functions",
+  "private": true,
+  "main": "index.js",
+  "engines": {
+    "node": "20"
+  },
+  "scripts": {
+    "serve": "firebase emulators:start --only functions",
+    "deploy": "firebase deploy --only functions"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "firebase-functions": "^4.9.0"
+  }
+}
+[debug] [2026-02-28T21:39:37.490Z] Building nodejs source
+[info] i  functions: Loading and analyzing source code for codebase default to determine what to deploy 
+[info] i  functions: You are using a version of firebase-functions SDK (4.9.0) that does not have support for the newest Firebase Extensions features. Please update firebase-functions SDK to >=5.1.0 to use them correctly 
+[debug] [2026-02-28T21:39:37.500Z] Could not find functions.yaml. Must use http discovery
+[debug] [2026-02-28T21:39:37.741Z] Found firebase-functions binary at 'C:\Users\ALY\Documents\GitHub\ALY-REACT\functions\node_modules\.bin\firebase-functions'
+[debug] [2026-02-28T21:39:47.863Z] Failed to call quitquitquit. This often means the server failed to start request to http://localhost:8826/__/quitquitquit failed, reason:  {"message":"request to http://localhost:8826/__/quitquitquit failed, reason: ","type":"system","errno":"ECONNREFUSED","code":"ECONNREFUSED"}
+[info] Serving at port 8826
 
-https://console.firebase.google.com/project/aly-onepages-runtime/usage/details
+[error] 
+[error] Error: User code failed to load. Cannot determine backend specification. Timeout after 10000. See https://firebase.google.com/docs/functions/tips#avoid_deployment_timeouts_during_initialization'
+[debug] [2026-02-28T21:41:58.024Z] ----------------------------------------------------------------------
+[debug] [2026-02-28T21:41:58.032Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\ALY\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only functions --project teste-aa015 --debug
+[debug] [2026-02-28T21:41:58.034Z] CLI Version:   15.7.0
+[debug] [2026-02-28T21:41:58.034Z] Platform:      win32
+[debug] [2026-02-28T21:41:58.035Z] Node Version:  v24.14.0
+[debug] [2026-02-28T21:41:58.035Z] Time:          Sat Feb 28 2026 18:41:58 GMT-0300 (Horário Padrão de Brasília)
+[debug] [2026-02-28T21:41:58.035Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-02-28T21:41:58.041Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[debug] [2026-02-28T21:42:53.863Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-02-28T21:42:53.867Z] > authorizing via signed-in user (savannapassarela@gmail.com)
+[debug] [2026-02-28T21:42:53.869Z] [iam] checking project teste-aa015 for permissions ["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]
+[debug] [2026-02-28T21:42:53.875Z] Checked if tokens are valid: true, expires at: 1772318367412
+[debug] [2026-02-28T21:42:53.876Z] Checked if tokens are valid: true, expires at: 1772318367412
+[debug] [2026-02-28T21:42:53.879Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/teste-aa015:testIamPermissions [none]
+[debug] [2026-02-28T21:42:53.881Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/teste-aa015:testIamPermissions  x-goog-user-project=teste-aa015
+[debug] [2026-02-28T21:42:53.883Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/teste-aa015:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2026-02-28T21:42:54.385Z] <<< [apiv2][status] GET https://firebase-public.firebaseio.com/cli.json 200
+[debug] [2026-02-28T21:42:54.386Z] <<< [apiv2][body] GET https://firebase-public.firebaseio.com/cli.json {"cloudBuildErrorAfter":1594252800000,"cloudBuildWarnAfter":1590019200000,"defaultNode10After":1594252800000,"minVersion":"3.0.5","node8DeploysDisabledAfter":1613390400000,"node8RuntimeDisabledAfter":1615809600000,"node8WarnAfter":1600128000000}
+[debug] [2026-02-28T21:42:54.890Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/teste-aa015:testIamPermissions 200
+[debug] [2026-02-28T21:42:54.891Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/teste-aa015:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2026-02-28T21:42:54.892Z] Checked if tokens are valid: true, expires at: 1772318367412
+[debug] [2026-02-28T21:42:54.893Z] Checked if tokens are valid: true, expires at: 1772318367412
+[debug] [2026-02-28T21:42:54.894Z] >>> [apiv2][query] POST https://iam.googleapis.com/v1/projects/teste-aa015/serviceAccounts/teste-aa015@appspot.gserviceaccount.com:testIamPermissions [none]
+[debug] [2026-02-28T21:42:54.894Z] >>> [apiv2][body] POST https://iam.googleapis.com/v1/projects/teste-aa015/serviceAccounts/teste-aa015@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[debug] [2026-02-28T21:42:55.871Z] <<< [apiv2][status] POST https://iam.googleapis.com/v1/projects/teste-aa015/serviceAccounts/teste-aa015@appspot.gserviceaccount.com:testIamPermissions 404
+[debug] [2026-02-28T21:42:55.872Z] <<< [apiv2][body] POST https://iam.googleapis.com/v1/projects/teste-aa015/serviceAccounts/teste-aa015@appspot.gserviceaccount.com:testIamPermissions {"error":{"code":404,"message":"Service account projects/teste-aa015/serviceAccounts/teste-aa015@appspot.gserviceaccount.com does not exist.","status":"NOT_FOUND"}}
+[debug] [2026-02-28T21:42:55.874Z] [functions] service account IAM check errored, deploy may fail: Request to https://iam.googleapis.com/v1/projects/teste-aa015/serviceAccounts/teste-aa015@appspot.gserviceaccount.com:testIamPermissions had HTTP Error: 404, Service account projects/teste-aa015/serviceAccounts/teste-aa015@appspot.gserviceaccount.com does not exist. {"name":"FirebaseError","children":[],"context":{"body":{"error":{"code":404,"message":"Service account projects/teste-aa015/serviceAccounts/teste-aa015@appspot.gserviceaccount.com does not exist.","status":"NOT_FOUND"}},"response":{"statusCode":404}},"exit":1,"message":"Request to https://iam.googleapis.com/v1/projects/teste-aa015/serviceAccounts/teste-aa015@appspot.gserviceaccount.com:testIamPermissions had HTTP Error: 404, Service account projects/teste-aa015/serviceAccounts/teste-aa015@appspot.gserviceaccount.com does not exist.","status":404}
+[info] 
+[info] === Deploying to 'teste-aa015'...
+[info] 
+[info] i  deploying functions 
+[debug] [2026-02-28T21:42:55.887Z] Checked if tokens are valid: true, expires at: 1772318367412
+[debug] [2026-02-28T21:42:55.888Z] Checked if tokens are valid: true, expires at: 1772318367412
+[debug] [2026-02-28T21:42:55.889Z] >>> [apiv2][query] GET https://cloudresourcemanager.googleapis.com/v1/projects/teste-aa015 [none]
+[debug] [2026-02-28T21:42:56.102Z] <<< [apiv2][status] GET https://cloudresourcemanager.googleapis.com/v1/projects/teste-aa015 200
+[debug] [2026-02-28T21:42:56.102Z] <<< [apiv2][body] GET https://cloudresourcemanager.googleapis.com/v1/projects/teste-aa015 {"projectNumber":"99960275074","projectId":"teste-aa015","lifecycleState":"ACTIVE","name":"ALY-137","labels":{"firebase":"enabled"},"createTime":"2022-07-14T21:54:29.141Z"}
+[info] i  functions: preparing codebase default for deployment 
+[info] i  functions: ensuring required API cloudfunctions.googleapis.com is enabled... 
+[info] i  functions: ensuring required API cloudbuild.googleapis.com is enabled... 
+[info] i  artifactregistry: ensuring required API artifactregistry.googleapis.com is enabled... 
+[debug] [2026-02-28T21:42:56.111Z] Checked if tokens are valid: true, expires at: 1772318367412
+[debug] [2026-02-28T21:42:56.112Z] Checked if tokens are valid: true, expires at: 1772318367412
+[debug] [2026-02-28T21:42:56.113Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/teste-aa015/adminSdkConfig [none]
+[debug] [2026-02-28T21:42:57.138Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/teste-aa015/adminSdkConfig 200
+[debug] [2026-02-28T21:42:57.139Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/teste-aa015/adminSdkConfig {"projectId":"teste-aa015","databaseURL":"https://teste-aa015-default-rtdb.firebaseio.com","storageBucket":"teste-aa015.appspot.com","locationId":"southamerica-east1"}
+[debug] [2026-02-28T21:42:57.140Z] Checked if tokens are valid: true, expires at: 1772318367412
+[debug] [2026-02-28T21:42:57.141Z] Checked if tokens are valid: true, expires at: 1772318367412
+[debug] [2026-02-28T21:42:57.142Z] >>> [apiv2][query] GET https://runtimeconfig.googleapis.com/v1beta1/projects/teste-aa015/configs [none]
+[debug] [2026-02-28T21:42:58.248Z] <<< [apiv2][status] GET https://runtimeconfig.googleapis.com/v1beta1/projects/teste-aa015/configs 200
+[debug] [2026-02-28T21:42:58.248Z] <<< [apiv2][body] GET https://runtimeconfig.googleapis.com/v1beta1/projects/teste-aa015/configs {}
+[debug] [2026-02-28T21:42:58.255Z] Validating nodejs source
+[warn] !  functions: Runtime Node.js 20 will be deprecated on 2026-04-30 and will be decommissioned on 2026-10-30, after which you will not be able to deploy without upgrading. Consider upgrading now to avoid disruption. See https://cloud.google.com/functions/docs/runtime-support for full details on the lifecycle policy 
+[warn] !  functions: package.json indicates an outdated version of firebase-functions. Please upgrade using npm install --save firebase-functions@latest in your functions directory. 
+[warn] !  functions: Please note that there will be breaking changes when you upgrade. 
+[debug] [2026-02-28T21:43:02.118Z] > [functions] package.json contents: {
+  "name": "aly-react-functions",
+  "private": true,
+  "main": "index.js",
+  "engines": {
+    "node": "20"
+  },
+  "scripts": {
+    "serve": "firebase emulators:start --only functions",
+    "deploy": "firebase deploy --only functions"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "firebase-functions": "^4.9.0"
+  }
+}
+[debug] [2026-02-28T21:43:02.120Z] Building nodejs source
+[info] i  functions: Loading and analyzing source code for codebase default to determine what to deploy 
+[info] i  functions: You are using a version of firebase-functions SDK (4.9.0) that does not have support for the newest Firebase Extensions features. Please update firebase-functions SDK to >=5.1.0 to use them correctly 
+[debug] [2026-02-28T21:43:02.129Z] Could not find functions.yaml. Must use http discovery
+[debug] [2026-02-28T21:43:02.369Z] Found firebase-functions binary at 'C:\Users\ALY\Documents\GitHub\ALY-REACT\functions\node_modules\.bin\firebase-functions'
+[info] Serving at port 8182
+
+[error] 
+[error] Error: User code failed to load. Cannot determine backend specification. Timeout after 10000. See https://firebase.google.com/docs/functions/tips#avoid_deployment_timeouts_during_initialization'

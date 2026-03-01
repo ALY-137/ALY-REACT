@@ -295,6 +295,26 @@ function getBearerToken(req) {
   return sanitizeString(authHeader.slice(7));
 }
 
+function canAccessSharedBucketPath(path = "", uid = "") {
+  const normalizedPath = sanitizeString(path);
+  const normalizedUid = sanitizeString(uid);
+
+  if (!normalizedPath || !normalizedUid) return false;
+
+  const parts = normalizedPath.split("/").filter(Boolean);
+  if (parts.length < 3) return false;
+
+  if (parts[0] === "users") {
+    return parts[1] === normalizedUid;
+  }
+
+  if (parts[0] === "branding") {
+    return parts.length >= 4 && parts[2] === normalizedUid;
+  }
+
+  return false;
+}
+
 function getSharedVerifierAuth(projectId) {
   const appName = `shared-auth-${projectId}`;
   if (!sharedVerifierApps.has(appName)) {
@@ -1288,7 +1308,7 @@ exports.uploadArquivoBucketCompartilhado = onRequest(
         throw new HttpsError("invalid-argument", "Arquivo acima de 15MB.");
       }
 
-      if (!path.startsWith(`users/${decoded.uid}/`)) {
+      if (!canAccessSharedBucketPath(path, decoded.uid)) {
         throw new HttpsError(
           "permission-denied",
           "Voce so pode enviar arquivos para sua propria pasta."
@@ -1385,7 +1405,7 @@ exports.excluirArquivoBucketCompartilhado = onRequest(
       const { decoded } = await verifySharedBucketIdToken(token);
       const path = ensureRequiredString(body?.path, "path");
 
-      if (!path.startsWith(`users/${decoded.uid}/`)) {
+      if (!canAccessSharedBucketPath(path, decoded.uid)) {
         throw new HttpsError(
           "permission-denied",
           "Voce so pode excluir arquivos da sua propria pasta."

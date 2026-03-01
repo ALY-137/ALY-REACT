@@ -6,7 +6,7 @@ import {
   confirmarPagamentoBlocoMercadoPago,
   criarCheckoutBlocoMercadoPago,
   obterCheckoutPixManualBloco,
-  solicitarPedidoPixManualBloco,
+  solicitarSolicitacaoPixManualBloco,
 } from "./mercadoPagoApi";
 
 const painelStyle = {
@@ -42,10 +42,10 @@ export default function CheckoutBlocoMercadoPago({
   const [blocoInfo, setBlocoInfo] = useState(null);
   const [processando, setProcessando] = useState(false);
   const [processandoPix, setProcessandoPix] = useState(false);
-  const [processandoPedido, setProcessandoPedido] = useState(false);
+  const [processandoSolicitacao, setProcessandoSolicitacao] = useState(false);
   const [mensagem, setMensagem] = useState("");
   const [pixCheckoutInfo, setPixCheckoutInfo] = useState(null);
-  const [pedidoPixInfo, setPedidoPixInfo] = useState(null);
+  const [solicitacaoPixInfo, setSolicitacaoPixInfo] = useState(null);
   const confirmedPaymentIdRef = useRef("");
 
   const params = useMemo(() => new URLSearchParams(location.search), [location.search]);
@@ -148,7 +148,7 @@ export default function CheckoutBlocoMercadoPago({
     setProcessando(true);
     setMensagem("");
     setPixCheckoutInfo(null);
-    setPedidoPixInfo(null);
+    setSolicitacaoPixInfo(null);
     try {
       const data = await criarCheckoutBlocoMercadoPago({
         ownerUserId,
@@ -184,7 +184,7 @@ export default function CheckoutBlocoMercadoPago({
     }
     setProcessandoPix(true);
     setMensagem("");
-    setPedidoPixInfo(null);
+    setSolicitacaoPixInfo(null);
     try {
       const data = await obterCheckoutPixManualBloco({
         ownerUserId,
@@ -225,15 +225,15 @@ export default function CheckoutBlocoMercadoPago({
     }
   };
 
-  const solicitarPedidoPix = async () => {
+  const solicitarSolicitacaoPix = async () => {
     if (!pixCheckoutInfo?.chavePix) {
       setMensagem("Carregue o PIX manual antes de enviar a solicitacao.");
       return;
     }
-    setProcessandoPedido(true);
+    setProcessandoSolicitacao(true);
     setMensagem("");
     try {
-      const data = await solicitarPedidoPixManualBloco({
+      const data = await solicitarSolicitacaoPixManualBloco({
         ownerUserId,
         espacoId,
         blocoId,
@@ -241,19 +241,19 @@ export default function CheckoutBlocoMercadoPago({
 
       if (data?.alreadyPurchased) {
         setMensagem(data?.message || "Esse bloco ja foi comprado e esta liberado.");
-        setPedidoPixInfo(null);
+        setSolicitacaoPixInfo(null);
         return;
       }
 
-      setPedidoPixInfo({
-        pedidoId: data?.pedidoId || "",
+      setSolicitacaoPixInfo({
+        solicitacaoId: data?.solicitacaoId || data?.pedidoId || "",
         status: data?.status || "pedido_solicitado",
       });
       setMensagem("Solicitacao enviada. Aguarde confirmacao do pagamento pelo administrador.");
     } catch (err) {
       setMensagem(err?.message || "Erro ao enviar solicitacao de pagamento.");
     } finally {
-      setProcessandoPedido(false);
+      setProcessandoSolicitacao(false);
     }
   };
 
@@ -301,7 +301,9 @@ export default function CheckoutBlocoMercadoPago({
         {mercadoPagoHabilitado ? (
           <button
             onClick={abrirCheckout}
-            disabled={processando || processandoPix || processandoPedido || carregandoBloco}
+            disabled={
+              processando || processandoPix || processandoSolicitacao || carregandoBloco
+            }
           >
             {processando ? "Processando..." : "Pagar com Mercado Pago (PIX e Cartao)"}
           </button>
@@ -309,15 +311,23 @@ export default function CheckoutBlocoMercadoPago({
         {pixManualHabilitado ? (
           <button
             onClick={abrirPixManual}
-            disabled={processando || processandoPix || processandoPedido || carregandoBloco}
+            disabled={
+              processando || processandoPix || processandoSolicitacao || carregandoBloco
+            }
           >
             {processandoPix ? "Carregando PIX..." : "Pagar por PIX manual"}
           </button>
         ) : null}
-        <button onClick={fecharCheckout} disabled={processando || processandoPix || processandoPedido}>
+        <button
+          onClick={fecharCheckout}
+          disabled={processando || processandoPix || processandoSolicitacao}
+        >
           Fechar
         </button>
-        <button onClick={voltarAoEspaco} disabled={processando || processandoPix || processandoPedido}>
+        <button
+          onClick={voltarAoEspaco}
+          disabled={processando || processandoPix || processandoSolicitacao}
+        >
           Voltar ao espaco
         </button>
       </div>
@@ -364,20 +374,23 @@ export default function CheckoutBlocoMercadoPago({
           )}
           <div style={{ marginTop: 10 }}>
             <button
-              onClick={solicitarPedidoPix}
-              disabled={processandoPedido || pedidoPixInfo?.status === "pedido_solicitado"}
+              onClick={solicitarSolicitacaoPix}
+              disabled={
+                processandoSolicitacao ||
+                solicitacaoPixInfo?.status === "pedido_solicitado"
+              }
             >
-              {processandoPedido
+              {processandoSolicitacao
                 ? "Enviando solicitacao..."
-                : pedidoPixInfo?.status === "pedido_solicitado"
+                : solicitacaoPixInfo?.status === "pedido_solicitado"
                   ? "Solicitacao enviada"
                   : "Ja fiz o pagamento"}
             </button>
           </div>
-          {pedidoPixInfo?.pedidoId ? (
+          {solicitacaoPixInfo?.solicitacaoId ? (
             <p style={{ marginTop: 8 }}>
-              Solicitacao: <strong>{pedidoPixInfo.pedidoId}</strong> | Status:{" "}
-              <strong>{pedidoPixInfo.status}</strong>
+              Solicitacao: <strong>{solicitacaoPixInfo.solicitacaoId}</strong> | Status:{" "}
+              <strong>{solicitacaoPixInfo.status}</strong>
             </p>
           ) : null}
         </div>

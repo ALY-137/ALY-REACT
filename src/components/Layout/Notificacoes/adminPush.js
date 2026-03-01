@@ -56,19 +56,59 @@ function ativarListenerForeground(messaging) {
     const body = sanitizeString(payload?.notification?.body);
     if (!title || Notification.permission !== "granted") return;
 
-    try {
-      const link = sanitizeString(payload?.data?.link) || "/menu/admin/solicitacoes";
-      new Notification(title, {
-        body: body || "Nova solicitacao recebida.",
-        icon: "/favicon.ico",
-        data: { link },
-      });
-    } catch {
+    const link = sanitizeString(payload?.data?.link) || "/menu/admin/solicitacoes";
+    exibirNotificacaoAdminLocal({
+      title,
+      body: body || "Nova solicitacao recebida.",
+      link,
+    }).catch(() => {
       // Ignora erro de notificacao no foreground.
-    }
+    });
   });
 
   foregroundListenerAtivo = true;
+}
+
+export async function exibirNotificacaoAdminLocal({
+  title = "",
+  body = "",
+  link = "/menu/admin/solicitacoes",
+} = {}) {
+  const titulo = sanitizeString(title);
+  if (!titulo) return false;
+
+  const permissao = await garantirPermissaoNotificacao();
+  if (permissao !== "granted") {
+    return false;
+  }
+
+  const payload = {
+    body: sanitizeString(body) || "Nova solicitacao recebida.",
+    icon: "/favicon.ico",
+    badge: "/favicon.ico",
+    data: { link: sanitizeString(link) || "/menu/admin/solicitacoes" },
+  };
+
+  try {
+    const registroSw = await registrarServiceWorkerMessaging();
+    if (registroSw?.showNotification) {
+      await registroSw.showNotification(titulo, payload);
+      return true;
+    }
+  } catch {
+    // tenta fallback abaixo
+  }
+
+  try {
+    const notification = new Notification(titulo, payload);
+    notification.onclick = () => {
+      window.focus();
+      window.location.assign(payload.data.link);
+    };
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function registrarTokenPushAdmin() {
