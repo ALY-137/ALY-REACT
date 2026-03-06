@@ -7,14 +7,19 @@ import {
 import "./loginButton.css";
 
 const POST_LOGIN_REDIRECT_KEY = "postLoginRedirectPath";
+const DEFAULT_LOGIN_BUTTON_ICON =
+  "https://firebasestorage.googleapis.com/v0/b/teste-aa015.appspot.com/o/imagens%2Fthemes%2Fcyberpink%2Fviolet%2Ffoguete.png?alt=media&token=19c205b6-b36f-49df-b336-4afc6565c9a5";
 
 const LoginButton = () => {
   const userId = localStorage.getItem("userId");
   const location = useLocation();
   const navigate = useNavigate();
   const configSistema = obterConfigSistemaCacheLocal() || DEFAULT_SISTEMA_CONFIG;
+  const loginButtonIconSrc = String(
+    configSistema?.loginButtonIconUrl || DEFAULT_LOGIN_BUTTON_ICON
+  ).trim();
   const rotaLogin =
-    configSistema?.modoAcessoProjeto === "publico_sem_login" ? "/login" : "/";
+    configSistema?.tipoExperiencia === "onepage" ? "/login" : "/";
 
   if (userId) {
     return null;
@@ -41,7 +46,7 @@ const LoginButton = () => {
     <button className="loginButton" onClick={irParaLogin}>
       <img
         className="imgLoginButton"
-        src="https://firebasestorage.googleapis.com/v0/b/teste-aa015.appspot.com/o/imagens%2Fthemes%2Fcyberpink%2Fviolet%2Ffoguete.png?alt=media&token=19c205b6-b36f-49df-b336-4afc6565c9a5"
+        src={loginButtonIconSrc}
         alt="Login Icon"
       />
       <span className="txtLoginButton"> LOGIN </span>

@@ -13,6 +13,7 @@ import {
   aplicarBrandingNoDocumento,
   aplicarTemaNoBody,
   estaConfigSistemaInicializada,
+  isOnePageComEntradaPublica,
   obterConfigSistemaCacheLocal,
   obterConfigSistema,
 } from "./components/Layout/Sistema/configSistema";
@@ -41,6 +42,57 @@ let emailCap = null;
 let picGoogleCap = null;
 let fullnameCap = null;
 const POST_LOGIN_REDIRECT_KEY = "postLoginRedirectPath";
+const LOGIN_REVEAL_DELAY_DEFAULT_MS = 1000;
+const LOGIN_REVEAL_DELAY_OBEYDOM_MS = 6200;
+const LOGIN_REVEAL_DELAY_SPRITE_MS = 1200;
+
+const ObeydomLoaderSymbol = () => (
+  <div className="obeydom-loader-symbol" aria-hidden="true">
+    <div className="obeydom-loader-triangle obeydom-loader-triangle-up" />
+    <div className="obeydom-loader-triangle obeydom-loader-triangle-down" />
+    <div className="obeydom-loader-intersection" />
+    <div className="obeydom-loader-glow" />
+    <svg
+      className="obeydom-loader-y"
+      width="100"
+      height="100"
+      viewBox="0 0 100 100"
+      aria-hidden="true"
+    >
+      <path className="obeydom-loader-y-path" d="M20 20 L50 55 L80 20 M50 55 L50 85" />
+    </svg>
+  </div>
+);
+
+const ObeydomLoginTransition = ({ mostrarLogin, children }) => (
+  <div id="login" className="obeydom-login-transition-shell" aria-live="polite">
+    <div
+      className={`obeydom-loader-layer ${mostrarLogin ? "obeydom-loader-layer-hidden" : ""}`}
+    >
+      <ObeydomLoaderSymbol />
+    </div>
+    <div
+      className={`obeydom-login-content-layer containerLogin ${mostrarLogin ? "fadeIn" : ""}`}
+    >
+      {children}
+    </div>
+  </div>
+);
+
+const SpriteSheetLoginTransition = ({ mostrarLogin, spriteUrl, children }) => (
+  <div id="login" className="sprite-loader-transition-shell" aria-live="polite">
+    <div className={`sprite-loader-layer ${mostrarLogin ? "sprite-loader-layer-hidden" : ""}`}>
+      <div
+        className="loader-cherry"
+        aria-hidden="true"
+        style={spriteUrl ? { backgroundImage: `url("${spriteUrl}")` } : undefined}
+      />
+    </div>
+    <div className={`sprite-login-content-layer containerLogin ${mostrarLogin ? "fadeIn" : ""}`}>
+      {children}
+    </div>
+  </div>
+);
 
 const App = () => {
   const isManagerProject = activeFirebaseProjectKey === "gerenciador-aly";
@@ -232,9 +284,7 @@ const App = () => {
     }
     if (!configSistemaPronta) return;
 
-    const onePagePublicaAtivaProjeto =
-      configSistema?.tipoExperiencia === "onepage" &&
-      configSistema?.modoAcessoProjeto === "publico_sem_login";
+    const onePagePublicaAtivaProjeto = isOnePageComEntradaPublica(configSistema);
     if (onePagePublicaAtivaProjeto) {
       setSkins([]);
       setSkinsLoading(false);
@@ -342,11 +392,6 @@ const App = () => {
   ]);
 
   useEffect(() => {
-    const timeout = setTimeout(() => setMostrarLogin(true), 1000);
-    return () => clearTimeout(timeout);
-  }, []);
-
-  useEffect(() => {
     try {
       const destino = localStorage.getItem(POST_LOGIN_REDIRECT_KEY) || "";
       const caminhoSemQuery = destino.split("?")[0].split("#")[0];
@@ -376,19 +421,23 @@ const App = () => {
 
   const rotaAtual = String(location.pathname || "").toLowerCase();
   const isAuthHandlerRoute = rotaAtual.startsWith("/__/auth/handler");
-  const isAdminLoginRoute = !isManagerProject && rotaAtual === "/login";
-  const isLoginUiRoute = isAdminLoginRoute || isAuthHandlerRoute;
+  const isUserLoginRoute = !isManagerProject && rotaAtual === "/login";
+  const isAdminLoginRoute = !isManagerProject && rotaAtual === "/loginadmin";
+  const isLoginUiRoute = isUserLoginRoute || isAdminLoginRoute || isAuthHandlerRoute;
   const modoAcessoProjeto = configSistema?.modoAcessoProjeto || DEFAULT_SISTEMA_CONFIG.modoAcessoProjeto;
   const tipoExperiencia = configSistema?.tipoExperiencia || DEFAULT_SISTEMA_CONFIG.tipoExperiencia;
-  const acessoPublicoSemLogin =
-    !isManagerProject && modoAcessoProjeto === "publico_sem_login";
-  const onePagePublicaAtiva = acessoPublicoSemLogin && tipoExperiencia === "onepage";
-  const exibirHomePublica = acessoPublicoSemLogin && !isLoginUiRoute;
+  const onePagePublicaAtiva =
+    !isManagerProject &&
+    isOnePageComEntradaPublica({
+      tipoExperiencia,
+      modoAcessoProjeto,
+    });
+  const exibirHomePublica = onePagePublicaAtiva && !isLoginUiRoute;
 
   const isPublicProfileRoute = useMemo(() => {
     if (isManagerProject) return false;
     const path = String(location.pathname || "").toLowerCase();
-    if (path === "/" || path === "/login") return false;
+    if (path === "/" || path === "/login" || path === "/loginadmin") return false;
     if (path.startsWith("/menu")) return false;
     if (path.startsWith("/__/")) return false;
     return path.split("/").length >= 2;
@@ -401,6 +450,57 @@ const App = () => {
     (!configSistema.temaPadraoSistema || configSistema.temaPadraoSistema === "PADRAO_INICIAL")
       ? "ALY_137"
       : configSistema.temaPadraoSistema;
+  const loginLoadingMode = String(configSistema?.loginLoadingMode || "auto")
+    .trim()
+    .toLowerCase();
+  const loginLoadingSpriteUrl = String(configSistema?.loginLoadingSpriteUrl || "").trim();
+  const usarTransicaoSprite =
+    loginLoadingMode === "sprite_sheet" && Boolean(loginLoadingSpriteUrl);
+  const usarTransicaoObeydom =
+    !usarTransicaoSprite &&
+    (
+      loginLoadingMode === "obeydom" ||
+      (loginLoadingMode === "auto" && temaSistemaEfetivo === "OBEYDOM")
+    );
+  const loginRevealDelayMs = usarTransicaoSprite
+    ? LOGIN_REVEAL_DELAY_SPRITE_MS
+    : usarTransicaoObeydom
+      ? LOGIN_REVEAL_DELAY_OBEYDOM_MS
+      : LOGIN_REVEAL_DELAY_DEFAULT_MS;
+
+  const renderTelaCarregamento = () => {
+    if (usarTransicaoSprite) {
+      return (
+        <div id="login" className="sprite-loader-transition-shell" aria-live="polite">
+          <div className="sprite-loader-layer">
+            <div
+              className="loader-cherry"
+              aria-hidden="true"
+              style={loginLoadingSpriteUrl ? { backgroundImage: `url("${loginLoadingSpriteUrl}")` } : undefined}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    if (usarTransicaoObeydom) {
+      return (
+        <div id="login" className="obeydom-login-transition-shell" aria-live="polite">
+          <div className="obeydom-loader-layer">
+            <ObeydomLoaderSymbol />
+          </div>
+        </div>
+      );
+    }
+
+    return <div className="loader" aria-live="polite" />;
+  };
+
+  useEffect(() => {
+    setMostrarLogin(false);
+    const timeout = setTimeout(() => setMostrarLogin(true), loginRevealDelayMs);
+    return () => clearTimeout(timeout);
+  }, [loginRevealDelayMs]);
 
   useLayoutEffect(() => {
     if (!exibindoFluxoSistema) return;
@@ -548,32 +648,44 @@ const App = () => {
     };
   }, [isManagerProject, usuarioEhAdminProjeto, user?.uid]);
 
-  if (!authLoading && user && skinsLoading) {
-    return <div className="loader">Carregando skins...</div>;
+  if (authLoading) {
+    return renderTelaCarregamento();
   }
 
-  if (!authLoading && user && carregandoSetupAdmin) {
-    return <div className="loader">Carregando configuracoes do sistema...</div>;
+  if (user && skinsLoading) {
+    return renderTelaCarregamento();
+  }
+
+  if (user && carregandoSetupAdmin) {
+    return renderTelaCarregamento();
   }
 
   if (encerrandoSessaoGerenciador) {
-    return <div className="loader">Validando acesso do administrador...</div>;
+    return renderTelaCarregamento();
   }
 
   if (isAuthHandlerRoute && !authLoading) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={onePagePublicaAtiva ? "/login" : "/"} replace />;
   }
 
   if (exibindoFluxoSistema && !configSistemaPronta && !isAuthHandlerRoute) {
-    return <div className="loader" aria-live="polite" />;
+    return renderTelaCarregamento();
   }
 
-  if (!authLoading && user && acessoPublicoSemLogin && isLoginUiRoute) {
-    if (usuarioEhAdminProjeto) {
-      return <Navigate to="/menu/admin" replace />;
-    }
+  if (!authLoading && user && onePagePublicaAtiva && isUserLoginRoute) {
     return <Navigate to="/home" replace />;
   }
+
+  if (!authLoading && user && onePagePublicaAtiva && isAdminLoginRoute && usuarioEhAdminProjeto) {
+    return <Navigate to="/home" replace />;
+  }
+
+  const exibirBloqueioAdminOnePage =
+    !authLoading &&
+    user &&
+    onePagePublicaAtiva &&
+    isAdminLoginRoute &&
+    !usuarioEhAdminProjeto;
 
   return (
     <div>
@@ -589,89 +701,68 @@ const App = () => {
         />
       ) : isPublicProfileRoute ? (
         <Estrutura />
-      ) : (!user || exibirHomePublica) && !authLoading ? (
-        onePagePublicaAtiva && !isLoginUiRoute ? (
-          <Estrutura />
-        ) : acessoPublicoSemLogin && !isLoginUiRoute ? (
-          <div id="login" className={`containerLogin ${mostrarLogin ? "fadeIn" : ""}`}>
+      ) : exibirBloqueioAdminOnePage ? (
+        usarTransicaoSprite ? (
+          <SpriteSheetLoginTransition
+            mostrarLogin={mostrarLogin}
+            spriteUrl={loginLoadingSpriteUrl}
+          >
             <Navegacoes />
             <div id="iconsLogin">
               <div id="loginMain">
                 {logoLoginSrc ? <img src={logoLoginSrc} id="logoLogin" alt="Logo" /> : null}
                 {exibirTituloSistemaNoLogin ? <p id="logoTxt">{tituloSistema}</p> : null}
               </div>
-              <div
-                id="divLogin"
-                style={{
-                  justifyContent: "center",
-                  gap: 10,
-                }}
-              >
-                <p id="textoLogin">Pagina publica ativa neste projeto.</p>
-                <a
-                  href="/login"
+              <div id="divLogin" style={{ justifyContent: "center", gap: 10 }}>
+                <p id="textoLogin">Acesso permitido apenas para administradores.</p>
+                <button
                   className="loginCadastroButton"
-                  style={{ textAlign: "center", textDecoration: "none" }}
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await signOut(auth);
+                    } catch {
+                      // Segue fluxo mesmo com erro de provider.
+                    }
+                  }}
                 >
-                  ACESSO ADMIN
-                </a>
+                  TROCAR CONTA
+                </button>
               </div>
             </div>
             <p id="rodapeLogin">
               {`${tituloSistema}\u00A9`} <AnoAtualizado />
             </p>
-          </div>
-        ) : (
-          <div id="login" className={`containerLogin ${mostrarLogin ? "fadeIn" : ""}`}>
+          </SpriteSheetLoginTransition>
+        ) : usarTransicaoObeydom ? (
+          <ObeydomLoginTransition mostrarLogin={mostrarLogin}>
             <Navegacoes />
-            {erroAcessoGerenciador ? (
-              <p
-                style={{
-                  margin: "0 auto 12px auto",
-                  maxWidth: 460,
-                  textAlign: "center",
-                }}
-              >
-                {erroAcessoGerenciador}
-              </p>
-            ) : null}
             <div id="iconsLogin">
-
               <div id="loginMain">
                 {logoLoginSrc ? <img src={logoLoginSrc} id="logoLogin" alt="Logo" /> : null}
                 {exibirTituloSistemaNoLogin ? <p id="logoTxt">{tituloSistema}</p> : null}
               </div>
-
-              {loginComEmailSenhaHabilitado ? <LoginCadastroEmail /> : null}
-              <div id="divLogin">
-                {possuiMetodoLoginHabilitado ? (
-                  <div id="loginDivider" aria-hidden="true" />
-                ) : null}
-                <p id="textoLogin">{textoLogin}</p>
-                {possuiMetodoLoginHabilitado ? (
-                  
-                  <div id="loginMetodos">
-                    {loginComGoogleHabilitado || loginComTwitterHabilitado ? (
-                      <div className="loginSocialButtons">
-                        {loginComGoogleHabilitado ? <LoginGoogle /> : null}
-                        {loginComTwitterHabilitado ? <LoginTwitter /> : null}
-                      </div>
-                    ) : null}
-                    
-                  </div>
-                ) : (
-                  <p id="loginSemMetodoAviso">Nenhum metodo de login habilitado.</p>
-                )}
+              <div id="divLogin" style={{ justifyContent: "center", gap: 10 }}>
+                <p id="textoLogin">Acesso permitido apenas para administradores.</p>
+                <button
+                  className="loginCadastroButton"
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await signOut(auth);
+                    } catch {
+                      // Segue fluxo mesmo com erro de provider.
+                    }
+                  }}
+                >
+                  TROCAR CONTA
+                </button>
               </div>
             </div>
             <p id="rodapeLogin">
               {`${tituloSistema}\u00A9`} <AnoAtualizado />
             </p>
-          </div>
-        )
-      ) : isManagerProject ? (
-        usuarioEhAdminGerenciador ? (
-          <Navigate to="/menu/gerenciador" replace />
+          </ObeydomLoginTransition>
         ) : (
           <div id="login" className={`containerLogin ${mostrarLogin ? "fadeIn" : ""}`}>
             <Navegacoes />
@@ -681,9 +772,7 @@ const App = () => {
                 {exibirTituloSistemaNoLogin ? <p id="logoTxt">{tituloSistema}</p> : null}
               </div>
               <div id="divLogin" style={{ justifyContent: "center", gap: 10 }}>
-                <p id="textoLogin">
-                  {erroAcessoGerenciador || "Acesso permitido apenas para administradores."}
-                </p>
+                <p id="textoLogin">Acesso permitido apenas para administradores.</p>
                 <button
                   className="loginCadastroButton"
                   type="button"
@@ -703,6 +792,310 @@ const App = () => {
               {`${tituloSistema}\u00A9`} <AnoAtualizado />
             </p>
           </div>
+        )
+      ) : (!user || exibirHomePublica) && !authLoading ? (
+        onePagePublicaAtiva && !isLoginUiRoute ? (
+          <Estrutura />
+        ) : onePagePublicaAtiva && !isLoginUiRoute ? (
+          <div id="login" className={`containerLogin ${mostrarLogin ? "fadeIn" : ""}`}>
+            <Navegacoes />
+            <div id="iconsLogin">
+              <div id="loginMain">
+                {logoLoginSrc ? <img src={logoLoginSrc} id="logoLogin" alt="Logo" /> : null}
+                {exibirTituloSistemaNoLogin ? <p id="logoTxt">{tituloSistema}</p> : null}
+              </div>
+              <div
+                id="divLogin"
+                style={{
+                  justifyContent: "center",
+                  gap: 10,
+                }}
+              >
+                <p id="textoLogin">Pagina publica ativa neste projeto.</p>
+              </div>
+            </div>
+            <p id="rodapeLogin">
+              {`${tituloSistema}\u00A9`} <AnoAtualizado />
+            </p>
+          </div>
+        ) : (
+          usarTransicaoSprite ? (
+            <SpriteSheetLoginTransition
+              mostrarLogin={mostrarLogin}
+              spriteUrl={loginLoadingSpriteUrl}
+            >
+              <Navegacoes />
+              {erroAcessoGerenciador ? (
+                <p
+                  style={{
+                    margin: "0 auto 12px auto",
+                    maxWidth: 460,
+                    textAlign: "center",
+                  }}
+                >
+                  {erroAcessoGerenciador}
+                </p>
+              ) : isAdminLoginRoute && !usuarioEhAdminProjeto && user ? (
+                <p
+                  style={{
+                    margin: "0 auto 12px auto",
+                    maxWidth: 460,
+                    textAlign: "center",
+                  }}
+                >
+                  Acesso permitido apenas para administradores.
+                </p>
+              ) : null}
+              <div id="iconsLogin">
+
+                <div id="loginMain">
+                  {logoLoginSrc ? <img src={logoLoginSrc} id="logoLogin" alt="Logo" /> : null}
+                  {exibirTituloSistemaNoLogin ? <p id="logoTxt">{tituloSistema}</p> : null}
+                </div>
+
+                {loginComEmailSenhaHabilitado ? (
+                  <LoginCadastroEmail configSistema={configSistema} />
+                ) : null}
+                <div id="divLogin">
+                  {possuiMetodoLoginHabilitado ? (
+                    <div id="loginDivider" aria-hidden="true" />
+                  ) : null}
+                  <p id="textoLogin">{textoLogin}</p>
+                  {possuiMetodoLoginHabilitado ? (
+                    <div id="loginMetodos">
+                      {loginComGoogleHabilitado || loginComTwitterHabilitado ? (
+                        <div className="loginSocialButtons">
+                          {loginComGoogleHabilitado ? <LoginGoogle /> : null}
+                          {loginComTwitterHabilitado ? <LoginTwitter /> : null}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <p id="loginSemMetodoAviso">Nenhum metodo de login habilitado.</p>
+                  )}
+                </div>
+              </div>
+              <p id="rodapeLogin">
+                {`${tituloSistema}\u00A9`} <AnoAtualizado />
+              </p>
+            </SpriteSheetLoginTransition>
+          ) : usarTransicaoObeydom ? (
+            <ObeydomLoginTransition mostrarLogin={mostrarLogin}>
+              <Navegacoes />
+              {erroAcessoGerenciador ? (
+                <p
+                  style={{
+                    margin: "0 auto 12px auto",
+                    maxWidth: 460,
+                    textAlign: "center",
+                  }}
+                >
+                  {erroAcessoGerenciador}
+                </p>
+              ) : isAdminLoginRoute && !usuarioEhAdminProjeto && user ? (
+                <p
+                  style={{
+                    margin: "0 auto 12px auto",
+                    maxWidth: 460,
+                    textAlign: "center",
+                  }}
+                >
+                  Acesso permitido apenas para administradores.
+                </p>
+              ) : null}
+              <div id="iconsLogin">
+
+                <div id="loginMain">
+                  {logoLoginSrc ? <img src={logoLoginSrc} id="logoLogin" alt="Logo" /> : null}
+                  {exibirTituloSistemaNoLogin ? <p id="logoTxt">{tituloSistema}</p> : null}
+                </div>
+
+                {loginComEmailSenhaHabilitado ? (
+                  <LoginCadastroEmail configSistema={configSistema} />
+                ) : null}
+                <div id="divLogin">
+                  {possuiMetodoLoginHabilitado ? (
+                    <div id="loginDivider" aria-hidden="true" />
+                  ) : null}
+                  <p id="textoLogin">{textoLogin}</p>
+                  {possuiMetodoLoginHabilitado ? (
+                    <div id="loginMetodos">
+                      {loginComGoogleHabilitado || loginComTwitterHabilitado ? (
+                        <div className="loginSocialButtons">
+                          {loginComGoogleHabilitado ? <LoginGoogle /> : null}
+                          {loginComTwitterHabilitado ? <LoginTwitter /> : null}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <p id="loginSemMetodoAviso">Nenhum metodo de login habilitado.</p>
+                  )}
+                </div>
+              </div>
+              <p id="rodapeLogin">
+                {`${tituloSistema}\u00A9`} <AnoAtualizado />
+              </p>
+            </ObeydomLoginTransition>
+          ) : (
+            <div id="login" className={`containerLogin ${mostrarLogin ? "fadeIn" : ""}`}>
+              <Navegacoes />
+              {erroAcessoGerenciador ? (
+                <p
+                  style={{
+                    margin: "0 auto 12px auto",
+                    maxWidth: 460,
+                    textAlign: "center",
+                  }}
+                >
+                  {erroAcessoGerenciador}
+                </p>
+              ) : isAdminLoginRoute && !usuarioEhAdminProjeto && user ? (
+                <p
+                  style={{
+                    margin: "0 auto 12px auto",
+                    maxWidth: 460,
+                    textAlign: "center",
+                  }}
+                >
+                  Acesso permitido apenas para administradores.
+                </p>
+              ) : null}
+              <div id="iconsLogin">
+
+                <div id="loginMain">
+                  {logoLoginSrc ? <img src={logoLoginSrc} id="logoLogin" alt="Logo" /> : null}
+                  {exibirTituloSistemaNoLogin ? <p id="logoTxt">{tituloSistema}</p> : null}
+                </div>
+
+                {loginComEmailSenhaHabilitado ? (
+                  <LoginCadastroEmail configSistema={configSistema} />
+                ) : null}
+                <div id="divLogin">
+                  {possuiMetodoLoginHabilitado ? (
+                    <div id="loginDivider" aria-hidden="true" />
+                  ) : null}
+                  <p id="textoLogin">{textoLogin}</p>
+                  {possuiMetodoLoginHabilitado ? (
+                    <div id="loginMetodos">
+                      {loginComGoogleHabilitado || loginComTwitterHabilitado ? (
+                        <div className="loginSocialButtons">
+                          {loginComGoogleHabilitado ? <LoginGoogle /> : null}
+                          {loginComTwitterHabilitado ? <LoginTwitter /> : null}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <p id="loginSemMetodoAviso">Nenhum metodo de login habilitado.</p>
+                  )}
+                </div>
+              </div>
+              <p id="rodapeLogin">
+                {`${tituloSistema}\u00A9`} <AnoAtualizado />
+              </p>
+            </div>
+          )
+        )
+      ) : isManagerProject ? (
+        usuarioEhAdminGerenciador ? (
+          <Navigate to="/menu/gerenciador" replace />
+        ) : (
+          usarTransicaoSprite ? (
+            <SpriteSheetLoginTransition
+              mostrarLogin={mostrarLogin}
+              spriteUrl={loginLoadingSpriteUrl}
+            >
+              <Navegacoes />
+              <div id="iconsLogin">
+                <div id="loginMain">
+                  {logoLoginSrc ? <img src={logoLoginSrc} id="logoLogin" alt="Logo" /> : null}
+                  {exibirTituloSistemaNoLogin ? <p id="logoTxt">{tituloSistema}</p> : null}
+                </div>
+                <div id="divLogin" style={{ justifyContent: "center", gap: 10 }}>
+                  <p id="textoLogin">
+                    {erroAcessoGerenciador || "Acesso permitido apenas para administradores."}
+                  </p>
+                  <button
+                    className="loginCadastroButton"
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await signOut(auth);
+                      } catch {
+                        // Segue fluxo mesmo com erro de provider.
+                      }
+                    }}
+                  >
+                    TROCAR CONTA
+                  </button>
+                </div>
+              </div>
+              <p id="rodapeLogin">
+                {`${tituloSistema}\u00A9`} <AnoAtualizado />
+              </p>
+            </SpriteSheetLoginTransition>
+          ) : usarTransicaoObeydom ? (
+            <ObeydomLoginTransition mostrarLogin={mostrarLogin}>
+              <Navegacoes />
+              <div id="iconsLogin">
+                <div id="loginMain">
+                  {logoLoginSrc ? <img src={logoLoginSrc} id="logoLogin" alt="Logo" /> : null}
+                  {exibirTituloSistemaNoLogin ? <p id="logoTxt">{tituloSistema}</p> : null}
+                </div>
+                <div id="divLogin" style={{ justifyContent: "center", gap: 10 }}>
+                  <p id="textoLogin">
+                    {erroAcessoGerenciador || "Acesso permitido apenas para administradores."}
+                  </p>
+                  <button
+                    className="loginCadastroButton"
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await signOut(auth);
+                      } catch {
+                        // Segue fluxo mesmo com erro de provider.
+                      }
+                    }}
+                  >
+                    TROCAR CONTA
+                  </button>
+                </div>
+              </div>
+              <p id="rodapeLogin">
+                {`${tituloSistema}\u00A9`} <AnoAtualizado />
+              </p>
+            </ObeydomLoginTransition>
+          ) : (
+            <div id="login" className={`containerLogin ${mostrarLogin ? "fadeIn" : ""}`}>
+              <Navegacoes />
+              <div id="iconsLogin">
+                <div id="loginMain">
+                  {logoLoginSrc ? <img src={logoLoginSrc} id="logoLogin" alt="Logo" /> : null}
+                  {exibirTituloSistemaNoLogin ? <p id="logoTxt">{tituloSistema}</p> : null}
+                </div>
+                <div id="divLogin" style={{ justifyContent: "center", gap: 10 }}>
+                  <p id="textoLogin">
+                    {erroAcessoGerenciador || "Acesso permitido apenas para administradores."}
+                  </p>
+                  <button
+                    className="loginCadastroButton"
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await signOut(auth);
+                      } catch {
+                        // Segue fluxo mesmo com erro de provider.
+                      }
+                    }}
+                  >
+                    TROCAR CONTA
+                  </button>
+                </div>
+              </div>
+              <p id="rodapeLogin">
+                {`${tituloSistema}\u00A9`} <AnoAtualizado />
+              </p>
+            </div>
+          )
         )
       ) : skins.length === 1 ? (
         <Estrutura username={username} skins={skins} />

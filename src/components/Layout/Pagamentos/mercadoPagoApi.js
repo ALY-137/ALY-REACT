@@ -116,6 +116,51 @@ function buildSolicitacaoId(blocoId, compradorUid) {
   return `${sanitizeString(blocoId)}__${sanitizeString(compradorUid)}`;
 }
 
+function sanitizeDocId(value = "") {
+  return sanitizeString(value).replace(/[^\w.-]/g, "_");
+}
+
+async function carregarUsernamePrincipal(userUid, preferredSkinId = "") {
+  const uid = sanitizeString(userUid);
+  if (!uid) return "";
+
+  const preferredId = sanitizeString(preferredSkinId);
+  if (preferredId) {
+    try {
+      const preferredSnap = await getDoc(doc(db, "users", uid, "skins", preferredId));
+      if (preferredSnap.exists()) {
+        const preferredUsername = sanitizeString(preferredSnap.data()?.username);
+        if (preferredUsername) return preferredUsername;
+      }
+    } catch {
+      // Ignora indisponibilidade de permissao e tenta fallback.
+    }
+  }
+
+  try {
+    const mainSnap = await getDocs(
+      query(collection(db, "users", uid, "skins"), where("is_main", "==", true), limit(1))
+    );
+    if (!mainSnap.empty) {
+      const mainUsername = sanitizeString(mainSnap.docs[0].data()?.username);
+      if (mainUsername) return mainUsername;
+    }
+  } catch {
+    // Ignora indisponibilidade de permissao e tenta fallback.
+  }
+
+  try {
+    const firstSnap = await getDocs(query(collection(db, "users", uid, "skins"), limit(1)));
+    if (!firstSnap.empty) {
+      return sanitizeString(firstSnap.docs[0].data()?.username);
+    }
+  } catch {
+    return "";
+  }
+
+  return "";
+}
+
 async function getBuyerContext(compradorUid) {
   const buyerUserSnap = await getDoc(doc(db, "users", compradorUid));
   return {
@@ -452,6 +497,11 @@ export async function solicitarSolicitacaoPixManualBloco({
     throw new Error("PIX manual indisponivel para este bloco no momento.");
   }
 
+  const [compradorUsername, ownerUsername] = await Promise.all([
+    carregarUsernamePrincipal(compradorUid, buyerContext.skinAtivaId || ""),
+    carregarUsernamePrincipal(ownerUid, ""),
+  ]);
+
   const solicitacaoId = buildSolicitacaoId(bloco, compradorUid);
   const solicitacaoRef = getSolicitacaoRef(ownerUid, solicitacaoId);
   const compradorAtual = auth.currentUser;
@@ -468,6 +518,8 @@ export async function solicitarSolicitacaoPixManualBloco({
         compradorSkinId: buyerContext.skinAtivaId || null,
         compradorEmail: sanitizeString(compradorAtual?.email) || null,
         compradorNome: sanitizeString(compradorAtual?.displayName) || null,
+        compradorUsername: compradorUsername || null,
+        ownerUsername: ownerUsername || null,
         observacaoComprador: sanitizeString(observacaoComprador) || null,
         precoCentavos: blocoInfo.precoCentavos,
         moeda: blocoInfo.moeda,
@@ -592,6 +644,72 @@ export async function listarSolicitacoesPixManual({ ownerUserId = "" } = {}) {
   return merged;
 }
 
+function montarSessaoChatContext({
+  ownerUid = "",
+  compradorUid = "",
+  solicitacaoId = "",
+  blocoId = "",
+  espacoId = "",
+  ownerUsername = "",
+  compradorUsername = "",
+} = {}) {
+  const ownerUidNorm = sanitizeString(ownerUid);
+  const compradorUidNorm = sanitizeString(compradorUid);
+  const solicitacaoIdNorm = sanitizeString(solicitacaoId);
+  const ownerUsernameNorm = sanitizeString(ownerUsername) || `admin_${ownerUidNorm.slice(0, 8)}`;
+  const compradorUsernameNorm =
+    sanitizeString(compradorUsername) || `cliente_${compradorUidNorm.slice(0, 8)}`;
+
+  const contactKey = sanitizeDocId(`${ownerUidNorm}__${compradorUidNorm}`);
+  const idContato = `sessao_${contactKey}`;
+  const idConversa = "principal";
+  const idChat = sanitizeDocId(`sistema_confirmacao_${solicitacaoIdNorm}`) || "sistema_confirmacao";
+
+  const contatoRef = doc(db, "contatos", idContato);
+  const conversaRef = doc(db, "contatos", idContato, "conversas", idConversa);
+  const chatRef = doc(db, "contatos", idContato, "conversas", idConversa, "chat", idChat);
+
+  return {
+    idContato,
+    idConversa,
+    contatoRef,
+    conversaRef,
+    chatRef,
+    contatoPayload: {
+      idContato,
+      conversaId: idConversa,
+      skinRemetente: ownerUsernameNorm,
+      skinDestinatario: compradorUsernameNorm,
+      ownerUserId: ownerUidNorm,
+      compradorUid: compradorUidNorm,
+      ultimaConversaData: serverTimestamp(),
+      origem: "sessao_pix_manual",
+    },
+    conversaPayload: {
+      assunto: "SESSAO CONFIRMADA",
+      idContato,
+      idConversa,
+      ownerUserId: ownerUidNorm,
+      compradorUid: compradorUidNorm,
+      solicitacaoId: solicitacaoIdNorm,
+      espacoId: sanitizeString(espacoId),
+      blocoId: sanitizeString(blocoId),
+      ultimaMensagem: "Sessao confirmada. Use este chat para combinar os detalhes.",
+      dataUltimaMensagem: serverTimestamp(),
+      data: serverTimestamp(),
+      origem: "sessao_pix_manual",
+    },
+    chatPayload: {
+      idConversa,
+      idChat,
+      userRemetente: ownerUsernameNorm,
+      mensagem: "Sessao confirmada. Use este chat para combinar os detalhes.",
+      data: serverTimestamp(),
+      origem: "sistema",
+    },
+  };
+}
+
 export async function confirmarSolicitacaoPixManual({
   ownerUserId = "",
   solicitacaoId = "",
@@ -626,6 +744,16 @@ export async function confirmarSolicitacaoPixManual({
   if (!blocoId || !espacoId || !compradorUid) {
     throw new Error("Solicitacao invalida para confirmacao.");
   }
+
+  const contextoSessaoChat = montarSessaoChatContext({
+    ownerUid,
+    compradorUid,
+    solicitacaoId: idSolicitacaoNormalizado,
+    blocoId,
+    espacoId,
+    ownerUsername: sanitizeString(pedido?.ownerUsername),
+    compradorUsername: sanitizeString(pedido?.compradorUsername || pedido?.compradorNome),
+  });
 
   const compradorRef = doc(
     db,
@@ -680,6 +808,10 @@ export async function confirmarSolicitacaoPixManual({
     );
   }
 
+  batch.set(contextoSessaoChat.contatoRef, contextoSessaoChat.contatoPayload, { merge: true });
+  batch.set(contextoSessaoChat.conversaRef, contextoSessaoChat.conversaPayload, { merge: true });
+  batch.set(contextoSessaoChat.chatRef, contextoSessaoChat.chatPayload, { merge: true });
+
   batch.set(
     pedidoRef,
     {
@@ -687,12 +819,22 @@ export async function confirmarSolicitacaoPixManual({
       confirmadoEm: serverTimestamp(),
       confirmadoPorUid: currentUid,
       atualizadoEm: serverTimestamp(),
+      sessionStatus: "confirmada",
+      sessionCriadaEm: serverTimestamp(),
+      sessionContactId: contextoSessaoChat.idContato,
+      sessionConversationId: contextoSessaoChat.idConversa,
     },
     { merge: true }
   );
 
   await batch.commit();
-  return { ok: true, alreadyConfirmed: false };
+  return {
+    ok: true,
+    alreadyConfirmed: false,
+    sessionStatus: "confirmada",
+    sessionContactId: contextoSessaoChat.idContato,
+    sessionConversationId: contextoSessaoChat.idConversa,
+  };
 }
 
 export async function solicitarPedidoPixManualBloco(payload = {}) {

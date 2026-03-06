@@ -21,6 +21,7 @@ import {
 
 const MANAGER_APP_NAME = "system-manager-app";
 const MANAGER_COLLECTION = "systems";
+const ICON_COLLECTION = "iconCollections";
 const MANAGER_COLLECTIONS_READ = ["systems"];
 const MANAGER_COLLECTIONS_DELETE = ["systems", "sistemas"];
 const FORCED_SHARED_STORAGE_BUCKET = "teste-aa015.appspot.com";
@@ -47,6 +48,29 @@ function normalizeList(value) {
     .split(",")
     .map((item) => normalizeText(item))
     .filter(Boolean);
+}
+
+function normalizeIdList(value) {
+  if (Array.isArray(value)) {
+    return Array.from(new Set(value.map((item) => normalizeText(item)).filter(Boolean)));
+  }
+  return [];
+}
+
+function normalizeThemeIds(value) {
+  return normalizeIdList(value).map((item) => item.toUpperCase());
+}
+
+function normalizeIconItems(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item, index) => ({
+      id: normalizeText(item?.id || `icon_${index}`),
+      label: normalizeText(item?.label || item?.nome || ""),
+      url: normalizeText(item?.url || item?.iconUrl || ""),
+      path: normalizeText(item?.path || item?.iconPath || ""),
+    }))
+    .filter((item) => item.id && item.label && item.url);
 }
 
 function normalizeSystemKey(value) {
@@ -166,16 +190,140 @@ function getManagerDb() {
 
 function extrairConfigSistemaDoDocumento(data = {}) {
   if (data && typeof data.configSistema === "object" && data.configSistema) {
-    return data.configSistema;
+    return {
+      ...data,
+      ...data.configSistema,
+    };
   }
   if (data && typeof data.config === "object" && data.config) {
-    return data.config;
+    return {
+      ...data,
+      ...data.config,
+    };
   }
   return data;
 }
 
 export function gerenciadorSistemasHabilitado() {
   return !!buildManagerConfigFromEnv();
+}
+
+export async function listarIconCollectionsNoGerenciador() {
+  const managerDb = getManagerDb();
+  if (!managerDb) return [];
+
+  const snap = await getDocs(collection(managerDb, ICON_COLLECTION));
+  return snap.docs
+    .map((docItem) => {
+      const data = docItem.data() || {};
+      return {
+        id: docItem.id,
+        nome: normalizeText(data.nome || data.nomeColecao || docItem.id),
+        themeIds: normalizeThemeIds(data.themeIds || data.temasPermitidos),
+        icons: normalizeIconItems(data.icons),
+        criadoPorUid: normalizeText(data.criadoPorUid),
+        atualizadoPorUid: normalizeText(data.atualizadoPorUid),
+      };
+    })
+    .sort((a, b) => a.nome.localeCompare(b.nome));
+}
+
+export async function criarIconCollectionNoGerenciador({
+  nome = "",
+  themeIds = [],
+  criadoPorUid = null,
+} = {}) {
+  const managerDb = getManagerDb();
+  if (!managerDb) {
+    throw new Error("Gerenciador de projetos nao configurado.");
+  }
+
+  const nomeNormalizado = normalizeText(nome);
+  const themeIdsNormalizados = normalizeThemeIds(themeIds);
+  if (!nomeNormalizado) {
+    throw new Error("Informe o nome da colecao.");
+  }
+  if (!themeIdsNormalizados.length) {
+    throw new Error("Selecione ao menos um tema permitido para a colecao.");
+  }
+
+  const docRef = doc(collection(managerDb, ICON_COLLECTION));
+  await setDoc(
+    docRef,
+    {
+      nome: nomeNormalizado,
+      themeIds: themeIdsNormalizados,
+      icons: [],
+      criadoPorUid: normalizeText(criadoPorUid),
+      atualizadoPorUid: normalizeText(criadoPorUid),
+      criadoEm: serverTimestamp(),
+      atualizadoEm: serverTimestamp(),
+    },
+    { merge: true }
+  );
+
+  return {
+    id: docRef.id,
+    nome: nomeNormalizado,
+    themeIds: themeIdsNormalizados,
+    icons: [],
+  };
+}
+
+export async function salvarIconCollectionNoGerenciador({
+  collectionId = "",
+  nome = "",
+  themeIds = [],
+  icons = [],
+  atualizadoPorUid = null,
+} = {}) {
+  const managerDb = getManagerDb();
+  if (!managerDb) {
+    throw new Error("Gerenciador de projetos nao configurado.");
+  }
+
+  const collectionIdNormalizado = normalizeText(collectionId);
+  if (!collectionIdNormalizado) {
+    throw new Error("Colecao de icones invalida.");
+  }
+
+  const payload = {
+    atualizadoPorUid: normalizeText(atualizadoPorUid),
+    atualizadoEm: serverTimestamp(),
+  };
+
+  if (normalizeText(nome)) {
+    payload.nome = normalizeText(nome);
+  }
+  if (Array.isArray(themeIds)) {
+    payload.themeIds = normalizeThemeIds(themeIds);
+  }
+  if (Array.isArray(icons)) {
+    payload.icons = normalizeIconItems(icons);
+  }
+
+  await setDoc(doc(managerDb, ICON_COLLECTION, collectionIdNormalizado), payload, {
+    merge: true,
+  });
+
+  return true;
+}
+
+export async function removerIconCollectionNoGerenciador({
+  collectionId = "",
+} = {}) {
+  const managerDb = getManagerDb();
+  if (!managerDb) {
+    throw new Error("Gerenciador de projetos nao configurado.");
+  }
+
+  const collectionIdNormalizado = normalizeText(collectionId);
+  if (!collectionIdNormalizado) {
+    throw new Error("Colecao de icones invalida.");
+  }
+
+  await deleteDoc(doc(managerDb, ICON_COLLECTION, collectionIdNormalizado));
+  return true;
 }
 
 export function gerarBlocoEnvProjeto({
@@ -240,20 +388,7 @@ export async function obterConfigSistemaDoGerenciador({
     }
   }
 
-  // 2) Busca por projectId Firebase.
-  if (projectIdNormalizado) {
-    const byProjectIdQuery = query(
-      collection(managerDb, MANAGER_COLLECTION),
-      where("firebaseProjectId", "==", projectIdNormalizado),
-      limit(1)
-    );
-    const projectIdSnap = await getDocs(byProjectIdQuery);
-    if (!projectIdSnap.empty) {
-      return extrairConfigSistemaDoDocumento(projectIdSnap.docs[0].data());
-    }
-  }
-
-  // 3) Busca por dominio.
+  // 2) Busca por dominio.
   if (hostNormalizado) {
     const byDomainQuery = query(
       collection(managerDb, MANAGER_COLLECTION),
@@ -263,6 +398,21 @@ export async function obterConfigSistemaDoGerenciador({
     const domainSnap = await getDocs(byDomainQuery);
     if (!domainSnap.empty) {
       return extrairConfigSistemaDoDocumento(domainSnap.docs[0].data());
+    }
+  }
+
+  // 3) Busca por projectId Firebase.
+  // Importante: projectId pode ser compartilhado entre varias onepages.
+  // Por isso ele deve ficar depois da busca por dominio.
+  if (projectIdNormalizado) {
+    const byProjectIdQuery = query(
+      collection(managerDb, MANAGER_COLLECTION),
+      where("firebaseProjectId", "==", projectIdNormalizado),
+      limit(1)
+    );
+    const projectIdSnap = await getDocs(byProjectIdQuery);
+    if (!projectIdSnap.empty) {
+      return extrairConfigSistemaDoDocumento(projectIdSnap.docs[0].data());
     }
   }
 
@@ -451,7 +601,7 @@ export async function criarSistemaNoGerenciador({
     ...(tipoProjetoNormalizado === "onepage"
       ? {
           tipoExperiencia: "onepage",
-          modoAcessoProjeto: "publico_sem_login",
+          modoAcessoProjeto: "publico_com_area_restrita",
         }
       : {}),
   };

@@ -1,5 +1,5 @@
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
-import { db } from "../../Banco/init-firebase";
+import { auth, db } from "../../Banco/init-firebase";
 import {
   activeFirebaseProjectId,
   activeFirebaseProjectKey,
@@ -17,6 +17,7 @@ import { APPLYABLE_LOGIN_PRESET_IDS } from "./loginPresets";
 
 const SISTEMA_CONFIG_REF = doc(db, "add_ons", "sistema_config");
 const SISTEMA_CONFIG_CACHE_KEY_BASE = "sistemaConfigCacheV1";
+const SISTEMA_PROJECT_CONTEXT_KEY = "systemProjectContextKey";
 const TEMAS_SISTEMA_VALIDOS = SYSTEM_THEMES.map((tema) => tema.id);
 const TEMA_SISTEMA_FALLBACK = TEMAS_SISTEMA_VALIDOS.includes("PADRAO_INICIAL")
   ? "PADRAO_INICIAL"
@@ -40,13 +41,32 @@ const METODOS_LOGIN_PADRAO = {
 const LOGIN_PRESET_IDS_VALIDOS = Array.isArray(APPLYABLE_LOGIN_PRESET_IDS)
   ? APPLYABLE_LOGIN_PRESET_IDS
   : ["manual", "aly137"];
+const LOGIN_LOADING_MODE_VALIDOS = ["auto", "simple", "obeydom", "sprite_sheet"];
 
 export const DEFAULT_SISTEMA_CONFIG = {
   logoLoginUrl: "",
   faviconUrl: "/favicon.ico",
+  loginButtonIconUrl:
+    "https://firebasestorage.googleapis.com/v0/b/teste-aa015.appspot.com/o/imagens%2Fthemes%2Fcyberpink%2Fviolet%2Ffoguete.png?alt=media&token=19c205b6-b36f-49df-b336-4afc6565c9a5",
+  cardProfileUrl: "",
+  cardProfilePath: "",
   tituloSistema: "ALY-137",
   exibirTituloSistemaNoLogin: true,
   textoLogin: "EMBARQUE COM O GOOGLE",
+  loginLoadingMode: "auto",
+  loginLoadingSpriteUrl: "",
+  googleFontsUrls: [],
+  mensagemEspacoLoginRestrito:
+    "Este {nomeEspacoSingular} requer login para visualizar o conteudo.",
+  mensagemEspacoLoginRestritoFontFamily: "",
+  mensagemEspacoAssinanteRestrito:
+    "Este {nomeEspacoSingular} requer assinatura para visualizar o conteudo.",
+  mensagemEspacoAssinanteRestritoFontFamily: "",
+  exibirBotaoLoginMensagemRestricao: true,
+  mensagemRestricaoAvatarUrl: "",
+  termosUsoUrl: "",
+  politicaPrivacidadeUrl: "",
+  exigirAceiteTermosNoCadastro: false,
   larguraIconsLoginPx: null,
   temaPadraoSistema: TEMA_SISTEMA_FALLBACK,
   layoutTema: { ...DEFAULT_LAYOUT_THEME_OVERRIDES },
@@ -67,7 +87,31 @@ export const DEFAULT_SISTEMA_CONFIG = {
   pixManualHabilitado: true,
   blocoCardsHabilitado: false,
   adminEmail: "",
+  iconCollectionIds: [],
+  projectOwnerUid: "",
+  projectLastEditorUid: "",
 };
+
+export function isOnePageComEntradaPublica(configSistema = DEFAULT_SISTEMA_CONFIG) {
+  const tipoExperiencia = String(
+    configSistema?.tipoExperiencia || DEFAULT_SISTEMA_CONFIG.tipoExperiencia
+  )
+    .trim()
+    .toLowerCase();
+  const modoAcessoProjeto = String(
+    configSistema?.modoAcessoProjeto || DEFAULT_SISTEMA_CONFIG.modoAcessoProjeto
+  )
+    .trim()
+    .toLowerCase();
+
+  return (
+    tipoExperiencia === "onepage" &&
+    (
+      modoAcessoProjeto === "publico_sem_login" ||
+      modoAcessoProjeto === "publico_com_area_restrita"
+    )
+  );
+}
 
 function obterDefaultConfigSistemaProjeto() {
   if (activeFirebaseProjectKey === "gerenciador-aly") {
@@ -100,8 +144,80 @@ function obterChaveCacheSistemaProjeto() {
     typeof activeFirebaseProjectKey === "string" && activeFirebaseProjectKey.trim()
       ? activeFirebaseProjectKey.trim()
       : "default";
+  let contextoProjeto = "default";
 
-  return `${SISTEMA_CONFIG_CACHE_KEY_BASE}:${projectKeyNormalizada}`;
+  if (typeof window !== "undefined") {
+    const hostname = String(window.location.hostname || "").trim().toLowerCase();
+    const isLocalHost =
+      hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+
+    if (isLocalHost) {
+      try {
+        const searchParams = new URLSearchParams(window.location.search || "");
+        const queryProject = String(searchParams.get("firebaseProject") || "")
+          .trim()
+          .toLowerCase();
+        contextoProjeto = queryProject || hostname || "localhost";
+      } catch {
+        contextoProjeto = hostname || "localhost";
+      }
+    } else {
+      contextoProjeto = hostname || "default";
+    }
+  }
+
+  return `${SISTEMA_CONFIG_CACHE_KEY_BASE}:${projectKeyNormalizada}:${contextoProjeto}`;
+}
+
+export function obterProjectKeyContextual() {
+  if (typeof window === "undefined") return "";
+
+  const hostname = String(window.location.hostname || "").trim().toLowerCase();
+  const isLocalHost =
+    hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+
+  if (isLocalHost) {
+    try {
+      const searchParams = new URLSearchParams(window.location.search || "");
+      const projectKeyQuery = String(searchParams.get("firebaseProject") || "")
+        .trim()
+        .toLowerCase();
+      if (projectKeyQuery) {
+        try {
+          window.localStorage.setItem(SISTEMA_PROJECT_CONTEXT_KEY, projectKeyQuery);
+        } catch {
+          // Ignora indisponibilidade de storage local.
+        }
+        return projectKeyQuery;
+      }
+
+      try {
+        return String(window.localStorage.getItem(SISTEMA_PROJECT_CONTEXT_KEY) || "")
+          .trim()
+          .toLowerCase();
+      } catch {
+        return "";
+      }
+    } catch {
+      try {
+        return String(window.localStorage.getItem(SISTEMA_PROJECT_CONTEXT_KEY) || "")
+          .trim()
+          .toLowerCase();
+      } catch {
+        return "";
+      }
+    }
+  }
+
+  const projectKeyHost = String(hostname.split(".")[0] || "")
+    .trim()
+    .toLowerCase();
+  try {
+    window.localStorage.setItem(SISTEMA_PROJECT_CONTEXT_KEY, projectKeyHost);
+  } catch {
+    // Ignora indisponibilidade de storage local.
+  }
+  return projectKeyHost;
 }
 
 function salvarConfigSistemaCacheLocal(configNormalizada = DEFAULT_SISTEMA_CONFIG) {
@@ -114,6 +230,26 @@ function salvarConfigSistemaCacheLocal(configNormalizada = DEFAULT_SISTEMA_CONFI
     );
   } catch {
     // Ignora indisponibilidade de storage local.
+  }
+}
+
+async function sincronizarConfigSistemaRuntime(configNormalizada = DEFAULT_SISTEMA_CONFIG) {
+  if (activeFirebaseProjectKey === "gerenciador-aly") return;
+  if (!auth.currentUser?.uid) return;
+
+  try {
+    await setDoc(
+      SISTEMA_CONFIG_REF,
+      {
+        ...configNormalizada,
+        atualizadoEm: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  } catch (error) {
+    if (error?.code !== "permission-denied") {
+      throw error;
+    }
   }
 }
 
@@ -208,6 +344,14 @@ function normalizarLoginPresetId(value) {
   return DEFAULT_SISTEMA_CONFIG.loginPresetId;
 }
 
+function normalizarLoginLoadingMode(value) {
+  const normalizado = String(value || "").trim().toLowerCase();
+  if (LOGIN_LOADING_MODE_VALIDOS.includes(normalizado)) {
+    return normalizado;
+  }
+  return DEFAULT_SISTEMA_CONFIG.loginLoadingMode;
+}
+
 function normalizarModoAcessoProjeto(value) {
   const normalizado = String(value || "").trim().toLowerCase();
   if (MODOS_ACESSO_PROJETO_VALIDOS.includes(normalizado)) {
@@ -273,6 +417,93 @@ function normalizarMetodosLoginHabilitados(
   };
 }
 
+function normalizarListaString(value = []) {
+  if (!Array.isArray(value)) return [];
+  return Array.from(
+    new Set(
+      value
+        .map((item) => String(item || "").trim())
+        .filter(Boolean)
+    )
+  );
+}
+
+function extrairPrimeiraUrl(value = "") {
+  const bruto = String(value || "").trim();
+  if (!bruto) return "";
+
+  const semAspas = bruto.replace(/^['"]|['"]$/g, "").trim();
+  if (/^https?:\/\//i.test(semAspas)) return semAspas;
+
+  const hrefMatch = bruto.match(/href\s*=\s*["']([^"']+)["']/i);
+  if (hrefMatch?.[1]) {
+    const href = String(hrefMatch[1]).trim();
+    if (/^https?:\/\//i.test(href)) return href;
+  }
+
+  const importMatch = bruto.match(/url\(([^)]+)\)/i);
+  if (importMatch?.[1]) {
+    const href = String(importMatch[1]).replace(/^['"]|['"]$/g, "").trim();
+    if (/^https?:\/\//i.test(href)) return href;
+  }
+
+  const geral = bruto.match(/https?:\/\/[^\s"'<>]+/i);
+  return geral?.[0] ? String(geral[0]).trim() : "";
+}
+
+function formatarFamilyGoogleCss2(value = "") {
+  return encodeURI(String(value || "").trim().replace(/\s+/g, "+"));
+}
+
+function normalizarUrlGoogleFonts(url = "") {
+  const href = extrairPrimeiraUrl(url);
+  if (!href) return "";
+
+  try {
+    const parsed = new URL(href);
+    const host = String(parsed.hostname || "").toLowerCase();
+
+    if (host.includes("fonts.googleapis.com")) {
+      return parsed.toString();
+    }
+
+    if (host.includes("fonts.google.com") && parsed.pathname.startsWith("/share")) {
+      const familias = parsed.searchParams
+        .getAll("selection.family")
+        .flatMap((value) => String(value || "").split("|"))
+        .map((value) => value.trim())
+        .filter(Boolean);
+
+      if (!familias.length) return "";
+
+      const queryFamilias = familias
+        .map((family) => `family=${formatarFamilyGoogleCss2(family)}`)
+        .join("&");
+      return `https://fonts.googleapis.com/css2?${queryFamilias}&display=swap`;
+    }
+  } catch {
+    return "";
+  }
+
+  return "";
+}
+
+function normalizarGoogleFontsUrls(value = []) {
+  const origem = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? value.split(/\r?\n/g)
+      : [];
+
+  return Array.from(
+    new Set(
+      origem
+        .map((item) => normalizarUrlGoogleFonts(item))
+        .filter((item) => /^https?:\/\/fonts\.googleapis\.com\//i.test(item))
+    )
+  ).slice(0, 20);
+}
+
 export function normalizarConfigSistema(data = {}) {
   const logoNormalizadaBase = normalizarTexto(
     data.logoLoginUrl,
@@ -286,6 +517,21 @@ export function normalizarConfigSistema(data = {}) {
     DEFAULT_SISTEMA_CONFIG.faviconUrl,
     120000
   );
+  const loginButtonIconUrlNormalizado = normalizarTexto(
+    data.loginButtonIconUrl,
+    DEFAULT_SISTEMA_CONFIG.loginButtonIconUrl,
+    120000
+  );
+  const cardProfileUrlNormalizado = normalizarTexto(
+    data.cardProfileUrl,
+    DEFAULT_SISTEMA_CONFIG.cardProfileUrl,
+    120000
+  );
+  const cardProfilePathNormalizado = normalizarTexto(
+    data.cardProfilePath,
+    DEFAULT_SISTEMA_CONFIG.cardProfilePath,
+    120000
+  );
   const tituloSistemaNormalizado = normalizarTexto(
     data.tituloSistema,
     DEFAULT_SISTEMA_CONFIG.tituloSistema,
@@ -296,11 +542,65 @@ export function normalizarConfigSistema(data = {}) {
     DEFAULT_SISTEMA_CONFIG.textoLogin,
     120
   );
+  const loginLoadingModeNormalizado = normalizarLoginLoadingMode(data.loginLoadingMode);
+  const loginLoadingSpriteUrlNormalizado = normalizarTexto(
+    data.loginLoadingSpriteUrl,
+    DEFAULT_SISTEMA_CONFIG.loginLoadingSpriteUrl,
+    120000
+  );
+  const googleFontsUrlsNormalizadas = normalizarGoogleFontsUrls(data.googleFontsUrls);
+  const mensagemEspacoLoginRestritoNormalizada = normalizarTexto(
+    data.mensagemEspacoLoginRestrito,
+    DEFAULT_SISTEMA_CONFIG.mensagemEspacoLoginRestrito,
+    240
+  );
+  const mensagemEspacoLoginRestritoFontFamilyNormalizada = normalizarTexto(
+    data.mensagemEspacoLoginRestritoFontFamily,
+    DEFAULT_SISTEMA_CONFIG.mensagemEspacoLoginRestritoFontFamily,
+    120
+  );
+  const mensagemEspacoAssinanteRestritoNormalizada = normalizarTexto(
+    data.mensagemEspacoAssinanteRestrito,
+    DEFAULT_SISTEMA_CONFIG.mensagemEspacoAssinanteRestrito,
+    240
+  );
+  const mensagemEspacoAssinanteRestritoFontFamilyNormalizada = normalizarTexto(
+    data.mensagemEspacoAssinanteRestritoFontFamily,
+    DEFAULT_SISTEMA_CONFIG.mensagemEspacoAssinanteRestritoFontFamily,
+    120
+  );
+  const mensagemRestricaoAvatarUrlNormalizada = normalizarTexto(
+    data.mensagemRestricaoAvatarUrl,
+    DEFAULT_SISTEMA_CONFIG.mensagemRestricaoAvatarUrl,
+    120000
+  );
+  const termosUsoUrlNormalizado = normalizarTexto(
+    data.termosUsoUrl,
+    DEFAULT_SISTEMA_CONFIG.termosUsoUrl,
+    2000
+  );
+  const politicaPrivacidadeUrlNormalizado = normalizarTexto(
+    data.politicaPrivacidadeUrl,
+    DEFAULT_SISTEMA_CONFIG.politicaPrivacidadeUrl,
+    2000
+  );
   const adminUidNormalizado =
     typeof data.adminUid === "string" && data.adminUid.trim()
       ? data.adminUid.trim()
       : null;
   const adminEmailNormalizado = normalizarEmailAdmin(data.adminEmail);
+  const projectOwnerUidNormalizado =
+    typeof data.projectOwnerUid === "string" && data.projectOwnerUid.trim()
+      ? data.projectOwnerUid.trim()
+      : (typeof data.criadoPorUid === "string" && data.criadoPorUid.trim()
+          ? data.criadoPorUid.trim()
+          : "");
+  const projectLastEditorUidNormalizado =
+    typeof data.projectLastEditorUid === "string" && data.projectLastEditorUid.trim()
+      ? data.projectLastEditorUid.trim()
+      : (typeof data.atualizadoPorUid === "string" && data.atualizadoPorUid.trim()
+          ? data.atualizadoPorUid.trim()
+          : "");
   const tipoExperienciaNormalizado = normalizarTipoExperiencia(data.tipoExperiencia);
   const modoAcessoProjetoNormalizado = normalizarModoAcessoProjeto(data.modoAcessoProjeto);
   const layoutTemaNormalizado = normalizarConfiguracaoLayoutTema({
@@ -329,6 +629,10 @@ export function normalizarConfigSistema(data = {}) {
       Object.prototype.hasOwnProperty.call(data, "layoutCardProfileShape")
         ? data.layoutCardProfileShape
         : data?.layoutTema?.cardProfileShape,
+    cardProfileSizePx:
+      Object.prototype.hasOwnProperty.call(data, "layoutCardProfileSizePx")
+        ? data.layoutCardProfileSizePx
+        : data?.layoutTema?.cardProfileSizePx,
     menuPositionOverride:
       Object.prototype.hasOwnProperty.call(data, "layoutMenuPositionOverride")
         ? data.layoutMenuPositionOverride
@@ -354,12 +658,35 @@ export function normalizarConfigSistema(data = {}) {
   return {
     logoLoginUrl: logoNormalizada,
     faviconUrl: faviconNormalizado,
+    loginButtonIconUrl: loginButtonIconUrlNormalizado,
+    cardProfileUrl: cardProfileUrlNormalizado,
+    cardProfilePath: cardProfilePathNormalizado,
     tituloSistema: tituloSistemaNormalizado,
     exibirTituloSistemaNoLogin: normalizarBoolean(
       data.exibirTituloSistemaNoLogin,
       DEFAULT_SISTEMA_CONFIG.exibirTituloSistemaNoLogin
     ),
     textoLogin: textoLoginNormalizado,
+    loginLoadingMode: loginLoadingModeNormalizado,
+    loginLoadingSpriteUrl: loginLoadingSpriteUrlNormalizado,
+    googleFontsUrls: googleFontsUrlsNormalizadas,
+    mensagemEspacoLoginRestrito: mensagemEspacoLoginRestritoNormalizada,
+    mensagemEspacoLoginRestritoFontFamily:
+      mensagemEspacoLoginRestritoFontFamilyNormalizada,
+    mensagemEspacoAssinanteRestrito: mensagemEspacoAssinanteRestritoNormalizada,
+    mensagemEspacoAssinanteRestritoFontFamily:
+      mensagemEspacoAssinanteRestritoFontFamilyNormalizada,
+    exibirBotaoLoginMensagemRestricao: normalizarBoolean(
+      data.exibirBotaoLoginMensagemRestricao,
+      DEFAULT_SISTEMA_CONFIG.exibirBotaoLoginMensagemRestricao
+    ),
+    mensagemRestricaoAvatarUrl: mensagemRestricaoAvatarUrlNormalizada,
+    termosUsoUrl: termosUsoUrlNormalizado,
+    politicaPrivacidadeUrl: politicaPrivacidadeUrlNormalizado,
+    exigirAceiteTermosNoCadastro: normalizarBoolean(
+      data.exigirAceiteTermosNoCadastro,
+      DEFAULT_SISTEMA_CONFIG.exigirAceiteTermosNoCadastro
+    ),
     larguraIconsLoginPx: normalizarLarguraIconsLogin(data.larguraIconsLoginPx),
     temaPadraoSistema: normalizarTemaSistema(data.temaPadraoSistema),
     layoutTema: layoutTemaNormalizado,
@@ -419,16 +746,20 @@ export function normalizarConfigSistema(data = {}) {
     ),
     adminUid: adminUidNormalizado,
     adminEmail: adminEmailNormalizado,
+    iconCollectionIds: normalizarListaString(data.iconCollectionIds),
+    projectOwnerUid: projectOwnerUidNormalizado,
+    projectLastEditorUid: projectLastEditorUidNormalizado,
   };
 }
 
 export async function obterConfigSistema() {
   const hostnameAtual =
     typeof window !== "undefined" ? window.location.hostname || "" : "";
+  const projectKeyContextual = obterProjectKeyContextual();
 
   try {
     const configGerenciada = await obterConfigProjetoDoGerenciador({
-      projectKey: activeFirebaseProjectKey,
+      projectKey: projectKeyContextual || activeFirebaseProjectKey,
       projectId: activeFirebaseProjectId,
       hostname: hostnameAtual,
     });
@@ -437,6 +768,7 @@ export async function obterConfigSistema() {
       const configNormalizada = aplicarDefaultsPorProjeto(
         normalizarConfigSistema(configGerenciada)
       );
+      await sincronizarConfigSistemaRuntime(configNormalizada);
       salvarConfigSistemaCacheLocal(configNormalizada);
       return configNormalizada;
     }
@@ -459,9 +791,10 @@ export async function obterConfigSistema() {
 export async function estaConfigSistemaInicializada() {
   const hostnameAtual =
     typeof window !== "undefined" ? window.location.hostname || "" : "";
+  const projectKeyContextual = obterProjectKeyContextual();
   try {
     const configGerenciada = await obterConfigProjetoDoGerenciador({
-      projectKey: activeFirebaseProjectKey,
+      projectKey: projectKeyContextual || activeFirebaseProjectKey,
       projectId: activeFirebaseProjectId,
       hostname: hostnameAtual,
     });
@@ -478,11 +811,12 @@ export async function salvarConfigSistemaAdmin(configParcial = {}) {
   const configNormalizada = normalizarConfigSistema(configParcial);
   const hostnameAtual =
     typeof window !== "undefined" ? window.location.hostname || "" : "";
+  const projectKeyContextual = obterProjectKeyContextual();
 
   let salvoNoGerenciador = false;
   try {
     salvoNoGerenciador = await salvarConfigProjetoNoGerenciador({
-      projectKey: activeFirebaseProjectKey,
+      projectKey: projectKeyContextual || activeFirebaseProjectKey,
       projectId: activeFirebaseProjectId,
       hostname: hostnameAtual,
       configSistema: configNormalizada,
@@ -501,6 +835,8 @@ export async function salvarConfigSistemaAdmin(configParcial = {}) {
       },
       { merge: true }
     );
+  } else {
+    await sincronizarConfigSistemaRuntime(configNormalizada);
   }
 
   salvarConfigSistemaCacheLocal(configNormalizada);

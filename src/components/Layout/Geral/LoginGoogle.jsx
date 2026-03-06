@@ -4,6 +4,11 @@ import { useNavigate } from "react-router-dom";
 import { getRedirectResult, signInWithPopup, signInWithRedirect } from "firebase/auth";
 import { auth, providerGoogle } from "../../Banco/init-firebase";
 import { bootstrapUser } from "../Menu/Users/bootstrapUser";
+import {
+  DEFAULT_SISTEMA_CONFIG,
+  isOnePageComEntradaPublica,
+  obterConfigSistemaCacheLocal,
+} from "../Sistema/configSistema";
 
 const POST_LOGIN_REDIRECT_KEY = "postLoginRedirectPath";
 
@@ -48,6 +53,14 @@ const authDomainFirebasePadrao = () => {
 function LoginGoogle({ onLogin }) {
   const navigate = useNavigate();
 
+  const resolverDestinoPosLoginPadrao = () => {
+    const configSistema = obterConfigSistemaCacheLocal() || DEFAULT_SISTEMA_CONFIG;
+    if (isOnePageComEntradaPublica(configSistema)) {
+      return "/home";
+    }
+    return null;
+  };
+
   const finalizarLogin = async (firebaseUser) => {
     if (firebaseUser?.uid) {
       localStorage.setItem("userId", firebaseUser.uid);
@@ -83,6 +96,11 @@ function LoginGoogle({ onLogin }) {
       return;
     }
     localStorage.removeItem(POST_LOGIN_REDIRECT_KEY);
+
+    const destinoPadrao = resolverDestinoPosLoginPadrao();
+    if (destinoPadrao) {
+      navigate(destinoPadrao, { replace: true });
+    }
   };
 
   useEffect(() => {

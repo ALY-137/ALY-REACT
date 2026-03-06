@@ -11,7 +11,7 @@ import {
   where,
 } from "firebase/firestore";
 
-import { db, enviarChat } from "../../../Banco/init-firebase.js";
+import { auth, db, enviarChat } from "../../../Banco/init-firebase.js";
 import "./formularios.css";
 import {
   DEFAULT_SISTEMA_CONFIG,
@@ -24,6 +24,7 @@ function Chat() {
   const [chatMensagens, setChatMensagens] = useState([]);
   const [chatHabilitado, setChatHabilitado] = useState(DEFAULT_SISTEMA_CONFIG.chatHabilitado);
   const [carregandoConfig, setCarregandoConfig] = useState(true);
+  const [erroChat, setErroChat] = useState("");
   const contentChatRef = useRef(null);
 
   const skinLogadoUser = localStorage.getItem("skinLogadoUser");
@@ -54,39 +55,75 @@ function Chat() {
   useEffect(() => {
     if (!chatHabilitado || !contactId || !conversationId) {
       setChatMensagens([]);
+      setErroChat("");
       return;
     }
 
     const chatRef = collection(db, "contatos", contactId, "conversas", conversationId, "chat");
     const q = query(chatRef, orderBy("data"));
 
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
-      const mensagens = await Promise.all(
-        snapshot.docs.map(async (docSnap) => {
-          const chatData = docSnap.data();
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        void (async () => {
+          try {
+            setErroChat("");
+            const iconCache = new Map();
+            const podeBuscarSkins = !!auth.currentUser;
 
-          const skinQuery = query(
-            collectionGroup(db, "skins"),
-            where("username", "==", chatData.userRemetente),
-            limit(1)
-          );
-          const skinSnapshot = await getDocs(skinQuery);
+            const mensagens = await Promise.all(
+              snapshot.docs.map(async (docSnap) => {
+                const chatData = docSnap.data();
+                const usernameRemetente = String(chatData.userRemetente || "").trim();
 
-          let iconSkin = null;
-          if (!skinSnapshot.empty) {
-            iconSkin = skinSnapshot.docs[0].data().iconSkin;
+                let iconSkin = null;
+                if (podeBuscarSkins && usernameRemetente) {
+                  if (iconCache.has(usernameRemetente)) {
+                    iconSkin = iconCache.get(usernameRemetente);
+                  } else {
+                    try {
+                      const skinQuery = query(
+                        collectionGroup(db, "skins"),
+                        where("username", "==", usernameRemetente),
+                        limit(1)
+                      );
+                      const skinSnapshot = await getDocs(skinQuery);
+                      iconSkin = !skinSnapshot.empty
+                        ? skinSnapshot.docs[0].data().iconSkin || null
+                        : null;
+                    } catch (erroSkin) {
+                      if (erroSkin?.code !== "permission-denied") {
+                        console.error("Erro ao buscar iconSkin do chat:", erroSkin);
+                      }
+                      iconSkin = null;
+                    }
+                    iconCache.set(usernameRemetente, iconSkin);
+                  }
+                }
+
+                return {
+                  ...chatData,
+                  data: chatData.data ? chatData.data.toDate() : null,
+                  iconSkin,
+                };
+              })
+            );
+
+            setChatMensagens(mensagens);
+          } catch (erroProcessamento) {
+            console.error("Erro ao processar mensagens do chat:", erroProcessamento);
           }
-
-          return {
-            ...chatData,
-            data: chatData.data ? chatData.data.toDate() : null,
-            iconSkin,
-          };
-        })
-      );
-
-      setChatMensagens(mensagens);
-    });
+        })();
+      },
+      (erroSnapshot) => {
+        if (erroSnapshot?.code === "permission-denied") {
+          setChatMensagens([]);
+          setErroChat("Sem permissao para visualizar este chat.");
+          return;
+        }
+        console.error("Erro no listener do chat:", erroSnapshot);
+      }
+    );
 
     return () => unsubscribe();
   }, [chatHabilitado, contactId, conversationId]);
@@ -119,6 +156,10 @@ function Chat() {
 
   if (!chatHabilitado) {
     return <p>Chat desativado em PROPRIEDADES DO SISTEMA.</p>;
+  }
+
+  if (erroChat) {
+    return <p>{erroChat}</p>;
   }
 
   return (

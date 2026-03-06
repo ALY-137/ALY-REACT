@@ -208,6 +208,11 @@ export const LAYOUT_STANDARD_OPERATIONS = [
     label: "Forma do card profile",
     description: "Alterna o tratamento visual do card profile entre quadrado e arredondado.",
   },
+  {
+    id: "cardProfileSizePx",
+    label: "Tamanho do card profile",
+    description: "Define o tamanho padrao do card profile dentro do cabecalho.",
+  },
 ];
 
 function normalizarIdTema(value) {
@@ -334,6 +339,7 @@ const DEFAULT_LAYOUT_TEMA_SKIN = {
   headerSticky: true,
   navbarTabsSticky: true,
   cardProfileShape: "round",
+  cardProfileSizePx: 170,
 };
 
 export const DEFAULT_LAYOUT_THEME_OVERRIDES = {
@@ -346,6 +352,7 @@ export const DEFAULT_LAYOUT_THEME_OVERRIDES = {
   headerSticky: true,
   navbarTabsSticky: true,
   cardProfileShape: "round",
+  cardProfileSizePx: 170,
 };
 
 function normalizarNumeroLayout(value, fallback, min, max) {
@@ -409,6 +416,12 @@ export function normalizarConfiguracaoLayoutTema(value = {}) {
     cardProfileShape: LAYOUT_CARD_PROFILE_SHAPES.has(cardProfileShape)
       ? cardProfileShape
       : DEFAULT_LAYOUT_THEME_OVERRIDES.cardProfileShape,
+    cardProfileSizePx: normalizarNumeroLayout(
+      origem.cardProfileSizePx,
+      DEFAULT_LAYOUT_THEME_OVERRIDES.cardProfileSizePx,
+      96,
+      320
+    ),
   };
 }
 
@@ -450,6 +463,7 @@ export function obterConfigLayoutTemaSkin(temaSkinId, layoutOverrides = null) {
     headerSticky: overrides.headerSticky,
     navbarTabsSticky: overrides.navbarTabsSticky,
     cardProfileShape: overrides.cardProfileShape,
+    cardProfileSizePx: overrides.cardProfileSizePx,
   };
 }
 

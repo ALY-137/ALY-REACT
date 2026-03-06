@@ -1,25 +1,26 @@
 // verificaSkins.js
 import {
-  doc,
   collection,
   collectionGroup,
-  setDoc,
+  doc,
   getDocs,
-  query,
   limit,
+  query,
+  serverTimestamp,
+  setDoc,
   where,
-  serverTimestamp
 } from "firebase/firestore";
 
 import { db } from "../../Banco/init-firebase";
+import { sincronizarEstruturaPublicaEspaco } from "../Espacos/firebaseEspacos";
 
 // ===============================
-// FUNÇÃO PARA VERIFICAR E CRIAR SKIN
+// FUNCAO PARA VERIFICAR E CRIAR SKIN
 // ===============================
 export const verificarESalvarskins = async (userId, username, theme) => {
   try {
     if (!userId) {
-      return { sucesso: false, mensagem: "Usuário não autenticado." };
+      return { sucesso: false, mensagem: "Usuario nao autenticado." };
     }
 
     const userRef = doc(db, "users", userId);
@@ -35,8 +36,8 @@ export const verificarESalvarskins = async (userId, username, theme) => {
       { merge: true }
     );
 
-    // ── Verificar se o username já existe nas skins públicas/restritivas
-    // (skins privadas de terceiros não são consultáveis por regra)
+    // Verificar se o username ja existe nas skins publicas/restritivas
+    // (skins privadas de terceiros nao sao consultaveis por regra)
     const publicQuery = query(
       collectionGroup(db, "skins"),
       where("username", "==", username),
@@ -47,12 +48,10 @@ export const verificarESalvarskins = async (userId, username, theme) => {
     try {
       const publicSnapshot = await getDocs(publicQuery);
       if (!publicSnapshot.empty) {
-        // 🔹 Já existe, não cria, retorna feedback
-        console.log("O nome de usuário da skin já existe.");
-        return { sucesso: false, mensagem: "O nome de usuário já existe!" };
+        console.log("O nome de usuario da skin ja existe.");
+        return { sucesso: false, mensagem: "O nome de usuario ja existe!" };
       }
     } catch (err) {
-      // Em ambientes com regra mais restritiva, segue com validação local.
       if (err?.code !== "permission-denied") throw err;
       return {
         sucesso: false,
@@ -61,26 +60,22 @@ export const verificarESalvarskins = async (userId, username, theme) => {
       };
     }
 
-    // ── Verificar conflito dentro do próprio usuário
-    const ownQuery = query(
-      skinsRef,
-      where("username", "==", username),
-      limit(1)
-    );
+    // Verificar conflito dentro do proprio usuario
+    const ownQuery = query(skinsRef, where("username", "==", username), limit(1));
     const ownSnapshot = await getDocs(ownQuery);
     if (!ownSnapshot.empty) {
-      return { sucesso: false, mensagem: "Você já possui uma skin com esse nome." };
+      return { sucesso: false, mensagem: "Voce ja possui uma skin com esse nome." };
     }
 
-    // ── Definir se é a skin principal
+    // Definir se e a skin principal
     const allSkinsSnapshot = await getDocs(skinsRef);
     const is_main = allSkinsSnapshot.empty;
 
-    // ── Criar a skin
+    // Criar a skin
     const id_skin = doc(skinsRef).id;
 
     await setDoc(doc(skinsRef, id_skin), {
-      ownerUserId: userId, 
+      ownerUserId: userId,
       id_skin,
       username,
       theme,
@@ -93,14 +88,13 @@ export const verificarESalvarskins = async (userId, username, theme) => {
         "https://firebasestorage.googleapis.com/v0/b/teste-aa015.appspot.com/o/imagens%2Fthemes%2Fcyberpink%2Fviolet%2Fet.png?alt=media&token=4c09e6d5-5a0e-48d7-88ae-f56a9a5c1a5b",
     });
 
-    // ── Criar o espaço principal (Home)
+    // Criar o espaco principal (Home)
     const espacosRef = collection(userRef, "espacos");
     const id_espaco = doc(espacosRef).id;
-
-    await setDoc(doc(espacosRef, id_espaco), {
+    const homeData = {
       id_espaco,
       nome: "Home",
-      conteudo: "Conteúdo da página principal",
+      conteudo: "Conteudo da pagina principal",
       ordem: 0,
       ownerUserId: userId,
       skinOwner: id_skin,
@@ -108,12 +102,14 @@ export const verificarESalvarskins = async (userId, username, theme) => {
       visibilidade: "publico",
       createdAt: serverTimestamp(),
       isHome: true,
-      skins_relacionadas: [id_skin]
-    });
+      skins_relacionadas: [id_skin],
+    };
 
-    console.log("Skin e página principal criadas com sucesso!");
+    await setDoc(doc(espacosRef, id_espaco), homeData);
+    await sincronizarEstruturaPublicaEspaco(userId, { ...homeData, id: id_espaco });
+
+    console.log("Skin e pagina principal criadas com sucesso!");
     return { sucesso: true, id_skin };
-
   } catch (error) {
     if (error?.code === "permission-denied") {
       return {

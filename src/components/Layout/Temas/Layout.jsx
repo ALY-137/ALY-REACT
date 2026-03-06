@@ -2,26 +2,54 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "re
 import { obterConfigLayoutTemaSkin, obterCssTemaSkin } from "./themesRegistry";
 import {
   DEFAULT_SISTEMA_CONFIG,
+  isOnePageComEntradaPublica,
   obterConfigSistemaCacheLocal,
 } from "../Sistema/configSistema";
 
-export default function Layout({ profile, content, theme }) {
+const ONEPAGE_HEADER_VERTICAL_PADDING = 32;
+
+export default function Layout({
+  profile,
+  navigation = null,
+  content,
+  theme,
+  configSistemaOverride = null,
+  cardProfileDimensionsOverride = null,
+}) {
   const fundoRef = useRef();
   const cabecalhoRef = useRef();
   const conteudoRef = useRef();
   const [configSistema, setConfigSistema] = useState(
-    () => obterConfigSistemaCacheLocal() || DEFAULT_SISTEMA_CONFIG
+    () => configSistemaOverride || obterConfigSistemaCacheLocal() || DEFAULT_SISTEMA_CONFIG
   );
-  const onePagePublicaAtiva =
-    configSistema?.tipoExperiencia === "onepage" &&
-    configSistema?.modoAcessoProjeto === "publico_sem_login";
+  const configSistemaEfetiva = configSistemaOverride || configSistema;
+  const onePagePublicaAtiva = isOnePageComEntradaPublica(configSistemaEfetiva);
   const layoutConfig = useMemo(
-    () => obterConfigLayoutTemaSkin(theme, configSistema?.layoutTema),
-    [theme, configSistema?.layoutTema]
+    () => obterConfigLayoutTemaSkin(theme, configSistemaEfetiva?.layoutTema),
+    [theme, configSistemaEfetiva?.layoutTema]
   );
+  const dimensoesCardProfileEfetivas = useMemo(() => {
+    const larguraOverride = Number(cardProfileDimensionsOverride?.width || 0);
+    const alturaOverride = Number(cardProfileDimensionsOverride?.height || 0);
+
+    if (larguraOverride > 0 && alturaOverride > 0) {
+      return {
+        width: larguraOverride,
+        height: alturaOverride,
+      };
+    }
+
+    return {
+      width: layoutConfig.cardProfileSizePx,
+      height: layoutConfig.cardProfileSizePx,
+    };
+  }, [cardProfileDimensionsOverride, layoutConfig.cardProfileSizePx]);
   const alturaCabecalhoEfetiva =
     onePagePublicaAtiva && layoutConfig.headerVisible
-      ? Math.max(layoutConfig.headerHeightPx, 200)
+      ? Math.max(
+          layoutConfig.headerHeightPx,
+          dimensoesCardProfileEfetivas.height + ONEPAGE_HEADER_VERTICAL_PADDING
+        )
       : layoutConfig.headerHeightPx;
   const layoutClassName = useMemo(
     () =>
@@ -30,7 +58,13 @@ export default function Layout({ profile, content, theme }) {
   );
 
   useEffect(() => {
+    if (!configSistemaOverride || typeof configSistemaOverride !== "object") return;
+    setConfigSistema(configSistemaOverride);
+  }, [configSistemaOverride]);
+
+  useEffect(() => {
     const handleConfigSistemaAtualizada = (event) => {
+      if (configSistemaOverride && typeof configSistemaOverride === "object") return;
       const configAtualizada = event?.detail;
       if (!configAtualizada || typeof configAtualizada !== "object") return;
       setConfigSistema(configAtualizada);
@@ -40,7 +74,7 @@ export default function Layout({ profile, content, theme }) {
     return () => {
       window.removeEventListener("sistema-config-atualizada", handleConfigSistemaAtualizada);
     };
-  }, []);
+  }, [configSistemaOverride]);
 
   // ---------- Layout Responsivo ----------
   useEffect(() => {
@@ -130,6 +164,18 @@ export default function Layout({ profile, content, theme }) {
       "--layout-card-profile-radius",
       layoutConfig.cardProfileShape === "square" ? "0px" : "24px"
     );
+    root.style.setProperty(
+      "--layout-card-profile-size",
+      `${layoutConfig.cardProfileSizePx}px`
+    );
+    root.style.setProperty(
+      "--layout-card-profile-width",
+      `${dimensoesCardProfileEfetivas.width}px`
+    );
+    root.style.setProperty(
+      "--layout-card-profile-height",
+      `${dimensoesCardProfileEfetivas.height}px`
+    );
 
     import(`./${cssTheme.toLowerCase()}.css`).catch(console.error);
   }, [
@@ -137,10 +183,13 @@ export default function Layout({ profile, content, theme }) {
     layoutConfig.menuPosition,
     layoutConfig.surfaceDensity,
     layoutConfig.cardProfileShape,
+    layoutConfig.cardProfileSizePx,
     layoutConfig.headerVisible,
     layoutConfig.headerSticky,
     layoutConfig.navbarTabsSticky,
     layoutConfig.headerHeightPx,
+    dimensoesCardProfileEfetivas.height,
+    dimensoesCardProfileEfetivas.width,
     alturaCabecalhoEfetiva,
     onePagePublicaAtiva,
   ]);
@@ -150,6 +199,8 @@ export default function Layout({ profile, content, theme }) {
       <div id="cabecalho" ref={cabecalhoRef}>
         {profile}
       </div>
+
+      {navigation ? <div id="navegacao">{navigation}</div> : null}
 
       <div id="conteudo" ref={conteudoRef}>
         {content}

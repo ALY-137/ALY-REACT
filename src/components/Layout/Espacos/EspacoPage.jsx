@@ -26,12 +26,16 @@ import {
 } from "../Storage/sharedBucketApi";
 import {
   DEFAULT_SISTEMA_CONFIG,
+  isOnePageComEntradaPublica,
   obterConfigSistema,
+  obterConfigSistemaCacheLocal,
   obterRotulosBloco,
   obterRotulosEspaco,
   obterRotulosSkin,
 } from "../Sistema/configSistema";
 import { solicitarSolicitacaoPixManualBloco } from "../Pagamentos/mercadoPagoApi";
+import { seforAdm } from "../../Scripts/verificacoes/verificaAdm";
+import { getEspacoCompleto } from "./firebaseEspacos";
 
 const isRenderableUrl = (valor) =>
   typeof valor === "string" &&
@@ -95,6 +99,93 @@ const gerarNomeArquivoSeguro = (nome = "imagem") => {
 
 const capitalizar = (texto = "") =>
   texto ? texto.charAt(0).toUpperCase() + texto.slice(1) : "";
+
+const extrairPrimeiraUrl = (texto = "") => {
+  const bruto = String(texto || "").trim();
+  if (!bruto) return "";
+
+  const semAspas = bruto.replace(/^['"]|['"]$/g, "").trim();
+  if (/^https?:\/\//i.test(semAspas)) return semAspas;
+
+  const hrefMatch = bruto.match(/href\s*=\s*["']([^"']+)["']/i);
+  if (hrefMatch?.[1]) {
+    const href = String(hrefMatch[1]).trim();
+    if (/^https?:\/\//i.test(href)) return href;
+  }
+
+  const importMatch = bruto.match(/url\(([^)]+)\)/i);
+  if (importMatch?.[1]) {
+    const href = String(importMatch[1]).replace(/^['"]|['"]$/g, "").trim();
+    if (/^https?:\/\//i.test(href)) return href;
+  }
+
+  const geral = bruto.match(/https?:\/\/[^\s"'<>]+/i);
+  return geral?.[0] ? String(geral[0]).trim() : "";
+};
+
+const formatarFamilyGoogleCss2 = (value = "") =>
+  encodeURI(String(value || "").trim().replace(/\s+/g, "+"));
+
+const normalizarUrlGoogleFonts = (url = "") => {
+  const href = extrairPrimeiraUrl(url);
+  if (!href) return "";
+
+  try {
+    const parsed = new URL(href);
+    const host = String(parsed.hostname || "").toLowerCase();
+
+    if (host.includes("fonts.googleapis.com")) {
+      return parsed.toString();
+    }
+
+    if (host.includes("fonts.google.com") && parsed.pathname.startsWith("/share")) {
+      const familias = parsed.searchParams
+        .getAll("selection.family")
+        .flatMap((value) => String(value || "").split("|"))
+        .map((value) => value.trim())
+        .filter(Boolean);
+
+      if (!familias.length) return "";
+
+      const queryFamilias = familias
+        .map((family) => `family=${formatarFamilyGoogleCss2(family)}`)
+        .join("&");
+      return `https://fonts.googleapis.com/css2?${queryFamilias}&display=swap`;
+    }
+  } catch {
+    return "";
+  }
+
+  return "";
+};
+
+const carregarGoogleFontsNoDocumento = (urls = []) => {
+  if (typeof document === "undefined") return;
+
+  const lista = Array.isArray(urls) ? urls : [];
+  for (const url of lista) {
+    const href = normalizarUrlGoogleFonts(url);
+    if (!/^https?:\/\/fonts\.googleapis\.com\//i.test(href)) continue;
+
+    const existente = document.querySelector(
+      `link[data-google-font-project="true"][href="${href}"]`
+    );
+    if (existente) continue;
+
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = href;
+    link.setAttribute("data-google-font-project", "true");
+    document.head.appendChild(link);
+  }
+};
+
+const montarFontFamilyCss = (fontFamily = "") => {
+  const nome = String(fontFamily || "").trim();
+  if (!nome) return "";
+  if (nome.includes(",")) return nome;
+  return `'${nome}', sans-serif`;
+};
 
 async function gerarPreviewDesfocado(file) {
   try {
@@ -162,11 +253,13 @@ export default function EspacoPage() {
     user,
     onePagePublicaAtiva: onePagePublicaAtivaContexto = false,
   } = useOutletContext();
+  const configSistemaCacheLocal = obterConfigSistemaCacheLocal() || DEFAULT_SISTEMA_CONFIG;
   const [blocos, setBlocos] = useState([]);
   const [erroBlocos, setErroBlocos] = useState("");
   const [isAssinante, setIsAssinante] = useState(false);
   const [assinaturaCheckPronto, setAssinaturaCheckPronto] = useState(false);
   const [compradorPorBloco, setCompradorPorBloco] = useState({});
+  const [sessaoChatPorBloco, setSessaoChatPorBloco] = useState({});
   const [originaisPorBloco, setOriginaisPorBloco] = useState({});
   const [previewsPorBloco, setPreviewsPorBloco] = useState({});
   const [imagensCardsPorBloco, setImagensCardsPorBloco] = useState({});
@@ -180,7 +273,20 @@ export default function EspacoPage() {
   const [pixManualSistemaHabilitado, setPixManualSistemaHabilitado] = useState(
     DEFAULT_SISTEMA_CONFIG.pixManualHabilitado
   );
-  const [onePagePublicaAtiva, setOnePagePublicaAtiva] = useState(false);
+  const [espacoDetalheAtual, setEspacoDetalheAtual] = useState(null);
+  const [onePagePublicaAtiva, setOnePagePublicaAtiva] = useState(
+    isOnePageComEntradaPublica(configSistemaCacheLocal)
+  );
+  const [adminUidProjeto, setAdminUidProjeto] = useState(
+    String(configSistemaCacheLocal?.adminUid || localStorage.getItem("systemAdminUid") || "").trim()
+  );
+  const [adminEmailProjeto, setAdminEmailProjeto] = useState(
+    String(
+      configSistemaCacheLocal?.adminEmail || localStorage.getItem("systemAdminEmail") || ""
+    )
+      .trim()
+      .toLowerCase()
+  );
   const [nomeSkinSingular, setNomeSkinSingular] = useState(
     DEFAULT_SISTEMA_CONFIG.nomeSkinSingular
   );
@@ -196,29 +302,142 @@ export default function EspacoPage() {
   const [nomeBlocoPlural, setNomeBlocoPlural] = useState(
     DEFAULT_SISTEMA_CONFIG.nomeBlocoPlural
   );
+  const [mensagemEspacoLoginRestrito, setMensagemEspacoLoginRestrito] = useState(
+    DEFAULT_SISTEMA_CONFIG.mensagemEspacoLoginRestrito
+  );
+  const [
+    mensagemEspacoLoginRestritoFontFamily,
+    setMensagemEspacoLoginRestritoFontFamily,
+  ] = useState(DEFAULT_SISTEMA_CONFIG.mensagemEspacoLoginRestritoFontFamily);
+  const [mensagemEspacoAssinanteRestrito, setMensagemEspacoAssinanteRestrito] = useState(
+    DEFAULT_SISTEMA_CONFIG.mensagemEspacoAssinanteRestrito
+  );
+  const [
+    mensagemEspacoAssinanteRestritoFontFamily,
+    setMensagemEspacoAssinanteRestritoFontFamily,
+  ] = useState(DEFAULT_SISTEMA_CONFIG.mensagemEspacoAssinanteRestritoFontFamily);
+  const [googleFontsUrlsProjeto, setGoogleFontsUrlsProjeto] = useState(
+    Array.isArray(DEFAULT_SISTEMA_CONFIG.googleFontsUrls)
+      ? DEFAULT_SISTEMA_CONFIG.googleFontsUrls
+      : []
+  );
+  const [exibirBotaoLoginMensagemRestricao, setExibirBotaoLoginMensagemRestricao] = useState(
+    DEFAULT_SISTEMA_CONFIG.exibirBotaoLoginMensagemRestricao
+  );
+  const [mensagemRestricaoAvatarUrl, setMensagemRestricaoAvatarUrl] = useState(
+    DEFAULT_SISTEMA_CONFIG.mensagemRestricaoAvatarUrl
+  );
   const blockedOriginalPathsRef = useRef(new Set());
   const blockedPreviewPathsRef = useRef(new Set());
   const backfilledPublicUrlsRef = useRef(new Set());
   const nomeEspacoSingularCapitalizado = capitalizar(nomeEspacoSingular);
   const nomeBlocoSingularCapitalizado = capitalizar(nomeBlocoSingular);
+  const loginLoadingMode = String(configSistemaCacheLocal?.loginLoadingMode || "")
+    .trim()
+    .toLowerCase();
+  const loginLoadingSpriteUrl = String(configSistemaCacheLocal?.loginLoadingSpriteUrl || "").trim();
+  const exibirLoaderSprite = loginLoadingMode === "sprite_sheet" && Boolean(loginLoadingSpriteUrl);
+  const carregamentoAcessoEspacoJSX = exibirLoaderSprite ? (
+    <div className="sprite-loader-layer sprite-loader-layer-inline" aria-live="polite">
+      <div
+        className="loader-cherry"
+        aria-hidden="true"
+        style={loginLoadingSpriteUrl ? { backgroundImage: `url("${loginLoadingSpriteUrl}")` } : undefined}
+      />
+    </div>
+  ) : (
+    <div className="system-loading-indicator" aria-live="polite">
+      <div className="system-loading-dot" aria-hidden="true" />
+    </div>
+  );
 
   if (!espacos) return null;
 
   const persistedUid = localStorage.getItem("userId");
+  const authUserAtual = user || auth.currentUser || null;
   const authUid = auth.currentUser?.uid || null;
   const currentUid = user?.uid || authUid || persistedUid || null;
   const espacoAtual = espacos.find((e) => e.nome === espacoNome);
   const espacoId = espacoAtual?.id || espacoAtual?.id_espaco;
-  const ownerUserId = espacoAtual?.ownerUserId || espacos?.[0]?.ownerUserId || null;
+  const onePagePublicaAtivaEfetiva = Boolean(onePagePublicaAtivaContexto || onePagePublicaAtiva);
+  const emailUsuarioAtual = String(authUserAtual?.email || "")
+    .trim()
+    .toLowerCase();
+  const adminUidProjetoEfetivo = String(
+    adminUidProjeto || localStorage.getItem("systemAdminUid") || ""
+  ).trim();
+  const adminEmailProjetoEfetivo = String(
+    adminEmailProjeto || localStorage.getItem("systemAdminEmail") || ""
+  )
+    .trim()
+    .toLowerCase();
+  const adminProjetoConfigurado = Boolean(
+    adminUidProjetoEfetivo || adminEmailProjetoEfetivo
+  );
+  const espacoAtualEfetivo =
+    espacoDetalheAtual &&
+    String(espacoDetalheAtual.id || espacoDetalheAtual.id_espaco) === String(espacoId || "")
+      ? { ...espacoAtual, ...espacoDetalheAtual }
+      : espacoAtual;
+  const usuarioEhAdminProjeto = Boolean(
+    currentUid &&
+      (
+        (adminUidProjetoEfetivo && currentUid === adminUidProjetoEfetivo) ||
+        (adminEmailProjetoEfetivo && emailUsuarioAtual === adminEmailProjetoEfetivo) ||
+        (!adminProjetoConfigurado && authUserAtual && seforAdm(authUserAtual))
+      )
+  );
+  const ownerUserId =
+    espacoAtualEfetivo?.ownerUserId ||
+    espacos?.[0]?.ownerUserId ||
+    (
+      onePagePublicaAtivaEfetiva
+        ? adminUidProjetoEfetivo || (usuarioEhAdminProjeto ? currentUid : null)
+        : null
+    );
   const isOwner = !!currentUid && ownerUserId === currentUid;
   const isCoCriador =
     !!currentUid &&
-    Array.isArray(espacoAtual?.coCriadoresUids) &&
-    espacoAtual.coCriadoresUids.includes(currentUid);
+    Array.isArray(espacoAtualEfetivo?.coCriadoresUids) &&
+    espacoAtualEfetivo.coCriadoresUids.includes(currentUid);
   const podeGerenciarPadrao = isOwner || isCoCriador;
-  const onePagePublicaAtivaEfetiva = Boolean(onePagePublicaAtivaContexto || onePagePublicaAtiva);
-  const podeGerenciar = podeGerenciarPadrao;
-  const visibilidadeEspaco = espacoAtual?.visibilidade || "publico";
+  const podeGerenciar = onePagePublicaAtivaEfetiva
+    ? usuarioEhAdminProjeto
+    : (podeGerenciarPadrao || usuarioEhAdminProjeto);
+  const visibilidadeEspaco = espacoAtualEfetivo?.visibilidade || "publico";
+  const visitanteOnePagePublico =
+    onePagePublicaAtivaEfetiva && !currentUid && !podeGerenciar;
+
+  useEffect(() => {
+    let ativo = true;
+
+    async function carregarEspacoCompletoAtual() {
+      if (!espacoId || !ownerUserId) {
+        if (ativo) setEspacoDetalheAtual(null);
+        return;
+      }
+
+      try {
+        const detalhe = await getEspacoCompleto(ownerUserId, espacoId);
+        if (ativo) {
+          setEspacoDetalheAtual(detalhe);
+        }
+      } catch (err) {
+        if (!ativo) return;
+        if (err?.code === "permission-denied") {
+          setEspacoDetalheAtual(null);
+          return;
+        }
+        console.error("Erro ao carregar detalhes do espaco:", err);
+        setEspacoDetalheAtual(null);
+      }
+    }
+
+    carregarEspacoCompletoAtual();
+    return () => {
+      ativo = false;
+    };
+  }, [espacoId, ownerUserId, reloadNonce]);
 
   const idsAssinantePossiveis = useMemo(
     () => [currentUid, skinIdAtual].filter(Boolean),
@@ -304,9 +523,10 @@ export default function EspacoPage() {
         setMercadoPagoSistemaHabilitado(config?.mercadoPagoHabilitado !== false);
         setPixManualSistemaHabilitado(config?.pixManualHabilitado !== false);
         setOnePagePublicaAtiva(
-          config?.tipoExperiencia === "onepage" &&
-            config?.modoAcessoProjeto === "publico_sem_login"
+          isOnePageComEntradaPublica(config)
         );
+        setAdminUidProjeto(String(config?.adminUid || "").trim());
+        setAdminEmailProjeto(String(config?.adminEmail || "").trim().toLowerCase());
         const rotulosSkin = obterRotulosSkin(config);
         const rotulosEspaco = obterRotulosEspaco(config);
         const rotulosBloco = obterRotulosBloco(config);
@@ -317,16 +537,106 @@ export default function EspacoPage() {
         setNomeEspacoPlural(rotulosEspaco.plural || DEFAULT_SISTEMA_CONFIG.nomeEspacoPlural);
         setNomeBlocoSingular(rotulosBloco.singular || DEFAULT_SISTEMA_CONFIG.nomeBlocoSingular);
         setNomeBlocoPlural(rotulosBloco.plural || DEFAULT_SISTEMA_CONFIG.nomeBlocoPlural);
+        setMensagemEspacoLoginRestrito(
+          String(
+            config?.mensagemEspacoLoginRestrito ||
+              DEFAULT_SISTEMA_CONFIG.mensagemEspacoLoginRestrito
+          )
+        );
+        setMensagemEspacoLoginRestritoFontFamily(
+          String(
+            config?.mensagemEspacoLoginRestritoFontFamily ||
+              DEFAULT_SISTEMA_CONFIG.mensagemEspacoLoginRestritoFontFamily
+          )
+        );
+        setMensagemEspacoAssinanteRestrito(
+          String(
+            config?.mensagemEspacoAssinanteRestrito ||
+              DEFAULT_SISTEMA_CONFIG.mensagemEspacoAssinanteRestrito
+          )
+        );
+        setMensagemEspacoAssinanteRestritoFontFamily(
+          String(
+            config?.mensagemEspacoAssinanteRestritoFontFamily ||
+              DEFAULT_SISTEMA_CONFIG.mensagemEspacoAssinanteRestritoFontFamily
+          )
+        );
+        setGoogleFontsUrlsProjeto(Array.isArray(config?.googleFontsUrls) ? config.googleFontsUrls : []);
+        setExibirBotaoLoginMensagemRestricao(
+          config?.exibirBotaoLoginMensagemRestricao !== false
+        );
+        setMensagemRestricaoAvatarUrl(
+          String(
+            config?.mensagemRestricaoAvatarUrl ||
+              DEFAULT_SISTEMA_CONFIG.mensagemRestricaoAvatarUrl
+          )
+        );
       } catch {
         if (!ativo) return;
-        setMercadoPagoSistemaHabilitado(DEFAULT_SISTEMA_CONFIG.mercadoPagoHabilitado);
-        setPixManualSistemaHabilitado(DEFAULT_SISTEMA_CONFIG.pixManualHabilitado);
-        setOnePagePublicaAtiva(false);
-        setNomeSkinSingular(DEFAULT_SISTEMA_CONFIG.nomeSkinSingular);
-        setNomeEspacoSingular(DEFAULT_SISTEMA_CONFIG.nomeEspacoSingular);
-        setNomeEspacoPlural(DEFAULT_SISTEMA_CONFIG.nomeEspacoPlural);
-        setNomeBlocoSingular(DEFAULT_SISTEMA_CONFIG.nomeBlocoSingular);
-        setNomeBlocoPlural(DEFAULT_SISTEMA_CONFIG.nomeBlocoPlural);
+        const configFallback = obterConfigSistemaCacheLocal() || configSistemaCacheLocal;
+        setMercadoPagoSistemaHabilitado(configFallback?.mercadoPagoHabilitado !== false);
+        setPixManualSistemaHabilitado(configFallback?.pixManualHabilitado !== false);
+        setOnePagePublicaAtiva(
+          isOnePageComEntradaPublica(configFallback)
+        );
+        setAdminUidProjeto(
+          String(
+            configFallback?.adminUid || localStorage.getItem("systemAdminUid") || ""
+          ).trim()
+        );
+        setAdminEmailProjeto(
+          String(
+            configFallback?.adminEmail || localStorage.getItem("systemAdminEmail") || ""
+          )
+            .trim()
+            .toLowerCase()
+        );
+        const rotulosSkin = obterRotulosSkin(configFallback);
+        const rotulosEspaco = obterRotulosEspaco(configFallback);
+        const rotulosBloco = obterRotulosBloco(configFallback);
+        setNomeSkinSingular(rotulosSkin.singular || DEFAULT_SISTEMA_CONFIG.nomeSkinSingular);
+        setNomeEspacoSingular(
+          rotulosEspaco.singular || DEFAULT_SISTEMA_CONFIG.nomeEspacoSingular
+        );
+        setNomeEspacoPlural(rotulosEspaco.plural || DEFAULT_SISTEMA_CONFIG.nomeEspacoPlural);
+        setNomeBlocoSingular(rotulosBloco.singular || DEFAULT_SISTEMA_CONFIG.nomeBlocoSingular);
+        setNomeBlocoPlural(rotulosBloco.plural || DEFAULT_SISTEMA_CONFIG.nomeBlocoPlural);
+        setMensagemEspacoLoginRestrito(
+          String(
+            configFallback?.mensagemEspacoLoginRestrito ||
+              DEFAULT_SISTEMA_CONFIG.mensagemEspacoLoginRestrito
+          )
+        );
+        setMensagemEspacoLoginRestritoFontFamily(
+          String(
+            configFallback?.mensagemEspacoLoginRestritoFontFamily ||
+              DEFAULT_SISTEMA_CONFIG.mensagemEspacoLoginRestritoFontFamily
+          )
+        );
+        setMensagemEspacoAssinanteRestrito(
+          String(
+            configFallback?.mensagemEspacoAssinanteRestrito ||
+              DEFAULT_SISTEMA_CONFIG.mensagemEspacoAssinanteRestrito
+          )
+        );
+        setMensagemEspacoAssinanteRestritoFontFamily(
+          String(
+            configFallback?.mensagemEspacoAssinanteRestritoFontFamily ||
+              DEFAULT_SISTEMA_CONFIG.mensagemEspacoAssinanteRestritoFontFamily
+          )
+        );
+        setGoogleFontsUrlsProjeto(
+          Array.isArray(configFallback?.googleFontsUrls) ? configFallback.googleFontsUrls : []
+        );
+        setExibirBotaoLoginMensagemRestricao(
+          configFallback?.exibirBotaoLoginMensagemRestricao !== false
+        );
+        setMensagemRestricaoAvatarUrl(
+          String(
+            configFallback?.mensagemRestricaoAvatarUrl ||
+              DEFAULT_SISTEMA_CONFIG.mensagemRestricaoAvatarUrl
+          )
+        );
       }
     }
 
@@ -336,6 +646,10 @@ export default function EspacoPage() {
       ativo = false;
     };
   }, []);
+
+  useEffect(() => {
+    carregarGoogleFontsNoDocumento(googleFontsUrlsProjeto);
+  }, [googleFontsUrlsProjeto]);
 
   useEffect(() => {
     if (!espacoId || !ownerUserId) return;
@@ -414,23 +728,14 @@ export default function EspacoPage() {
 
         const docs = [];
 
-        try {
-          const snap = await getDocs(blocosRef);
-          docs.push(...snap.docs.map((d) => ({ __legacy: false, docSnap: d })));
-        } catch (allErr) {
-          if (allErr?.code !== "permission-denied") throw allErr;
-
-          const queries = [
+        if (visitanteOnePagePublico) {
+          const queriesPublicas = [
             query(blocosRef, where("visibilidade", "==", "publico")),
-            query(blocosRef, where("visibilidade", "==", "publico_restritivo")),
-            query(blocosRef, where("visibilidade", "==", "privado")),
-            query(blocosRef, where("visibilidade", "==", "exclusivo_assinante")),
-            query(blocosRef, where("visibilidade", "==", "exclusivo_comprador")),
-            query(blocosRef, where("visibilidade", "==", "comprado")),
+            query(blocosRef, where("visibilidade", "==", null)),
           ];
 
           const results = await Promise.allSettled(
-            queries.map((qRef) => getDocs(qRef))
+            queriesPublicas.map((qRef) => getDocs(qRef))
           );
 
           for (const result of results) {
@@ -440,9 +745,59 @@ export default function EspacoPage() {
               );
             } else if (
               result.reason?.code &&
-              result.reason.code !== "permission-denied"
+              result.reason.code !== "permission-denied" &&
+              result.reason.code !== "failed-precondition"
             ) {
               throw result.reason;
+            }
+          }
+
+          if (!docs.length) {
+            try {
+              const snap = await getDocs(blocosRef);
+              docs.push(...snap.docs.map((d) => ({ __legacy: false, docSnap: d })));
+            } catch (allErr) {
+              if (
+                allErr?.code !== "permission-denied" &&
+                allErr?.code !== "failed-precondition"
+              ) {
+                throw allErr;
+              }
+            }
+          }
+        } else {
+          try {
+            const snap = await getDocs(blocosRef);
+            docs.push(...snap.docs.map((d) => ({ __legacy: false, docSnap: d })));
+          } catch (allErr) {
+            if (allErr?.code !== "permission-denied") throw allErr;
+
+            const queries = [
+              query(blocosRef, where("visibilidade", "==", "publico")),
+              query(blocosRef, where("visibilidade", "==", "publico_restritivo")),
+              query(blocosRef, where("visibilidade", "==", "privado")),
+              query(blocosRef, where("visibilidade", "==", "exclusivo_assinante")),
+              query(blocosRef, where("visibilidade", "==", "exclusivo_comprador")),
+              query(blocosRef, where("visibilidade", "==", "comprado")),
+              query(blocosRef, where("visibilidade", "==", null)),
+            ];
+
+            const results = await Promise.allSettled(
+              queries.map((qRef) => getDocs(qRef))
+            );
+
+            for (const result of results) {
+              if (result.status === "fulfilled") {
+                docs.push(
+                  ...result.value.docs.map((d) => ({ __legacy: false, docSnap: d }))
+                );
+              } else if (
+                result.reason?.code &&
+                result.reason.code !== "permission-denied" &&
+                result.reason.code !== "failed-precondition"
+              ) {
+                throw result.reason;
+              }
             }
           }
         }
@@ -672,6 +1027,61 @@ export default function EspacoPage() {
   }, [blocos, idsAssinantePossiveis, ownerUserId, espacoId, podeVerEspaco]);
 
   useEffect(() => {
+    if (!currentUid || !ownerUserId || !espacoId || !podeVerEspaco) {
+      setSessaoChatPorBloco({});
+      return;
+    }
+
+    let cancelado = false;
+
+    async function carregarSessoesChatComprador() {
+      try {
+        const pedidosSnap = await getDocs(
+          query(
+            collection(db, "users", ownerUserId, "pedidos"),
+            where("compradorUid", "==", currentUid)
+          )
+        );
+
+        if (cancelado) return;
+
+        const mapa = {};
+        for (const pedidoDoc of pedidosSnap.docs) {
+          const pedido = pedidoDoc.data() || {};
+          const status = String(pedido?.status || "pedido_solicitado").trim().toLowerCase();
+          if (status !== "pagamento_confirmado") continue;
+          if (String(pedido?.espacoId || "").trim() !== String(espacoId || "").trim()) continue;
+
+          const blocoId = String(pedido?.blocoId || "").trim();
+          const contactId = String(pedido?.sessionContactId || "").trim();
+          const conversationId = String(pedido?.sessionConversationId || "principal").trim();
+          if (!blocoId || !contactId) continue;
+
+          mapa[blocoId] = {
+            contactId,
+            conversationId: conversationId || "principal",
+          };
+        }
+
+        setSessaoChatPorBloco(mapa);
+      } catch (err) {
+        if (!cancelado) {
+          setSessaoChatPorBloco({});
+        }
+        if (err?.code !== "permission-denied") {
+          console.error("Erro ao carregar chat de sessao por bloco:", err);
+        }
+      }
+    }
+
+    carregarSessoesChatComprador();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [currentUid, ownerUserId, espacoId, podeVerEspaco, reloadNonce]);
+
+  useEffect(() => {
     if (!podeVerEspaco || !blocos.length) {
       setOriginaisPorBloco((prev) => (Object.keys(prev).length ? {} : prev));
       blockedOriginalPathsRef.current.clear();
@@ -889,15 +1299,45 @@ export default function EspacoPage() {
     return <p>{`${nomeEspacoSingularCapitalizado} nao encontrado`}</p>;
   }
 
+  const resolverTemplateMensagemEspaco = (template, fallback) => {
+    const base = String(template || fallback || "").trim();
+    if (!base) return "Conteudo restrito.";
+    return base.replaceAll("{nomeEspacoSingular}", nomeEspacoSingular);
+  };
+
   const mensagemRestricaoEspaco = (() => {
     if (visibilidadeEspaco === "exclusivo_assinante") {
-      return `Este ${nomeEspacoSingular} requer assinatura para visualizar o conteudo.`;
+      return resolverTemplateMensagemEspaco(
+        mensagemEspacoAssinanteRestrito,
+        DEFAULT_SISTEMA_CONFIG.mensagemEspacoAssinanteRestrito
+      );
     }
     if (visibilidadeEspaco === "privado" || visibilidadeEspaco === "publico_restritivo") {
-      return `Este ${nomeEspacoSingular} requer login para visualizar o conteudo.`;
+      return resolverTemplateMensagemEspaco(
+        mensagemEspacoLoginRestrito,
+        DEFAULT_SISTEMA_CONFIG.mensagemEspacoLoginRestrito
+      );
     }
     return "Conteudo restrito.";
   })();
+  const fonteMensagemRestricaoEspaco = (() => {
+    if (visibilidadeEspaco === "exclusivo_assinante") {
+      return String(mensagemEspacoAssinanteRestritoFontFamily || "").trim();
+    }
+    if (visibilidadeEspaco === "privado" || visibilidadeEspaco === "publico_restritivo") {
+      return String(mensagemEspacoLoginRestritoFontFamily || "").trim();
+    }
+    return "";
+  })();
+  const estiloMensagemRestricaoEspaco = fonteMensagemRestricaoEspaco
+    ? { fontFamily: montarFontFamilyCss(fonteMensagemRestricaoEspaco) }
+    : undefined;
+  const tipoRestricaoEspaco =
+    visibilidadeEspaco === "exclusivo_assinante" ? "assinante" : "login";
+  const mostrarCtaRestricaoEspaco =
+    tipoRestricaoEspaco !== "login" || exibirBotaoLoginMensagemRestricao !== false;
+  const avatarMensagemRestricao = String(mensagemRestricaoAvatarUrl || "").trim();
+  const conteudoEspaco = String(espacoAtualEfetivo?.conteudo || "").trim();
 
   const irParaAssinatura = () => {
     const skinLogadoUser = localStorage.getItem("skinLogadoUser");
@@ -984,6 +1424,29 @@ export default function EspacoPage() {
       );
     }
     return null;
+  };
+
+  const abrirChatSessaoBloco = (blocoId) => {
+    const sessaoChat = sessaoChatPorBloco[blocoId];
+    const contactId = String(sessaoChat?.contactId || "").trim();
+    const conversationId = String(sessaoChat?.conversationId || "principal").trim();
+    if (!contactId) return;
+
+    const skinLogadoUser = localStorage.getItem("skinLogadoUser");
+    if (!isOwner && !skinLogadoUser) {
+      alert(`Selecione uma ${nomeSkinSingular} para acessar o chat.`);
+      return;
+    }
+
+    const menuBase = onePagePublicaAtivaEfetiva
+      ? (isOwner ? "/menu/admin" : `/menu/${skinLogadoUser || ""}`)
+      : `/menu/${skinLogadoUser}`;
+
+    navigate(
+      `${menuBase}/contatos/${encodeURIComponent(contactId)}/chat/${encodeURIComponent(
+        conversationId || "principal"
+      )}`
+    );
   };
 
   const adicionarBloco = (bloco) => {
@@ -1289,8 +1752,6 @@ export default function EspacoPage() {
 
   return (
     <div>
-      <h2>{espacoAtual.nome}</h2>
-
       {podeGerenciar && (
         <CriadorBloco
           onCreate={adicionarBloco}
@@ -1303,15 +1764,37 @@ export default function EspacoPage() {
       {!!erroBlocos && <p style={{ color: "red" }}>{erroBlocos}</p>}
       {!!erroAcaoBloco && <p style={{ color: "red" }}>{erroAcaoBloco}</p>}
 
-      {!acessoEspacoResolvido && <p>{`Carregando acesso ao ${nomeEspacoSingular}...`}</p>}
+      {!acessoEspacoResolvido && carregamentoAcessoEspacoJSX}
 
       {acessoEspacoResolvido && !podeVerEspaco && (
-        <div style={{ padding: 16, border: "1px solid #666", marginBottom: 16 }}>
-          <p>{mensagemRestricaoEspaco}</p>
-          {renderCtaRestricao(
-            visibilidadeEspaco === "exclusivo_assinante" ? "assinante" : "login"
-          )}
+        <div className="espaco-restricao-wrapper">
+          {avatarMensagemRestricao ? (
+            <img
+              src={avatarMensagemRestricao}
+              alt="Avatar da mensagem"
+              className="espaco-restricao-avatar"
+            />
+          ) : null}
+
+          <div className="espaco-restricao-balao">
+            {avatarMensagemRestricao ? (
+              <span aria-hidden="true" className="espaco-restricao-balao-ponteiro" />
+            ) : null}
+
+            <p className="espaco-restricao-texto" style={estiloMensagemRestricaoEspaco}>
+              {mensagemRestricaoEspaco}
+            </p>
+            {mostrarCtaRestricaoEspaco ? renderCtaRestricao(tipoRestricaoEspaco) : null}
+          </div>
         </div>
+      )}
+
+      {acessoEspacoResolvido && podeVerEspaco && !!conteudoEspaco && (
+        <div
+          className="espaco-conteudo-html"
+          style={{ marginBottom: 20 }}
+          dangerouslySetInnerHTML={{ __html: conteudoEspaco }}
+        />
       )}
 
       {acessoEspacoResolvido &&
@@ -1324,6 +1807,7 @@ export default function EspacoPage() {
           const visivel = podeVerBloco(bloco);
           const bloqueado = !visivel;
           const tipoRestricao = tipoRestricaoBloco(bloco);
+          const sessaoChatBloco = sessaoChatPorBloco[bloco.id] || null;
           const precoCompradorFormatado =
             tipoRestricao === "comprador" && currentUid
               ? formatarPreco(bloco?.precoCentavos, bloco?.moeda || "BRL")
@@ -1466,6 +1950,14 @@ export default function EspacoPage() {
                   {renderCtaRestricao(tipoRestricao, bloco)}
                 </div>
               )}
+
+              {!bloqueado && sessaoChatBloco?.contactId ? (
+                <div style={{ marginTop: 8 }}>
+                  <button onClick={() => abrirChatSessaoBloco(bloco.id)}>
+                    Abrir chat da sessao
+                  </button>
+                </div>
+              ) : null}
 
               {podeGerenciar && !blocoEhCards && (
                 <EditorBloco

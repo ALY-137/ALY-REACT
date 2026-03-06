@@ -8,10 +8,9 @@ import {
   getDocs,
   updateDoc,
 } from "firebase/firestore";
-import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
 
 import { useAuth } from "../../../hooks/auth/useAuth";
-import { db, storage } from "../../Banco/init-firebase";
+import { db } from "../../Banco/init-firebase";
 import { buscarSkinLogada } from "./buscarSkinLogada";
 import { verificarESalvarskins } from "./verificaSkins";
 import { seforAdm } from "../../Scripts/verificacoes/verificaAdm";
@@ -26,17 +25,6 @@ import {
   obterConfigSistema,
   obterRotulosSkin,
 } from "../Sistema/configSistema";
-import {
-  excluirArquivoNoBucketCompartilhado,
-  uploadArquivoNoBucketCompartilhado,
-  usandoBucketCompartilhadoCrossProject,
-} from "../Storage/sharedBucketApi";
-
-function nomeArquivoSeguro(nome = "cardprofile.png") {
-  return String(nome || "cardprofile.png")
-    .trim()
-    .replace(/[^\w.\-]/g, "_");
-}
 
 const SkinsManager = () => {
   const { user, loading } = useAuth();
@@ -52,10 +40,6 @@ const SkinsManager = () => {
 
   const [editingSkinId, setEditingSkinId] = useState(null);
   const [editingTheme, setEditingTheme] = useState("");
-  const [novoCardProfileArquivo, setNovoCardProfileArquivo] = useState(null);
-  const [cardProfileArquivos, setCardProfileArquivos] = useState({});
-  const [skinUploadAtivaId, setSkinUploadAtivaId] = useState("");
-  const [skinRemocaoAtivaId, setSkinRemocaoAtivaId] = useState("");
 
   const [feedback, setFeedback] = useState("");
 
@@ -110,15 +94,15 @@ const SkinsManager = () => {
     configSistema.limiteSkinsPorUsuario === "1" &&
     skins.length >= 1;
   const exibirSecaoCriacao = !limiteAtingido;
+  const projetoOnePage = configSistema?.tipoExperiencia === "onepage";
 
   const { singular, plural } = obterRotulosSkin(configSistema);
   const nomeSkinSingular = singular || "skin";
   const nomeSkinPlural = plural || "skins";
-  const usarTituloSingular = configSistema?.tipoExperiencia === "onepage";
+  const usarTituloSingular = projetoOnePage;
   const nomeSkinGestao = usarTituloSingular ? nomeSkinSingular : nomeSkinPlural;
   const permitirTemasSkinSecundarios =
     configSistema.permitirTemasSkinSecundarios !== false;
-  const cabecalhoProjetoHabilitado = configSistema?.layoutTema?.headerVisible !== false;
   const temaSkinPadraoId = obterTemaSkinPadrao(configSistema.temaPadraoSistema);
   const temasDisponiveis = useMemo(
     () =>
@@ -167,6 +151,12 @@ const SkinsManager = () => {
   };
 
   const handleCreateFirstSkin = async (themeId) => {
+    if (projetoOnePage) {
+      setFeedback(
+        `Em projetos onepage, a ${nomeSkinSingular} e criada automaticamente no primeiro login.`
+      );
+      return;
+    }
     if (!user?.uid) return;
     if (limiteAtingido) {
       setFeedback(`Limite atingido. Voce pode criar apenas 1 ${nomeSkinSingular}.`);
@@ -198,6 +188,12 @@ const SkinsManager = () => {
   };
 
   const handleCreateSkin = async () => {
+    if (projetoOnePage) {
+      setFeedback(
+        `Em projetos onepage, a ${nomeSkinSingular} e criada automaticamente no primeiro login.`
+      );
+      return;
+    }
     const temaCriacao = resolverTemaCriacao(newTheme);
 
     if (!newUsername || !temaCriacao) {
@@ -223,21 +219,9 @@ const SkinsManager = () => {
       return;
     }
 
-    if (cabecalhoProjetoHabilitado && novoCardProfileArquivo && resultado?.id_skin) {
-      try {
-        await salvarCardProfileSkin(resultado.id_skin, novoCardProfileArquivo);
-      } catch (error) {
-        setFeedback(
-          error?.message ||
-            "A skin foi criada, mas nao foi possivel enviar a imagem do cardProfile."
-        );
-      }
-    }
-
     setFeedback("");
     setNewUsername("");
     setNewTheme("");
-    setNovoCardProfileArquivo(null);
     fetchSkins();
   };
 
@@ -266,6 +250,12 @@ const SkinsManager = () => {
   };
 
   const handleDeleteSkin = async (skin) => {
+    if (projetoOnePage) {
+      setFeedback(
+        `Em projetos onepage, a ${nomeSkinSingular} automatica nao pode ser excluida.`
+      );
+      return;
+    }
     if (!window.confirm(`Excluir "${skin.username}"?`)) return;
 
     const paginasSnap = await getDocs(collection(db, "users", user.uid, "paginas"));
@@ -281,115 +271,9 @@ const SkinsManager = () => {
     fetchSkins();
   };
 
-  const subirArquivoCardProfile = async (skinId, arquivo) => {
-    const nome = `${Date.now()}-${nomeArquivoSeguro(arquivo?.name || "cardprofile.png")}`;
-    const path = `users/${user.uid}/skins/${skinId}/cardProfile/${nome}`;
-
-    if (usandoBucketCompartilhadoCrossProject) {
-      const upload = await uploadArquivoNoBucketCompartilhado({
-        user,
-        path,
-        file: arquivo,
-      });
-      return {
-        cardProfilePath: path,
-        cardProfileUrl: String(upload?.url || ""),
-      };
-    }
-
-    const arquivoRef = ref(storage, path);
-    await uploadBytes(arquivoRef, arquivo);
-    const url = await getDownloadURL(arquivoRef);
-    return {
-      cardProfilePath: path,
-      cardProfileUrl: url,
-    };
-  };
-
-  const excluirArquivoCardProfile = async (path = "") => {
-    const pathNormalizado = String(path || "").trim();
-    if (!pathNormalizado) return;
-
-    if (usandoBucketCompartilhadoCrossProject) {
-      await excluirArquivoNoBucketCompartilhado({
-        user,
-        path: pathNormalizado,
-      });
-      return;
-    }
-
-    await deleteObject(ref(storage, pathNormalizado));
-  };
-
-  const salvarCardProfileSkin = async (skinId, arquivo) => {
-    if (!skinId || !arquivo) return;
-    const upload = await subirArquivoCardProfile(skinId, arquivo);
-    await updateDoc(doc(db, "users", user.uid, "skins", skinId), upload);
-  };
-
-  const handleUploadCardProfile = async (skin) => {
-    const arquivo = cardProfileArquivos[skin.id];
-    if (!arquivo) {
-      setFeedback("Selecione uma imagem para o cardProfile.");
-      return;
-    }
-
-    setSkinUploadAtivaId(skin.id);
-    setFeedback("");
-
-    try {
-      await salvarCardProfileSkin(skin.id, arquivo);
-      setCardProfileArquivos((prev) => {
-        const next = { ...prev };
-        delete next[skin.id];
-        return next;
-      });
-      await fetchSkins();
-      setFeedback("Imagem do cardProfile salva com sucesso.");
-    } catch (error) {
-      setFeedback(error?.message || "Falha ao salvar imagem do cardProfile.");
-    } finally {
-      setSkinUploadAtivaId("");
-    }
-  };
-
-  const handleRemoveCardProfile = async (skin) => {
-    if (!skin?.id) return;
-
-    setSkinRemocaoAtivaId(skin.id);
-    setFeedback("");
-
-    try {
-      if (skin.cardProfilePath) {
-        try {
-          await excluirArquivoCardProfile(skin.cardProfilePath);
-        } catch (error) {
-          if (
-            error?.code !== "storage/object-not-found" &&
-            error?.code !== "storage/unauthorized"
-          ) {
-            throw error;
-          }
-        }
-      }
-
-      await updateDoc(doc(db, "users", user.uid, "skins", skin.id), {
-        cardProfileUrl: "",
-        cardProfilePath: "",
-      });
-
-      await fetchSkins();
-      setFeedback("Imagem do cardProfile removida.");
-    } catch (error) {
-      setFeedback(error?.message || "Falha ao remover imagem do cardProfile.");
-    } finally {
-      setSkinRemocaoAtivaId("");
-    }
-  };
-
   const textoLimite = useMemo(() => {
     if (isAdmin) {
-      return "Administrador tem criacao ilimitada.";
+      return "";
     }
     if (configSistema.limiteSkinsPorUsuario === "1") {
       return "";
@@ -400,6 +284,21 @@ const SkinsManager = () => {
   if (loading || isLoading || carregandoConfig) return <p>Carregando...</p>;
 
   if (skins.length === 0) {
+    if (projetoOnePage) {
+      return (
+        <div className="theme-picker">
+          <h2>Gerenciar {nomeSkinGestao}</h2>
+          <p>
+            {`Em projetos onepage, a ${nomeSkinSingular} e criada automaticamente no primeiro login.`}
+          </p>
+          <button type="button" onClick={fetchSkins}>
+            Atualizar lista
+          </button>
+          {!!feedback && <p style={{ color: "red" }}>{feedback}</p>}
+        </div>
+      );
+    }
+
     return (
       <div className="theme-picker">
         {permitirTemasSkinSecundarios ? (
@@ -432,7 +331,7 @@ const SkinsManager = () => {
     <div className="skins-manager">
       <h2>Gerenciar {nomeSkinGestao}</h2>
 
-      {exibirSecaoCriacao ? (
+      {!projetoOnePage && exibirSecaoCriacao ? (
         <div className="create-skin">
           <h3>Criar nova {nomeSkinSingular}</h3>
 
@@ -456,22 +355,6 @@ const SkinsManager = () => {
                 </option>
               ))}
             </select>
-          ) : null}
-
-          {cabecalhoProjetoHabilitado ? (
-            <>
-              <label style={{ display: "block", marginTop: 8 }}>
-                Imagem do cardProfile
-              </label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(event) =>
-                  setNovoCardProfileArquivo(event.target.files?.[0] || null)
-                }
-                disabled={limiteAtingido}
-              />
-            </>
           ) : null}
 
           <button onClick={handleCreateSkin} disabled={limiteAtingido}>
@@ -530,69 +413,13 @@ const SkinsManager = () => {
                     Alterar tema
                   </button>
                 )}
-                <button onClick={() => handleDeleteSkin(skin)} style={{ color: "red" }}>
-                  Excluir
-                </button>
+                {!projetoOnePage ? (
+                  <button onClick={() => handleDeleteSkin(skin)} style={{ color: "red" }}>
+                    Excluir
+                  </button>
+                ) : null}
               </>
             )}
-
-            {cabecalhoProjetoHabilitado ? (
-              <div style={{ marginTop: 10 }}>
-                <p style={{ margin: "0 0 6px 0", opacity: 0.85 }}>
-                  CardProfile do cabecalho
-                </p>
-                {skin.cardProfileUrl ? (
-                  <img
-                    src={skin.cardProfileUrl}
-                    alt={`CardProfile de ${skin.username}`}
-                    style={{
-                      display: "block",
-                      width: 120,
-                      maxWidth: "100%",
-                      aspectRatio: "1 / 1",
-                      objectFit: "cover",
-                      marginBottom: 8,
-                    }}
-                  />
-                ) : (
-                  <p style={{ margin: "0 0 8px 0", opacity: 0.7 }}>
-                    Nenhuma imagem carregada.
-                  </p>
-                )}
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(event) =>
-                    setCardProfileArquivos((prev) => ({
-                      ...prev,
-                      [skin.id]: event.target.files?.[0] || null,
-                    }))
-                  }
-                />
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
-                  <button
-                    type="button"
-                    onClick={() => handleUploadCardProfile(skin)}
-                    disabled={!cardProfileArquivos[skin.id] || skinUploadAtivaId === skin.id}
-                  >
-                    {skinUploadAtivaId === skin.id
-                      ? "Salvando imagem..."
-                      : "Salvar cardProfile"}
-                  </button>
-                  {skin.cardProfileUrl ? (
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveCardProfile(skin)}
-                      disabled={skinRemocaoAtivaId === skin.id}
-                    >
-                      {skinRemocaoAtivaId === skin.id
-                        ? "Removendo imagem..."
-                        : "Remover cardProfile"}
-                    </button>
-                  ) : null}
-                </div>
-              </div>
-            ) : null}
           </li>
         ))}
       </ul>

@@ -1,11 +1,17 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
 } from "firebase/auth";
 import { auth } from "../../Banco/init-firebase";
 import { bootstrapUser } from "../Menu/Users/bootstrapUser";
+import {
+  DEFAULT_SISTEMA_CONFIG,
+  isOnePageComEntradaPublica,
+  obterConfigSistemaCacheLocal,
+} from "../Sistema/configSistema";
 
 const POST_LOGIN_REDIRECT_KEY = "postLoginRedirectPath";
 
@@ -30,10 +36,14 @@ const mapearErroAuth = (codigo) => {
       return "Email ou senha invalidos.";
     case "auth/user-not-found":
       return "Conta nao encontrada.";
+    case "auth/email-already-in-use":
+      return "Ja existe uma conta com este email.";
     case "auth/operation-not-allowed":
       return "Metodo de login por email/senha nao habilitado no Firebase Auth.";
     case "auth/too-many-requests":
       return "Muitas tentativas. Tente novamente em instantes.";
+    case "auth/missing-email":
+      return "Informe um email valido.";
     case "auth/network-request-failed":
       return "Falha de rede. Verifique sua conexao e DNS.";
     default:
@@ -51,12 +61,43 @@ const isErroAcessoAdmin = (erro) => {
   );
 };
 
-function LoginCadastroEmail({ onLogin }) {
+function LoginCadastroEmail({ onLogin, configSistema = null }) {
   const navigate = useNavigate();
+  const [modo, setModo] = useState("login");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
+  const [confirmacaoSenha, setConfirmacaoSenha] = useState("");
+  const [aceitouTermos, setAceitouTermos] = useState(false);
   const [enviando, setEnviando] = useState(false);
+  const [enviandoReset, setEnviandoReset] = useState(false);
   const [erro, setErro] = useState("");
+  const [mensagem, setMensagem] = useState("");
+
+  const termosUsoUrl = String(configSistema?.termosUsoUrl || "").trim();
+  const politicaPrivacidadeUrl = String(configSistema?.politicaPrivacidadeUrl || "").trim();
+  const exigirAceiteTermosNoCadastro = configSistema?.exigirAceiteTermosNoCadastro === true;
+  const mostrarBlocoTermos =
+    modo === "cadastro" &&
+    (exigirAceiteTermosNoCadastro || Boolean(termosUsoUrl || politicaPrivacidadeUrl));
+
+  const textoBotao = useMemo(() => {
+    if (enviando) return "Processando...";
+    return modo === "cadastro" ? "Cadastrar" : "Entrar";
+  }, [enviando, modo]);
+  const textoBotaoTrocaModo = modo === "cadastro" ? "Alterar para login" : "Cadastrar";
+
+  const resolverDestinoPosLoginPadrao = () => {
+    const configEmCache = obterConfigSistemaCacheLocal() || DEFAULT_SISTEMA_CONFIG;
+    const configEfetiva =
+      configSistema && typeof configSistema === "object"
+        ? { ...configEmCache, ...configSistema }
+        : configEmCache;
+
+    if (isOnePageComEntradaPublica(configEfetiva)) {
+      return "/home";
+    }
+    return null;
+  };
 
   const finalizarLogin = async (firebaseUser) => {
     if (typeof firebaseUser?.getIdToken === "function") {
@@ -89,50 +130,98 @@ function LoginCadastroEmail({ onLogin }) {
       return;
     }
     localStorage.removeItem(POST_LOGIN_REDIRECT_KEY);
+
+    const destinoPadrao = resolverDestinoPosLoginPadrao();
+    if (destinoPadrao) {
+      navigate(destinoPadrao, { replace: true });
+    }
+  };
+
+  const resetarMensagens = () => {
+    setErro("");
+    setMensagem("");
+  };
+
+  const alternarModo = (proximoModo) => {
+    if (proximoModo === modo) return;
+    setModo(proximoModo);
+    setSenha("");
+    setConfirmacaoSenha("");
+    setAceitouTermos(false);
+    resetarMensagens();
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-
     if (enviando) return;
 
     const emailLimpo = email.trim();
     if (!emailLimpo || !senha) {
       setErro("Informe email e senha.");
+      setMensagem("");
       return;
+    }
+
+    if (modo === "cadastro") {
+      if (senha.length < 6) {
+        setErro("Senha fraca. Use ao menos 6 caracteres.");
+        setMensagem("");
+        return;
+      }
+      if (senha !== confirmacaoSenha) {
+        setErro("A confirmacao da senha nao confere.");
+        setMensagem("");
+        return;
+      }
+      if (exigirAceiteTermosNoCadastro && !aceitouTermos) {
+        setErro("Voce precisa aceitar os termos para concluir o cadastro.");
+        setMensagem("");
+        return;
+      }
     }
 
     setEnviando(true);
-    setErro("");
+    resetarMensagens();
 
     try {
-      const credenciais = await createUserWithEmailAndPassword(auth, emailLimpo, senha);
-      await finalizarLogin(credenciais.user);
-      return;
-    } catch (erroCadastro) {
-      if (isErroAcessoAdmin(erroCadastro)) {
-        setErro("Acesso permitido apenas para administradores.");
-        setEnviando(false);
-        return;
+      if (modo === "cadastro") {
+        const credenciais = await createUserWithEmailAndPassword(auth, emailLimpo, senha);
+        await finalizarLogin(credenciais.user);
+      } else {
+        const credenciais = await signInWithEmailAndPassword(auth, emailLimpo, senha);
+        await finalizarLogin(credenciais.user);
       }
-      if (erroCadastro?.code !== "auth/email-already-in-use") {
-        setErro(mapearErroAuth(erroCadastro?.code));
-        setEnviando(false);
-        return;
-      }
-    }
-
-    try {
-      const credenciaisExistentes = await signInWithEmailAndPassword(auth, emailLimpo, senha);
-      await finalizarLogin(credenciaisExistentes.user);
-    } catch (erroLogin) {
-      if (isErroAcessoAdmin(erroLogin)) {
+    } catch (erroAuth) {
+      if (isErroAcessoAdmin(erroAuth)) {
         setErro("Acesso permitido apenas para administradores.");
       } else {
-        setErro(mapearErroAuth(erroLogin?.code));
+        setErro(mapearErroAuth(erroAuth?.code));
       }
     } finally {
       setEnviando(false);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    if (enviandoReset) return;
+
+    const emailLimpo = email.trim();
+    if (!emailLimpo) {
+      setErro("Informe o email para recuperar a senha.");
+      setMensagem("");
+      return;
+    }
+
+    setEnviandoReset(true);
+    resetarMensagens();
+
+    try {
+      await sendPasswordResetEmail(auth, emailLimpo);
+      setMensagem("Email de recuperacao enviado.");
+    } catch (erroReset) {
+      setErro(mapearErroAuth(erroReset?.code));
+    } finally {
+      setEnviandoReset(false);
     }
   };
 
@@ -153,14 +242,81 @@ function LoginCadastroEmail({ onLogin }) {
         value={senha}
         onChange={(event) => setSenha(event.target.value)}
         placeholder="Senha"
-        autoComplete="current-password"
+        autoComplete={modo === "cadastro" ? "new-password" : "current-password"}
         minLength={6}
         required
       />
+
+      {modo === "cadastro" ? (
+        <input
+          className="loginCadastroInput"
+          type="password"
+          value={confirmacaoSenha}
+          onChange={(event) => setConfirmacaoSenha(event.target.value)}
+          placeholder="Confirmar senha"
+          autoComplete="new-password"
+          minLength={6}
+          required
+        />
+      ) : null}
+
+      {mostrarBlocoTermos ? (
+        <label
+          className="loginCadastroTerms"
+          style={{ display: "block", fontSize: 12, lineHeight: 1.5, marginBottom: 10 }}
+        >
+          <input
+            type="checkbox"
+            checked={aceitouTermos}
+            onChange={(event) => setAceitouTermos(event.target.checked)}
+            style={{ marginRight: 8 }}
+          />
+          Li e aceito os termos aplicaveis.
+          {termosUsoUrl ? (
+            <>
+              {" "}
+              <a href={termosUsoUrl} target="_blank" rel="noreferrer">
+                Termos de uso
+              </a>
+            </>
+          ) : null}
+          {politicaPrivacidadeUrl ? (
+            <>
+              {termosUsoUrl ? " e " : " "}
+              <a href={politicaPrivacidadeUrl} target="_blank" rel="noreferrer">
+                Politica de privacidade
+              </a>
+            </>
+          ) : null}
+        </label>
+      ) : null}
+
       <button className="loginCadastroButton" type="submit" disabled={enviando}>
-        {enviando ? "Processando..." : "Cadastrar"}
+        {textoBotao}
       </button>
+
+      <button
+        className="loginCadastroSecondaryButton loginCadastroModeToggle"
+        type="button"
+        onClick={() => alternarModo(modo === "cadastro" ? "login" : "cadastro")}
+        disabled={enviando || enviandoReset}
+      >
+        {textoBotaoTrocaModo}
+      </button>
+
+      {modo === "login" ? (
+        <button
+          className="loginCadastroSecondaryButton loginCadastroForgotButton"
+          type="button"
+          onClick={handlePasswordReset}
+          disabled={enviando || enviandoReset}
+        >
+          {enviandoReset ? "Enviando..." : "Esqueci minha senha"}
+        </button>
+      ) : null}
+
       {erro ? <p className="loginCadastroErro">{erro}</p> : null}
+      {!erro && mensagem ? <p className="loginCadastroMensagem">{mensagem}</p> : null}
     </form>
   );
 }

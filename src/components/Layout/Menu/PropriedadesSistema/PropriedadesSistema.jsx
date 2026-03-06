@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { useAuth } from "../../../../hooks/auth/useAuth";
 import { seforAdm } from "../../../Scripts/verificacoes/verificaAdm";
@@ -20,6 +20,7 @@ import {
   getLoginPresetById,
 } from "../../Sistema/loginPresets";
 import {
+  listarIconCollectionsNoGerenciador,
   obterConfigProjetoDoGerenciador,
   salvarConfigProjetoNoGerenciador,
 } from "../../Sistema/gerenciadorProjetosApi";
@@ -32,6 +33,68 @@ function nomeArquivoSeguro(nome = "branding.png") {
   return String(nome || "branding.png")
     .trim()
     .replace(/[^\w.\-]/g, "_");
+}
+
+function extrairPrimeiraUrl(texto = "") {
+  const bruto = String(texto || "").trim();
+  if (!bruto) return "";
+
+  const semAspas = bruto.replace(/^['"]|['"]$/g, "").trim();
+  if (/^https?:\/\//i.test(semAspas)) {
+    return semAspas;
+  }
+
+  const hrefMatch = bruto.match(/href\s*=\s*["']([^"']+)["']/i);
+  if (hrefMatch?.[1]) {
+    const href = String(hrefMatch[1]).trim();
+    if (/^https?:\/\//i.test(href)) return href;
+  }
+
+  const importMatch = bruto.match(/url\(([^)]+)\)/i);
+  if (importMatch?.[1]) {
+    const href = String(importMatch[1]).replace(/^['"]|['"]$/g, "").trim();
+    if (/^https?:\/\//i.test(href)) return href;
+  }
+
+  const geral = bruto.match(/https?:\/\/[^\s"'<>]+/i);
+  return geral?.[0] ? String(geral[0]).trim() : "";
+}
+
+function formatarFamilyGoogleCss2(value = "") {
+  return encodeURI(String(value || "").trim().replace(/\s+/g, "+"));
+}
+
+function normalizarUrlGoogleFonts(url = "") {
+  const href = extrairPrimeiraUrl(url);
+  if (!href) return "";
+
+  try {
+    const parsed = new URL(href);
+    const host = String(parsed.hostname || "").toLowerCase();
+
+    if (host.includes("fonts.googleapis.com")) {
+      return parsed.toString();
+    }
+
+    if (host.includes("fonts.google.com") && parsed.pathname.startsWith("/share")) {
+      const familias = parsed.searchParams
+        .getAll("selection.family")
+        .flatMap((value) => String(value || "").split("|"))
+        .map((value) => value.trim())
+        .filter(Boolean);
+
+      if (!familias.length) return "";
+
+      const queryFamilias = familias
+        .map((family) => `family=${formatarFamilyGoogleCss2(family)}`)
+        .join("&");
+      return `https://fonts.googleapis.com/css2?${queryFamilias}&display=swap`;
+    }
+  } catch {
+    return "";
+  }
+
+  return "";
 }
 
 async function subirImagemBranding({
@@ -54,12 +117,50 @@ async function subirImagemBranding({
       path,
       file,
     });
-    return String(upload?.url || "");
+    return {
+      url: String(upload?.url || ""),
+      path,
+    };
   }
 
   const arquivoRef = ref(storage, path);
   await uploadBytes(arquivoRef, file);
-  return getDownloadURL(arquivoRef);
+  return {
+    url: await getDownloadURL(arquivoRef),
+    path,
+  };
+}
+
+function normalizarGoogleFontsUrlsTexto(value = "") {
+  return Array.from(
+    new Set(
+      String(value || "")
+        .split(/\r?\n/g)
+        .map((item) => normalizarUrlGoogleFonts(item))
+        .filter((item) => /^https?:\/\/fonts\.googleapis\.com\//i.test(item))
+    )
+  ).slice(0, 20);
+}
+
+function extrairFamiliasGoogleFonts(url = "") {
+  const href = normalizarUrlGoogleFonts(url);
+  if (!href) return [];
+
+  try {
+    const parsed = new URL(href);
+    if (!String(parsed.hostname || "").toLowerCase().includes("fonts.googleapis.com")) {
+      return [];
+    }
+    const familias = parsed.searchParams.getAll("family");
+    if (!familias.length) return [];
+
+    return familias
+      .flatMap((valor) => String(valor || "").split("|"))
+      .map((family) => String(family || "").split(":")[0].replace(/\+/g, " ").trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
 }
 
 function PropriedadesSistema({
@@ -75,14 +176,35 @@ function PropriedadesSistema({
   const [mensagem, setMensagem] = useState("");
   const [erro, setErro] = useState("");
   const [config, setConfig] = useState(DEFAULT_SISTEMA_CONFIG);
+  const [googleFontsUrlsInput, setGoogleFontsUrlsInput] = useState("");
   const [uploadCampoAtivo, setUploadCampoAtivo] = useState("");
   const [arquivosBrandingSelecionados, setArquivosBrandingSelecionados] = useState({});
+  const [iconCollectionsDisponiveis, setIconCollectionsDisponiveis] = useState([]);
   const loginGoogleHabilitado = config?.metodosLoginHabilitados?.google !== false;
   const loginTwitterHabilitado = config?.metodosLoginHabilitados?.twitter !== false;
   const loginEmailSenhaHabilitado =
     config?.metodosLoginHabilitados?.emailSenha !== false;
   const loginPresetId = String(config?.loginPresetId || "manual").toLowerCase();
   const loginPresetSelecionado = getLoginPresetById(loginPresetId);
+  const googleFontsUrlsProjeto = Array.isArray(config?.googleFontsUrls)
+    ? config.googleFontsUrls
+    : [];
+  const familiasGoogleFontsDisponiveis = useMemo(() => {
+    const coletadas = googleFontsUrlsProjeto.flatMap((url) => extrairFamiliasGoogleFonts(url));
+    return Array.from(new Set(coletadas));
+  }, [googleFontsUrlsProjeto]);
+  const opcoesFonteMensagens = useMemo(() => {
+    const atuais = [
+      String(config?.mensagemEspacoLoginRestritoFontFamily || "").trim(),
+      String(config?.mensagemEspacoAssinanteRestritoFontFamily || "").trim(),
+    ].filter(Boolean);
+
+    return Array.from(new Set([...familiasGoogleFontsDisponiveis, ...atuais]));
+  }, [
+    familiasGoogleFontsDisponiveis,
+    config?.mensagemEspacoLoginRestritoFontFamily,
+    config?.mensagemEspacoAssinanteRestritoFontFamily,
+  ]);
   const projetoGerenciadoKey = String(projetoGerenciado?.systemKey || "").trim().toLowerCase();
   const editandoProjetoExterno =
     !!projetoGerenciadoKey && projetoGerenciadoKey !== "gerenciador-aly";
@@ -147,6 +269,11 @@ function PropriedadesSistema({
 
         if (!ativo) return;
         setConfig(configAtual);
+        setGoogleFontsUrlsInput(
+          Array.isArray(configAtual?.googleFontsUrls)
+            ? configAtual.googleFontsUrls.join("\n")
+            : ""
+        );
 
         if (!editandoProjetoExterno) {
           aplicarBrandingNoDocumento(configAtual);
@@ -165,6 +292,27 @@ function PropriedadesSistema({
       ativo = false;
     };
   }, [isManagerProject, loading, user, editandoProjetoExterno, projetoGerenciado]);
+
+  useEffect(() => {
+    let ativo = true;
+
+    async function carregarColecoesIcones() {
+      if (!isManagerProject || !editandoProjetoExterno) return;
+      try {
+        const colecoes = await listarIconCollectionsNoGerenciador();
+        if (!ativo) return;
+        setIconCollectionsDisponiveis(colecoes);
+      } catch {
+        if (!ativo) return;
+        setIconCollectionsDisponiveis([]);
+      }
+    }
+
+    carregarColecoesIcones();
+    return () => {
+      ativo = false;
+    };
+  }, [isManagerProject, editandoProjetoExterno]);
 
   const uploadImagem = async (event, campo) => {
     const arquivo = event.target.files?.[0];
@@ -192,7 +340,7 @@ function PropriedadesSistema({
     setMensagem("");
 
     try {
-      const imagemUrl = await subirImagemBranding({
+      const upload = await subirImagemBranding({
         file: arquivo,
         campo,
         projetoGerenciadoKey: projetoGerenciado?.systemKey || "",
@@ -201,12 +349,13 @@ function PropriedadesSistema({
       });
       setConfig((prev) => ({
         ...prev,
-        [campo]: imagemUrl,
+        [campo]: upload.url,
+        ...(campo === "cardProfileUrl" ? { cardProfilePath: upload.path } : {}),
       }));
       if (!editandoProjetoExterno && campo === "faviconUrl") {
         aplicarBrandingNoDocumento({
           ...config,
-          [campo]: imagemUrl,
+          [campo]: upload.url,
         });
       }
       setMensagem("Imagem carregada. Clique em salvar para persistir.");
@@ -224,6 +373,20 @@ function PropriedadesSistema({
     }
   };
 
+  const validarGoogleFontsUrls = () => {
+    const urlsValidadas = normalizarGoogleFontsUrlsTexto(googleFontsUrlsInput);
+    setConfig((prev) => ({
+      ...prev,
+      googleFontsUrls: urlsValidadas,
+    }));
+    setErro("");
+    setMensagem(
+      urlsValidadas.length
+        ? `${urlsValidadas.length} URL(s) de Google Fonts validada(s).`
+        : "Nenhuma URL valida de Google Fonts foi detectada."
+    );
+  };
+
   const salvar = async () => {
     setSalvando(true);
     setMensagem("");
@@ -231,9 +394,14 @@ function PropriedadesSistema({
 
     try {
       let configSalva = null;
+      const urlsGoogleFontsValidadas = normalizarGoogleFontsUrlsTexto(googleFontsUrlsInput);
+      const configParaSalvar = {
+        ...config,
+        googleFontsUrls: urlsGoogleFontsValidadas,
+      };
 
       if (editandoProjetoExterno) {
-        const configNormalizada = normalizarConfigSistema(config);
+        const configNormalizada = normalizarConfigSistema(configParaSalvar);
         const hostnameProjeto = Array.isArray(projetoGerenciado?.domains)
           ? String(projetoGerenciado.domains[0] || "")
           : "";
@@ -271,7 +439,7 @@ function PropriedadesSistema({
         setMensagem("Configuracoes do projeto salvas com sucesso.");
       } else {
         configSalva = await salvarConfigSistemaAdmin({
-          ...config,
+          ...configParaSalvar,
           adminUid: user?.uid || null,
         });
         aplicarTemaNoBody(configSalva.temaPadraoSistema);
@@ -287,6 +455,11 @@ function PropriedadesSistema({
       }
 
       setConfig(configSalva);
+      setGoogleFontsUrlsInput(
+        Array.isArray(configSalva?.googleFontsUrls)
+          ? configSalva.googleFontsUrls.join("\n")
+          : ""
+      );
       if (typeof onConfigSalva === "function") {
         onConfigSalva(configSalva);
       }
@@ -315,6 +488,9 @@ function PropriedadesSistema({
         DEFAULT_SISTEMA_CONFIG.tituloSistema,
     });
     setConfig(basePadrao);
+    setGoogleFontsUrlsInput(
+      Array.isArray(basePadrao?.googleFontsUrls) ? basePadrao.googleFontsUrls.join("\n") : ""
+    );
 
     if (!editandoProjetoExterno) {
       aplicarTemaNoBody(DEFAULT_SISTEMA_CONFIG.temaPadraoSistema);
@@ -426,6 +602,53 @@ function PropriedadesSistema({
           )}
         </div>
 
+        <label htmlFor="loginButtonIconUrl" style={{ display: "block", marginTop: 12 }}>
+          URL do icone do botao de login
+        </label>
+        <input
+          id="loginButtonIconUrl"
+          type="text"
+          value={config.loginButtonIconUrl || ""}
+          onChange={(event) =>
+            setConfig((prev) => ({
+              ...prev,
+              loginButtonIconUrl: event.target.value,
+            }))
+          }
+          placeholder="https://... ou use o upload abaixo"
+          style={{ width: "100%", marginTop: 8 }}
+        />
+        <label htmlFor="loginButtonIconUpload" style={{ display: "block", marginTop: 8 }}>
+          Carregar icone do botao de login
+        </label>
+        <input
+          id="loginButtonIconUpload"
+          type="file"
+          accept="image/*"
+          onChange={(event) => uploadImagem(event, "loginButtonIconUrl")}
+          disabled={salvando || uploadCampoAtivo === "loginButtonIconUrl"}
+        />
+        {arquivosBrandingSelecionados.loginButtonIconUrl ? (
+          <p style={{ marginTop: 6, opacity: 0.8 }}>
+            {uploadCampoAtivo === "loginButtonIconUrl"
+              ? "Enviando arquivo:"
+              : "Arquivo selecionado:"}{" "}
+            {arquivosBrandingSelecionados.loginButtonIconUrl}
+          </p>
+        ) : null}
+        <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 10 }}>
+          <span>Preview do botao:</span>
+          {String(config.loginButtonIconUrl || "").trim() ? (
+            <img
+              src={config.loginButtonIconUrl}
+              alt="Preview do icone do botao de login"
+              style={{ width: 40, height: 40, objectFit: "contain" }}
+            />
+          ) : (
+            <span style={{ opacity: 0.7 }}>Sem icone configurado.</span>
+          )}
+        </div>
+
         <label htmlFor="faviconUrl" style={{ display: "block", marginTop: 12 }}>
           Icone do navegador (favicon)
         </label>
@@ -505,6 +728,85 @@ function PropriedadesSistema({
           placeholder="Ex: EMBARQUE COM O GOOGLE"
           style={{ width: "100%", marginTop: 8 }}
         />
+
+        <label htmlFor="loginLoadingMode" style={{ display: "block", marginTop: 12 }}>
+          Tela de carregamento do login
+        </label>
+        <select
+          id="loginLoadingMode"
+          value={String(config.loginLoadingMode || "auto")}
+          onChange={(event) =>
+            setConfig((prev) => ({
+              ...prev,
+              loginLoadingMode: String(event.target.value || "auto"),
+            }))
+          }
+          style={{ width: "100%", marginTop: 8 }}
+        >
+          <option value="auto">Automatico (tema)</option>
+          <option value="simple">Sem animacao (simples)</option>
+          <option value="obeydom">Obeydom ritual</option>
+          <option value="sprite_sheet">Sprite sheet</option>
+        </select>
+
+        {String(config.loginLoadingMode || "auto") === "sprite_sheet" ? (
+          <>
+            <label htmlFor="loginLoadingSpriteUrl" style={{ display: "block", marginTop: 10 }}>
+              URL da imagem sprite sheet
+            </label>
+            <input
+              id="loginLoadingSpriteUrl"
+              type="text"
+              value={config.loginLoadingSpriteUrl || ""}
+              onChange={(event) =>
+                setConfig((prev) => ({
+                  ...prev,
+                  loginLoadingSpriteUrl: event.target.value,
+                }))
+              }
+              placeholder="https://... ou use o upload abaixo"
+              style={{ width: "100%", marginTop: 8 }}
+            />
+            <label htmlFor="loginLoadingSpriteUpload" style={{ display: "block", marginTop: 8 }}>
+              Carregar imagem sprite sheet
+            </label>
+            <input
+              id="loginLoadingSpriteUpload"
+              type="file"
+              accept="image/*"
+              onChange={(event) => uploadImagem(event, "loginLoadingSpriteUrl")}
+              disabled={salvando || uploadCampoAtivo === "loginLoadingSpriteUrl"}
+            />
+            {arquivosBrandingSelecionados.loginLoadingSpriteUrl ? (
+              <p style={{ marginTop: 6, opacity: 0.8 }}>
+                {uploadCampoAtivo === "loginLoadingSpriteUrl"
+                  ? "Enviando arquivo:"
+                  : "Arquivo selecionado:"}{" "}
+                {arquivosBrandingSelecionados.loginLoadingSpriteUrl}
+              </p>
+            ) : null}
+            <p style={{ marginTop: 6, opacity: 0.8 }}>
+              Formato esperado: sprite horizontal com 8 frames de 128x128 (total 1024x128).
+            </p>
+            <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
+              <span>Preview da sprite:</span>
+              {String(config.loginLoadingSpriteUrl || "").trim() ? (
+                <img
+                  src={config.loginLoadingSpriteUrl}
+                  alt="Preview da sprite sheet"
+                  style={{
+                    width: 128,
+                    height: 128,
+                    objectFit: "cover",
+                    border: "1px solid #ccc",
+                  }}
+                />
+              ) : (
+                <span style={{ opacity: 0.7 }}>Sem sprite configurada.</span>
+              )}
+            </div>
+          </>
+        ) : null}
       </div>
 
       {exibindoConfiguracoesProjeto ? (
@@ -547,6 +849,51 @@ function PropriedadesSistema({
               ? "Manual: define os campos de login individualmente."
               : "Preset aplicado; voce pode ajustar os campos abaixo."}
           </p>
+        </div>
+      ) : null}
+
+      {editandoProjetoExterno ? (
+        <div style={{ border: "1px solid #ccc", borderRadius: 8, padding: 12, marginBottom: 12 }}>
+          <h3 style={{ marginTop: 0 }}>Colecoes de icones do projeto</h3>
+          <p style={{ marginTop: 0 }}>
+            Defina quais colecoes centralizadas este projeto pode usar ao editar espacos.
+          </p>
+          {!iconCollectionsDisponiveis.length ? (
+            <p style={{ opacity: 0.8 }}>
+              Nenhuma colecao de icones cadastrada no gerenciador.
+            </p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {iconCollectionsDisponiveis.map((colecao) => (
+                <label
+                  key={colecao.id}
+                  style={{ display: "flex", alignItems: "flex-start", gap: 8 }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={(config.iconCollectionIds || []).includes(colecao.id)}
+                    onChange={() =>
+                      setConfig((prev) => ({
+                        ...prev,
+                        iconCollectionIds: (prev.iconCollectionIds || []).includes(colecao.id)
+                          ? (prev.iconCollectionIds || []).filter((id) => id !== colecao.id)
+                          : [...(prev.iconCollectionIds || []), colecao.id],
+                      }))
+                    }
+                  />
+                  <span>
+                    <strong>{colecao.nome}</strong>
+                    <span style={{ opacity: 0.75 }}>
+                      {` | temas: ${(colecao.themeIds || []).join(", ") || "-"}`}
+                    </span>
+                    <span style={{ opacity: 0.75 }}>
+                      {` | icones: ${(colecao.icons || []).length}`}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          )}
         </div>
       ) : null}
 
@@ -599,9 +946,67 @@ function PropriedadesSistema({
           Habilitar cabecalho do projeto
         </label>
         <p style={{ marginTop: 6, opacity: 0.8 }}>
-          Quando habilitado, o usuario pode carregar imagem de cardProfile em
-          <code> Gerenciar skins </code>.
+          Quando habilitado, o cardProfile do cabecalho passa a ser configurado no
+          proprio projeto.
         </p>
+        <label htmlFor="cardProfileUrl" style={{ display: "block", marginTop: 12 }}>
+          URL da imagem do cardProfile
+        </label>
+        <input
+          id="cardProfileUrl"
+          type="text"
+          value={config.cardProfileUrl || ""}
+          onChange={(event) =>
+            setConfig((prev) => ({
+              ...prev,
+              cardProfileUrl: event.target.value,
+            }))
+          }
+          placeholder="https://... ou use o upload abaixo"
+          style={{ width: "100%", marginTop: 8 }}
+        />
+        <label htmlFor="cardProfileUpload" style={{ display: "block", marginTop: 8 }}>
+          Carregar imagem do cardProfile
+        </label>
+        <input
+          id="cardProfileUpload"
+          type="file"
+          accept="image/*"
+          onChange={(event) => uploadImagem(event, "cardProfileUrl")}
+          disabled={salvando || uploadCampoAtivo === "cardProfileUrl"}
+        />
+        {arquivosBrandingSelecionados.cardProfileUrl ? (
+          <p style={{ marginTop: 6, opacity: 0.8 }}>
+            {uploadCampoAtivo === "cardProfileUrl" ? "Enviando arquivo:" : "Arquivo selecionado:"}{" "}
+            {arquivosBrandingSelecionados.cardProfileUrl}
+          </p>
+        ) : null}
+        <div style={{ marginTop: 10, display: "flex", justifyContent: "center" }}>
+          {String(config.cardProfileUrl || "").trim() ? (
+            <img
+              src={config.cardProfileUrl}
+              alt="Preview do cardProfile"
+              style={{ maxWidth: 160, maxHeight: 160, objectFit: "contain" }}
+            />
+          ) : (
+            <p style={{ margin: 0, opacity: 0.7 }}>Nenhum cardProfile carregado.</p>
+          )}
+        </div>
+        {String(config.cardProfileUrl || "").trim() ? (
+          <button
+            type="button"
+            style={{ marginTop: 8 }}
+            onClick={() =>
+              setConfig((prev) => ({
+                ...prev,
+                cardProfileUrl: "",
+                cardProfilePath: "",
+              }))
+            }
+          >
+            Remover cardProfile
+          </button>
+        ) : null}
         <label
           style={{
             display: "flex",
@@ -653,6 +1058,30 @@ function PropriedadesSistema({
         </label>
         <p style={{ marginTop: 6, opacity: 0.8 }}>
           Controle separado para as abas dos espacos, independente do cabecalho principal.
+        </p>
+
+        <label htmlFor="cardProfileSizePx" style={{ display: "block", marginTop: 10 }}>
+          Tamanho base do cardProfile no cabecalho (px)
+        </label>
+        <input
+          id="cardProfileSizePx"
+          type="number"
+          min="96"
+          max="320"
+          value={config?.layoutTema?.cardProfileSizePx ?? 170}
+          onChange={(event) =>
+            setConfig((prev) => ({
+              ...prev,
+              layoutTema: {
+                ...(prev?.layoutTema || DEFAULT_SISTEMA_CONFIG.layoutTema),
+                cardProfileSizePx: Number(event.target.value || 170),
+              },
+            }))
+          }
+          style={{ width: "100%", marginTop: 8 }}
+        />
+        <p style={{ marginTop: 6, opacity: 0.8 }}>
+          Fallback usado quando nao houver imagem suficiente para definir as dimensoes automaticamente.
         </p>
 
         <h4 style={{ marginTop: 16, marginBottom: 8 }}>Layout de login</h4>
@@ -754,6 +1183,54 @@ function PropriedadesSistema({
         <p style={{ marginTop: 6, opacity: 0.8 }}>
           Deixe vazio para usar a largura padrao do tema. O preset ALY-137 e os metodos Google/X/Email podem ser combinados nesta secao.
         </p>
+        <label htmlFor="termosUsoUrl" style={{ display: "block", marginTop: 12 }}>
+          URL dos termos de uso
+        </label>
+        <input
+          id="termosUsoUrl"
+          type="url"
+          value={config.termosUsoUrl || ""}
+          onChange={(event) =>
+            setConfig((prev) => ({
+              ...prev,
+              termosUsoUrl: event.target.value,
+            }))
+          }
+          placeholder="https://seuprojeto.com/termos"
+          style={{ width: "100%", marginTop: 8 }}
+        />
+        <label htmlFor="politicaPrivacidadeUrl" style={{ display: "block", marginTop: 10 }}>
+          URL da politica de privacidade
+        </label>
+        <input
+          id="politicaPrivacidadeUrl"
+          type="url"
+          value={config.politicaPrivacidadeUrl || ""}
+          onChange={(event) =>
+            setConfig((prev) => ({
+              ...prev,
+              politicaPrivacidadeUrl: event.target.value,
+            }))
+          }
+          placeholder="https://seuprojeto.com/privacidade"
+          style={{ width: "100%", marginTop: 8 }}
+        />
+        <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
+          <input
+            type="checkbox"
+            checked={config.exigirAceiteTermosNoCadastro === true}
+            onChange={(event) =>
+              setConfig((prev) => ({
+                ...prev,
+                exigirAceiteTermosNoCadastro: event.target.checked,
+              }))
+            }
+          />
+          Exigir aceite de termos no cadastro por email e senha
+        </label>
+        <p style={{ marginTop: 6, opacity: 0.8 }}>
+          Recomendado quando o projeto permite cadastro por email e senha. O aceite vale para o fluxo de criacao de conta, nao para login em conta existente.
+        </p>
       </div>
 
       {exibindoConfiguracoesProjeto ? (
@@ -796,8 +1273,207 @@ function PropriedadesSistema({
           </select>
 
           <p style={{ marginTop: 8, opacity: 0.85 }}>
-            Em <code>publico_sem_login</code>, a pagina principal fica publica e o login admin passa
-            a usar a rota <code>/login</code>.
+            Em projetos <code>onepage</code> com acesso publico, a pagina principal fica em{" "}
+            <code>/</code>, <code>/login</code> continua para usuarios comuns e o login admin usa{" "}
+            <code>/loginadmin</code>.
+          </p>
+
+          <h4 style={{ marginTop: 16, marginBottom: 8 }}>Mensagens de restricao de acesso</h4>
+          <label htmlFor="googleFontsUrls" style={{ display: "block", marginTop: 8 }}>
+            URLs do Google Fonts (1 por linha)
+          </label>
+          <textarea
+            id="googleFontsUrls"
+            rows={3}
+            value={googleFontsUrlsInput}
+            onChange={(event) => {
+              setGoogleFontsUrlsInput(event.target.value);
+            }}
+            placeholder="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap"
+            style={{ width: "100%", marginTop: 8 }}
+          />
+          <button
+            type="button"
+            onClick={validarGoogleFontsUrls}
+            disabled={salvando}
+            style={{ marginTop: 8 }}
+          >
+            Validar URLs de fontes
+          </button>
+          <p style={{ marginTop: 6, opacity: 0.8 }}>
+            Adicione os links CSS do Google Fonts para liberar selecao de fonte nas frases abaixo.
+          </p>
+          {familiasGoogleFontsDisponiveis.length ? (
+            <p style={{ marginTop: 4, opacity: 0.85 }}>
+              Fontes detectadas: {familiasGoogleFontsDisponiveis.join(", ")}
+            </p>
+          ) : (
+            <p style={{ marginTop: 4, opacity: 0.75 }}>
+              Nenhuma fonte detectada ainda. Cole o link CSS do Google Fonts (URL, &lt;link&gt; ou @import).
+            </p>
+          )}
+
+          <label
+            style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}
+          >
+            <input
+              type="checkbox"
+              checked={config.exibirBotaoLoginMensagemRestricao !== false}
+              onChange={(event) =>
+                setConfig((prev) => ({
+                  ...prev,
+                  exibirBotaoLoginMensagemRestricao: event.target.checked,
+                }))
+              }
+            />
+            Exibir botao de login apos mensagem de restricao (quando exigir login)
+          </label>
+
+          <label
+            htmlFor="mensagemRestricaoAvatarUrl"
+            style={{ display: "block", marginTop: 10 }}
+          >
+            URL da imagem do balao de restricao
+          </label>
+          <input
+            id="mensagemRestricaoAvatarUrl"
+            type="text"
+            value={config.mensagemRestricaoAvatarUrl || ""}
+            onChange={(event) =>
+              setConfig((prev) => ({
+                ...prev,
+                mensagemRestricaoAvatarUrl: event.target.value,
+              }))
+            }
+            placeholder="https://... ou use o upload abaixo"
+            style={{ width: "100%", marginTop: 8 }}
+          />
+          <label htmlFor="mensagemRestricaoAvatarUpload" style={{ display: "block", marginTop: 8 }}>
+            Carregar imagem do balao de restricao
+          </label>
+          <input
+            id="mensagemRestricaoAvatarUpload"
+            type="file"
+            accept="image/*"
+            onChange={(event) => uploadImagem(event, "mensagemRestricaoAvatarUrl")}
+            disabled={salvando || uploadCampoAtivo === "mensagemRestricaoAvatarUrl"}
+          />
+          {arquivosBrandingSelecionados.mensagemRestricaoAvatarUrl ? (
+            <p style={{ marginTop: 6, opacity: 0.8 }}>
+              {uploadCampoAtivo === "mensagemRestricaoAvatarUrl"
+                ? "Enviando arquivo:"
+                : "Arquivo selecionado:"}{" "}
+              {arquivosBrandingSelecionados.mensagemRestricaoAvatarUrl}
+            </p>
+          ) : null}
+          <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
+            <span>Preview:</span>
+            {String(config.mensagemRestricaoAvatarUrl || "").trim() ? (
+              <img
+                src={config.mensagemRestricaoAvatarUrl}
+                alt="Preview imagem do balao de restricao"
+                style={{
+                  width: 44,
+                  height: 44,
+                  objectFit: "cover",
+                  borderRadius: "50%",
+                  border: "1px solid #ccc",
+                }}
+              />
+            ) : (
+              <span style={{ opacity: 0.7 }}>Sem imagem configurada.</span>
+            )}
+          </div>
+
+          <label
+            htmlFor="mensagemEspacoLoginRestrito"
+            style={{ display: "block", marginTop: 8 }}
+          >
+            Frase para aba que exige login
+          </label>
+          <input
+            id="mensagemEspacoLoginRestrito"
+            type="text"
+            value={config.mensagemEspacoLoginRestrito || ""}
+            onChange={(event) =>
+              setConfig((prev) => ({
+                ...prev,
+                mensagemEspacoLoginRestrito: event.target.value,
+              }))
+            }
+            placeholder="Este {nomeEspacoSingular} requer login para visualizar o conteudo."
+            style={{ width: "100%", marginTop: 8 }}
+          />
+          <label
+            htmlFor="mensagemEspacoLoginRestritoFontFamily"
+            style={{ display: "block", marginTop: 8 }}
+          >
+            Fonte da frase de login restrito
+          </label>
+          <select
+            id="mensagemEspacoLoginRestritoFontFamily"
+            value={config.mensagemEspacoLoginRestritoFontFamily || ""}
+            onChange={(event) =>
+              setConfig((prev) => ({
+                ...prev,
+                mensagemEspacoLoginRestritoFontFamily: event.target.value,
+              }))
+            }
+            style={{ width: "100%", marginTop: 8 }}
+          >
+            <option value="">Fonte padrao do tema</option>
+            {opcoesFonteMensagens.map((fontFamily) => (
+              <option key={`login-font-${fontFamily}`} value={fontFamily}>
+                {fontFamily}
+              </option>
+            ))}
+          </select>
+
+          <label
+            htmlFor="mensagemEspacoAssinanteRestrito"
+            style={{ display: "block", marginTop: 10 }}
+          >
+            Frase para aba exclusiva de assinantes
+          </label>
+          <input
+            id="mensagemEspacoAssinanteRestrito"
+            type="text"
+            value={config.mensagemEspacoAssinanteRestrito || ""}
+            onChange={(event) =>
+              setConfig((prev) => ({
+                ...prev,
+                mensagemEspacoAssinanteRestrito: event.target.value,
+              }))
+            }
+            placeholder="Este {nomeEspacoSingular} requer assinatura para visualizar o conteudo."
+            style={{ width: "100%", marginTop: 8 }}
+          />
+          <label
+            htmlFor="mensagemEspacoAssinanteRestritoFontFamily"
+            style={{ display: "block", marginTop: 8 }}
+          >
+            Fonte da frase de assinante restrito
+          </label>
+          <select
+            id="mensagemEspacoAssinanteRestritoFontFamily"
+            value={config.mensagemEspacoAssinanteRestritoFontFamily || ""}
+            onChange={(event) =>
+              setConfig((prev) => ({
+                ...prev,
+                mensagemEspacoAssinanteRestritoFontFamily: event.target.value,
+              }))
+            }
+            style={{ width: "100%", marginTop: 8 }}
+          >
+            <option value="">Fonte padrao do tema</option>
+            {opcoesFonteMensagens.map((fontFamily) => (
+              <option key={`assinante-font-${fontFamily}`} value={fontFamily}>
+                {fontFamily}
+              </option>
+            ))}
+          </select>
+          <p style={{ marginTop: 6, opacity: 0.8 }}>
+            Placeholder disponivel: <code>{"{nomeEspacoSingular}"}</code>.
           </p>
 
           <label htmlFor="adminUidProjeto" style={{ display: "block", marginTop: 12 }}>
@@ -833,8 +1509,8 @@ function PropriedadesSistema({
             style={{ width: "100%", marginTop: 8 }}
           />
           <p style={{ marginTop: 6, opacity: 0.85 }}>
-            No modo <code>publico_sem_login</code>, somente este UID ou email pode entrar em{" "}
-            <code>/login</code> e acessar <code>/menu/admin</code>.
+            Em <code>onepage</code>, somente este UID ou email pode entrar em{" "}
+            <code>/loginadmin</code> e acessar <code>/menu/admin</code>.
           </p>
         </div>
       ) : null}

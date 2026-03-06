@@ -244,7 +244,9 @@ export default function GerenciarLayouts() {
             layoutEfetivo.headerVisible ? "visivel" : "oculto"
           }, altura ${layoutEfetivo.headerHeightPx}px, cabecalho ${
             layoutEfetivo.headerSticky ? "fixo" : "solto"
-          }, abas ${layoutEfetivo.navbarTabsSticky ? "fixas" : "soltas"}.`}
+          }, abas ${layoutEfetivo.navbarTabsSticky ? "fixas" : "soltas"}, card profile ${
+            layoutEfetivo.cardProfileShape === "square" ? "quadrado" : "redondo"
+          } com ${layoutEfetivo.cardProfileSizePx}px.`}
         </p>
 
         <label htmlFor="temaPadraoSistema">Familia de layout</label>
@@ -366,6 +368,24 @@ export default function GerenciarLayouts() {
           <option value="round">Redondo</option>
           <option value="square">Quadrado</option>
         </select>
+
+        <label htmlFor="cardProfileSizePx" style={{ display: "block", marginTop: 10 }}>
+          Tamanho base do card profile (px)
+        </label>
+        <input
+          id="cardProfileSizePx"
+          type="number"
+          min="96"
+          max="320"
+          value={config?.layoutTema?.cardProfileSizePx ?? 170}
+          onChange={(event) =>
+            atualizarLayoutTema("cardProfileSizePx", Number(event.target.value || 170))
+          }
+          style={{ width: "100%", marginTop: 6 }}
+        />
+        <p style={{ marginTop: 6, opacity: 0.8 }}>
+          Fallback usado quando nao houver imagem suficiente para definir as dimensoes automaticamente.
+        </p>
 
         <label
           htmlFor="headerVisible"

@@ -9,7 +9,7 @@ const LOGIN_PRESETS = {
     label: "ALY-137",
     applyConfig: {
       tipoExperiencia: "onepage",
-      modoAcessoProjeto: "publico_sem_login",
+      modoAcessoProjeto: "publico_com_area_restrita",
       metodosLoginHabilitados: {
         google: true,
         emailSenha: true,

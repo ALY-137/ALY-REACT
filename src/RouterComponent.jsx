@@ -9,6 +9,8 @@ import { useRoutesContext } from "./context/RoutesContext";
 import { activeFirebaseProjectKey } from "./components/Banco/init-firebase";
 import {
   DEFAULT_SISTEMA_CONFIG,
+  isOnePageComEntradaPublica,
+  obterConfigSistema,
   obterConfigSistemaCacheLocal,
 } from "./components/Layout/Sistema/configSistema";
 
@@ -27,6 +29,7 @@ import EspacoManager from "./components/Layout/Espacos/EspacoManager";
 import EspacoPage from "./components/Layout/Espacos/EspacoPage";
 import PropriedadesSistema from "./components/Layout/Menu/PropriedadesSistema/PropriedadesSistema";
 import GerenciadorProjetos from "./components/Layout/Menu/Gerenciador/GerenciadorProjetos";
+import GerenciadorIcones from "./components/Layout/Menu/Gerenciador/GerenciadorIcones";
 import GerenciarLayouts from "./components/Layout/Menu/Layouts/GerenciarLayouts";
 import SolicitacoesPixManual from "./components/Layout/Pagamentos/SolicitacoesPixManual";
 
@@ -38,27 +41,48 @@ function RedirectOnePageLegacyPath() {
 export default function RouterComponent() {
   const { routes } = useRoutesContext();
   const isManagerProject = activeFirebaseProjectKey === "gerenciador-aly";
+  const configCacheInicial = obterConfigSistemaCacheLocal();
   const [configSistemaCache, setConfigSistemaCache] = useState(
-    () => obterConfigSistemaCacheLocal() || DEFAULT_SISTEMA_CONFIG
+    () => configCacheInicial || DEFAULT_SISTEMA_CONFIG
+  );
+  const [configSistemaHidratada, setConfigSistemaHidratada] = useState(
+    () => Boolean(configCacheInicial)
   );
 
   useEffect(() => {
+    let ativo = true;
+
     const syncConfig = () => {
       const cache = obterConfigSistemaCacheLocal() || DEFAULT_SISTEMA_CONFIG;
       setConfigSistemaCache(cache);
+      setConfigSistemaHidratada(true);
     };
 
     syncConfig();
+    obterConfigSistema()
+      .then((config) => {
+        if (!ativo || !config) return;
+        setConfigSistemaCache(config);
+        setConfigSistemaHidratada(true);
+      })
+      .catch(() => {
+        if (!ativo) return;
+        setConfigSistemaHidratada(true);
+      });
+
     window.addEventListener("sistema-config-atualizada", syncConfig);
     return () => {
+      ativo = false;
       window.removeEventListener("sistema-config-atualizada", syncConfig);
     };
   }, []);
 
+  if (!isManagerProject && !configSistemaHidratada) {
+    return <div className="loader" aria-live="polite" />;
+  }
+
   const onePagePublicaAtiva =
-    !isManagerProject &&
-    configSistemaCache?.tipoExperiencia === "onepage" &&
-    configSistemaCache?.modoAcessoProjeto === "publico_sem_login";
+    !isManagerProject && isOnePageComEntradaPublica(configSistemaCache);
   const menuChildren = isManagerProject
     ? [
         {
@@ -66,6 +90,7 @@ export default function RouterComponent() {
           element: <PropriedadesSistema tituloSecao="CONFIGURACOES DO GERENCIADOR" />,
         },
         { path: "gerenciar-layouts", element: <GerenciarLayouts /> },
+        { path: "gerenciador-icones", element: <GerenciadorIcones /> },
         { path: "gerenciador-projetos", element: <GerenciadorProjetos /> },
       ]
     : [
@@ -122,6 +147,11 @@ export default function RouterComponent() {
     },
     {
       path: "/login",
+      element: <App />,
+      errorElement: <Error />,
+    },
+    {
+      path: "/loginadmin",
       element: <App />,
       errorElement: <Error />,
     },

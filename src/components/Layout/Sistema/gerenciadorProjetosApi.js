@@ -6,6 +6,10 @@ export {
   criarProjetoNoGerenciador,
   obterConfigProjetoDoGerenciador,
   salvarConfigProjetoNoGerenciador,
+  listarIconCollectionsNoGerenciador,
+  criarIconCollectionNoGerenciador,
+  salvarIconCollectionNoGerenciador,
+  removerIconCollectionNoGerenciador,
 } from "./gerenciadorSistemasApi";
 
 // Compatibilidade temporaria: alguns fluxos ainda usam nomes antigos.

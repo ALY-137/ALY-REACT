@@ -38,6 +38,135 @@ body.theme-obeydom #login {
   background-image: linear-gradient(180deg, #000000 0%, #090909 100%);
 }
 
+body.theme-obeydom .obeydom-login-transition-shell {
+  background-color: var(--obey-black);
+  background-image: linear-gradient(180deg, #000000 0%, #090909 100%);
+}
+
+body.theme-obeydom .obeydom-loader-layer {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  transition: opacity 900ms ease;
+  pointer-events: none;
+}
+
+body.theme-obeydom .obeydom-loader-layer.obeydom-loader-layer-hidden {
+  opacity: 0.08;
+}
+
+body.theme-obeydom .obeydom-login-content-layer {
+  position: relative;
+  z-index: 2;
+}
+
+body.theme-obeydom .obeydom-loader-symbol {
+  position: relative;
+  width: 220px;
+  height: 220px;
+}
+
+body.theme-obeydom .obeydom-loader-triangle {
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-left: 110px solid transparent;
+  border-right: 110px solid transparent;
+  opacity: 0.95;
+}
+
+body.theme-obeydom .obeydom-loader-triangle-up {
+  border-bottom: 190px solid var(--obey-gray-1);
+  top: -70px;
+  animation: obeydomLoaderMoveDown 5s ease forwards;
+}
+
+body.theme-obeydom .obeydom-loader-triangle-down {
+  border-top: 190px solid var(--obey-gray-1);
+  bottom: -70px;
+  animation: obeydomLoaderMoveUp 5s ease forwards;
+}
+
+body.theme-obeydom .obeydom-loader-intersection {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 130px;
+  height: 130px;
+  background: radial-gradient(circle, #8b0000 0%, #400000 70%);
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+  animation: obeydomLoaderReveal 5s ease forwards;
+}
+
+body.theme-obeydom .obeydom-loader-glow {
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  box-shadow: 0 0 25px rgba(139, 0, 0, 0.3);
+  opacity: 0;
+  animation: obeydomLoaderGlowPulse 5s ease forwards;
+}
+
+body.theme-obeydom .obeydom-loader-y {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+body.theme-obeydom .obeydom-loader-y-path {
+  stroke: #ffffff;
+  stroke-width: 3;
+  fill: none;
+  stroke-dasharray: 200;
+  stroke-dashoffset: 200;
+  opacity: 0;
+  animation: obeydomLoaderDrawY 2s ease forwards;
+  animation-delay: 4s;
+}
+
+@keyframes obeydomLoaderMoveDown {
+  0% { top: -70px; }
+  100% { top: 0; }
+}
+
+@keyframes obeydomLoaderMoveUp {
+  0% { bottom: -70px; }
+  100% { bottom: 0; }
+}
+
+@keyframes obeydomLoaderReveal {
+  0% {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.5;
+  }
+}
+
+@keyframes obeydomLoaderGlowPulse {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes obeydomLoaderDrawY {
+  0% {
+    stroke-dashoffset: 200;
+    opacity: 0;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
 body.theme-obeydom #iconsLogin {
   width: min(92vw, var(--icons-login-width, 380px));
   min-height: 440px;

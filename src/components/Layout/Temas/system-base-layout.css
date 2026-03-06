@@ -83,8 +83,22 @@ body.layout-header-sticky-disabled #cabecalho{
   overflow: hidden;
 }
 
+body.layout-onepage-header-active #cardProfile {
+  width: var(--layout-card-profile-width, var(--layout-card-profile-size, 170px));
+  height: var(--layout-card-profile-height, var(--layout-card-profile-size, 170px));
+  max-width: calc(100vw - 48px);
+  max-height: 70vh;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 #conteudo {
   min-height: 100vh;
+}
+
+#navegacao {
+  width: 100%;
 }
 
 .bloco-container {

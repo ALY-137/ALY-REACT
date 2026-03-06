@@ -13,6 +13,10 @@ body.theme-passy {
   --passy-text-soft: #5d5185;
   --passy-border: rgba(94, 137, 255, 0.35);
   --passy-shadow: 0 12px 32px rgba(255, 94, 175, 0.16);
+  --login-input-focus-border: #ff6aa8;
+  --login-input-focus-ring: rgba(255, 106, 168, 0.18);
+  --login-error-color: #b83a72;
+  --login-message-color: #7a5a86;
 
   color: #ff57a3;
   background-color: #f3dfdf;
@@ -35,25 +39,28 @@ body.theme-passy img {
 }
 
 body.theme-passy #login {
-  background-image:
-    radial-gradient(1200px 520px at 20% -8%, rgba(255, 127, 182, 0.22), transparent 65%),
-    radial-gradient(900px 520px at 80% -3%, rgba(102, 173, 255, 0.24), transparent 70%),
-    linear-gradient(180deg, #fff9ff 0%, #f7f2ff 100%);
+  background-color: #eecadd;
 }
 
 body.theme-passy #iconsLogin {
   width: min(92vw, var(--icons-login-width, 410px));
   min-height: 460px;
+  height: auto;
   padding: 34px 28px 24px;
   border-radius: 20px;
-  border: 1px solid rgba(94, 137, 255, 0.25);
-  background: linear-gradient(160deg, rgba(255, 227, 252, 0.94) 0%, rgba(255, 255, 255, 0.94) 55%);
-  box-shadow: var(--passy-shadow);
+  border-color: #ffe9f5;
+  border-style: double ;
+  background-color: #ffddea;
+  box-sizing: border-box;
+
 }
 
 body.theme-passy #logoLogin {
-  width: 160px;
-  height: 160px;
+  width: auto;
+  height: auto;
+  max-width: 160px;
+  max-height: 160px;
+  object-fit: contain;
   margin: 0 auto 20px;
   display: block;
 }
@@ -72,7 +79,7 @@ body.theme-passy #logoTxt {
 
 body.theme-passy #textoLogin {
   margin: 0 0 10px;
-  color: var(--passy-text-soft);
+  color: #ff57a3;
   text-align: center;
   font-size: 12px;
   font-weight: 600;
@@ -82,14 +89,64 @@ body.theme-passy #textoLogin {
 }
 
 body.theme-passy #loginDivider {
+  margin-top: 10px;
   max-width: 320px;
-  margin: 12px auto 16px;
+  margin: 12px auto 10px;
   opacity: 0.9;
 }
 
 body.theme-passy #rodapeLogin {
-  color: var(--passy-text-soft);
+  color: #db308e;
   font-size: 11px;
+  text-shadow: none;
+}
+
+body.theme-passy .loginCadastroForm {
+  width: 100%;
+  max-width: 100%;
+  gap: 10px;
+}
+
+body.theme-passy .loginCadastroButton {
+  border: 1px solid #ffa2b9;
+  background: linear-gradient(180deg, #f3dfdf, #ffbece);
+  color: #ff3694;
+  margin-bottom: 10px;
+}
+body.theme-passy .loginCadastroButton:hover,
+body.theme-passy .loginCadastroButton:focus-visible {
+  border-color: #ff6aa8;
+  background: linear-gradient(180deg, #f3dfdf, #ffa2b9);
+  color: #c2327c;
+}
+
+
+body.theme-passy .loginCadastroInput
+{
+  border: 1px solid #ffa2b9;
+  background: linear-gradient(180deg, #f3dfdf, #fff1f5);
+  color: #ff3694;
+}
+
+body.theme-passy .loginCadastroInput::placeholder {
+  color: var(--passy-text-soft);
+}
+
+
+body.theme-passy .loginCadastroSecondaryButton {
+  color: rgb(255, 121, 184);
+  font-size: 11px ;
+}
+
+body.theme-passy .loginCadastroSecondaryButton:hover,
+body.theme-passy .loginCadastroSecondaryButton:focus-visible {
+  color: var(--passy-deep);
+  outline: none;
+}
+
+body.theme-passy .loginCadastroErro,
+body.theme-passy .loginCadastroMensagem,
+body.theme-passy .loginCadastroTerms {
   text-shadow: none;
 }
 
@@ -128,11 +185,27 @@ body.theme-passy #navbar-menu {
   justify-content: center;
   text-align: center;
   background: #ffb8d3;
-  padding: 12px;
+  padding: 5px;
+  padding-left: 15px;
+  padding-right: 15px;
   border-radius: 14px;
 }
 
-body.theme-passy #cardProfile {
+body.theme-passy #navbar-menu .loginButton {
+  margin-top: 0;
+  margin-bottom: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+body.theme-passy #navbar-menu .imgLoginButton {
+  margin-top: 0;
+  display: block;
+}
+
+body.theme-passy:not(.layout-onepage-header-active) #cardProfile {
   position: absolute;
   right: 14px;
   top: 50%;
@@ -143,7 +216,7 @@ body.theme-passy #cardProfile {
   pointer-events: none;
 }
 
-body.theme-passy #imgBustoHome {
+body.theme-passy:not(.layout-onepage-header-active) #imgBustoHome {
   right: 0;
   left: auto;
   height: 100%;
@@ -180,6 +253,57 @@ body.theme-passy #abas.navbar-tabs .navbar-tab.navbar-tab--active {
 
 }
 
+body.theme-passy .menu-navbar {
+  margin-bottom: 16px;
+}
+
+body.theme-passy .espaco-restricao-wrapper {
+  margin: 18px auto 24px;
+}
+
+body.theme-passy .espaco-restricao-avatar {
+
+background-color: #f3dfdf;
+border: none;
+}
+
+body.theme-passy .espaco-restricao-balao {
+  border: 1px solid #ffa2b9;
+  background: linear-gradient(180deg, #f3dfdf, #ffd4e9);
+  color: #ff3694;
+  box-shadow: none;
+ 
+}
+
+body.theme-passy .espaco-restricao-balao-ponteiro {
+  border-left: 1px solid #ffa2b9;
+  
+  border-bottom: 1px solid #ffa2b9;
+  background: linear-gradient(180deg, #f3dfdf, #ffd4e9);
+}
+
+body.theme-passy .espaco-restricao-texto {
+  color: #ff3694;
+  text-shadow: none;
+  font-size: 20px;
+  line-height: 1.45;
+
+}
+
+body.theme-passy .solicitacao-pix-card {
+  border: 1px solid #ffa2b9;
+  background: linear-gradient(180deg, #f3dfdf, #ffd4e9);
+}
+
+body.theme-passy .solicitacao-pix-card__qr-preview {
+  border: 1px solid #ffa2b9;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+body.theme-passy .solicitacao-pix-card__qr-helper {
+  color: #ff3694;
+}
+
 body.theme-passy #MenuContainer {
   width: 100%;
   min-height: 100dvh;
@@ -197,7 +321,7 @@ body.theme-passy #MenuContainer.mostra {
 body.theme-passy #cardProfile,
 body.theme-passy #conteudo,
 body.theme-passy .pages-navbar {
-  margin-top: 14px;
+  margin-top: 25px;
 }
 
 
@@ -315,10 +439,7 @@ body.theme-passy .buttonExcluirForm {
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  padding: 5px;
-  padding-left: 10px;
-  padding-right:10px;
-  margin: 10px
+
   
 }
 
@@ -356,7 +477,7 @@ body.theme-passy .cardContainerDesktopHome,
 body.theme-passy .cardContainerDesktopDesign {
   border-radius: 14px;
   border: 1px solid rgba(94, 137, 255, 0.3);
-  background: linear-gradient(170deg, #ffaaca, #ffffff));
+  background: linear-gradient(170deg, #ffaaca, #ffffff);
   overflow: hidden;
 }
 
@@ -409,4 +530,10 @@ body.theme-passy .txtDescricao {
     padding: 16px 14px 18px;
     margin: 14px 0 20px;
   }
+}
+
+
+.txtLoginButton{
+  color: #ff3694;
+  font-family: "Space Grotesk", "Manrope", sans-serif;
 }

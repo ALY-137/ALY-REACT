@@ -109,7 +109,7 @@ body.theme-cyberpink #abas.navbar-tabs .navbar-tab.navbar-tab--active {
 
 
 /* Depois */
-body.theme-cyberpink #cardProfile {
+body.theme-cyberpink:not(.layout-onepage-header-active) #cardProfile {
   height: 50px;
 }
 

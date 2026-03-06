@@ -55,12 +55,37 @@ service cloud.firestore {
     function canReadSkin(userId, skinId) {
       return isAdmin() ||
         isOwner(userId) ||
+        isOnePageAdminSkin(userId) ||
         (
           exists(/databases/$(database)/documents/users/$(userId)/skins/$(skinId)) &&
           canReadPublic(
             get(/databases/$(database)/documents/users/$(userId)/skins/$(skinId)).data.visibilidade
           )
         );
+    }
+
+    function configuredAdminUid() {
+      return hasSistemaConfig() &&
+        (get(/databases/$(database)/documents/add_ons/sistema_config).data.adminUid is string)
+          ? get(/databases/$(database)/documents/add_ons/sistema_config).data.adminUid
+          : "";
+    }
+
+    function isOnePagePublicEntryMode() {
+      return hasSistemaConfig() &&
+        (get(/databases/$(database)/documents/add_ons/sistema_config).data.tipoExperiencia is string) &&
+        get(/databases/$(database)/documents/add_ons/sistema_config).data.tipoExperiencia == "onepage" &&
+        (get(/databases/$(database)/documents/add_ons/sistema_config).data.modoAcessoProjeto is string) &&
+        (
+          get(/databases/$(database)/documents/add_ons/sistema_config).data.modoAcessoProjeto == "publico_sem_login" ||
+          get(/databases/$(database)/documents/add_ons/sistema_config).data.modoAcessoProjeto == "publico_com_area_restrita"
+        );
+    }
+
+    function isOnePageAdminSkin(userId) {
+      return isOnePagePublicEntryMode() &&
+        configuredAdminUid() != "" &&
+        userId == configuredAdminUid();
     }
 
     function isEspacoCoCriadorData(data) {
@@ -95,6 +120,11 @@ service cloud.firestore {
         data.visibilidade == "publico" ||
         ((data.visibilidade == "publico_restritivo" || data.visibilidade == "privado") && signedIn()) ||
         (data.visibilidade == "exclusivo_assinante" && isEspacoAssinante(userId, espacoId));
+    }
+
+    function canReadEspacoEstruturaData(data, userId, espacoId) {
+      return canReadEspacoData(data, userId, espacoId) ||
+        isOnePagePublicMode();
     }
 
     function isBlocoCoCriador(data) {
@@ -161,11 +191,7 @@ service cloud.firestore {
     }
 
     function isOnePagePublicMode() {
-      return hasSistemaConfig() &&
-        (get(/databases/$(database)/documents/add_ons/sistema_config).data.tipoExperiencia is string) &&
-        get(/databases/$(database)/documents/add_ons/sistema_config).data.tipoExperiencia == "onepage" &&
-        (get(/databases/$(database)/documents/add_ons/sistema_config).data.modoAcessoProjeto is string) &&
-        get(/databases/$(database)/documents/add_ons/sistema_config).data.modoAcessoProjeto == "publico_sem_login";
+      return isOnePagePublicEntryMode();
     }
 
     function canWriteBlocosNoProjetoAtual() {
@@ -220,6 +246,7 @@ service cloud.firestore {
       match /skins/{skinId} {
         allow get, list: if isAdmin() ||
           isOwner(userId) ||
+          isOnePageAdminSkin(userId) ||
           (signedIn() && resource.data.ownerUserId == request.auth.uid) ||
           canReadPublic(resource.data.visibilidade);
         allow create: if isAdmin() ||
@@ -233,7 +260,7 @@ service cloud.firestore {
       }
 
       match /espacos/{espacoId} {
-        allow get, list: if canReadEspacoData(resource.data, userId, espacoId);
+        allow get, list: if canReadEspacoEstruturaData(resource.data, userId, espacoId);
         allow create: if isAdmin() ||
           (isOwner(userId) &&
             (!('ownerUserId' in request.resource.data) || request.resource.data.ownerUserId == userId));
@@ -299,9 +326,14 @@ service cloud.firestore {
           allow read: if canManageEspacoByPath(userId, espacoId) || isSelfOrOwnSkinId(assinanteId);
           allow create, delete: if canManageEspacoByPath(userId, espacoId) || isSelfOrOwnSkinId(assinanteId);
           allow update: if canManageEspacoByPath(userId, espacoId);
+          }
         }
       }
-    }
+
+      match /espacos_publicos/{espacoId} {
+        allow get, list: if true;
+        allow create, update, delete: if isAdmin() || isOwner(userId);
+      }
 
     match /blocos/{blocoId} {
       allow read: if canReadLegacyBlocoData(resource.data, blocoId);
@@ -378,6 +410,33 @@ service cloud.firestore {
     // Cadastro central de sistemas (projeto gerenciador).
     // Leitura publica para carregar configuracoes globais sem login.
     match /systems/{systemId} {
+      allow read: if true;
+      allow create: if isAdmin() || (
+        signedIn() &&
+        (request.resource.data.criadoPorUid is string) &&
+        request.resource.data.criadoPorUid == request.auth.uid &&
+        (request.resource.data.atualizadoPorUid is string) &&
+        request.resource.data.atualizadoPorUid == request.auth.uid
+      );
+      allow update, delete: if isAdmin() || (
+        signedIn() &&
+        (
+          (
+            (resource.data.criadoPorUid is string) &&
+            resource.data.criadoPorUid == request.auth.uid
+          ) ||
+          (
+            !(resource.data.criadoPorUid is string) &&
+            (request.resource.data.criadoPorUid is string) &&
+            request.resource.data.criadoPorUid == request.auth.uid &&
+            (request.resource.data.atualizadoPorUid is string) &&
+            request.resource.data.atualizadoPorUid == request.auth.uid
+          )
+        )
+      );
+    }
+
+    match /iconCollections/{collectionId} {
       allow read: if true;
       allow create: if isAdmin() || (
         signedIn() &&

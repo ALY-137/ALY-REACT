@@ -1,4 +1,5 @@
 import {
+  getDoc,
   collection,
   doc,
   getDocs,
@@ -14,6 +15,113 @@ import {
 } from "firebase/firestore";
 
 import { db } from "../../Banco/init-firebase";
+
+const VISIBILIDADES_ESPACO_RESTRITAS = [
+  "publico",
+  "publico_restritivo",
+  "privado",
+  "exclusivo_assinante",
+  "exclusivo_comprador",
+  "comprado",
+];
+
+const getEstruturaPublicaEspacosRef = (userId) =>
+  collection(db, "users", userId, "espacos_publicos");
+
+export function construirEstruturaPublicaEspaco(espaco = {}, userId = "") {
+  const ownerUserId = String(espaco?.ownerUserId || userId || "").trim();
+  const idEspaco = String(espaco?.id || espaco?.id_espaco || "").trim();
+
+  return {
+    id_espaco: idEspaco,
+    nome: String(espaco?.nome || "").trim(),
+    ordem: Number.isFinite(espaco?.ordem) ? Number(espaco.ordem) : 0,
+    ownerUserId,
+    skinOwner: String(espaco?.skinOwner || "").trim() || null,
+    visibilidade: String(espaco?.visibilidade || "publico").trim() || "publico",
+    iconCollectionId: String(espaco?.iconCollectionId || "").trim(),
+    iconId: String(espaco?.iconId || "").trim(),
+    iconUrl: String(espaco?.iconUrl || "").trim(),
+    iconLabel: String(espaco?.iconLabel || "").trim(),
+    isHome: espaco?.isHome === true,
+    skins_relacionadas: Array.isArray(espaco?.skins_relacionadas)
+      ? espaco.skins_relacionadas.filter(Boolean)
+      : [],
+    atualizadoEm: serverTimestamp(),
+  };
+}
+
+export async function sincronizarEstruturaPublicaEspaco(userId, espaco = {}) {
+  const userIdNormalizado = String(userId || "").trim();
+  const idEspaco = String(espaco?.id || espaco?.id_espaco || "").trim();
+
+  if (!userIdNormalizado || !idEspaco) return;
+
+  try {
+    await setDoc(
+      doc(getEstruturaPublicaEspacosRef(userIdNormalizado), idEspaco),
+      construirEstruturaPublicaEspaco(espaco, userIdNormalizado),
+      { merge: true }
+    );
+  } catch (error) {
+    if (error?.code === "permission-denied") {
+      return false;
+    }
+    throw error;
+  }
+
+  return true;
+}
+
+export async function removerEstruturaPublicaEspaco(userId, espacoId) {
+  const userIdNormalizado = String(userId || "").trim();
+  const espacoIdNormalizado = String(espacoId || "").trim();
+  if (!userIdNormalizado || !espacoIdNormalizado) return;
+
+  try {
+    await deleteDoc(doc(getEstruturaPublicaEspacosRef(userIdNormalizado), espacoIdNormalizado));
+  } catch (error) {
+    if (error?.code === "permission-denied") {
+      return false;
+    }
+    throw error;
+  }
+
+  return true;
+}
+
+export async function getEspacosEstruturaPublica(userId) {
+  const userIdNormalizado = String(userId || "").trim();
+  if (!userIdNormalizado) return [];
+
+  const snapshot = await getDocs(query(getEstruturaPublicaEspacosRef(userIdNormalizado)));
+
+  return snapshot.docs
+    .map((docSnap) => {
+      const data = docSnap.data() || {};
+      return {
+        id: docSnap.id,
+        ownerUserId: data.ownerUserId || userIdNormalizado,
+        ...data,
+      };
+    })
+    .sort((a, b) => (Number(a?.ordem) || 0) - (Number(b?.ordem) || 0));
+}
+
+export async function getEspacoCompleto(userId, espacoId) {
+  const userIdNormalizado = String(userId || "").trim();
+  const espacoIdNormalizado = String(espacoId || "").trim();
+  if (!userIdNormalizado || !espacoIdNormalizado) return null;
+
+  const snap = await getDoc(doc(db, "users", userIdNormalizado, "espacos", espacoIdNormalizado));
+  if (!snap.exists()) return null;
+
+  return {
+    id: snap.id,
+    ownerUserId: snap.data()?.ownerUserId || userIdNormalizado,
+    ...snap.data(),
+  };
+}
 
 /* -------------------------------------------------------
    PEGAR TODAS AS PÁGINAS DO USER
@@ -45,7 +153,7 @@ export async function getEspacosDaSkin({ userId, skinId, viewerUserId = null }) 
       compatQuery = query(
         espacosRef,
         where("skins_relacionadas", "array-contains", skinId),
-        where("visibilidade", "in", ["publico", "publico_restritivo", "privado"])
+        where("visibilidade", "in", VISIBILIDADES_ESPACO_RESTRITAS)
       );
     }
     if (isOwner) {
@@ -80,7 +188,7 @@ export async function getEspacosDaSkin({ userId, skinId, viewerUserId = null }) 
         compatLegacyQuery = query(
           espacosRef,
           where("skinOwner", "==", skinId),
-          where("visibilidade", "in", ["publico", "publico_restritivo", "privado"])
+          where("visibilidade", "in", VISIBILIDADES_ESPACO_RESTRITAS)
         );
       }
       if (isOwner) {
@@ -132,6 +240,66 @@ export async function getEspacosDaSkin({ userId, skinId, viewerUserId = null }) 
     .sort((a, b) => a.ordem - b.ordem);
 }
 
+export async function getEspacosDoOwner({
+  userId,
+  viewerUserId = null,
+  ignorarVisibilidade = false,
+}) {
+  const espacosRef = collection(db, "users", userId, "espacos");
+  const isOwner = viewerUserId && viewerUserId === userId;
+
+  let snapshot;
+  try {
+    snapshot = await getDocs(query(espacosRef));
+  } catch (err) {
+    if (err?.code !== "permission-denied") {
+      throw err;
+    }
+
+    if (ignorarVisibilidade) {
+      throw err;
+    }
+
+    let compatQuery = query(espacosRef, where("visibilidade", "==", "publico"));
+
+    if (viewerUserId && !isOwner) {
+      compatQuery = query(
+        espacosRef,
+        where("visibilidade", "in", VISIBILIDADES_ESPACO_RESTRITAS)
+      );
+    }
+
+    if (isOwner) {
+      compatQuery = query(espacosRef);
+    }
+
+    snapshot = await getDocs(compatQuery);
+  }
+
+  if (snapshot.empty && !ignorarVisibilidade) {
+    const nullVisibilityQuery = query(
+      espacosRef,
+      where("visibilidade", "==", null)
+    );
+    try {
+      snapshot = await getDocs(nullVisibilityQuery);
+    } catch (err) {
+      if (err?.code !== "permission-denied") throw err;
+    }
+  }
+
+  return snapshot.docs
+    .map((docSnap) => {
+      const data = docSnap.data();
+      return {
+        id: docSnap.id,
+        ownerUserId: data.ownerUserId || userId,
+        ...data,
+      };
+    })
+    .sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
+}
+
 /* -------------------------------------------------------
    CRIAR PÁGINA
 ------------------------------------------------------- */
@@ -145,7 +313,7 @@ export const createEspaco = async (userId, nome, skins = []) => {
 
   const novaEspacoRef = doc(espacosRef);
 
-  await setDoc(novaEspacoRef, {
+  const novoEspaco = {
     id_espaco: novaEspacoRef.id,
     nome,
     conteudo: "",
@@ -153,6 +321,13 @@ export const createEspaco = async (userId, nome, skins = []) => {
     ordem,
     skins_relacionadas: skins,
     data: serverTimestamp(),
+  };
+
+  await setDoc(novaEspacoRef, novoEspaco);
+  await sincronizarEstruturaPublicaEspaco(userId, {
+    ...novoEspaco,
+    id: novaEspacoRef.id,
+    ownerUserId: userId,
   });
 
   // atualizar skins
@@ -172,6 +347,8 @@ export const createEspaco = async (userId, nome, skins = []) => {
 export const updateEspacoNome = async (userId, espacoId, novoNome) => {
   const ref = doc(db, "users", userId, "espacos", espacoId);
   await updateDoc(ref, { nome: novoNome });
+  const espacoAtualizado = await getEspacoCompleto(userId, espacoId);
+  await sincronizarEstruturaPublicaEspaco(userId, espacoAtualizado);
 };
 
 /* -------------------------------------------------------
@@ -205,6 +382,15 @@ export const updateOrdemEspacos = async (userId, espacosOrdenadas) => {
   });
 
   await batch.commit();
+
+  await Promise.all(
+    espacosOrdenadas.map((espaco, index) =>
+      sincronizarEstruturaPublicaEspaco(userId, {
+        ...espaco,
+        ordem: index,
+      })
+    )
+  );
 };
 
 /* -------------------------------------------------------
@@ -222,4 +408,5 @@ export const deleteEspaco = async (userId, espacoId) => {
 
   const espacoRef = doc(db, "users", userId, "espacos", espacoId);
   await deleteDoc(espacoRef);
+  await removerEstruturaPublicaEspaco(userId, espacoId);
 };

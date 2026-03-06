@@ -55,18 +55,102 @@
   opacity: 1;
  }
 
+.sprite-loader-transition-shell {
+  position: relative;
+  overflow: hidden;
+}
+
+.sprite-loader-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 520ms ease, visibility 520ms ease;
+}
+
+.sprite-loader-layer.sprite-loader-layer-hidden {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.sprite-login-content-layer {
+  position: relative;
+  z-index: 5;
+}
+
+.loader-cherry {
+  width: var(--loader-sprite-size, 128px);
+  height: var(--loader-sprite-size, 128px);
+  display: block;
+  margin: 0 auto;
+  background-repeat: no-repeat;
+  background-position: 0% 0;
+  background-size: 800% 100%;
+  image-rendering: auto;
+  animation: loginSpriteSheetLoop var(--loader-sprite-duration, 0.8s) steps(7) infinite;
+}
+
+@keyframes loginSpriteSheetLoop {
+  from {
+    background-position: 0% 0;
+  }
+  to {
+    background-position: 100% 0;
+  }
+}
+
+.sprite-loader-layer.sprite-loader-layer-inline {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.system-loading-indicator {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.system-loading-dot {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.22);
+  border-top-color: var(--theme-acc-primary, #a85cff);
+  animation: systemLoadingSpin 0.85s linear infinite;
+}
+
+@keyframes systemLoadingSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 #given_name,#fullName,#sub,#family_name,#verifiedEmail,#email,#picture{
   display: none;
 }
 
 #iconsLogin{
-  height: 350px;
+  height: auto;
+  min-height: 350px;
   width: var(--icons-login-width, 150px);
   max-width: calc(100vw - 24px);
   display: grid;
   grid-template-rows: 1fr auto;
   align-items: stretch;
   justify-items: center;
+  box-sizing: border-box;
 }
 
 #loginMain {
@@ -85,8 +169,11 @@
 #logoLogin{
   margin: 0 auto;
   padding: 0;
-  height: 150px;
-  width: 150px;
+  height: auto;
+  width: auto;
+  max-width: 150px;
+  max-height: 150px;
+  object-fit: contain;
   display: block;
 }
 
@@ -138,6 +225,8 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  align-items: stretch;
+  box-sizing: border-box;
 }
 
 .loginCadastroInput {
@@ -150,6 +239,19 @@
   background: transparent;
   color: inherit;
   font-size: 12px;
+  font-family: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+  text-shadow: none;
+}
+
+.loginCadastroInput:focus,
+.loginCadastroInput:focus-visible {
+  outline: none;
+  border-color: var(--login-input-focus-border, currentColor);
+  box-shadow:
+    0 0 0 1px var(--login-input-focus-border, currentColor),
+    0 0 0 4px var(--login-input-focus-ring, transparent);
 }
 
 .loginCadastroInput::placeholder {
@@ -169,6 +271,8 @@
   letter-spacing: 1px;
   text-transform: uppercase;
   cursor: pointer;
+  font-family: inherit;
+  text-shadow: none;
 }
 
 .loginCadastroButton:disabled {
@@ -176,11 +280,83 @@
   cursor: not-allowed;
 }
 
+.loginCadastroSecondaryButton {
+  width: fit-content;
+  max-width: 100%;
+  min-height: 28px;
+  padding: 4px 8px;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-size: 10px;
+  font-family: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+  text-decoration: underline;
+  text-shadow: none;
+  cursor: pointer;
+  align-self: center;
+}
+
+.loginCadastroSecondaryButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.loginCadastroModeToggle {
+  margin-top: -2px;
+}
+
+.loginCadastroForgotButton,
+.loginCadastroForgotButton:hover,
+.loginCadastroForgotButton:focus-visible {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.loginCadastroForgotButton {
+  font-size: 9px;
+}
+
+.loginCadastroTerms {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  color: inherit;
+  font-family: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+  text-shadow: none;
+}
+
+.loginCadastroTerms a {
+  color: inherit;
+}
+
 .loginCadastroErro {
   margin: 0;
   font-size: 11px;
   text-align: center;
-  opacity: 0.9;
+  opacity: 1;
+  color: var(--login-error-color, currentColor);
+  font-family: inherit;
+  letter-spacing: normal;
+  line-height: 1.4;
+  text-transform: none;
+  text-shadow: none;
+}
+
+.loginCadastroMensagem {
+  margin: 0;
+  font-size: 11px;
+  text-align: center;
+  color: var(--login-message-color, currentColor);
+  font-family: inherit;
+  letter-spacing: normal;
+  line-height: 1.4;
+  text-transform: none;
+  text-shadow: none;
 }
 
 #loginSemMetodoAviso {

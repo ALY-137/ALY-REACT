@@ -5,7 +5,7 @@ import { seforAdm } from "../../Scripts/verificacoes/verificaAdm";
 import Navegacoes from "../../Scripts/navegacoes/Navegacoes";
 import { activeFirebaseProjectKey, db } from "../../Banco/init-firebase";
 
-import { doc, getDoc } from "firebase/firestore";
+import { collection, doc, getDoc, onSnapshot } from "firebase/firestore";
 import { useAuth } from "../../../hooks/auth/useAuth";
 import { signOut } from "firebase/auth";
 import { auth } from "../../Banco/init-firebase";
@@ -14,8 +14,10 @@ import {
   DEFAULT_SISTEMA_CONFIG,
   aplicarBrandingNoDocumento,
   aplicarTemaNoBody,
+  isOnePageComEntradaPublica,
   obterConfigSistemaCacheLocal,
   obterConfigSistema,
+  obterProjectKeyContextual,
 } from "../Sistema/configSistema";
 import FirebaseProjectBadge from "../Geral/FirebaseProjectBadge";
 
@@ -32,6 +34,10 @@ function Menu({ menuOpen }) {
   const [configSistemaPronta, setConfigSistemaPronta] = useState(
     () => Boolean(obterConfigSistemaCacheLocal())
   );
+  const [badgeSolicitacoes, setBadgeSolicitacoes] = useState({
+    pendentes: 0,
+    confirmadas: 0,
+  });
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -44,11 +50,13 @@ function Menu({ menuOpen }) {
   const tipoExperiencia = configSistema?.tipoExperiencia || "multipage";
   const onePagePublicaAtiva =
     !isManagerProject &&
-    tipoExperiencia === "onepage" &&
-    modoAcessoProjeto === "publico_sem_login";
-  const loginAdminSeparado = onePagePublicaAtiva;
+    isOnePageComEntradaPublica({
+      tipoExperiencia,
+      modoAcessoProjeto,
+    });
   const rotaAdminMenuOnePage =
     onePagePublicaAtiva && String(menuUserId || "").trim().toLowerCase() === "admin";
+  const loginAdminSeparado = onePagePublicaAtiva && rotaAdminMenuOnePage;
   const skinLogadoUser = !isManagerProject
     ? onePagePublicaAtiva
       ? rotaAdminMenuOnePage
@@ -81,6 +89,7 @@ function Menu({ menuOpen }) {
   const pixManualHabilitado = configSistema.pixManualHabilitado !== false;
   const pagamentosCompradorHabilitados = mercadoPagoHabilitado || pixManualHabilitado;
   const rotaLoginProjeto = onePagePublicaAtiva ? "/login" : "/";
+  const rotaLoginAdminProjeto = onePagePublicaAtiva ? "/loginadmin" : rotaLoginProjeto;
   const adminUidProjetoConfigurado = String(
     configSistema?.adminUid || localStorage.getItem("systemAdminUid") || ""
   ).trim();
@@ -119,13 +128,23 @@ function Menu({ menuOpen }) {
   const exibirGestaoSkins =
     adminOnePagePodeGerenciarSkins ||
     (Boolean(skinLogadoUser) && (!projetoComSkinUnica || menuOnePageUsuarioComum));
-  const exibirGestaoEspacos = Boolean(skinLogadoUser) && !menuOnePageUsuarioComum;
+  const exibirGestaoEspacos =
+    (onePagePublicaAtiva && rotaAdminMenuOnePage && usuarioEhAdminProjeto) ||
+    (Boolean(skinLogadoUser) && !menuOnePageUsuarioComum);
   const exibirContatos = chatHabilitado && Boolean(skinLogadoUser) && !onePagePublicaAtiva;
   const exibirPropriedades = !menuOnePageUsuarioComum;
   const exibirSolicitacoes =
     !isManagerProject &&
     pixManualHabilitado &&
     temUsuarioAutenticado;
+  const ownerSolicitacoesUid = String(
+    onePagePublicaAtiva
+      ? adminUidProjetoConfigurado || usuarioAuthAtual?.uid || ""
+      : usuarioAuthAtual?.uid || ""
+  ).trim();
+  const exibirBadgeSolicitacoes = Boolean(
+    exibirSolicitacoes && usuarioEhAdminProjeto && ownerSolicitacoesUid
+  );
   const adminUidGerenciadorConfigurado = String(
     configSistema?.adminUid ||
       localStorage.getItem("systemAdminUid") ||
@@ -233,6 +252,10 @@ function Menu({ menuOpen }) {
     navigateIfChanged(`/menu/${menuTargetUser}/gerenciar-layouts`);
   }
 
+  function abrirGerenciadorIcones() {
+    navigateIfChanged(`/menu/${menuTargetUser}/gerenciador-icones`);
+  }
+
   function abrirGerenciadoProjetos() {
     navigateIfChanged(`/menu/${menuTargetUser}/gerenciador-projetos`);
   }
@@ -241,7 +264,9 @@ function Menu({ menuOpen }) {
     const hostAtual = String(window.location.hostname || "").toLowerCase();
     const executandoNoLocalhost =
       hostAtual === "localhost" || hostAtual === "127.0.0.1" || hostAtual === "::1";
-    const projetoAtivoLogout = String(activeFirebaseProjectKey || "").trim();
+    const projetoAtivoLogout = String(
+      obterProjectKeyContextual() || activeFirebaseProjectKey || ""
+    ).trim();
     const chavesSessao = [
       "targetUsername",
       "skinLogadoUser",
@@ -278,12 +303,14 @@ function Menu({ menuOpen }) {
     if (executandoNoLocalhost) {
       const queryProjeto =
         projetoAtivoLogout ? `?firebaseProject=${encodeURIComponent(projetoAtivoLogout)}` : "";
-      const destinoLocal = loginAdminSeparado ? `/login${queryProjeto}` : `/${queryProjeto}`;
+      const destinoLocal = loginAdminSeparado
+        ? `${rotaLoginAdminProjeto}${queryProjeto}`
+        : `/${queryProjeto}`;
       window.location.replace(destinoLocal);
       return;
     }
 
-    navigate(rotaLoginProjeto, { replace: true });
+    navigate(loginAdminSeparado ? rotaLoginAdminProjeto : rotaLoginProjeto, { replace: true });
   }
 
   useLayoutEffect(() => {
@@ -399,6 +426,10 @@ function Menu({ menuOpen }) {
           setAtualTxt("GERENCIAR LAYOUTS");
           setBackText("MENU");
           setBackAction(() => returnMenu);
+        } else if (path.endsWith("/gerenciador-icones")) {
+          setAtualTxt("GERENCIADOR DE ICONES");
+          setBackText("MENU");
+          setBackAction(() => returnMenu);
         } else if (path.endsWith("/gerenciador-projetos")) {
           setAtualTxt("GERENCIADO DE PROJETOS");
           setBackText("MENU");
@@ -502,6 +533,43 @@ function Menu({ menuOpen }) {
     navigate,
   ]);
 
+  useEffect(() => {
+    if (!exibirBadgeSolicitacoes) {
+      setBadgeSolicitacoes({ pendentes: 0, confirmadas: 0 });
+      return;
+    }
+
+    const pedidosRef = collection(db, "users", ownerSolicitacoesUid, "pedidos");
+    const unsubscribe = onSnapshot(
+      pedidosRef,
+      (snapshot) => {
+        let pendentes = 0;
+        let confirmadas = 0;
+
+        snapshot.docs.forEach((item) => {
+          const status = String(item.data()?.status || "pedido_solicitado")
+            .trim()
+            .toLowerCase();
+          if (status === "pagamento_confirmado") {
+            confirmadas += 1;
+          } else {
+            pendentes += 1;
+          }
+        });
+
+        setBadgeSolicitacoes({ pendentes, confirmadas });
+      },
+      (err) => {
+        setBadgeSolicitacoes({ pendentes: 0, confirmadas: 0 });
+        if (err?.code !== "permission-denied") {
+          console.error("Erro ao carregar badge de solicitacoes:", err);
+        }
+      }
+    );
+
+    return () => unsubscribe();
+  }, [exibirBadgeSolicitacoes, ownerSolicitacoesUid]);
+
   if (aguardandoAuthInicial) {
     return <div className="loader">Carregando menu...</div>;
   }
@@ -559,6 +627,9 @@ function Menu({ menuOpen }) {
             <div onClick={abrirGerenciarLayouts} className="gavetaOption">
               GERENCIAR LAYOUTS
             </div>
+            <div onClick={abrirGerenciadorIcones} className="gavetaOption">
+              GERENCIADOR DE ICONES
+            </div>
             <div onClick={abrirGerenciadoProjetos} className="gavetaOption">
               GERENCIADO DE PROJETOS
             </div>
@@ -588,7 +659,14 @@ function Menu({ menuOpen }) {
               <div onClick={abrirPropriedades} className="gavetaOption">PROPRIEDADES</div>
             ) : null}
             {exibirSolicitacoes ? (
-              <div onClick={abrirSolicitacoes} className="gavetaOption">SOLICITAÇÕES</div>
+              <div onClick={abrirSolicitacoes} className="gavetaOption">
+                SOLICITAÇÕES
+                {exibirBadgeSolicitacoes ? (
+                  <span style={{ marginLeft: 8, fontSize: 11, opacity: 0.85 }}>
+                    {`P:${badgeSolicitacoes.pendentes} C:${badgeSolicitacoes.confirmadas}`}
+                  </span>
+                ) : null}
+              </div>
             ) : null}
           </>
         ) : null}
