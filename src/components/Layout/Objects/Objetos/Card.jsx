@@ -26,6 +26,7 @@ function Card({
   idNome,
   linkExterno,
   imgCard,
+  onImagemClick,
 }) {
   const cardRef = useRef(null);
   const [addOns, setAddOns] = useState([]);
@@ -115,7 +116,25 @@ function Card({
         <p className={cardNome}> [ ] {nome}</p>
       </div>
       <div className={cardImagem}>
-        <img className={imgCard} src={imagem} alt="imagem" />
+        {typeof onImagemClick === "function" ? (
+          <button
+            type="button"
+            onClick={() => onImagemClick(imagem)}
+            style={{
+              border: "none",
+              background: "transparent",
+              padding: 0,
+              margin: 0,
+              width: "100%",
+              cursor: "zoom-in",
+            }}
+            title="Clique para ampliar"
+          >
+            <img className={imgCard} src={imagem} alt="imagem" />
+          </button>
+        ) : (
+          <img className={imgCard} src={imagem} alt="imagem" />
+        )}
       </div>
       <div className={cardDescricao}>
         <div className={cardDescricaoDiv}>

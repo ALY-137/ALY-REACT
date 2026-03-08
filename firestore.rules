@@ -198,6 +198,162 @@ service cloud.firestore {
       return !isOnePagePublicMode() || isAdmin();
     }
 
+    function hasProjetoSistemaConfig(projectKey) {
+      return exists(
+        /databases/$(database)/documents/projetos/$(projectKey)/add_ons/sistema_config
+      );
+    }
+
+    function projetoAdminUid(projectKey) {
+      return hasProjetoSistemaConfig(projectKey) &&
+        (get(
+          /databases/$(database)/documents/projetos/$(projectKey)/add_ons/sistema_config
+        ).data.adminUid is string)
+          ? get(
+            /databases/$(database)/documents/projetos/$(projectKey)/add_ons/sistema_config
+          ).data.adminUid
+          : "";
+    }
+
+    function isProjetoAdmin(projectKey) {
+      return signedIn() &&
+        projetoAdminUid(projectKey) != "" &&
+        request.auth.uid == projetoAdminUid(projectKey);
+    }
+
+    function isProjetoOnePagePublicMode(projectKey) {
+      return hasProjetoSistemaConfig(projectKey) &&
+        (get(
+          /databases/$(database)/documents/projetos/$(projectKey)/add_ons/sistema_config
+        ).data.tipoExperiencia is string) &&
+        get(
+          /databases/$(database)/documents/projetos/$(projectKey)/add_ons/sistema_config
+        ).data.tipoExperiencia == "onepage" &&
+        (get(
+          /databases/$(database)/documents/projetos/$(projectKey)/add_ons/sistema_config
+        ).data.modoAcessoProjeto is string) &&
+        (
+          get(
+            /databases/$(database)/documents/projetos/$(projectKey)/add_ons/sistema_config
+          ).data.modoAcessoProjeto == "publico_sem_login" ||
+          get(
+            /databases/$(database)/documents/projetos/$(projectKey)/add_ons/sistema_config
+          ).data.modoAcessoProjeto == "publico_com_area_restrita"
+        );
+    }
+
+    function hasProjetoActiveSkinId(projectKey) {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/projetos/$(projectKey)/users/$(request.auth.uid)) &&
+        (get(
+          /databases/$(database)/documents/projetos/$(projectKey)/users/$(request.auth.uid)
+        ).data.skinAtivaId is string);
+    }
+
+    function projetoActiveSkinId(projectKey) {
+      return get(
+        /databases/$(database)/documents/projetos/$(projectKey)/users/$(request.auth.uid)
+      ).data.skinAtivaId;
+    }
+
+    function isProjetoSelfOrOwnSkinId(projectKey, refId) {
+      return signedIn() && (
+        refId == request.auth.uid ||
+        exists(/databases/$(database)/documents/projetos/$(projectKey)/users/$(request.auth.uid)/skins/$(refId))
+      );
+    }
+
+    function isProjetoEspacoCoCriadorData(data) {
+      return signedIn() &&
+        (data.coCriadoresUids is list) &&
+        data.coCriadoresUids.hasAny([request.auth.uid]);
+    }
+
+    function canManageProjetoEspacoData(projectKey, data, userId) {
+      return isAdmin() ||
+        isProjetoAdmin(projectKey) ||
+        isOwner(userId) ||
+        isProjetoEspacoCoCriadorData(data);
+    }
+
+    function canManageProjetoEspacoByPath(projectKey, userId, espacoId) {
+      return exists(
+        /databases/$(database)/documents/projetos/$(projectKey)/users/$(userId)/espacos/$(espacoId)
+      ) &&
+        canManageProjetoEspacoData(
+          projectKey,
+          get(
+            /databases/$(database)/documents/projetos/$(projectKey)/users/$(userId)/espacos/$(espacoId)
+          ).data,
+          userId
+        );
+    }
+
+    function isProjetoEspacoAssinante(projectKey, userId, espacoId) {
+      return signedIn() && (
+        exists(
+          /databases/$(database)/documents/projetos/$(projectKey)/users/$(userId)/espacos/$(espacoId)/assinantes/$(request.auth.uid)
+        ) ||
+        (hasProjetoActiveSkinId(projectKey) &&
+          exists(
+            /databases/$(database)/documents/projetos/$(projectKey)/users/$(userId)/espacos/$(espacoId)/assinantes/$(projetoActiveSkinId(projectKey))
+          ))
+      );
+    }
+
+    function canReadProjetoEspacoData(projectKey, data, userId, espacoId) {
+      return canManageProjetoEspacoData(projectKey, data, userId) ||
+        data.visibilidade == null ||
+        data.visibilidade == "publico" ||
+        ((data.visibilidade == "publico_restritivo" || data.visibilidade == "privado") && signedIn()) ||
+        (data.visibilidade == "exclusivo_assinante" && isProjetoEspacoAssinante(projectKey, userId, espacoId));
+    }
+
+    function canReadProjetoEspacoEstruturaData(projectKey, data, userId, espacoId) {
+      return canReadProjetoEspacoData(projectKey, data, userId, espacoId) ||
+        isProjetoOnePagePublicMode(projectKey);
+    }
+
+    function canReadProjetoBlocoData(projectKey, data, userId, espacoId, blocoId) {
+      return canManageProjetoEspacoByPath(projectKey, userId, espacoId) ||
+        canManageBlocoData(data) ||
+        (
+          exists(
+            /databases/$(database)/documents/projetos/$(projectKey)/users/$(userId)/espacos/$(espacoId)
+          ) &&
+          canReadProjetoEspacoData(
+            projectKey,
+            get(
+              /databases/$(database)/documents/projetos/$(projectKey)/users/$(userId)/espacos/$(espacoId)
+            ).data,
+            userId,
+            espacoId
+          ) &&
+          (
+            data.visibilidade == null ||
+            data.visibilidade == "publico" ||
+            data.visibilidade == "publico_restritivo" ||
+            data.visibilidade == "privado" ||
+            data.visibilidade == "exclusivo_assinante" ||
+            data.visibilidade == "exclusivo_comprador" ||
+            data.visibilidade == "comprado"
+          )
+        );
+    }
+
+    function canWriteProjetoBlocos(projectKey) {
+      return !isProjetoOnePagePublicMode(projectKey) || isAdmin() || isProjetoAdmin(projectKey);
+    }
+
+    function canCreateProjetoEspacoBloco(projectKey, userId, espacoId, data) {
+      return signedIn() &&
+        canWriteProjetoBlocos(projectKey) &&
+        canManageProjetoEspacoByPath(projectKey, userId, espacoId) &&
+        (!('espacoId' in data) || data.espacoId == espacoId) &&
+        (!('ownerUserId' in data) || data.ownerUserId == userId) &&
+        (!('criadoPor' in data) || data.criadoPor == request.auth.uid);
+    }
+
     function canCreateEspacoBloco(userId, espacoId, data) {
       return signedIn() &&
         canWriteBlocosNoProjetoAtual() &&
@@ -461,6 +617,198 @@ service cloud.firestore {
           )
         )
       );
+    }
+
+    // Namespace de dados por projeto (onepages em runtime compartilhado).
+    match /projetos/{projectKey} {
+      match /add_ons/{addonId} {
+        allow read: if true;
+        allow create: if isAdmin() || (
+          addonId == "sistema_config" &&
+          signedIn() &&
+          request.resource.data.adminUid == request.auth.uid
+        );
+        allow update, delete: if isAdmin() || isProjetoAdmin(projectKey);
+      }
+
+      match /users/{userId} {
+        allow read, create, update, delete: if isAdmin() || isProjetoAdmin(projectKey) || isOwner(userId);
+
+        match /logins/{loginId} {
+          allow read, write: if isAdmin() || isProjetoAdmin(projectKey) || isOwner(userId);
+        }
+
+        match /navegacoes_users/{sessaoId} {
+          allow read, write: if isAdmin() || isProjetoAdmin(projectKey) || isOwner(userId);
+        }
+
+        match /integracoes/{integracaoId} {
+          allow read: if isAdmin() ||
+            isProjetoAdmin(projectKey) ||
+            isOwner(userId) ||
+            (signedIn() && integracaoId == "pixManual");
+          allow write: if isAdmin() || isProjetoAdmin(projectKey) || isOwner(userId);
+        }
+
+        match /pedidos/{pedidoId} {
+          allow read: if isAdmin() ||
+            isProjetoAdmin(projectKey) ||
+            isOwner(userId) ||
+            (signedIn() && resource.data.compradorUid == request.auth.uid);
+          allow create: if signedIn() &&
+            request.resource.data.ownerUserId == userId &&
+            request.resource.data.compradorUid == request.auth.uid &&
+            request.resource.data.status == "pedido_solicitado";
+          allow update, delete: if isAdmin() || isProjetoAdmin(projectKey) || isOwner(userId);
+        }
+
+        match /skins/{skinId} {
+          allow get, list: if isAdmin() ||
+            isProjetoAdmin(projectKey) ||
+            isOwner(userId) ||
+            (signedIn() && resource.data.ownerUserId == request.auth.uid) ||
+            canReadPublic(resource.data.visibilidade);
+          allow create: if isAdmin() ||
+            isProjetoAdmin(projectKey) ||
+            (isOwner(userId) && request.resource.data.ownerUserId == userId);
+          allow update, delete: if isAdmin() || isProjetoAdmin(projectKey) || isOwner(userId);
+
+          match /{subPath=**} {
+            allow read: if isAdmin() ||
+              isProjetoAdmin(projectKey) ||
+              isOwner(userId) ||
+              (
+                exists(
+                  /databases/$(database)/documents/projetos/$(projectKey)/users/$(userId)/skins/$(skinId)
+                ) &&
+                canReadPublic(
+                  get(
+                    /databases/$(database)/documents/projetos/$(projectKey)/users/$(userId)/skins/$(skinId)
+                  ).data.visibilidade
+                )
+              );
+            allow write: if isAdmin() || isProjetoAdmin(projectKey) || isOwner(userId);
+          }
+        }
+
+        match /espacos/{espacoId} {
+          allow get, list: if canReadProjetoEspacoEstruturaData(projectKey, resource.data, userId, espacoId);
+          allow create: if isAdmin() ||
+            isProjetoAdmin(projectKey) ||
+            (isOwner(userId) &&
+              (!('ownerUserId' in request.resource.data) || request.resource.data.ownerUserId == userId));
+          allow update, delete: if canManageProjetoEspacoData(projectKey, resource.data, userId);
+
+          match /blocos/{blocoId} {
+            allow get, list: if canReadProjetoBlocoData(projectKey, resource.data, userId, espacoId, blocoId);
+            allow create: if isAdmin() || canCreateProjetoEspacoBloco(projectKey, userId, espacoId, request.resource.data);
+            allow update, delete: if isAdmin() ||
+              (canWriteProjetoBlocos(projectKey) && (
+                canManageProjetoEspacoByPath(projectKey, userId, espacoId) ||
+                canManageBlocoData(resource.data)
+              ));
+
+            match /cards/{cardId} {
+              allow read: if exists(
+                /databases/$(database)/documents/projetos/$(projectKey)/users/$(userId)/espacos/$(espacoId)/blocos/$(blocoId)
+              ) &&
+                canReadProjetoBlocoData(
+                  projectKey,
+                  get(
+                    /databases/$(database)/documents/projetos/$(projectKey)/users/$(userId)/espacos/$(espacoId)/blocos/$(blocoId)
+                  ).data,
+                  userId,
+                  espacoId,
+                  blocoId
+                );
+              allow create, update, delete: if isAdmin() ||
+                (canWriteProjetoBlocos(projectKey) && (
+                  canManageProjetoEspacoByPath(projectKey, userId, espacoId) ||
+                  (
+                    exists(
+                      /databases/$(database)/documents/projetos/$(projectKey)/users/$(userId)/espacos/$(espacoId)/blocos/$(blocoId)
+                    ) &&
+                    canManageBlocoData(
+                      get(
+                        /databases/$(database)/documents/projetos/$(projectKey)/users/$(userId)/espacos/$(espacoId)/blocos/$(blocoId)
+                      ).data
+                    )
+                  )
+                ));
+
+              match /addOnsRefs/{addOnRefId} {
+                allow read: if exists(
+                  /databases/$(database)/documents/projetos/$(projectKey)/users/$(userId)/espacos/$(espacoId)/blocos/$(blocoId)
+                ) &&
+                  canReadProjetoBlocoData(
+                    projectKey,
+                    get(
+                      /databases/$(database)/documents/projetos/$(projectKey)/users/$(userId)/espacos/$(espacoId)/blocos/$(blocoId)
+                    ).data,
+                    userId,
+                    espacoId,
+                    blocoId
+                  );
+                allow create, update, delete: if isAdmin() ||
+                  (canWriteProjetoBlocos(projectKey) && (
+                    canManageProjetoEspacoByPath(projectKey, userId, espacoId) ||
+                    (
+                      exists(
+                        /databases/$(database)/documents/projetos/$(projectKey)/users/$(userId)/espacos/$(espacoId)/blocos/$(blocoId)
+                      ) &&
+                      canManageBlocoData(
+                        get(
+                          /databases/$(database)/documents/projetos/$(projectKey)/users/$(userId)/espacos/$(espacoId)/blocos/$(blocoId)
+                        ).data
+                      )
+                    )
+                  ));
+              }
+            }
+
+            match /compradores/{compradorId} {
+              allow read: if canManageProjetoEspacoByPath(projectKey, userId, espacoId) ||
+                isProjetoSelfOrOwnSkinId(projectKey, compradorId);
+              allow create, delete: if canManageProjetoEspacoByPath(projectKey, userId, espacoId) ||
+                isProjetoSelfOrOwnSkinId(projectKey, compradorId);
+              allow update: if canManageProjetoEspacoByPath(projectKey, userId, espacoId);
+            }
+          }
+
+          match /assinantes/{assinanteId} {
+            allow read: if canManageProjetoEspacoByPath(projectKey, userId, espacoId) ||
+              isProjetoSelfOrOwnSkinId(projectKey, assinanteId);
+            allow create, delete: if canManageProjetoEspacoByPath(projectKey, userId, espacoId) ||
+              isProjetoSelfOrOwnSkinId(projectKey, assinanteId);
+            allow update: if canManageProjetoEspacoByPath(projectKey, userId, espacoId);
+          }
+        }
+
+        match /espacos_publicos/{espacoId} {
+          allow get, list: if true;
+          allow create, update, delete: if isAdmin() || isProjetoAdmin(projectKey) || isOwner(userId);
+        }
+      }
+
+      match /contatos/{contatoId} {
+        allow create: if true;
+        allow read, update, delete: if isAdmin() || isProjetoAdmin(projectKey) || signedIn();
+
+        match /conversas/{conversaId} {
+          allow create: if true;
+          allow read, update, delete: if isAdmin() || isProjetoAdmin(projectKey) || signedIn();
+
+          match /chat/{chatId} {
+            allow create: if true;
+            allow read, update, delete: if isAdmin() || isProjetoAdmin(projectKey) || signedIn();
+          }
+
+          match /chats/{chatId} {
+            allow create: if true;
+            allow read, update, delete: if isAdmin() || isProjetoAdmin(projectKey) || signedIn();
+          }
+        }
+      }
     }
 
     // Necessario para consultas collectionGroup("skins")

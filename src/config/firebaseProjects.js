@@ -5,6 +5,12 @@ const LOCAL_QUERY_PARAM = "firebaseProject";
 const FIREBASE_ENV_PREFIX = "REACT_APP_FIREBASE_";
 const FIREBASE_PROJECT_KEYS_ENV = "REACT_APP_FIREBASE_PROJECT_KEYS";
 const FORCED_SHARED_STORAGE_BUCKET = "teste-aa015.appspot.com";
+const STATIC_PROJECT_ALIASES = {
+  obaydon: "obeyon",
+  obeydon: "obeyon",
+  obeydom: "obeyon",
+  obaydom: "obeyon",
+};
 
 function sanitizeEnvScalar(value) {
   return String(value || "")
@@ -48,6 +54,12 @@ function parseCsv(value) {
 
 function parseDomains(value) {
   return parseCsv(value).map((host) => normalizeHost(host)).filter(Boolean);
+}
+
+function resolveStaticProjectAlias(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  return STATIC_PROJECT_ALIASES[raw.toLowerCase()] || raw;
 }
 
 function getHostAliases(host) {
@@ -173,6 +185,9 @@ function getHostProjectMap(projects) {
 
   [
     ["obeyon.vercel.app", "obeyon"],
+    ["obaydon.vercel.app", "obeyon"],
+    ["obeydon.vercel.app", "obeyon"],
+    ["obeydom.vercel.app", "obeyon"],
     ["teste-aa015.web.app", "teste-aa015"],
     ["teste-aa015.firebaseapp.com", "teste-aa015"],
   ].forEach(([host, projectKey]) => {
@@ -318,13 +333,14 @@ function resolveRequestedProjectKey(projects, hostProjectMap) {
 
   if (localHost) {
     const queryTarget = safeReadLocalProjectFromUrl();
-    if (queryTarget && projects[queryTarget]) {
-      safeWriteLocalProjectToStorage(queryTarget);
-      return queryTarget;
+    const queryTargetAlias = resolveStaticProjectAlias(queryTarget);
+    if (queryTargetAlias && projects[queryTargetAlias]) {
+      safeWriteLocalProjectToStorage(queryTargetAlias);
+      return queryTargetAlias;
     }
 
     if (queryTarget) {
-      const byProjectId = resolveProjectKeyByProjectId(projects, queryTarget);
+      const byProjectId = resolveProjectKeyByProjectId(projects, queryTargetAlias);
       if (byProjectId) {
         safeWriteLocalProjectToStorage(byProjectId);
         return byProjectId;
@@ -332,14 +348,15 @@ function resolveRequestedProjectKey(projects, hostProjectMap) {
 
       const aliases = safeReadProjectAliasesFromStorage();
       const aliasValue =
-        aliases[queryTarget] || aliases[queryTarget.toLowerCase()] || "";
-      if (aliasValue && projects[aliasValue]) {
-        safeWriteLocalProjectToStorage(aliasValue);
-        return aliasValue;
+        aliases[queryTargetAlias] || aliases[queryTargetAlias.toLowerCase()] || "";
+      const aliasValueNormalizado = resolveStaticProjectAlias(aliasValue);
+      if (aliasValueNormalizado && projects[aliasValueNormalizado]) {
+        safeWriteLocalProjectToStorage(aliasValueNormalizado);
+        return aliasValueNormalizado;
       }
 
-      if (aliasValue) {
-        const aliasByProjectId = resolveProjectKeyByProjectId(projects, aliasValue);
+      if (aliasValueNormalizado) {
+        const aliasByProjectId = resolveProjectKeyByProjectId(projects, aliasValueNormalizado);
         if (aliasByProjectId) {
           safeWriteLocalProjectToStorage(aliasByProjectId);
           return aliasByProjectId;
@@ -349,19 +366,20 @@ function resolveRequestedProjectKey(projects, hostProjectMap) {
       // Fallback para onepage: permite usar ?firebaseProject=<systemKey>
       // mesmo quando o runtime real e compartilhado.
       const onepageRuntimeKey = getOnepageRuntimeProjectKey(projects);
-      if (onepageRuntimeKey && isProbablySystemKey(queryTarget)) {
-        safeWriteProjectAliasToStorage(queryTarget, onepageRuntimeKey);
+      if (onepageRuntimeKey && isProbablySystemKey(queryTargetAlias)) {
+        safeWriteProjectAliasToStorage(queryTargetAlias, onepageRuntimeKey);
         safeWriteLocalProjectToStorage(onepageRuntimeKey);
         return onepageRuntimeKey;
       }
     }
 
     const storageTarget = safeReadLocalProjectFromStorage();
-    if (storageTarget && projects[storageTarget]) {
-      return storageTarget;
+    const storageTargetAlias = resolveStaticProjectAlias(storageTarget);
+    if (storageTargetAlias && projects[storageTargetAlias]) {
+      return storageTargetAlias;
     }
-    if (storageTarget) {
-      const storageByProjectId = resolveProjectKeyByProjectId(projects, storageTarget);
+    if (storageTargetAlias) {
+      const storageByProjectId = resolveProjectKeyByProjectId(projects, storageTargetAlias);
       if (storageByProjectId) {
         return storageByProjectId;
       }
@@ -375,21 +393,23 @@ function resolveRequestedProjectKey(projects, hostProjectMap) {
 
   if (!localHost) {
     const slugHost = extrairSlugDeHostname(hostname);
-    if (slugHost && projects[slugHost]) {
-      return slugHost;
+    const slugHostAlias = resolveStaticProjectAlias(slugHost);
+    if (slugHostAlias && projects[slugHostAlias]) {
+      return slugHostAlias;
     }
 
     const aliases = safeReadProjectAliasesFromStorage();
-    const aliasSlug = aliases[slugHost] || aliases[String(slugHost).toLowerCase()] || "";
-    if (aliasSlug && projects[aliasSlug]) {
-      return aliasSlug;
+    const aliasSlug = aliases[slugHostAlias] || aliases[String(slugHostAlias).toLowerCase()] || "";
+    const aliasSlugNormalizado = resolveStaticProjectAlias(aliasSlug);
+    if (aliasSlugNormalizado && projects[aliasSlugNormalizado]) {
+      return aliasSlugNormalizado;
     }
 
     // Fallback para onepage em dominios sem mapeamento explicito:
     // usa o runtime compartilhado e registra alias local pelo slug do host.
     const onepageRuntimeKey = getOnepageRuntimeProjectKey(projects);
-    if (onepageRuntimeKey && isProbablySystemKey(slugHost)) {
-      safeWriteProjectAliasToStorage(slugHost, onepageRuntimeKey);
+    if (onepageRuntimeKey && isProbablySystemKey(slugHostAlias)) {
+      safeWriteProjectAliasToStorage(slugHostAlias, onepageRuntimeKey);
       return onepageRuntimeKey;
     }
 

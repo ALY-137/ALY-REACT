@@ -254,7 +254,7 @@ body.theme-passy #abas.navbar-tabs .navbar-tab.navbar-tab--active {
 }
 
 body.theme-passy .menu-navbar {
-  margin-bottom: 16px;
+  margin-bottom: 25px;
 }
 
 body.theme-passy .espaco-restricao-wrapper {
@@ -272,7 +272,6 @@ body.theme-passy .espaco-restricao-balao {
   background: linear-gradient(180deg, #f3dfdf, #ffd4e9);
   color: #ff3694;
   box-shadow: none;
- 
 }
 
 body.theme-passy .espaco-restricao-balao-ponteiro {
@@ -300,8 +299,33 @@ body.theme-passy .solicitacao-pix-card__qr-preview {
   background: rgba(255, 255, 255, 0.82);
 }
 
+body.theme-passy .solicitacao-pix-card__thumb-image {
+  border: 1px solid #ffa2b9;
+  background: rgba(255, 255, 255, 0.82);
+}
+
 body.theme-passy .solicitacao-pix-card__qr-helper {
   color: #ff3694;
+}
+
+body.theme-passy .solicitacao-pix-card__thumb-helper,
+body.theme-passy .solicitacao-pix-card__status-aguardando-texto,
+body.theme-passy .solicitacao-pix-card__status-confirmado-texto {
+  color: #ff3694;
+}
+
+body.theme-passy .solicitacao-pix-card__status-box {
+  border: 1px solid #ffa2b9;
+  background: linear-gradient(180deg, #f3dfdf, #ffd4e9);
+}
+
+body.theme-passy .solicitacao-pix-card__status-label {
+  color: #ff3694;
+}
+
+body.theme-passy .solicitacao-pix-card__status-confirmado-icon {
+ border:none;
+
 }
 
 body.theme-passy #MenuContainer {
@@ -370,6 +394,14 @@ body.theme-passy #Gavetas {
   gap: 5px;
   align-content: start;
   box-sizing: border-box;
+}
+
+body.theme-passy #Gavetas.mostra {
+  display: grid;
+}
+
+body.theme-passy #Gavetas.oculta {
+  display: none !important;
 }
 
 body.theme-passy .gavetaOption {
@@ -529,6 +561,45 @@ body.theme-passy .txtDescricao {
   body.theme-passy .bloco-container {
     padding: 16px 14px 18px;
     margin: 14px 0 20px;
+  }
+}
+
+@media (max-width: 700px) {
+  body.theme-passy .solicitacao-pix-card__details p {
+    font-size: 11px;
+    line-height: 1.25;
+  }
+
+  body.theme-passy .solicitacao-pix-card__qr {
+    justify-self: start;
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  body.theme-passy .solicitacao-pix-card__qr-preview {
+    width: 110px;
+    height: 110px;
+  }
+
+  body.theme-passy .solicitacao-pix-card__thumb-image {
+    width: 110px;
+    height: 110px;
+  }
+
+  body.theme-passy .solicitacao-pix-card__qr-helper {
+    font-size: 10px;
+    text-align: left;
+  }
+
+  body.theme-passy .solicitacao-pix-card__thumb-helper {
+    font-size: 10px;
+    text-align: left;
+  }
+
+  body.theme-passy .solicitacao-pix-card__actions button {
+    width: 100%;
+    margin: 6px 0 0 !important;
+    font-size: 11px;
   }
 }
 

@@ -3,12 +3,12 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import {
   collection,
-  doc,
   getDocs,
   writeBatch,
 } from "firebase/firestore";
 
 import { db } from "../../../../Banco/init-firebase";
+import { getPrimaryProjectDoc } from "../../../../Banco/projectDataRefs";
 
 function ContaManager() {
   const navigate = useNavigate();
@@ -26,7 +26,7 @@ function ContaManager() {
     if (!confirmar) return;
 
     try {
-      const userRef = doc(db, "users", userId);
+      const userRef = getPrimaryProjectDoc(db, "users", userId);
       const batch = writeBatch(db);
 
       const loginsSnapshot = await getDocs(collection(userRef, "logins"));

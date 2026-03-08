@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-  collection,
   deleteDoc,
-  doc,
   getDocs,
   onSnapshot,
   orderBy,
@@ -14,9 +12,45 @@ import {
 import "./formularios.css";
 import { db } from "../../../Banco/init-firebase.js";
 import {
+  getProjectCollectionCandidates,
+  getProjectDocCandidates,
+} from "../../../Banco/projectDataRefs";
+import {
   DEFAULT_SISTEMA_CONFIG,
   obterConfigSistema,
 } from "../../Sistema/configSistema";
+
+const getFirstRef = (refs = []) => (Array.isArray(refs) && refs.length ? refs[0] : null);
+const getConversaRefs = (contactId) =>
+  getProjectCollectionCandidates(db, "contatos", String(contactId || "").trim(), "conversas");
+const getChatRefs = (contactId, idConversa) =>
+  getProjectCollectionCandidates(
+    db,
+    "contatos",
+    String(contactId || "").trim(),
+    "conversas",
+    String(idConversa || "").trim(),
+    "chat"
+  );
+const getChatsLegadoRefs = (contactId, idConversa) =>
+  getProjectCollectionCandidates(
+    db,
+    "contatos",
+    String(contactId || "").trim(),
+    "conversas",
+    String(idConversa || "").trim(),
+    "chats"
+  );
+const getConversaDocRefs = (contactId, idConversa) =>
+  getProjectDocCandidates(
+    db,
+    "contatos",
+    String(contactId || "").trim(),
+    "conversas",
+    String(idConversa || "").trim()
+  );
+const getContatoDocRefs = (contactId) =>
+  getProjectDocCandidates(db, "contatos", String(contactId || "").trim());
 
 function ListaConversas() {
   const [conversas, setConversas] = useState([]);
@@ -59,7 +93,12 @@ function ListaConversas() {
       return;
     }
 
-    const conversasRef = collection(db, "contatos", contactId, "conversas");
+    const conversasRef = getFirstRef(getConversaRefs(contactId));
+    if (!conversasRef) {
+      setConversas([]);
+      setLoading(false);
+      return;
+    }
     const q = query(conversasRef, orderBy("dataUltimaMensagem", "desc"));
 
     const unsubscribe = onSnapshot(
@@ -86,21 +125,17 @@ function ListaConversas() {
   }, [chatHabilitado, contactId]);
 
   const deleteChats = async (idConversa) => {
-    const chatsRef = collection(
-      db,
-      "contatos",
-      contactId,
-      "conversas",
-      idConversa,
-      "chats"
-    );
-
-    const snapshot = await getDocs(chatsRef);
     const batch = writeBatch(db);
 
-    snapshot.docs.forEach((docSnap) => {
-      batch.delete(docSnap.ref);
-    });
+    for (const chatsRef of getChatsLegadoRefs(contactId, idConversa)) {
+      const snapshot = await getDocs(chatsRef);
+      snapshot.docs.forEach((docSnap) => batch.delete(docSnap.ref));
+    }
+
+    for (const chatRef of getChatRefs(contactId, idConversa)) {
+      const snapshot = await getDocs(chatRef);
+      snapshot.docs.forEach((docSnap) => batch.delete(docSnap.ref));
+    }
 
     await batch.commit();
   };
@@ -111,13 +146,29 @@ function ListaConversas() {
     try {
       await deleteChats(idConversa);
 
-      await deleteDoc(doc(db, "contatos", contactId, "conversas", idConversa));
+      for (const conversaDocRef of getConversaDocRefs(contactId, idConversa)) {
+        try {
+          await deleteDoc(conversaDocRef);
+        } catch (errDeleteConversa) {
+          if (errDeleteConversa?.code !== "not-found") {
+            throw errDeleteConversa;
+          }
+        }
+      }
 
       const novasConversas = conversas.filter((item) => item.conversaId !== idConversa);
       setConversas(novasConversas);
 
       if (novasConversas.length === 0) {
-        await deleteDoc(doc(db, "contatos", contactId));
+        for (const contatoDocRef of getContatoDocRefs(contactId)) {
+          try {
+            await deleteDoc(contatoDocRef);
+          } catch (errDeleteContato) {
+            if (errDeleteContato?.code !== "not-found") {
+              throw errDeleteContato;
+            }
+          }
+        }
       }
     } catch (erroDelete) {
       console.error("Erro ao deletar conversa:", erroDelete);

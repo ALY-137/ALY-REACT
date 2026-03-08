@@ -649,6 +649,100 @@ function PropriedadesSistema({
           )}
         </div>
 
+        <label htmlFor="chatButtonIconUrl" style={{ display: "block", marginTop: 12 }}>
+          URL do icone do botao de chat
+        </label>
+        <input
+          id="chatButtonIconUrl"
+          type="text"
+          value={config.chatButtonIconUrl || ""}
+          onChange={(event) =>
+            setConfig((prev) => ({
+              ...prev,
+              chatButtonIconUrl: event.target.value,
+            }))
+          }
+          placeholder="https://... ou use o upload abaixo"
+          style={{ width: "100%", marginTop: 8 }}
+        />
+        <label htmlFor="chatButtonIconUpload" style={{ display: "block", marginTop: 8 }}>
+          Carregar icone do botao de chat
+        </label>
+        <input
+          id="chatButtonIconUpload"
+          type="file"
+          accept="image/*"
+          onChange={(event) => uploadImagem(event, "chatButtonIconUrl")}
+          disabled={salvando || uploadCampoAtivo === "chatButtonIconUrl"}
+        />
+        {arquivosBrandingSelecionados.chatButtonIconUrl ? (
+          <p style={{ marginTop: 6, opacity: 0.8 }}>
+            {uploadCampoAtivo === "chatButtonIconUrl"
+              ? "Enviando arquivo:"
+              : "Arquivo selecionado:"}{" "}
+            {arquivosBrandingSelecionados.chatButtonIconUrl}
+          </p>
+        ) : null}
+        <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 10 }}>
+          <span>Preview chat:</span>
+          {String(config.chatButtonIconUrl || "").trim() ? (
+            <img
+              src={config.chatButtonIconUrl}
+              alt="Preview do icone do botao de chat"
+              style={{ width: 40, height: 40, objectFit: "contain" }}
+            />
+          ) : (
+            <span style={{ opacity: 0.7 }}>Sem icone configurado.</span>
+          )}
+        </div>
+
+        <label htmlFor="iconSkinPadraoUrl" style={{ display: "block", marginTop: 12 }}>
+          URL do avatar padrao de usuario (antes de carregar foto)
+        </label>
+        <input
+          id="iconSkinPadraoUrl"
+          type="text"
+          value={config.iconSkinPadraoUrl || ""}
+          onChange={(event) =>
+            setConfig((prev) => ({
+              ...prev,
+              iconSkinPadraoUrl: event.target.value,
+            }))
+          }
+          placeholder="https://... ou use o upload abaixo"
+          style={{ width: "100%", marginTop: 8 }}
+        />
+        <label htmlFor="iconSkinPadraoUpload" style={{ display: "block", marginTop: 8 }}>
+          Carregar avatar padrao
+        </label>
+        <input
+          id="iconSkinPadraoUpload"
+          type="file"
+          accept="image/*"
+          onChange={(event) => uploadImagem(event, "iconSkinPadraoUrl")}
+          disabled={salvando || uploadCampoAtivo === "iconSkinPadraoUrl"}
+        />
+        {arquivosBrandingSelecionados.iconSkinPadraoUrl ? (
+          <p style={{ marginTop: 6, opacity: 0.8 }}>
+            {uploadCampoAtivo === "iconSkinPadraoUrl"
+              ? "Enviando arquivo:"
+              : "Arquivo selecionado:"}{" "}
+            {arquivosBrandingSelecionados.iconSkinPadraoUrl}
+          </p>
+        ) : null}
+        <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
+          <span>Preview avatar padrao:</span>
+          {String(config.iconSkinPadraoUrl || "").trim() ? (
+            <img
+              src={config.iconSkinPadraoUrl}
+              alt="Preview do avatar padrao"
+              style={{ width: 40, height: 40, objectFit: "cover", borderRadius: "50%" }}
+            />
+          ) : (
+            <span style={{ opacity: 0.7 }}>Sem avatar padrao configurado.</span>
+          )}
+        </div>
+
         <label htmlFor="faviconUrl" style={{ display: "block", marginTop: 12 }}>
           Icone do navegador (favicon)
         </label>
@@ -1476,6 +1570,126 @@ function PropriedadesSistema({
             Placeholder disponivel: <code>{"{nomeEspacoSingular}"}</code>.
           </p>
 
+          <h4 style={{ marginTop: 16, marginBottom: 8 }}>Status das solicitacoes</h4>
+          <label
+            htmlFor="solicitacaoStatusAguardandoSpriteUrl"
+            style={{ display: "block", marginTop: 8 }}
+          >
+            Sprite para status aguardando confirmacao
+          </label>
+          <input
+            id="solicitacaoStatusAguardandoSpriteUrl"
+            type="text"
+            value={config.solicitacaoStatusAguardandoSpriteUrl || ""}
+            onChange={(event) =>
+              setConfig((prev) => ({
+                ...prev,
+                solicitacaoStatusAguardandoSpriteUrl: event.target.value,
+              }))
+            }
+            placeholder="https://... ou use o upload abaixo"
+            style={{ width: "100%", marginTop: 8 }}
+          />
+          <label
+            htmlFor="solicitacaoStatusAguardandoSpriteUpload"
+            style={{ display: "block", marginTop: 8 }}
+          >
+            Carregar sprite de aguardando
+          </label>
+          <input
+            id="solicitacaoStatusAguardandoSpriteUpload"
+            type="file"
+            accept="image/*"
+            onChange={(event) => uploadImagem(event, "solicitacaoStatusAguardandoSpriteUrl")}
+            disabled={salvando || uploadCampoAtivo === "solicitacaoStatusAguardandoSpriteUrl"}
+          />
+          {arquivosBrandingSelecionados.solicitacaoStatusAguardandoSpriteUrl ? (
+            <p style={{ marginTop: 6, opacity: 0.8 }}>
+              {uploadCampoAtivo === "solicitacaoStatusAguardandoSpriteUrl"
+                ? "Enviando arquivo:"
+                : "Arquivo selecionado:"}{" "}
+              {arquivosBrandingSelecionados.solicitacaoStatusAguardandoSpriteUrl}
+            </p>
+          ) : null}
+          <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
+            <span>Preview sprite:</span>
+            {String(config.solicitacaoStatusAguardandoSpriteUrl || "").trim() ? (
+              <img
+                src={config.solicitacaoStatusAguardandoSpriteUrl}
+                alt="Preview sprite aguardando confirmacao"
+                style={{
+                  width: 84,
+                  height: 84,
+                  objectFit: "cover",
+                  border: "1px solid #ccc",
+                }}
+              />
+            ) : (
+              <span style={{ opacity: 0.7 }}>Sem sprite configurada.</span>
+            )}
+          </div>
+          <p style={{ marginTop: 6, opacity: 0.8 }}>
+            Formato esperado: sprite horizontal com 8 frames de 128x128.
+          </p>
+
+          <label
+            htmlFor="solicitacaoStatusConfirmadoIconUrl"
+            style={{ display: "block", marginTop: 10 }}
+          >
+            Icone para status pagamento confirmado
+          </label>
+          <input
+            id="solicitacaoStatusConfirmadoIconUrl"
+            type="text"
+            value={config.solicitacaoStatusConfirmadoIconUrl || ""}
+            onChange={(event) =>
+              setConfig((prev) => ({
+                ...prev,
+                solicitacaoStatusConfirmadoIconUrl: event.target.value,
+              }))
+            }
+            placeholder="https://... ou use o upload abaixo"
+            style={{ width: "100%", marginTop: 8 }}
+          />
+          <label
+            htmlFor="solicitacaoStatusConfirmadoIconUpload"
+            style={{ display: "block", marginTop: 8 }}
+          >
+            Carregar icone de confirmado
+          </label>
+          <input
+            id="solicitacaoStatusConfirmadoIconUpload"
+            type="file"
+            accept="image/*"
+            onChange={(event) => uploadImagem(event, "solicitacaoStatusConfirmadoIconUrl")}
+            disabled={salvando || uploadCampoAtivo === "solicitacaoStatusConfirmadoIconUrl"}
+          />
+          {arquivosBrandingSelecionados.solicitacaoStatusConfirmadoIconUrl ? (
+            <p style={{ marginTop: 6, opacity: 0.8 }}>
+              {uploadCampoAtivo === "solicitacaoStatusConfirmadoIconUrl"
+                ? "Enviando arquivo:"
+                : "Arquivo selecionado:"}{" "}
+              {arquivosBrandingSelecionados.solicitacaoStatusConfirmadoIconUrl}
+            </p>
+          ) : null}
+          <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
+            <span>Preview confirmado:</span>
+            {String(config.solicitacaoStatusConfirmadoIconUrl || "").trim() ? (
+              <img
+                src={config.solicitacaoStatusConfirmadoIconUrl}
+                alt="Preview icone pagamento confirmado"
+                style={{
+                  width: 36,
+                  height: 36,
+                  objectFit: "contain",
+                  border: "1px solid #ccc",
+                }}
+              />
+            ) : (
+              <span style={{ opacity: 0.7 }}>Sem icone configurado.</span>
+            )}
+          </div>
+
           <label htmlFor="adminUidProjeto" style={{ display: "block", marginTop: 12 }}>
             UID do administrador do projeto
           </label>
@@ -1676,6 +1890,20 @@ function PropriedadesSistema({
               }
             />
             Habilitar sistema de chat
+          </label>
+
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <input
+              type="checkbox"
+              checked={!!config.livesHabilitadas}
+              onChange={(event) =>
+                setConfig((prev) => ({
+                  ...prev,
+                  livesHabilitadas: event.target.checked,
+                }))
+              }
+            />
+            Habilitar blocos do tipo Live
           </label>
 
           <label style={{ display: "flex", alignItems: "center", gap: 8 }}>

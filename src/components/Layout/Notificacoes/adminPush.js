@@ -1,4 +1,4 @@
-import { arrayUnion, doc, serverTimestamp, setDoc } from "firebase/firestore";
+import { arrayUnion, serverTimestamp, setDoc } from "firebase/firestore";
 import { getMessaging, getToken, isSupported, onMessage } from "firebase/messaging";
 import {
   app,
@@ -8,6 +8,7 @@ import {
   activeFirebaseMessagingVapidKey,
   activeFirebaseProjectKey,
 } from "../../Banco/init-firebase";
+import { getPrimaryProjectDoc } from "../../Banco/projectDataRefs";
 
 let foregroundListenerAtivo = false;
 let ultimoRegistroKey = "";
@@ -152,7 +153,7 @@ export async function registrarTokenPushAdmin() {
   }
 
   await setDoc(
-    doc(db, "users", uid),
+    getPrimaryProjectDoc(db, "users", uid),
     {
       adminPushTokens: arrayUnion(token),
       adminPushTokensUpdatedAt: serverTimestamp(),

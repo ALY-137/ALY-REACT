@@ -2,7 +2,6 @@ import React, { Suspense, useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   collection,
-  collectionGroup,
   doc,
   getDocs,
   limit,
@@ -13,7 +12,11 @@ import {
 } from "firebase/firestore";
 
 import { useAuth } from "../../../hooks/auth/useAuth";
-import { auth, db } from "../../Banco/init-firebase";
+import { activeFirebaseProjectKey, auth, db } from "../../Banco/init-firebase";
+import {
+  getPrimaryProjectCollection,
+  getPrimaryProjectDoc,
+} from "../../Banco/projectDataRefs";
 import Navegacoes from "../../Scripts/navegacoes/Navegacoes";
 import { seforAdm } from "../../Scripts/verificacoes/verificaAdm";
 import FirebaseProjectBadge from "../Geral/FirebaseProjectBadge";
@@ -27,6 +30,7 @@ import {
 } from "../Sistema/configSistema";
 import Layout from "../Temas/Layout.jsx";
 import { obterTemaSkinPadrao, resolverTemaSkinEfetivo } from "../Temas/themesRegistry";
+import { findSkinByUsernameAcrossProject } from "../Skins/skinLookup";
 import {
   getEspacosDaSkin,
   getEspacosDoOwner,
@@ -118,13 +122,20 @@ const calcularDimensoesCardProfileOnePage = (dimensoesNaturais = null) => {
   };
 };
 
-const criarSkinUnicaOnePage = async ({ firebaseUser, temaPadraoSkin }) => {
+const criarSkinUnicaOnePage = async ({
+  firebaseUser,
+  temaPadraoSkin,
+  iconSkinPadraoUrl = "",
+}) => {
   if (!firebaseUser?.uid) return false;
 
   const uid = firebaseUser.uid;
   const base = construirBaseUsernameOnePage(firebaseUser);
   const usernameOnePage = `${base}-${uid.slice(0, 6)}`.slice(0, 24);
   const temaCriacao = String(temaPadraoSkin || "").trim() || "CYBERPINK";
+  const iconSkinPadrao = String(
+    iconSkinPadraoUrl || DEFAULT_SISTEMA_CONFIG.iconSkinPadraoUrl || ""
+  ).trim();
   const skinId = `skin_${uid.slice(0, 20)}`;
   const espacoId = "home";
 
@@ -137,9 +148,9 @@ const criarSkinUnicaOnePage = async ({ firebaseUser, temaPadraoSkin }) => {
   }
 
   try {
-    const userRef = doc(db, "users", uid);
-    const skinRef = doc(db, "users", uid, "skins", skinId);
-    const espacoRef = doc(db, "users", uid, "espacos", espacoId);
+    const userRef = getPrimaryProjectDoc(db, "users", uid);
+    const skinRef = getPrimaryProjectDoc(db, "users", uid, "skins", skinId);
+    const espacoRef = getPrimaryProjectDoc(db, "users", uid, "espacos", espacoId);
 
     await setDoc(
       userRef,
@@ -167,6 +178,7 @@ const criarSkinUnicaOnePage = async ({ firebaseUser, temaPadraoSkin }) => {
         is_main: true,
         visibilidade: "publico",
         data: serverTimestamp(),
+        iconSkin: iconSkinPadrao || null,
       },
       { merge: true }
     );
@@ -176,7 +188,7 @@ const criarSkinUnicaOnePage = async ({ firebaseUser, temaPadraoSkin }) => {
       {
         id_espaco: espacoId,
         nome: "home",
-        conteudo: "Conteudo da pagina principal",
+        conteudo: "",
         ordem: 0,
         ownerUserId: uid,
         skinOwner: skinId,
@@ -230,6 +242,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
   const [retryNonce, setRetryNonce] = useState(0);
   const [cardProfileNaturalDimensions, setCardProfileNaturalDimensions] = useState(null);
   const [cardProfileDimensions, setCardProfileDimensions] = useState(null);
+  const [layoutThemeReady, setLayoutThemeReady] = useState(false);
 
   const urlUsername = location.pathname.split("/")[1];
   const skinLogadoUser = localStorage.getItem("skinLogadoUser");
@@ -246,7 +259,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
   const onePagePublicaAtiva = isOnePageComEntradaPublica({
     tipoExperiencia,
     modoAcessoProjeto,
-  });
+  }) || activeFirebaseProjectKey === "aly-onepages-runtime";
   const adminUidProjetoConfigurado = String(
     configSistemaAtual?.adminUid || localStorage.getItem("systemAdminUid") || ""
   ).trim();
@@ -288,6 +301,10 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
     setCardProfileNaturalDimensions(null);
     setCardProfileDimensions(null);
   }, [cardProfileUrlEfetiva]);
+
+  useEffect(() => {
+    setLayoutThemeReady(false);
+  }, [theme]);
 
   useEffect(() => {
     const deveUsarImagemComoReferencia =
@@ -411,7 +428,9 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
         }
         setConfigSistemaAtual(configSistemaProjeto);
 
-        const onePagePublicaProjeto = isOnePageComEntradaPublica(configSistemaProjeto);
+        const onePagePublicaProjeto =
+          isOnePageComEntradaPublica(configSistemaProjeto) ||
+          activeFirebaseProjectKey === "aly-onepages-runtime";
         const adminUidProjeto = String(
           configSistemaProjeto?.adminUid || localStorage.getItem("systemAdminUid") || ""
         ).trim();
@@ -445,7 +464,12 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
           ).trim();
           if (ownerUidCandidates.length) {
             for (const ownerUidCandidate of ownerUidCandidates) {
-              const colecaoSkinsOwner = collection(db, "users", ownerUidCandidate, "skins");
+              const colecaoSkinsOwner = getPrimaryProjectCollection(
+                db,
+                "users",
+                ownerUidCandidate,
+                "skins"
+              );
 
               if (authUserAtual?.uid && authUserAtual.uid === ownerUidCandidate) {
                 const skinOwnerQuery = query(colecaoSkinsOwner);
@@ -456,6 +480,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
                   await criarSkinUnicaOnePage({
                     firebaseUser: authUserAtual,
                     temaPadraoSkin,
+                    iconSkinPadraoUrl: configSistemaProjeto?.iconSkinPadraoUrl,
                   });
                   skinDocResolvido = await buscarSkinPreferencial(skinOwnerQuery);
                 }
@@ -467,28 +492,10 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
                         where("visibilidade", "in", ["publico", "publico_restritivo", "privado"])
                       ),
                       query(colecaoSkinsOwner, where("visibilidade", "==", "publico")),
-                      query(
-                        collectionGroup(db, "skins"),
-                        where("ownerUserId", "==", ownerUidCandidate),
-                        where("visibilidade", "in", ["publico", "publico_restritivo", "privado"]),
-                        limit(10)
-                      ),
-                      query(
-                        collectionGroup(db, "skins"),
-                        where("ownerUserId", "==", ownerUidCandidate),
-                        where("visibilidade", "==", "publico"),
-                        limit(10)
-                      ),
                       query(colecaoSkinsOwner, where("visibilidade", "==", null)),
                     ]
                   : [
                       query(colecaoSkinsOwner, where("visibilidade", "==", "publico")),
-                      query(
-                        collectionGroup(db, "skins"),
-                        where("ownerUserId", "==", ownerUidCandidate),
-                        where("visibilidade", "==", "publico"),
-                        limit(10)
-                      ),
                       query(colecaoSkinsOwner, where("visibilidade", "==", null)),
                     ];
 
@@ -510,7 +517,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
 
           if (!skinDocResolvido && usuarioEhAdminOnePage && authUserAtual?.uid) {
             const skinUsuarioQuery = query(
-              collection(db, "users", authUserAtual.uid, "skins"),
+              getPrimaryProjectCollection(db, "users", authUserAtual.uid, "skins"),
               limit(1)
             );
             let skinUsuarioSnap = await getDocs(skinUsuarioQuery);
@@ -520,6 +527,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
               await criarSkinUnicaOnePage({
                 firebaseUser: authUserAtual,
                 temaPadraoSkin,
+                iconSkinPadraoUrl: configSistemaProjeto?.iconSkinPadraoUrl,
               });
               skinUsuarioSnap = await getDocs(skinUsuarioQuery);
             }
@@ -565,7 +573,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
           skinsSnap = { empty: false, docs: [skinDocResolvido] };
         } else if (authUserAtual?.uid) {
           const ownerQuery = query(
-            collection(db, "users", authUserAtual.uid, "skins"),
+            getPrimaryProjectCollection(db, "users", authUserAtual.uid, "skins"),
             where("username", "==", targetUsername),
             limit(1)
           );
@@ -577,64 +585,32 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
         }
 
         if (skinsSnap.empty) {
-          const publicQuery = query(
-            collectionGroup(db, "skins"),
-            where("username", "==", targetUsername),
-            where("visibilidade", "==", "publico"),
-            limit(1)
-          );
-
-          if (authUserAtual?.uid) {
-            const preferredQuery = query(
-              collectionGroup(db, "skins"),
-              where("username", "==", targetUsername),
-              where("visibilidade", "in", ["publico", "publico_restritivo", "privado"]),
-              limit(1)
-            );
-
-            try {
-              skinsSnap = await getDocs(preferredQuery);
-            } catch (err) {
-              if (!erroConsultaRecuperavelSkin(err)) throw err;
-
-              try {
-                const compatQuery = query(
-                  collectionGroup(db, "skins"),
-                  where("username", "==", targetUsername),
-                  where("visibilidade", "in", ["publico", "publico_restritivo"]),
-                  limit(1)
-                );
-                skinsSnap = await getDocs(compatQuery);
-              } catch (compatErr) {
-                if (!erroConsultaRecuperavelSkin(compatErr)) throw compatErr;
-              }
+          try {
+            const ownerCandidatesBusca = construirOwnerCandidates(configSistemaProjeto, authUserAtual, {
+              includeAuthUser: true,
+            });
+            const skinByUsername = await findSkinByUsernameAcrossProject(db, targetUsername, {
+              authenticated: Boolean(authUserAtual?.uid),
+              allowPrivateWhenAuthenticated: Boolean(authUserAtual?.uid),
+              includeLegacy: true,
+              ownerUidCandidates: ownerCandidatesBusca,
+            });
+            if (skinByUsername) {
+              skinsSnap = { empty: false, docs: [skinByUsername] };
             }
-          } else {
-            try {
-              skinsSnap = await getDocs(publicQuery);
-            } catch (err) {
-              if (!erroConsultaRecuperavelSkin(err)) throw err;
-            }
-          }
-
-          if (skinsSnap.empty) {
-            const legacyVisibilityQuery = query(
-              collectionGroup(db, "skins"),
-              where("username", "==", targetUsername),
-              where("visibilidade", "==", null),
-              limit(1)
-            );
-            try {
-              skinsSnap = await getDocs(legacyVisibilityQuery);
-            } catch (err) {
-              if (!erroConsultaRecuperavelSkin(err)) throw err;
-            }
+          } catch (err) {
+            if (!erroConsultaRecuperavelSkin(err)) throw err;
           }
 
           if (skinsSnap.empty && onePagePublicaProjeto) {
             if (adminUidProjeto) {
               try {
-                const adminSkinsRef = collection(db, "users", adminUidProjeto, "skins");
+                const adminSkinsRef = getPrimaryProjectCollection(
+                  db,
+                  "users",
+                  adminUidProjeto,
+                  "skins"
+                );
                 const consultasAdminFallback = authUserAtual?.uid
                   ? [
                       query(
@@ -664,7 +640,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
             if (skinsSnap.empty && usuarioEhAdminOnePage && authUserAtual?.uid) {
               try {
                 const adminOwnerSkinDoc = await buscarSkinPreferencial(
-                  query(collection(db, "users", authUserAtual.uid, "skins"))
+                  query(getPrimaryProjectCollection(db, "users", authUserAtual.uid, "skins"))
                 );
                 if (adminOwnerSkinDoc) {
                   skinsSnap = { empty: false, docs: [adminOwnerSkinDoc] };
@@ -778,13 +754,13 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
             const homeQueries = authUserAtual?.uid
               ? [
                   query(
-                    collection(db, "users", skinData.ownerUserId, "espacos"),
+                    getPrimaryProjectCollection(db, "users", skinData.ownerUserId, "espacos"),
                     where("isHome", "==", true),
                     where("visibilidade", "in", ["publico", "publico_restritivo", "privado"]),
                     limit(1)
                   ),
                   query(
-                    collection(db, "users", skinData.ownerUserId, "espacos"),
+                    getPrimaryProjectCollection(db, "users", skinData.ownerUserId, "espacos"),
                     where("isHome", "==", true),
                     where("visibilidade", "==", null),
                     limit(1)
@@ -792,13 +768,13 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
                 ]
               : [
                   query(
-                    collection(db, "users", skinData.ownerUserId, "espacos"),
+                    getPrimaryProjectCollection(db, "users", skinData.ownerUserId, "espacos"),
                     where("isHome", "==", true),
                     where("visibilidade", "==", "publico"),
                     limit(1)
                   ),
                   query(
-                    collection(db, "users", skinData.ownerUserId, "espacos"),
+                    getPrimaryProjectCollection(db, "users", skinData.ownerUserId, "espacos"),
                     where("isHome", "==", true),
                     where("visibilidade", "==", null),
                     limit(1)
@@ -841,7 +817,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
         if (authUserAtual?.uid === skinData.ownerUserId) {
           try {
             await setDoc(
-              doc(db, "users", authUserAtual.uid),
+              getPrimaryProjectDoc(db, "users", authUserAtual.uid),
               {
                 uid: authUserAtual.uid,
                 skinAtivaId: skinId,
@@ -859,7 +835,9 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
       } catch (err) {
         const configEmErro =
           obterConfigSistemaCacheLocal() || configSistemaProjeto || configSistemaAtual;
-        const onePageProjetoAtual = isOnePageComEntradaPublica(configEmErro);
+        const onePageProjetoAtual =
+          isOnePageComEntradaPublica(configEmErro) ||
+          activeFirebaseProjectKey === "aly-onepages-runtime";
 
         if (err?.code === "permission-denied" || err?.code === "failed-precondition") {
           if (onePageProjetoAtual) {
@@ -883,6 +861,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
               await criarSkinUnicaOnePage({
                 firebaseUser: authUserAtual,
                 temaPadraoSkin,
+                iconSkinPadraoUrl: configEmErro?.iconSkinPadraoUrl,
               });
             }
 
@@ -924,7 +903,12 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
     if (!espacos.length || hasNavigated) return;
     if (!onePagePublicaAtiva && !username) return;
 
-    const mainPage = espacos.find((p) => p.isHome === true);
+    const mainPage =
+      espacos.find((p) => p.isHome === true) ||
+      espacos.find((p) => p.is_main === true) ||
+      espacos.find((p) => String(p?.id || p?.id_espaco || "").trim().toLowerCase() === "home") ||
+      espacos.find((p) => String(p?.nome || "").trim().toLowerCase() === "home") ||
+      (onePagePublicaAtiva ? espacos[0] : null);
     if (!mainPage) {
       console.warn("Pagina principal nao encontrada.");
       navigate("/Error");
@@ -940,9 +924,11 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
       return;
     }
 
+    const nomeMainPage =
+      String(mainPage?.nome || mainPage?.id_espaco || mainPage?.id || "home").trim() || "home";
     const destinoPrincipal = onePagePublicaAtiva
-      ? `/${mainPage.nome}`
-      : `/${username}/${mainPage.nome}`;
+      ? `/${nomeMainPage}`
+      : `/${username}/${nomeMainPage}`;
     if (location.pathname !== destinoPrincipal) {
       navigate(destinoPrincipal, { replace: true });
     }
@@ -964,7 +950,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
     if (usernameStorage) return usernameStorage;
 
     const skinUsuarioQuery = query(
-      collection(db, "users", user.uid, "skins"),
+      getPrimaryProjectCollection(db, "users", user.uid, "skins"),
       limit(1)
     );
     let skinUsuarioSnap = await getDocs(skinUsuarioQuery);
@@ -974,6 +960,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
       await criarSkinUnicaOnePage({
         firebaseUser: user,
         temaPadraoSkin,
+        iconSkinPadraoUrl: configSistemaAtual?.iconSkinPadraoUrl,
       });
       skinUsuarioSnap = await getDocs(skinUsuarioQuery);
     }
@@ -1100,18 +1087,34 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
     .trim()
     .toLowerCase();
   const loginLoadingSpriteUrl = String(configSistemaAtual?.loginLoadingSpriteUrl || "").trim();
+  const temaSistemaPadrao = String(configSistemaAtual?.temaPadraoSistema || "")
+    .trim()
+    .toUpperCase();
+  const estiloShellLoader =
+    temaSistemaPadrao === "PASSY"
+      ? { backgroundColor: "#eecadd" }
+      : undefined;
   const exibirLoaderSprite = loginLoadingMode === "sprite_sheet" && Boolean(loginLoadingSpriteUrl);
   const loaderVisualJSX = exibirLoaderSprite ? (
-    <div className="sprite-loader-layer sprite-loader-layer-inline" aria-live="polite">
-      <div
-        className="loader-cherry"
-        aria-hidden="true"
-        style={loginLoadingSpriteUrl ? { backgroundImage: `url("${loginLoadingSpriteUrl}")` } : undefined}
-      />
+    <div
+      id="login"
+      className="sprite-loader-transition-shell"
+      aria-live="polite"
+      style={estiloShellLoader}
+    >
+      <div className="sprite-loader-layer sprite-loader-layer-inline">
+        <div
+          className="loader-cherry"
+          aria-hidden="true"
+          style={loginLoadingSpriteUrl ? { backgroundImage: `url("${loginLoadingSpriteUrl}")` } : undefined}
+        />
+      </div>
     </div>
   ) : (
-    <div className="system-loading-indicator" aria-live="polite">
-      <div className="system-loading-dot" aria-hidden="true" />
+    <div id="login" aria-live="polite" style={estiloShellLoader}>
+      <div className="system-loading-indicator">
+        <div className="system-loading-dot" aria-hidden="true" />
+      </div>
     </div>
   );
 
@@ -1133,15 +1136,19 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
 
   return (
     <>
-      <Layout
-        theme={theme}
-        profile={profileJSX}
-        navigation={navigationJSX}
-        content={contentJSX}
-        configSistemaOverride={configSistemaAtual}
-        cardProfileDimensionsOverride={cardProfileDimensions}
-      />
-      <FirebaseProjectBadge />
+      {!layoutThemeReady ? loaderVisualJSX : null}
+      <div style={!layoutThemeReady ? { visibility: "hidden" } : undefined}>
+        <Layout
+          theme={theme}
+          profile={profileJSX}
+          navigation={navigationJSX}
+          content={contentJSX}
+          configSistemaOverride={configSistemaAtual}
+          cardProfileDimensionsOverride={cardProfileDimensions}
+          onThemeReadyChange={setLayoutThemeReady}
+        />
+        <FirebaseProjectBadge />
+      </div>
     </>
   );
 }

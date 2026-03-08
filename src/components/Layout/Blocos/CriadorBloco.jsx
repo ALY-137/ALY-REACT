@@ -8,6 +8,10 @@ import {
 } from "firebase/storage";
 import { db, storage } from "../../Banco/init-firebase";
 import {
+  getPrimaryProjectCollection,
+  getPrimaryProjectDoc,
+} from "../../Banco/projectDataRefs";
+import {
   uploadArquivoNoBucketCompartilhado,
   usandoBucketCompartilhadoCrossProject,
 } from "../Storage/sharedBucketApi";
@@ -79,6 +83,13 @@ async function gerarPreviewDesfocado(file) {
 const capitalizar = (texto = "") =>
   texto ? texto.charAt(0).toUpperCase() + texto.slice(1) : "";
 
+const parseDateTimeLocalToMs = (valor = "") => {
+  const bruto = String(valor || "").trim();
+  if (!bruto) return null;
+  const parsedMs = Date.parse(bruto);
+  return Number.isFinite(parsedMs) ? parsedMs : null;
+};
+
 const criarCardVazio = () => ({
   nome: "",
   descricao: "",
@@ -124,6 +135,12 @@ export default function CriadorBloco({
   const [files, setFiles] = useState([]);
   const [tipoConteudo, setTipoConteudo] = useState("imagem");
   const [cards, setCards] = useState([criarCardVazio()]);
+  const [liveUrl, setLiveUrl] = useState("");
+  const [liveInicioEm, setLiveInicioEm] = useState("");
+  const [liveFimEm, setLiveFimEm] = useState("");
+  const [liveBannerUrl, setLiveBannerUrl] = useState("");
+  const [liveBannerArquivo, setLiveBannerArquivo] = useState(null);
+  const [liveBannerPreviewUrl, setLiveBannerPreviewUrl] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState("");
   const [visibilidade, setVisibilidade] = useState("publico");
@@ -133,6 +150,9 @@ export default function CriadorBloco({
   const [pixManualQrsDisponiveis, setPixManualQrsDisponiveis] = useState([]);
   const [blocoCardsHabilitado, setBlocoCardsHabilitado] = useState(
     DEFAULT_SISTEMA_CONFIG.blocoCardsHabilitado
+  );
+  const [livesHabilitadas, setLivesHabilitadas] = useState(
+    DEFAULT_SISTEMA_CONFIG.livesHabilitadas
   );
   const [mercadoPagoSistemaHabilitado, setMercadoPagoSistemaHabilitado] = useState(
     DEFAULT_SISTEMA_CONFIG.mercadoPagoHabilitado
@@ -171,6 +191,7 @@ export default function CriadorBloco({
           setPixManualConectado(false);
           setPixManualQrsDisponiveis([]);
           setBlocoCardsHabilitado(DEFAULT_SISTEMA_CONFIG.blocoCardsHabilitado);
+          setLivesHabilitadas(DEFAULT_SISTEMA_CONFIG.livesHabilitadas);
           setPixManualSistemaHabilitado(DEFAULT_SISTEMA_CONFIG.pixManualHabilitado);
           setNomeEspacoSingular(DEFAULT_SISTEMA_CONFIG.nomeEspacoSingular);
           setNomeBlocoSingular(DEFAULT_SISTEMA_CONFIG.nomeBlocoSingular);
@@ -182,6 +203,7 @@ export default function CriadorBloco({
       let moduloMercadoPagoAtivo = DEFAULT_SISTEMA_CONFIG.mercadoPagoHabilitado;
       let moduloPixManualAtivo = DEFAULT_SISTEMA_CONFIG.pixManualHabilitado;
       let cardsBlocoHabilitado = DEFAULT_SISTEMA_CONFIG.blocoCardsHabilitado;
+      let livesDoProjetoHabilitadas = DEFAULT_SISTEMA_CONFIG.livesHabilitadas;
       let nomeEspacoSingularAtual = DEFAULT_SISTEMA_CONFIG.nomeEspacoSingular;
       let nomeBlocoSingularAtual = DEFAULT_SISTEMA_CONFIG.nomeBlocoSingular;
       let nomeBlocoPluralAtual = DEFAULT_SISTEMA_CONFIG.nomeBlocoPlural;
@@ -190,6 +212,7 @@ export default function CriadorBloco({
         moduloMercadoPagoAtivo = configSistema?.mercadoPagoHabilitado !== false;
         moduloPixManualAtivo = configSistema?.pixManualHabilitado !== false;
         cardsBlocoHabilitado = configSistema?.blocoCardsHabilitado === true;
+        livesDoProjetoHabilitadas = configSistema?.livesHabilitadas === true;
         const rotulosEspaco = obterRotulosEspaco(configSistema);
         const rotulosBloco = obterRotulosBloco(configSistema);
         nomeEspacoSingularAtual =
@@ -205,6 +228,7 @@ export default function CriadorBloco({
         setMercadoPagoSistemaHabilitado(moduloMercadoPagoAtivo);
         setPixManualSistemaHabilitado(moduloPixManualAtivo);
         setBlocoCardsHabilitado(cardsBlocoHabilitado);
+        setLivesHabilitadas(livesDoProjetoHabilitadas);
         setNomeEspacoSingular(nomeEspacoSingularAtual);
         setNomeBlocoSingular(nomeBlocoSingularAtual);
         setNomeBlocoPlural(nomeBlocoPluralAtual);
@@ -274,6 +298,12 @@ export default function CriadorBloco({
     }
   }, [blocoCardsHabilitado, tipoConteudo]);
 
+  useEffect(() => {
+    if (!livesHabilitadas && tipoConteudo === "live") {
+      setTipoConteudo("imagem");
+    }
+  }, [livesHabilitadas, tipoConteudo]);
+
   const isExclusivoComprador = visibilidade === "exclusivo_comprador";
   const pixManualValoresDisponiveis = Array.isArray(pixManualQrsDisponiveis)
     ? [...pixManualQrsDisponiveis]
@@ -290,6 +320,7 @@ export default function CriadorBloco({
     pixManualConectado &&
     pixManualValoresDisponiveis.length > 0;
   const blocoEhCards = tipoConteudo === "cards" && blocoCardsHabilitado;
+  const blocoEhLive = tipoConteudo === "live" && livesHabilitadas;
   const nomeEspacoSingularCapitalizado = capitalizar(nomeEspacoSingular);
   const nomeBlocoSingularCapitalizado = capitalizar(nomeBlocoSingular);
 
@@ -373,7 +404,7 @@ export default function CriadorBloco({
       }
     }
 
-    const userRef = doc(db, "users", ownerUserId);
+    const userRef = getPrimaryProjectDoc(db, "users", ownerUserId);
     await setDoc(
       userRef,
       {
@@ -391,7 +422,7 @@ export default function CriadorBloco({
 
     if (skinDocId) {
       await setDoc(
-        doc(db, "users", ownerUserId, "skins", skinDocId),
+        getPrimaryProjectDoc(db, "users", ownerUserId, "skins", skinDocId),
         {
           id_skin: skinDocId,
           ownerUserId,
@@ -408,7 +439,7 @@ export default function CriadorBloco({
     }
 
     await setDoc(
-      doc(db, "users", ownerUserId, "espacos", espacoId),
+      getPrimaryProjectDoc(db, "users", ownerUserId, "espacos", espacoId),
       {
         id_espaco: espacoId,
         nome: espacoAtual?.nome || "home",
@@ -433,7 +464,27 @@ export default function CriadorBloco({
 
     if (!espacoId) return alert(`${nomeEspacoSingularCapitalizado} sem id valido.`);
     if (!ownerUserId) return alert(`${nomeEspacoSingularCapitalizado} sem ownerUserId valido.`);
-    if (!blocoEhCards && !files.length) return alert("Selecione ao menos uma imagem");
+    if (!blocoEhCards && !blocoEhLive && !files.length) {
+      return alert("Selecione ao menos uma imagem");
+    }
+
+    const liveInicioMs = blocoEhLive ? parseDateTimeLocalToMs(liveInicioEm) : null;
+    const liveFimMs = blocoEhLive ? parseDateTimeLocalToMs(liveFimEm) : null;
+
+    if (blocoEhLive) {
+      if (!String(liveUrl || "").trim()) {
+        alert("Informe a URL da live.");
+        return;
+      }
+      if (!liveInicioMs || !liveFimMs) {
+        alert("Informe data e hora de inicio e fim da live.");
+        return;
+      }
+      if (liveFimMs <= liveInicioMs) {
+        alert("A data/hora de fim deve ser maior que a data/hora de inicio.");
+        return;
+      }
+    }
 
     const precoCentavos = isExclusivoComprador
       ? usarValoresPixManual
@@ -453,9 +504,71 @@ export default function CriadorBloco({
       await garantirBasePersistenteOnePage();
 
       const blocoRef = doc(
-        collection(db, "users", ownerUserId, "espacos", espacoId, "blocos")
+        getPrimaryProjectCollection(db, "users", ownerUserId, "espacos", espacoId, "blocos")
       );
       const blocoId = blocoRef.id;
+
+      if (blocoEhLive) {
+        let liveBannerUrlFinal = String(liveBannerUrl || "").trim();
+        let liveBannerPathFinal = "";
+
+        if (liveBannerArquivo) {
+          const nomeArquivo = criarNomeArquivoSeguro(
+            liveBannerArquivo.name || "live-banner.jpg"
+          );
+          const bannerPath = `users/${ownerUserId}/espacos/${espacoId}/blocos/${blocoId}/live/banner/${nomeArquivo}`;
+          const uploadBanner = await subirArquivoStorage(bannerPath, liveBannerArquivo);
+          liveBannerPathFinal = bannerPath;
+          if (uploadBanner?.url) {
+            liveBannerUrlFinal = uploadBanner.url;
+          }
+        }
+
+        const blocoPayload = {
+          id: blocoId,
+          tipo: "live",
+          liveUrl: String(liveUrl || "").trim(),
+          liveInicioEmMs: liveInicioMs,
+          liveFimEmMs: liveFimMs,
+          liveInicioEmIso: new Date(liveInicioMs).toISOString(),
+          liveFimEmIso: new Date(liveFimMs).toISOString(),
+          liveBannerUrl: liveBannerUrlFinal,
+          liveBannerPath: liveBannerPathFinal,
+          imagensPreview: [],
+          imagensPreviewPaths: [],
+          imagensOriginaisPaths: [],
+          imagensOriginaisPublicas: [],
+          imagens: [],
+          criadoPor: user.uid,
+          criadoEm: serverTimestamp(),
+          ordem: Date.now(),
+          espacoId,
+          ownerUserId,
+          skinOwner: espacoAtual.skinOwner || activeSkinId || null,
+          visibilidade,
+          precoCentavos: precoCentavos || null,
+          moeda: precoCentavos ? "BRL" : null,
+        };
+
+        await setDoc(blocoRef, blocoPayload);
+
+        if (onCreate) {
+          onCreate({
+            criadoEm: new Date().toISOString(),
+            ...blocoPayload,
+          });
+        }
+
+        setValorCompra("");
+        setLiveUrl("");
+        setLiveInicioEm("");
+        setLiveFimEm("");
+        setLiveBannerUrl("");
+        setLiveBannerArquivo(null);
+        setLiveBannerPreviewUrl("");
+        alert(`${nomeBlocoSingularCapitalizado} criado com sucesso!`);
+        return;
+      }
 
       if (blocoEhCards) {
         const cardsNormalizados = normalizarCardsDoBloco(cards);
@@ -678,13 +791,14 @@ export default function CriadorBloco({
     <div className="bloco-creator">
       <h3>
         {`Criar ${nomeBlocoSingular} de ${
-          blocoEhCards ? "cards" : "imagens"
+          blocoEhCards ? "cards" : blocoEhLive ? "live" : "imagens"
         }`}
       </h3>
 
       <select value={tipoConteudo} onChange={(e) => setTipoConteudo(e.target.value)}>
         <option value="imagem">Imagens</option>
         {blocoCardsHabilitado && <option value="cards">Cards</option>}
+        {livesHabilitadas && <option value="live">Live</option>}
       </select>
 
       {blocoEhCards ? (
@@ -822,6 +936,75 @@ export default function CriadorBloco({
           <button type="button" onClick={() => setCards((prev) => [...prev, criarCardVazio()])}>
             Adicionar card
           </button>
+        </div>
+      ) : blocoEhLive ? (
+        <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10 }}>
+          <input
+            type="text"
+            placeholder="URL da live (YouTube, Vimeo, Twitch, etc.)"
+            value={liveUrl}
+            onChange={(event) => setLiveUrl(event.target.value)}
+          />
+
+          <label htmlFor="liveInicioEm">Inicio da live</label>
+          <input
+            id="liveInicioEm"
+            type="datetime-local"
+            value={liveInicioEm}
+            onChange={(event) => setLiveInicioEm(event.target.value)}
+          />
+
+          <label htmlFor="liveFimEm">Fim da live</label>
+          <input
+            id="liveFimEm"
+            type="datetime-local"
+            value={liveFimEm}
+            onChange={(event) => setLiveFimEm(event.target.value)}
+          />
+
+          <input
+            type="text"
+            placeholder="URL da imagem de anuncio (opcional)"
+            value={liveBannerUrl}
+            onChange={(event) => setLiveBannerUrl(event.target.value)}
+          />
+
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(event) => {
+              const arquivo = event.target.files?.[0] || null;
+              setLiveBannerArquivo(arquivo);
+              setLiveBannerPreviewUrl(arquivo ? URL.createObjectURL(arquivo) : "");
+              if (arquivo) {
+                setLiveBannerUrl("");
+              }
+              event.target.value = "";
+            }}
+          />
+
+          {(liveBannerPreviewUrl || liveBannerUrl) && (
+            <div style={{ marginTop: 4 }}>
+              <img
+                src={liveBannerPreviewUrl || liveBannerUrl}
+                alt="Preview do anuncio da live"
+                style={{ width: "min(100%, 260px)", maxHeight: 150, objectFit: "cover", borderRadius: 6 }}
+              />
+              <div style={{ marginTop: 6 }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLiveBannerArquivo(null);
+                    setLiveBannerPreviewUrl("");
+                    setLiveBannerUrl("");
+                  }}
+                  style={{ color: "red" }}
+                >
+                  Remover imagem de anuncio
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <input

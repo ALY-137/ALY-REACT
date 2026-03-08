@@ -1,6 +1,7 @@
 import { getAuth } from "firebase/auth";
 import { db } from '../../Banco/init-firebase';
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { query, where, getDocs } from "firebase/firestore";
+import { getPrimaryProjectCollection } from "../../Banco/projectDataRefs";
 
 export const buscarSkinLogada = async () => {
   const auth = getAuth();
@@ -19,7 +20,7 @@ export const buscarSkinLogada = async () => {
   }
 
   try {
-    const skinsCol = collection(db, 'users', user.uid, 'skins');
+    const skinsCol = getPrimaryProjectCollection(db, 'users', user.uid, 'skins');
     const q = query(skinsCol, where('username', '==', skinUsername));
     const snapshot = await getDocs(q);
 

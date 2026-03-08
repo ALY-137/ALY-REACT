@@ -1,7 +1,6 @@
 import {
-  getDoc,
-  collection,
   doc,
+  getDoc,
   getDocs,
   query,
   setDoc,
@@ -15,6 +14,12 @@ import {
 } from "firebase/firestore";
 
 import { db } from "../../Banco/init-firebase";
+import {
+  getFirstExistingProjectDocSnapshot,
+  getPrimaryProjectCollection,
+  getProjectCollectionCandidates,
+  getProjectDocCandidates,
+} from "../../Banco/projectDataRefs";
 
 const VISIBILIDADES_ESPACO_RESTRITAS = [
   "publico",
@@ -25,8 +30,18 @@ const VISIBILIDADES_ESPACO_RESTRITAS = [
   "comprado",
 ];
 
+const getEstruturaPublicaEspacosRefs = (userId) =>
+  getProjectCollectionCandidates(db, "users", userId, "espacos_publicos");
 const getEstruturaPublicaEspacosRef = (userId) =>
-  collection(db, "users", userId, "espacos_publicos");
+  getPrimaryProjectCollection(db, "users", userId, "espacos_publicos");
+const getEspacosRefs = (userId) =>
+  getProjectCollectionCandidates(db, "users", userId, "espacos");
+const getEspacoDocRefs = (userId, espacoId) =>
+  getProjectDocCandidates(db, "users", userId, "espacos", espacoId);
+const getSkinsRefs = (userId) =>
+  getProjectCollectionCandidates(db, "users", userId, "skins");
+const getSkinDocRefs = (userId, skinId) =>
+  getProjectDocCandidates(db, "users", userId, "skins", skinId);
 
 export function construirEstruturaPublicaEspaco(espaco = {}, userId = "") {
   const ownerUserId = String(espaco?.ownerUserId || userId || "").trim();
@@ -58,11 +73,13 @@ export async function sincronizarEstruturaPublicaEspaco(userId, espaco = {}) {
   if (!userIdNormalizado || !idEspaco) return;
 
   try {
-    await setDoc(
-      doc(getEstruturaPublicaEspacosRef(userIdNormalizado), idEspaco),
-      construirEstruturaPublicaEspaco(espaco, userIdNormalizado),
-      { merge: true }
-    );
+    for (const estruturaRef of getEstruturaPublicaEspacosRefs(userIdNormalizado)) {
+      await setDoc(
+        doc(estruturaRef, idEspaco),
+        construirEstruturaPublicaEspaco(espaco, userIdNormalizado),
+        { merge: true }
+      );
+    }
   } catch (error) {
     if (error?.code === "permission-denied") {
       return false;
@@ -79,7 +96,15 @@ export async function removerEstruturaPublicaEspaco(userId, espacoId) {
   if (!userIdNormalizado || !espacoIdNormalizado) return;
 
   try {
-    await deleteDoc(doc(getEstruturaPublicaEspacosRef(userIdNormalizado), espacoIdNormalizado));
+    for (const estruturaRef of getEstruturaPublicaEspacosRefs(userIdNormalizado)) {
+      try {
+        await deleteDoc(doc(estruturaRef, espacoIdNormalizado));
+      } catch (errorDelete) {
+        if (errorDelete?.code !== "not-found") {
+          throw errorDelete;
+        }
+      }
+    }
   } catch (error) {
     if (error?.code === "permission-denied") {
       return false;
@@ -94,7 +119,15 @@ export async function getEspacosEstruturaPublica(userId) {
   const userIdNormalizado = String(userId || "").trim();
   if (!userIdNormalizado) return [];
 
-  const snapshot = await getDocs(query(getEstruturaPublicaEspacosRef(userIdNormalizado)));
+  let snapshot = null;
+  for (const estruturaRef of getEstruturaPublicaEspacosRefs(userIdNormalizado)) {
+    const snapAtual = await getDocs(query(estruturaRef));
+    if (!snapshot || !snapAtual.empty) {
+      snapshot = snapAtual;
+    }
+    if (snapAtual.docs.length) break;
+  }
+  if (!snapshot) return [];
 
   return snapshot.docs
     .map((docSnap) => {
@@ -113,8 +146,14 @@ export async function getEspacoCompleto(userId, espacoId) {
   const espacoIdNormalizado = String(espacoId || "").trim();
   if (!userIdNormalizado || !espacoIdNormalizado) return null;
 
-  const snap = await getDoc(doc(db, "users", userIdNormalizado, "espacos", espacoIdNormalizado));
-  if (!snap.exists()) return null;
+  const snap = await getFirstExistingProjectDocSnapshot(
+    db,
+    "users",
+    userIdNormalizado,
+    "espacos",
+    espacoIdNormalizado
+  );
+  if (!snap?.exists?.()) return null;
 
   return {
     id: snap.id,
@@ -127,23 +166,27 @@ export async function getEspacoCompleto(userId, espacoId) {
    PEGAR TODAS AS PÁGINAS DO USER
 ------------------------------------------------------- */
 export async function getEspacosDaSkin({ userId, skinId, viewerUserId = null }) {
-  const espacosRef = collection(db, "users", userId, "espacos");
+  const espacosRefs = getEspacosRefs(userId);
   const isOwner = viewerUserId && viewerUserId === userId;
-
-  const espacosQuery = query(
-    espacosRef,
-    where("skins_relacionadas", "array-contains", skinId)
-  );
-
-  let snapshot;
-  try {
-    snapshot = await getDocs(espacosQuery);
-  } catch (err) {
-    if (err?.code !== "permission-denied") {
-      throw err;
+  let snapshot = null;
+  for (const espacosRef of espacosRefs) {
+    const espacosQuery = query(
+      espacosRef,
+      where("skins_relacionadas", "array-contains", skinId)
+    );
+    try {
+      const snapAtual = await getDocs(espacosQuery);
+      if (!snapshot || !snapAtual.empty) {
+        snapshot = snapAtual;
+      }
+      if (!snapAtual.empty) break;
+      continue;
+    } catch (err) {
+      if (err?.code !== "permission-denied") {
+        throw err;
+      }
     }
 
-    // Compatibilidade com regras antigas: tenta faixas mais abertas por perfil de viewer.
     let compatQuery = query(
       espacosRef,
       where("skins_relacionadas", "array-contains", skinId),
@@ -162,21 +205,30 @@ export async function getEspacosDaSkin({ userId, skinId, viewerUserId = null }) 
         where("skins_relacionadas", "array-contains", skinId)
       );
     }
-    snapshot = await getDocs(compatQuery);
+    const compatSnap = await getDocs(compatQuery);
+    if (!snapshot || !compatSnap.empty) {
+      snapshot = compatSnap;
+    }
+    if (!compatSnap.empty) break;
   }
+  if (!snapshot) return [];
 
   // Fallback para esquema legado: documentos sem skins_relacionadas, mas com skinOwner.
   if (snapshot.empty) {
-    const legacyQuery = query(
-      espacosRef,
-      where("skinOwner", "==", skinId)
-    );
+    for (const espacosRef of espacosRefs) {
+      const legacyQuery = query(espacosRef, where("skinOwner", "==", skinId));
 
-    try {
-      snapshot = await getDocs(legacyQuery);
-    } catch (err) {
-      if (err?.code !== "permission-denied") {
-        throw err;
+      try {
+        const legacySnap = await getDocs(legacyQuery);
+        if (!snapshot || !legacySnap.empty) {
+          snapshot = legacySnap;
+        }
+        if (!legacySnap.empty) break;
+        continue;
+      } catch (err) {
+        if (err?.code !== "permission-denied") {
+          throw err;
+        }
       }
 
       let compatLegacyQuery = query(
@@ -197,34 +249,50 @@ export async function getEspacosDaSkin({ userId, skinId, viewerUserId = null }) 
           where("skinOwner", "==", skinId)
         );
       }
-      snapshot = await getDocs(compatLegacyQuery);
+      const compatLegacySnap = await getDocs(compatLegacyQuery);
+      if (!snapshot || !compatLegacySnap.empty) {
+        snapshot = compatLegacySnap;
+      }
+      if (!compatLegacySnap.empty) break;
     }
   }
 
   // Fallback para docs sem visibilidade definida (null/missing), tratados como públicos.
   if (snapshot.empty) {
-    const nullVisByRelationQuery = query(
-      espacosRef,
-      where("skins_relacionadas", "array-contains", skinId),
-      where("visibilidade", "==", null)
-    );
-    try {
-      snapshot = await getDocs(nullVisByRelationQuery);
-    } catch (err) {
-      if (err?.code !== "permission-denied") throw err;
+    for (const espacosRef of espacosRefs) {
+      const nullVisByRelationQuery = query(
+        espacosRef,
+        where("skins_relacionadas", "array-contains", skinId),
+        where("visibilidade", "==", null)
+      );
+      try {
+        const nullSnap = await getDocs(nullVisByRelationQuery);
+        if (!snapshot || !nullSnap.empty) {
+          snapshot = nullSnap;
+        }
+        if (!nullSnap.empty) break;
+      } catch (err) {
+        if (err?.code !== "permission-denied") throw err;
+      }
     }
   }
 
   if (snapshot.empty) {
-    const nullVisByOwnerQuery = query(
-      espacosRef,
-      where("skinOwner", "==", skinId),
-      where("visibilidade", "==", null)
-    );
-    try {
-      snapshot = await getDocs(nullVisByOwnerQuery);
-    } catch (err) {
-      if (err?.code !== "permission-denied") throw err;
+    for (const espacosRef of espacosRefs) {
+      const nullVisByOwnerQuery = query(
+        espacosRef,
+        where("skinOwner", "==", skinId),
+        where("visibilidade", "==", null)
+      );
+      try {
+        const nullOwnerSnap = await getDocs(nullVisByOwnerQuery);
+        if (!snapshot || !nullOwnerSnap.empty) {
+          snapshot = nullOwnerSnap;
+        }
+        if (!nullOwnerSnap.empty) break;
+      } catch (err) {
+        if (err?.code !== "permission-denied") throw err;
+      }
     }
   }
 
@@ -245,19 +313,25 @@ export async function getEspacosDoOwner({
   viewerUserId = null,
   ignorarVisibilidade = false,
 }) {
-  const espacosRef = collection(db, "users", userId, "espacos");
+  const espacosRefs = getEspacosRefs(userId);
   const isOwner = viewerUserId && viewerUserId === userId;
 
-  let snapshot;
-  try {
-    snapshot = await getDocs(query(espacosRef));
-  } catch (err) {
-    if (err?.code !== "permission-denied") {
-      throw err;
-    }
-
-    if (ignorarVisibilidade) {
-      throw err;
+  let snapshot = null;
+  for (const espacosRef of espacosRefs) {
+    try {
+      const snapAtual = await getDocs(query(espacosRef));
+      if (!snapshot || !snapAtual.empty) {
+        snapshot = snapAtual;
+      }
+      if (!snapAtual.empty) break;
+      continue;
+    } catch (err) {
+      if (err?.code !== "permission-denied") {
+        throw err;
+      }
+      if (ignorarVisibilidade) {
+        throw err;
+      }
     }
 
     let compatQuery = query(espacosRef, where("visibilidade", "==", "publico"));
@@ -273,18 +347,29 @@ export async function getEspacosDoOwner({
       compatQuery = query(espacosRef);
     }
 
-    snapshot = await getDocs(compatQuery);
+    const compatSnap = await getDocs(compatQuery);
+    if (!snapshot || !compatSnap.empty) {
+      snapshot = compatSnap;
+    }
+    if (!compatSnap.empty) break;
   }
+  if (!snapshot) return [];
 
   if (snapshot.empty && !ignorarVisibilidade) {
-    const nullVisibilityQuery = query(
-      espacosRef,
-      where("visibilidade", "==", null)
-    );
-    try {
-      snapshot = await getDocs(nullVisibilityQuery);
-    } catch (err) {
-      if (err?.code !== "permission-denied") throw err;
+    for (const espacosRef of espacosRefs) {
+      const nullVisibilityQuery = query(
+        espacosRef,
+        where("visibilidade", "==", null)
+      );
+      try {
+        const nullSnap = await getDocs(nullVisibilityQuery);
+        if (!snapshot || !nullSnap.empty) {
+          snapshot = nullSnap;
+        }
+        if (!nullSnap.empty) break;
+      } catch (err) {
+        if (err?.code !== "permission-denied") throw err;
+      }
     }
   }
 
@@ -304,7 +389,8 @@ export async function getEspacosDoOwner({
    CRIAR PÁGINA
 ------------------------------------------------------- */
 export const createEspaco = async (userId, nome, skins = []) => {
-  const espacosRef = collection(db, "users", userId, "espacos");
+  const espacosRefs = getEspacosRefs(userId);
+  const espacosRef = espacosRefs[0];
 
   const snapshot = await getDocs(espacosRef);
   const ordem = snapshot.docs.filter(d =>
@@ -323,7 +409,9 @@ export const createEspaco = async (userId, nome, skins = []) => {
     data: serverTimestamp(),
   };
 
-  await setDoc(novaEspacoRef, novoEspaco);
+  for (const espacosRefItem of espacosRefs) {
+    await setDoc(doc(espacosRefItem, novaEspacoRef.id), novoEspaco, { merge: true });
+  }
   await sincronizarEstruturaPublicaEspaco(userId, {
     ...novoEspaco,
     id: novaEspacoRef.id,
@@ -332,10 +420,15 @@ export const createEspaco = async (userId, nome, skins = []) => {
 
   // atualizar skins
   for (const skinId of skins) {
-    const skinRef = doc(db, "users", userId, "skins", skinId);
-    await updateDoc(skinRef, {
-      espacos_relacionadas: arrayUnion(novaEspacoRef.id),
-    });
+    for (const skinRef of getSkinDocRefs(userId, skinId)) {
+      await setDoc(
+        skinRef,
+        {
+          espacos_relacionadas: arrayUnion(novaEspacoRef.id),
+        },
+        { merge: true }
+      );
+    }
   }
 
   return novaEspacoRef.id;
@@ -345,8 +438,9 @@ export const createEspaco = async (userId, nome, skins = []) => {
    ATUALIZAR NOME
 ------------------------------------------------------- */
 export const updateEspacoNome = async (userId, espacoId, novoNome) => {
-  const ref = doc(db, "users", userId, "espacos", espacoId);
-  await updateDoc(ref, { nome: novoNome });
+  for (const ref of getEspacoDocRefs(userId, espacoId)) {
+    await setDoc(ref, { nome: novoNome }, { merge: true });
+  }
   const espacoAtualizado = await getEspacoCompleto(userId, espacoId);
   await sincronizarEstruturaPublicaEspaco(userId, espacoAtualizado);
 };
@@ -355,33 +449,30 @@ export const updateEspacoNome = async (userId, espacoId, novoNome) => {
    DEFINIR PÁGINA PRINCIPAL
 ------------------------------------------------------- */
 export const setEspacoMain = async (userId, espacoId) => {
-  const espacosRef = collection(db, "users", userId, "espacos");
-  const snapshot = await getDocs(espacosRef);
-
-  const batch = writeBatch(db);
-
-  snapshot.forEach((docSnap) => {
-    batch.update(docSnap.ref, {
-      is_main: skinId === espaco.skinOwner
-
+  for (const espacosRef of getEspacosRefs(userId)) {
+    const snapshot = await getDocs(espacosRef);
+    const batch = writeBatch(db);
+    snapshot.forEach((docSnap) => {
+      batch.update(docSnap.ref, {
+        is_main: docSnap.id === espacoId,
+      });
     });
-  });
-
-  await batch.commit();
+    await batch.commit();
+  }
 };
 
 /* -------------------------------------------------------
    ATUALIZAR ORDEM
 ------------------------------------------------------- */
 export const updateOrdemEspacos = async (userId, espacosOrdenadas) => {
-  const batch = writeBatch(db);
-
-  espacosOrdenadas.forEach((espaco, index) => {
-    const ref = doc(db, "users", userId, "espacos", espaco.id_espaco);
-    batch.update(ref, { ordem: index });
-  });
-
-  await batch.commit();
+  for (const espacosRef of getEspacosRefs(userId)) {
+    const batch = writeBatch(db);
+    espacosOrdenadas.forEach((espaco, index) => {
+      const ref = doc(espacosRef, espaco.id_espaco);
+      batch.set(ref, { ordem: index }, { merge: true });
+    });
+    await batch.commit();
+  }
 
   await Promise.all(
     espacosOrdenadas.map((espaco, index) =>
@@ -397,16 +488,23 @@ export const updateOrdemEspacos = async (userId, espacosOrdenadas) => {
    EXCLUIR PÁGINA
 ------------------------------------------------------- */
 export const deleteEspaco = async (userId, espacoId) => {
-  const skinsRef = collection(db, "users", userId, "skins");
-  const skinsSnap = await getDocs(skinsRef);
-
-  for (const skin of skinsSnap.docs) {
-    await updateDoc(skin.ref, {
-      espacos_relacionadas: arrayRemove(espacoId),
-    });
+  for (const skinsRef of getSkinsRefs(userId)) {
+    const skinsSnap = await getDocs(skinsRef);
+    for (const skin of skinsSnap.docs) {
+      await updateDoc(skin.ref, {
+        espacos_relacionadas: arrayRemove(espacoId),
+      });
+    }
   }
 
-  const espacoRef = doc(db, "users", userId, "espacos", espacoId);
-  await deleteDoc(espacoRef);
+  for (const espacoRef of getEspacoDocRefs(userId, espacoId)) {
+    try {
+      await deleteDoc(espacoRef);
+    } catch (errorDelete) {
+      if (errorDelete?.code !== "not-found") {
+        throw errorDelete;
+      }
+    }
+  }
   await removerEstruturaPublicaEspaco(userId, espacoId);
 };

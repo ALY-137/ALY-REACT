@@ -9,6 +9,10 @@ import {
   db,
 } from "./components/Banco/init-firebase";
 import {
+  getPrimaryProjectCollection,
+  getPrimaryProjectDoc,
+} from "./components/Banco/projectDataRefs";
+import {
   DEFAULT_SISTEMA_CONFIG,
   aplicarBrandingNoDocumento,
   aplicarTemaNoBody,
@@ -35,6 +39,7 @@ import AnoAtualizado from "./components/Scripts/data/AnoAtualizado";
 import { seforAdm } from "./components/Scripts/verificacoes/verificaAdm";
 
 import "./App.css";
+import "./components/Layout/Temas/system-base-login.css";
 
 // Variaveis globais exportadas
 let primeiroNomeCap = null;
@@ -113,6 +118,7 @@ const App = () => {
   const [setupAdminBootstrap, setSetupAdminBootstrap] = useState(false);
   const [encerrandoSessaoGerenciador, setEncerrandoSessaoGerenciador] = useState(false);
   const [erroAcessoGerenciador, setErroAcessoGerenciador] = useState("");
+  const [splashEntradaPublicaConcluida, setSplashEntradaPublicaConcluida] = useState(false);
   const snapshotSolicitacoesInicializadoRef = useRef(false);
   const solicitacoesVistasRef = useRef(new Set());
 
@@ -297,7 +303,7 @@ const App = () => {
 
     const fetchSkins = async () => {
       try {
-        const userRef = doc(db, "users", user.uid);
+        const userRef = getPrimaryProjectDoc(db, "users", user.uid);
         const skinsCol = collection(userRef, "skins");
         const skinsSnapshot = await getDocs(skinsCol);
         const skinsList = skinsSnapshot.docs.map((docItem) => docItem.data());
@@ -428,11 +434,17 @@ const App = () => {
   const tipoExperiencia = configSistema?.tipoExperiencia || DEFAULT_SISTEMA_CONFIG.tipoExperiencia;
   const onePagePublicaAtiva =
     !isManagerProject &&
-    isOnePageComEntradaPublica({
-      tipoExperiencia,
-      modoAcessoProjeto,
-    });
+    (
+      isOnePageComEntradaPublica({
+        tipoExperiencia,
+        modoAcessoProjeto,
+      }) ||
+      activeFirebaseProjectKey === "aly-onepages-runtime"
+    );
   const exibirHomePublica = onePagePublicaAtiva && !isLoginUiRoute;
+  const rotaEntradaRaiz = location.pathname === "/";
+  const precisaSplashEntradaPublica =
+    !isLoginUiRoute && rotaEntradaRaiz && (onePagePublicaAtiva || !configSistemaPronta);
 
   const isPublicProfileRoute = useMemo(() => {
     if (isManagerProject) return false;
@@ -501,6 +513,35 @@ const App = () => {
     const timeout = setTimeout(() => setMostrarLogin(true), loginRevealDelayMs);
     return () => clearTimeout(timeout);
   }, [loginRevealDelayMs]);
+
+  useEffect(() => {
+    if (!precisaSplashEntradaPublica) {
+      if (!configSistemaPronta || authLoading || isAuthHandlerRoute) {
+        setSplashEntradaPublicaConcluida(false);
+      } else {
+        setSplashEntradaPublicaConcluida(true);
+      }
+      return;
+    }
+
+    if (authLoading || !configSistemaPronta || isAuthHandlerRoute) {
+      setSplashEntradaPublicaConcluida(false);
+      return;
+    }
+
+    setSplashEntradaPublicaConcluida(false);
+    const timeout = setTimeout(() => {
+      setSplashEntradaPublicaConcluida(true);
+    }, loginRevealDelayMs);
+
+    return () => clearTimeout(timeout);
+  }, [
+    precisaSplashEntradaPublica,
+    authLoading,
+    configSistemaPronta,
+    isAuthHandlerRoute,
+    loginRevealDelayMs,
+  ]);
 
   useLayoutEffect(() => {
     if (!exibindoFluxoSistema) return;
@@ -589,7 +630,7 @@ const App = () => {
     if (!adminUid) return undefined;
 
     // A colecao continua "pedidos" no Firestore por compatibilidade.
-    const solicitacoesRef = collection(db, "users", adminUid, "pedidos");
+    const solicitacoesRef = getPrimaryProjectCollection(db, "users", adminUid, "pedidos");
     const solicitacoesQuery = query(
       solicitacoesRef,
       where("status", "==", "pedido_solicitado")
@@ -669,6 +710,10 @@ const App = () => {
   }
 
   if (exibindoFluxoSistema && !configSistemaPronta && !isAuthHandlerRoute) {
+    return renderTelaCarregamento();
+  }
+
+  if (precisaSplashEntradaPublica && !splashEntradaPublicaConcluida) {
     return renderTelaCarregamento();
   }
 

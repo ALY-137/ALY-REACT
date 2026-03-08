@@ -81,18 +81,19 @@
   
   
 .pageContentForms {
-    position: absolute;
-    left: 0;
-    bottom: 28px;
-    top: 0;
-    right: 0;
-    margin-top: 55px;
+    position: relative;
+    left: auto;
+    bottom: auto;
+    top: auto;
+    right: auto;
+    margin-top: 8px;
     overflow-y: auto;
     text-align: left;
     margin-left: 10px;
     overflow-x: hidden;
     margin-right:  10px;
     margin-bottom: 15px;
+    max-height: calc(100dvh - 240px);
 }
 
 .contentPageDetForm {

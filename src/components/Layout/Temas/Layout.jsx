@@ -15,6 +15,7 @@ export default function Layout({
   theme,
   configSistemaOverride = null,
   cardProfileDimensionsOverride = null,
+  onThemeReadyChange = null,
 }) {
   const fundoRef = useRef();
   const cabecalhoRef = useRef();
@@ -27,6 +28,10 @@ export default function Layout({
   const layoutConfig = useMemo(
     () => obterConfigLayoutTemaSkin(theme, configSistemaEfetiva?.layoutTema),
     [theme, configSistemaEfetiva?.layoutTema]
+  );
+  const cssTheme = useMemo(
+    () => (theme ? obterCssTemaSkin(theme) : ""),
+    [theme]
   );
   const dimensoesCardProfileEfetivas = useMemo(() => {
     const larguraOverride = Number(cardProfileDimensionsOverride?.width || 0);
@@ -75,6 +80,33 @@ export default function Layout({
       window.removeEventListener("sistema-config-atualizada", handleConfigSistemaAtualizada);
     };
   }, [configSistemaOverride]);
+
+  useEffect(() => {
+    if (!cssTheme) {
+      if (typeof onThemeReadyChange === "function") {
+        onThemeReadyChange(false);
+      }
+      return undefined;
+    }
+
+    let ativo = true;
+    if (typeof onThemeReadyChange === "function") {
+      onThemeReadyChange(false);
+    }
+
+    import(`./${cssTheme.toLowerCase()}.css`)
+      .catch(console.error)
+      .finally(() => {
+        if (!ativo) return;
+        if (typeof onThemeReadyChange === "function") {
+          onThemeReadyChange(true);
+        }
+      });
+
+    return () => {
+      ativo = false;
+    };
+  }, [cssTheme, onThemeReadyChange]);
 
   // ---------- Layout Responsivo ----------
   useEffect(() => {
@@ -125,9 +157,8 @@ export default function Layout({
 
   // ---------- Tema ----------
   useLayoutEffect(() => {
-    if (!theme) return;
+    if (!theme || !cssTheme) return;
 
-    const cssTheme = obterCssTemaSkin(theme);
     const body = document.body;
     const root = document.documentElement;
 
@@ -177,9 +208,9 @@ export default function Layout({
       `${dimensoesCardProfileEfetivas.height}px`
     );
 
-    import(`./${cssTheme.toLowerCase()}.css`).catch(console.error);
   }, [
     theme,
+    cssTheme,
     layoutConfig.menuPosition,
     layoutConfig.surfaceDensity,
     layoutConfig.cardProfileShape,

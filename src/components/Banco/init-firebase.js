@@ -5,24 +5,18 @@ import {
   collection,
   doc,
   setDoc,
-  addDoc,
   serverTimestamp,
-  query,
-  where,
-  getDocs,
   getDoc,
-  updateDoc
 } from "firebase/firestore";
-
 import { getStorage } from "firebase/storage";
 import { getFunctions } from "firebase/functions";
+import { getAuth, GoogleAuthProvider, TwitterAuthProvider } from "firebase/auth";
 
-import {
-  getAuth,
-  GoogleAuthProvider,
-  TwitterAuthProvider
-} from "firebase/auth";
 import { resolveFirebaseProject } from "../../config/firebaseProjects";
+import {
+  getProjectCollectionCandidates,
+  getProjectDocCandidates,
+} from "./projectDataRefs";
 
 // ===============================
 // CONFIG
@@ -68,9 +62,6 @@ export const functions = getFunctions(app, functionsRegion);
 export const providerGoogle = new GoogleAuthProvider();
 export const providerTwitter = new TwitterAuthProvider();
 
-
-
-
 // ===============================
 // HELPERS
 // ===============================
@@ -84,6 +75,36 @@ export const criarIdChat = () => {
   return doc(collection(db, "_dummy")).id;
 };
 
+const getContatoRefs = (idContato = "") =>
+  getProjectDocCandidates(db, "contatos", String(idContato || "").trim());
+
+const getConversaRefs = (idContato = "", idConversa = "") =>
+  getProjectDocCandidates(
+    db,
+    "contatos",
+    String(idContato || "").trim(),
+    "conversas",
+    String(idConversa || "").trim()
+  );
+
+const getChatRefs = (idContato = "", idConversa = "") =>
+  getProjectCollectionCandidates(
+    db,
+    "contatos",
+    String(idContato || "").trim(),
+    "conversas",
+    String(idConversa || "").trim(),
+    "chat"
+  );
+
+const getFirstExistingDoc = async (refs = []) => {
+  for (const refItem of refs) {
+    const snap = await getDoc(refItem).catch(() => null);
+    if (snap?.exists?.()) return snap;
+  }
+  return null;
+};
+
 // ===============================
 // CHAT
 // ===============================
@@ -91,37 +112,57 @@ export const enviarChat = async ({
   idContato,
   idConversa,
   userRemetente,
-  mensagem
+  mensagem,
+  userUid = "",
+  senderSkinId = "",
+  iconSkin = "",
 }) => {
-  const conversaRef = doc(db, "contatos", idContato, "conversas", idConversa);
+  const idContatoNorm = String(idContato || "").trim();
+  const idConversaNorm = String(idConversa || "").trim();
+  const conversaRefs = getConversaRefs(idContatoNorm, idConversaNorm);
 
-  const conversaSnap = await getDoc(conversaRef);
-  if (!conversaSnap.exists()) {
-    console.error("Conversa não encontrada");
+  const conversaSnap = await getFirstExistingDoc(conversaRefs);
+  if (!conversaSnap?.exists?.()) {
+    console.error("Conversa nao encontrada");
     return;
   }
 
   const idChat = criarIdChat();
+  const payloadChat = {
+    mensagem,
+    data: serverTimestamp(),
+    userRemetente,
+    userUid: String(userUid || auth?.currentUser?.uid || "").trim(),
+    senderSkinId: String(senderSkinId || "").trim(),
+    iconSkin: String(iconSkin || "").trim() || null,
+    idConversa: idConversaNorm,
+    idChat,
+  };
 
-  await setDoc(
-    doc(db, "contatos", idContato, "conversas", idConversa, "chat", idChat),
-    {
-      mensagem,
-      data: serverTimestamp(),
-      userRemetente,
-      idConversa,
-      idChat
-    }
-  );
+  for (const chatRef of getChatRefs(idContatoNorm, idConversaNorm)) {
+    await setDoc(doc(chatRef, idChat), payloadChat);
+  }
 
-  await updateDoc(conversaRef, {
-    ultimaMensagem: mensagem,
-    dataUltimaMensagem: serverTimestamp()
-  });
+  for (const conversaRef of conversaRefs) {
+    await setDoc(
+      conversaRef,
+      {
+        ultimaMensagem: mensagem,
+        dataUltimaMensagem: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  }
 
-  await updateDoc(doc(db, "contatos", idContato), {
-    ultimaConversaData: serverTimestamp()
-  });
+  for (const contatoRef of getContatoRefs(idContatoNorm)) {
+    await setDoc(
+      contatoRef,
+      {
+        ultimaConversaData: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  }
 };
 
 // ===============================
@@ -134,42 +175,48 @@ export const enviarMensagem = async (
   mensagem,
   valorTextareaEmail
 ) => {
-  const contatoRef = doc(collection(db, "contatos"));
-  const idContato = contatoRef.id;
+  const _idDestinatario = idDestinatario;
+  const idContato = criarIdChat();
 
-  await setDoc(contatoRef, {
-    idContato,
-    ultimaConversaData: serverTimestamp(),
-    skinRemetente: skinLogado,
-    skinDestinatario: "savannaoliveira"
-  });
+  for (const contatoRef of getContatoRefs(idContato)) {
+    await setDoc(
+      contatoRef,
+      {
+        idContato,
+        ultimaConversaData: serverTimestamp(),
+        skinRemetente: skinLogado,
+        skinDestinatario: "savannaoliveira",
+      },
+      { merge: true }
+    );
+  }
 
   const idConversa = assunto ? criarIdChat() : "principal";
-  const conversaRef = doc(db, "contatos", idContato, "conversas", idConversa);
-
-  await setDoc(
-    conversaRef,
-    {
-      assunto: assunto || "PRINCIPAL",
-      data: serverTimestamp(),
-      idContato,
-      idConversa,
-      ultimaMensagem: mensagem,
-      email: valorTextareaEmail,
-      dataUltimaMensagem: serverTimestamp()
-    },
-    { merge: true }
-  );
+  for (const conversaRef of getConversaRefs(idContato, idConversa)) {
+    await setDoc(
+      conversaRef,
+      {
+        assunto: assunto || "PRINCIPAL",
+        data: serverTimestamp(),
+        idContato,
+        idConversa,
+        ultimaMensagem: mensagem,
+        email: valorTextareaEmail,
+        dataUltimaMensagem: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  }
 
   const idChat = criarIdChat();
-  await setDoc(
-    doc(db, "contatos", idContato, "conversas", idConversa, "chat", idChat),
-    {
+  for (const chatRef of getChatRefs(idContato, idConversa)) {
+    await setDoc(doc(chatRef, idChat), {
       mensagem,
       data: serverTimestamp(),
       userRemetente: skinLogado,
       idConversa,
-      idChat
-    }
-  );
+      idChat,
+      destinatarioId: _idDestinatario || null,
+    });
+  }
 };

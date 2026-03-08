@@ -1,12 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useOutletContext, useParams } from "react-router-dom";
 import {
+  addDoc,
   collection,
   deleteDoc,
   doc,
   getDoc,
   getDocs,
+  onSnapshot,
+  orderBy,
   query,
+  serverTimestamp,
+  setDoc,
   updateDoc,
   where,
 } from "firebase/firestore";
@@ -18,6 +23,10 @@ import LoginButton from "../Geral/LoginButton";
 import Card from "../Objects/Objetos/Card";
 import Container from "../Objects/Containers/Container";
 import { auth, db, storage } from "../../Banco/init-firebase";
+import {
+  getProjectCollectionCandidates,
+  getProjectDocCandidates,
+} from "../../Banco/projectDataRefs";
 import {
   excluirArquivoNoBucketCompartilhado,
   obterUrlArquivoNoBucketCompartilhado,
@@ -36,6 +45,52 @@ import {
 import { solicitarSolicitacaoPixManualBloco } from "../Pagamentos/mercadoPagoApi";
 import { seforAdm } from "../../Scripts/verificacoes/verificaAdm";
 import { getEspacoCompleto } from "./firebaseEspacos";
+
+const getFirstRef = (refs = []) => (Array.isArray(refs) && refs.length ? refs[0] : null);
+const getBlocosCollectionRefs = (ownerUserId, espacoId) =>
+  getProjectCollectionCandidates(db, "users", ownerUserId, "espacos", espacoId, "blocos");
+const getBlocoDocRefs = (ownerUserId, espacoId, blocoId) =>
+  getProjectDocCandidates(db, "users", ownerUserId, "espacos", espacoId, "blocos", blocoId);
+const getBlocoCardsCollectionRefs = (ownerUserId, espacoId, blocoId) =>
+  getProjectCollectionCandidates(
+    db,
+    "users",
+    ownerUserId,
+    "espacos",
+    espacoId,
+    "blocos",
+    blocoId,
+    "cards"
+  );
+const getBlocoCompradorRefs = (ownerUserId, espacoId, blocoId, compradorId) =>
+  getProjectDocCandidates(
+    db,
+    "users",
+    ownerUserId,
+    "espacos",
+    espacoId,
+    "blocos",
+    blocoId,
+    "compradores",
+    compradorId
+  );
+const getEspacoAssinanteRefs = (ownerUserId, espacoId, assinanteId) =>
+  getProjectDocCandidates(
+    db,
+    "users",
+    ownerUserId,
+    "espacos",
+    espacoId,
+    "assinantes",
+    assinanteId
+  );
+const getPedidosCollectionRefs = (ownerUserId) =>
+  getProjectCollectionCandidates(db, "users", ownerUserId, "pedidos");
+const getContatoDocRefs = (contactId) => getProjectDocCandidates(db, "contatos", contactId);
+const getConversaDocRefs = (contactId, conversationId) =>
+  getProjectDocCandidates(db, "contatos", contactId, "conversas", conversationId);
+const getChatCollectionRefs = (contactId, conversationId) =>
+  getProjectCollectionCandidates(db, "contatos", contactId, "conversas", conversationId, "chat");
 
 const isRenderableUrl = (valor) =>
   typeof valor === "string" &&
@@ -97,8 +152,84 @@ const gerarNomeArquivoSeguro = (nome = "imagem") => {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${nomeLimpo || "imagem"}`;
 };
 
+const PLACEHOLDER_HOME_CONTENT = "conteudo da pagina principal";
+
 const capitalizar = (texto = "") =>
   texto ? texto.charAt(0).toUpperCase() + texto.slice(1) : "";
+
+const parseLiveMs = (valorMs, valorIso) => {
+  const fromMs = Number(valorMs);
+  if (Number.isFinite(fromMs) && fromMs > 0) return fromMs;
+  const fromIso = Date.parse(String(valorIso || "").trim());
+  return Number.isFinite(fromIso) ? fromIso : null;
+};
+
+const formatarDataHoraLive = (valorMs) => {
+  const ms = Number(valorMs);
+  if (!Number.isFinite(ms) || ms <= 0) return "-";
+  try {
+    return new Intl.DateTimeFormat("pt-BR", {
+      dateStyle: "short",
+      timeStyle: "short",
+    }).format(new Date(ms));
+  } catch {
+    return new Date(ms).toLocaleString("pt-BR");
+  }
+};
+
+const sanitizarTokenLive = (valor = "") =>
+  String(valor || "")
+    .trim()
+    .replace(/[^a-zA-Z0-9_-]/g, "_")
+    .slice(0, 80);
+
+const montarLiveContactId = ({ ownerUserId = "", espacoId = "", blocoId = "" } = {}) => {
+  const owner = sanitizarTokenLive(ownerUserId);
+  const espaco = sanitizarTokenLive(espacoId);
+  const bloco = sanitizarTokenLive(blocoId);
+  return `live_${owner}_${espaco}_${bloco}`.slice(0, 180);
+};
+
+const normalizarEmbedLiveUrl = (url = "") => {
+  const origem = String(url || "").trim();
+  if (!origem) return "";
+
+  try {
+    const parsed = new URL(origem);
+    const host = String(parsed.hostname || "").toLowerCase();
+    const path = String(parsed.pathname || "");
+
+    if (host.includes("youtu.be")) {
+      const id = path.replace("/", "").trim();
+      if (id) return `https://www.youtube.com/embed/${id}?autoplay=1&rel=0`;
+    }
+
+    if (host.includes("youtube.com")) {
+      if (path.includes("/embed/")) return `${parsed.toString()}${parsed.search ? "&" : "?"}autoplay=1`;
+      const id = String(parsed.searchParams.get("v") || "").trim();
+      if (id) return `https://www.youtube.com/embed/${id}?autoplay=1&rel=0`;
+      if (path.includes("/live/")) {
+        const idFromPath = path.split("/live/")[1]?.split("/")[0] || "";
+        if (idFromPath) {
+          return `https://www.youtube.com/embed/${idFromPath}?autoplay=1&rel=0`;
+        }
+      }
+    }
+
+    if (host.includes("vimeo.com")) {
+      const id = path.split("/").filter(Boolean).pop();
+      if (id) return `https://player.vimeo.com/video/${id}?autoplay=1`;
+    }
+
+    if (host.includes("twitch.tv") && path.includes("/videos/")) {
+      return parsed.toString();
+    }
+
+    return parsed.toString();
+  } catch {
+    return origem;
+  }
+};
 
 const extrairPrimeiraUrl = (texto = "") => {
   const bruto = String(texto || "").trim();
@@ -273,6 +404,9 @@ export default function EspacoPage() {
   const [pixManualSistemaHabilitado, setPixManualSistemaHabilitado] = useState(
     DEFAULT_SISTEMA_CONFIG.pixManualHabilitado
   );
+  const [livesHabilitadas, setLivesHabilitadas] = useState(
+    DEFAULT_SISTEMA_CONFIG.livesHabilitadas
+  );
   const [espacoDetalheAtual, setEspacoDetalheAtual] = useState(null);
   const [onePagePublicaAtiva, setOnePagePublicaAtiva] = useState(
     isOnePageComEntradaPublica(configSistemaCacheLocal)
@@ -327,9 +461,36 @@ export default function EspacoPage() {
   const [mensagemRestricaoAvatarUrl, setMensagemRestricaoAvatarUrl] = useState(
     DEFAULT_SISTEMA_CONFIG.mensagemRestricaoAvatarUrl
   );
+  const [imagemModal, setImagemModal] = useState({
+    aberto: false,
+    url: "",
+    titulo: "",
+    alt: "Imagem ampliada",
+  });
+  const [liveModal, setLiveModal] = useState({
+    aberto: false,
+    blocoId: "",
+    titulo: "",
+    liveUrl: "",
+    embedUrl: "",
+    contactId: "",
+    conversationId: "principal",
+  });
+  const [liveChatMensagens, setLiveChatMensagens] = useState([]);
+  const [liveChatMensagem, setLiveChatMensagem] = useState("");
+  const [liveChatErro, setLiveChatErro] = useState("");
+  const [liveCameraAtiva, setLiveCameraAtiva] = useState(false);
+  const [liveCameraErro, setLiveCameraErro] = useState("");
+  const liveModalEhVideoDireto = useMemo(
+    () => /\.(mp4|webm|ogg)(\?|$)/i.test(String(liveModal.liveUrl || "").trim()),
+    [liveModal.liveUrl]
+  );
   const blockedOriginalPathsRef = useRef(new Set());
   const blockedPreviewPathsRef = useRef(new Set());
   const backfilledPublicUrlsRef = useRef(new Set());
+  const liveChatScrollRef = useRef(null);
+  const liveCameraVideoRef = useRef(null);
+  const liveCameraStreamRef = useRef(null);
   const nomeEspacoSingularCapitalizado = capitalizar(nomeEspacoSingular);
   const nomeBlocoSingularCapitalizado = capitalizar(nomeBlocoSingular);
   const loginLoadingMode = String(configSistemaCacheLocal?.loginLoadingMode || "")
@@ -407,6 +568,220 @@ export default function EspacoPage() {
   const visibilidadeEspaco = espacoAtualEfetivo?.visibilidade || "publico";
   const visitanteOnePagePublico =
     onePagePublicaAtivaEfetiva && !currentUid && !podeGerenciar;
+  const nomeRemetenteLive = String(
+    localStorage.getItem("skinLogadoUser") ||
+      authUserAtual?.displayName ||
+      authUserAtual?.email ||
+      currentUid ||
+      "usuario"
+  ).trim();
+  const usuarioPodeControlarCameraLive = Boolean(
+    liveModal.aberto &&
+      currentUid &&
+      (
+        String(ownerUserId || "").trim() === String(currentUid || "").trim() ||
+        usuarioEhAdminProjeto
+      )
+  );
+
+  const desligarCameraLive = (limparErro = false) => {
+    const streamAtual = liveCameraStreamRef.current;
+    if (streamAtual?.getTracks) {
+      streamAtual.getTracks().forEach((track) => {
+        try {
+          track.stop();
+        } catch {
+          // Ignora falhas ao encerrar track.
+        }
+      });
+    }
+    liveCameraStreamRef.current = null;
+
+    if (liveCameraVideoRef.current) {
+      try {
+        liveCameraVideoRef.current.srcObject = null;
+      } catch {
+        // fallback no-op
+      }
+    }
+
+    setLiveCameraAtiva(false);
+    if (limparErro) {
+      setLiveCameraErro("");
+    }
+  };
+
+  const alternarCameraLive = async () => {
+    if (!usuarioPodeControlarCameraLive) return;
+
+    if (liveCameraAtiva) {
+      desligarCameraLive(true);
+      return;
+    }
+
+    if (
+      typeof navigator === "undefined" ||
+      !navigator?.mediaDevices ||
+      typeof navigator.mediaDevices.getUserMedia !== "function"
+    ) {
+      setLiveCameraErro("Seu navegador nao suporta camera neste dispositivo.");
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: false,
+      });
+
+      desligarCameraLive();
+      liveCameraStreamRef.current = stream;
+      if (liveCameraVideoRef.current) {
+        liveCameraVideoRef.current.srcObject = stream;
+        await liveCameraVideoRef.current.play().catch(() => {});
+      }
+      setLiveCameraAtiva(true);
+      setLiveCameraErro("");
+    } catch (erroCamera) {
+      setLiveCameraAtiva(false);
+      setLiveCameraErro("Nao foi possivel acessar a camera.");
+    }
+  };
+
+  const abrirModalImagem = ({ url = "", titulo = "", alt = "Imagem ampliada" } = {}) => {
+    const imagemUrl = String(url || "").trim();
+    if (!imagemUrl) return;
+    setImagemModal({
+      aberto: true,
+      url: imagemUrl,
+      titulo: String(titulo || "").trim(),
+      alt: String(alt || "Imagem ampliada").trim() || "Imagem ampliada",
+    });
+  };
+
+  useEffect(() => {
+    if (!imagemModal.aberto) return undefined;
+
+    const overflowAnterior = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setImagemModal((prev) => ({ ...prev, aberto: false }));
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = overflowAnterior;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [imagemModal.aberto]);
+
+  useEffect(() => {
+    if (!liveModal.aberto) return undefined;
+
+    const overflowAnterior = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setLiveModal((prev) => ({ ...prev, aberto: false }));
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = overflowAnterior;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [liveModal.aberto]);
+
+  useEffect(() => {
+    if (liveModal.aberto) return;
+    desligarCameraLive(true);
+  }, [liveModal.aberto]);
+
+  useEffect(() => {
+    if (usuarioPodeControlarCameraLive) return;
+    desligarCameraLive(true);
+  }, [usuarioPodeControlarCameraLive]);
+
+  useEffect(
+    () => () => {
+      const streamAtual = liveCameraStreamRef.current;
+      if (streamAtual?.getTracks) {
+        streamAtual.getTracks().forEach((track) => {
+          try {
+            track.stop();
+          } catch {
+            // cleanup silencioso
+          }
+        });
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!liveModal.aberto || !liveModal.contactId || !liveModal.conversationId) {
+      setLiveChatMensagens([]);
+      if (!currentUid) {
+        setLiveChatErro("Faça login para participar do chat da live.");
+      } else {
+        setLiveChatErro("");
+      }
+      return undefined;
+    }
+    if (!currentUid) {
+      setLiveChatMensagens([]);
+      setLiveChatErro("Faça login para participar do chat da live.");
+      return undefined;
+    }
+
+    const chatRef = getFirstRef(
+      getChatCollectionRefs(liveModal.contactId, liveModal.conversationId)
+    );
+    if (!chatRef) {
+      setLiveChatErro("Chat da live indisponivel.");
+      return undefined;
+    }
+    const q = query(chatRef, orderBy("data", "asc"));
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        setLiveChatErro("");
+        const mensagens = snapshot.docs.map((docSnap) => {
+          const data = docSnap.data() || {};
+          return {
+            id: docSnap.id,
+            mensagem: String(data?.mensagem || "").trim(),
+            userRemetente: String(data?.userRemetente || "").trim(),
+            userUid: String(data?.userUid || "").trim(),
+            data: data?.data?.toDate ? data.data.toDate() : null,
+          };
+        });
+        setLiveChatMensagens(mensagens);
+      },
+      (erroSnapshot) => {
+        if (erroSnapshot?.code === "permission-denied") {
+          setLiveChatErro("Sem permissao para visualizar o chat da live.");
+          setLiveChatMensagens([]);
+          return;
+        }
+        setLiveChatErro("Falha ao carregar mensagens da live.");
+        setLiveChatMensagens([]);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [liveModal.aberto, liveModal.contactId, liveModal.conversationId, currentUid]);
+
+  useEffect(() => {
+    if (!liveChatScrollRef.current) return;
+    liveChatScrollRef.current.scrollTop = liveChatScrollRef.current.scrollHeight;
+  }, [liveChatMensagens, liveModal.aberto]);
 
   useEffect(() => {
     let ativo = true;
@@ -522,6 +897,7 @@ export default function EspacoPage() {
         if (!ativo) return;
         setMercadoPagoSistemaHabilitado(config?.mercadoPagoHabilitado !== false);
         setPixManualSistemaHabilitado(config?.pixManualHabilitado !== false);
+        setLivesHabilitadas(config?.livesHabilitadas === true);
         setOnePagePublicaAtiva(
           isOnePageComEntradaPublica(config)
         );
@@ -576,6 +952,7 @@ export default function EspacoPage() {
         const configFallback = obterConfigSistemaCacheLocal() || configSistemaCacheLocal;
         setMercadoPagoSistemaHabilitado(configFallback?.mercadoPagoHabilitado !== false);
         setPixManualSistemaHabilitado(configFallback?.pixManualHabilitado !== false);
+        setLivesHabilitadas(configFallback?.livesHabilitadas === true);
         setOnePagePublicaAtiva(
           isOnePageComEntradaPublica(configFallback)
         );
@@ -662,27 +1039,25 @@ export default function EspacoPage() {
       }
 
       setAssinaturaCheckPronto(false);
-      try {
-        let found = false;
-        for (const assinanteId of idsAssinantePossiveis) {
-          try {
-            const assinaturaRef = doc(
-              db,
-              "users",
-              ownerUserId,
-              "espacos",
-              espacoId,
-              "assinantes",
-              assinanteId
-            );
-            const assinaturaSnap = await getDoc(assinaturaRef);
-            if (assinaturaSnap.exists()) {
-              found = true;
-              break;
+        try {
+          let found = false;
+          for (const assinanteId of idsAssinantePossiveis) {
+            try {
+              for (const assinaturaRef of getEspacoAssinanteRefs(
+                ownerUserId,
+                espacoId,
+                assinanteId
+              )) {
+                const assinaturaSnap = await getDoc(assinaturaRef);
+                if (assinaturaSnap.exists()) {
+                  found = true;
+                  break;
+                }
+              }
+              if (found) break;
+            } catch (err) {
+              if (err?.code !== "permission-denied") throw err;
             }
-          } catch (err) {
-            if (err?.code !== "permission-denied") throw err;
-          }
         }
         setIsAssinante(found);
       } catch (err) {
@@ -717,73 +1092,19 @@ export default function EspacoPage() {
     async function carregarBlocos() {
       try {
         setErroBlocos("");
-        const blocosRef = collection(
-          db,
-          "users",
-          ownerUserId,
-          "espacos",
-          espacoId,
-          "blocos"
-        );
+        const blocosRefs = getBlocosCollectionRefs(ownerUserId, espacoId);
 
         const docs = [];
 
         if (visitanteOnePagePublico) {
-          const queriesPublicas = [
-            query(blocosRef, where("visibilidade", "==", "publico")),
-            query(blocosRef, where("visibilidade", "==", null)),
-          ];
-
-          const results = await Promise.allSettled(
-            queriesPublicas.map((qRef) => getDocs(qRef))
-          );
-
-          for (const result of results) {
-            if (result.status === "fulfilled") {
-              docs.push(
-                ...result.value.docs.map((d) => ({ __legacy: false, docSnap: d }))
-              );
-            } else if (
-              result.reason?.code &&
-              result.reason.code !== "permission-denied" &&
-              result.reason.code !== "failed-precondition"
-            ) {
-              throw result.reason;
-            }
-          }
-
-          if (!docs.length) {
-            try {
-              const snap = await getDocs(blocosRef);
-              docs.push(...snap.docs.map((d) => ({ __legacy: false, docSnap: d })));
-            } catch (allErr) {
-              if (
-                allErr?.code !== "permission-denied" &&
-                allErr?.code !== "failed-precondition"
-              ) {
-                throw allErr;
-              }
-            }
-          }
-        } else {
-          try {
-            const snap = await getDocs(blocosRef);
-            docs.push(...snap.docs.map((d) => ({ __legacy: false, docSnap: d })));
-          } catch (allErr) {
-            if (allErr?.code !== "permission-denied") throw allErr;
-
-            const queries = [
+          for (const blocosRef of blocosRefs) {
+            const queriesPublicas = [
               query(blocosRef, where("visibilidade", "==", "publico")),
-              query(blocosRef, where("visibilidade", "==", "publico_restritivo")),
-              query(blocosRef, where("visibilidade", "==", "privado")),
-              query(blocosRef, where("visibilidade", "==", "exclusivo_assinante")),
-              query(blocosRef, where("visibilidade", "==", "exclusivo_comprador")),
-              query(blocosRef, where("visibilidade", "==", "comprado")),
               query(blocosRef, where("visibilidade", "==", null)),
             ];
 
             const results = await Promise.allSettled(
-              queries.map((qRef) => getDocs(qRef))
+              queriesPublicas.map((qRef) => getDocs(qRef))
             );
 
             for (const result of results) {
@@ -799,6 +1120,61 @@ export default function EspacoPage() {
                 throw result.reason;
               }
             }
+
+            if (!docs.length) {
+              try {
+                const snap = await getDocs(blocosRef);
+                docs.push(...snap.docs.map((d) => ({ __legacy: false, docSnap: d })));
+              } catch (allErr) {
+                if (
+                  allErr?.code !== "permission-denied" &&
+                  allErr?.code !== "failed-precondition"
+                ) {
+                  throw allErr;
+                }
+              }
+            }
+
+            if (docs.length) break;
+          }
+        } else {
+          for (const blocosRef of blocosRefs) {
+            try {
+              const snap = await getDocs(blocosRef);
+              docs.push(...snap.docs.map((d) => ({ __legacy: false, docSnap: d })));
+            } catch (allErr) {
+              if (allErr?.code !== "permission-denied") throw allErr;
+
+              const queries = [
+                query(blocosRef, where("visibilidade", "==", "publico")),
+                query(blocosRef, where("visibilidade", "==", "publico_restritivo")),
+                query(blocosRef, where("visibilidade", "==", "privado")),
+                query(blocosRef, where("visibilidade", "==", "exclusivo_assinante")),
+                query(blocosRef, where("visibilidade", "==", "exclusivo_comprador")),
+                query(blocosRef, where("visibilidade", "==", "comprado")),
+                query(blocosRef, where("visibilidade", "==", null)),
+              ];
+
+              const results = await Promise.allSettled(
+                queries.map((qRef) => getDocs(qRef))
+              );
+
+              for (const result of results) {
+                if (result.status === "fulfilled") {
+                  docs.push(
+                    ...result.value.docs.map((d) => ({ __legacy: false, docSnap: d }))
+                  );
+                } else if (
+                  result.reason?.code &&
+                  result.reason.code !== "permission-denied" &&
+                  result.reason.code !== "failed-precondition"
+                ) {
+                  throw result.reason;
+                }
+              }
+            }
+
+            if (docs.length) break;
           }
         }
 
@@ -865,21 +1241,17 @@ export default function EspacoPage() {
 
       for (const bloco of blocosCardsSemLista) {
         try {
-          const cardsRef = bloco?.__legacy
-            ? collection(db, "blocos", bloco.id, "cards")
-            : collection(
-                db,
-                "users",
-                ownerUserId,
-                "espacos",
-                espacoId,
-                "blocos",
-                bloco.id,
-                "cards"
-              );
-          const cardsSnap = await getDocs(cardsRef);
+          const cardsDocs = [];
+          const cardsRefs = bloco?.__legacy
+            ? [collection(db, "blocos", bloco.id, "cards")]
+            : getBlocoCardsCollectionRefs(ownerUserId, espacoId, bloco.id);
+          for (const cardsRef of cardsRefs) {
+            const cardsSnap = await getDocs(cardsRef);
+            cardsDocs.push(...cardsSnap.docs);
+            if (cardsSnap.docs.length) break;
+          }
           const cards = normalizarCardsDoBloco(
-            cardsSnap.docs.map((cardDoc) => ({
+            cardsDocs.map((cardDoc) => ({
               id: cardDoc.id,
               ...cardDoc.data(),
             }))
@@ -991,25 +1363,17 @@ export default function EspacoPage() {
         let found = false;
         for (const compradorId of idsAssinantePossiveis) {
           try {
-            const compradorRef = bloco.__legacy
-              ? doc(db, "blocos", bloco.id, "compradores", compradorId)
-              : doc(
-                  db,
-                  "users",
-                  ownerUserId,
-                  "espacos",
-                  espacoId,
-                  "blocos",
-                  bloco.id,
-                  "compradores",
-                  compradorId
-                );
-
-            const compradorSnap = await getDoc(compradorRef);
-            if (compradorSnap.exists()) {
-              found = true;
-              break;
+            const compradorRefs = bloco.__legacy
+              ? [doc(db, "blocos", bloco.id, "compradores", compradorId)]
+              : getBlocoCompradorRefs(ownerUserId, espacoId, bloco.id, compradorId);
+            for (const compradorRef of compradorRefs) {
+              const compradorSnap = await getDoc(compradorRef);
+              if (compradorSnap.exists()) {
+                found = true;
+                break;
+              }
             }
+            if (found) break;
           } catch (err) {
             if (err?.code !== "permission-denied") throw err;
           }
@@ -1036,17 +1400,19 @@ export default function EspacoPage() {
 
     async function carregarSessoesChatComprador() {
       try {
-        const pedidosSnap = await getDocs(
-          query(
-            collection(db, "users", ownerUserId, "pedidos"),
-            where("compradorUid", "==", currentUid)
-          )
-        );
+        const pedidosDocs = [];
+        for (const pedidosRef of getPedidosCollectionRefs(ownerUserId)) {
+          const pedidosSnap = await getDocs(
+            query(pedidosRef, where("compradorUid", "==", currentUid))
+          );
+          pedidosDocs.push(...pedidosSnap.docs);
+          if (pedidosSnap.docs.length) break;
+        }
 
         if (cancelado) return;
 
         const mapa = {};
-        for (const pedidoDoc of pedidosSnap.docs) {
+        for (const pedidoDoc of pedidosDocs) {
           const pedido = pedidoDoc.data() || {};
           const status = String(pedido?.status || "pedido_solicitado").trim().toLowerCase();
           if (status !== "pagamento_confirmado") continue;
@@ -1193,15 +1559,16 @@ export default function EspacoPage() {
 
         if (!urlsPublicas.length) continue;
 
-        const blocoRef = bloco.__legacy
-          ? doc(db, "blocos", bloco.id)
-          : doc(db, "users", ownerUserId, "espacos", espacoId, "blocos", bloco.id);
-
         try {
-          await updateDoc(blocoRef, {
-            imagensOriginaisPublicas: urlsPublicas,
-            imagens: urlsPublicas,
-          });
+          const blocoRefs = bloco.__legacy
+            ? [doc(db, "blocos", bloco.id)]
+            : getBlocoDocRefs(ownerUserId, espacoId, bloco.id);
+          for (const blocoRef of blocoRefs) {
+            await updateDoc(blocoRef, {
+              imagensOriginaisPublicas: urlsPublicas,
+              imagens: urlsPublicas,
+            });
+          }
 
           backfilledPublicUrlsRef.current.add(bloco.id);
           if (cancelado) return;
@@ -1337,14 +1704,24 @@ export default function EspacoPage() {
   const mostrarCtaRestricaoEspaco =
     tipoRestricaoEspaco !== "login" || exibirBotaoLoginMensagemRestricao !== false;
   const avatarMensagemRestricao = String(mensagemRestricaoAvatarUrl || "").trim();
-  const conteudoEspaco = String(espacoAtualEfetivo?.conteudo || "").trim();
+  const conteudoEspacoBruto = String(espacoAtualEfetivo?.conteudo || "").trim();
+  const conteudoEspaco =
+    conteudoEspacoBruto.toLowerCase() === PLACEHOLDER_HOME_CONTENT ? "" : conteudoEspacoBruto;
+
+  const resolverMenuBaseUsuario = () => {
+    const skinMenu = String(localStorage.getItem("skinLogadoUser") || "").trim();
+    if (onePagePublicaAtivaEfetiva) {
+      if (isOwner) return "/menu/admin";
+      if (!skinMenu) return "";
+      return `/menu/${encodeURIComponent(skinMenu)}`;
+    }
+    if (!skinMenu) return "";
+    return `/menu/${encodeURIComponent(skinMenu)}`;
+  };
 
   const irParaAssinatura = () => {
-    const skinLogadoUser = localStorage.getItem("skinLogadoUser");
-    const menuBase = onePagePublicaAtivaEfetiva
-      ? (isOwner ? "/menu/admin" : `/menu/${skinLogadoUser || ""}`)
-      : `/menu/${skinLogadoUser}`;
-    if (!skinLogadoUser && !isOwner) {
+    const menuBase = resolverMenuBaseUsuario();
+    if (!menuBase) {
       alert(`Selecione uma ${nomeSkinSingular} para assinar ${nomeEspacoPlural}.`);
       return;
     }
@@ -1357,15 +1734,12 @@ export default function EspacoPage() {
       return;
     }
 
-    const skinLogadoUser = localStorage.getItem("skinLogadoUser");
-    const menuBase = onePagePublicaAtivaEfetiva
-      ? (isOwner ? "/menu/admin" : `/menu/${skinLogadoUser || ""}`)
-      : `/menu/${skinLogadoUser}`;
+    const menuBase = resolverMenuBaseUsuario();
     if (!currentUid) {
       alert("Voce precisa estar autenticado para solicitar desbloqueio.");
       return;
     }
-    if (!skinLogadoUser && !isOwner && !onePagePublicaAtivaEfetiva) {
+    if (!menuBase) {
       alert(`Selecione uma ${nomeSkinSingular} para comprar ${nomeBlocoPlural}.`);
       return;
     }
@@ -1406,11 +1780,17 @@ export default function EspacoPage() {
   };
 
   const renderCtaRestricao = (tipoRestricao, bloco = null) => {
+    const blocoEhLive = String(bloco?.tipo || "").trim().toLowerCase() === "live";
+
     if (!currentUid) {
       return <LoginButton />;
     }
     if (tipoRestricao === "assinante") {
-      return <button onClick={irParaAssinatura}>Assinar para desbloquear</button>;
+      return (
+        <button onClick={irParaAssinatura}>
+          {blocoEhLive ? "Assinar para participar" : "Assinar para desbloquear"}
+        </button>
+      );
     }
     if (tipoRestricao === "comprador") {
       if (!mercadoPagoSistemaHabilitado && !pixManualSistemaHabilitado) {
@@ -1419,7 +1799,13 @@ export default function EspacoPage() {
       const precoFormatado = formatarPreco(bloco?.precoCentavos, bloco?.moeda || "BRL");
       return (
         <button onClick={() => irParaCompra(bloco)}>
-          {precoFormatado ? `Desbloquear por ${precoFormatado}` : "Desbloquear conteudo"}
+          {precoFormatado
+            ? blocoEhLive
+              ? `Participar por ${precoFormatado}`
+              : `Desbloquear por ${precoFormatado}`
+            : blocoEhLive
+              ? "Participar da live"
+              : "Desbloquear conteudo"}
         </button>
       );
     }
@@ -1432,21 +1818,167 @@ export default function EspacoPage() {
     const conversationId = String(sessaoChat?.conversationId || "principal").trim();
     if (!contactId) return;
 
-    const skinLogadoUser = localStorage.getItem("skinLogadoUser");
-    if (!isOwner && !skinLogadoUser) {
+    const menuBase = resolverMenuBaseUsuario();
+    if (!menuBase) {
       alert(`Selecione uma ${nomeSkinSingular} para acessar o chat.`);
       return;
     }
-
-    const menuBase = onePagePublicaAtivaEfetiva
-      ? (isOwner ? "/menu/admin" : `/menu/${skinLogadoUser || ""}`)
-      : `/menu/${skinLogadoUser}`;
 
     navigate(
       `${menuBase}/contatos/${encodeURIComponent(contactId)}/chat/${encodeURIComponent(
         conversationId || "principal"
       )}`
     );
+  };
+
+  const abrirLiveBloco = async (bloco = {}) => {
+    if (!livesHabilitadas) {
+      alert("Lives desativadas neste projeto.");
+      return;
+    }
+
+    const liveUrl = String(bloco?.liveUrl || "").trim();
+    if (!liveUrl) {
+      alert("Live sem URL configurada.");
+      return;
+    }
+
+    const liveInicioMs = parseLiveMs(bloco?.liveInicioEmMs, bloco?.liveInicioEmIso);
+    const liveFimMs = parseLiveMs(bloco?.liveFimEmMs, bloco?.liveFimEmIso);
+    const agora = Date.now();
+    const liveEmAndamento = (!liveInicioMs || agora >= liveInicioMs) && (!liveFimMs || agora <= liveFimMs);
+
+    if (!liveEmAndamento) {
+      alert("A live ainda nao esta em andamento.");
+      return;
+    }
+
+    const contactId = montarLiveContactId({
+      ownerUserId,
+      espacoId,
+      blocoId: bloco?.id || "",
+    });
+    const conversationId = "principal";
+    const tituloLive = String(bloco?.titulo || bloco?.nome || bloco?.id || "Live").trim();
+
+    setLiveModal({
+      aberto: true,
+      blocoId: String(bloco?.id || "").trim(),
+      titulo: tituloLive || "Live",
+      liveUrl,
+      embedUrl: normalizarEmbedLiveUrl(liveUrl),
+      contactId,
+      conversationId,
+    });
+    setLiveChatMensagem("");
+    setLiveChatErro(currentUid ? "" : "Faça login para participar do chat da live.");
+
+    if (!currentUid) return;
+
+    try {
+      for (const contatoRef of getContatoDocRefs(contactId)) {
+        await setDoc(
+          contatoRef,
+          {
+            idContato: contactId,
+            tipo: "live",
+            ownerUserId: ownerUserId || "",
+            espacoId: espacoId || "",
+            blocoId: String(bloco?.id || "").trim(),
+            assunto: tituloLive || "Live",
+            ultimaConversaData: serverTimestamp(),
+          },
+          { merge: true }
+        );
+      }
+
+      for (const conversaRef of getConversaDocRefs(contactId, conversationId)) {
+        await setDoc(
+          conversaRef,
+          {
+            idContato: contactId,
+            idConversa: conversationId,
+            assunto: tituloLive || "Live",
+            data: serverTimestamp(),
+            dataUltimaMensagem: serverTimestamp(),
+            ultimaMensagem: "Live iniciada",
+          },
+          { merge: true }
+        );
+      }
+    } catch (err) {
+      if (err?.code === "permission-denied") {
+        setLiveChatErro("Sem permissao para abrir o chat da live.");
+        return;
+      }
+      setLiveChatErro("Falha ao preparar o chat da live.");
+    }
+  };
+
+  const enviarMensagemLive = async () => {
+    const texto = String(liveChatMensagem || "").trim();
+    if (!texto) return;
+    if (!currentUid) {
+      setLiveChatErro("Faça login para enviar mensagens na live.");
+      return;
+    }
+
+    const contactId = String(liveModal?.contactId || "").trim();
+    const conversationId = String(liveModal?.conversationId || "principal").trim();
+    if (!contactId) return;
+
+    try {
+      const chatCollectionRef = getFirstRef(
+        getChatCollectionRefs(contactId, conversationId)
+      );
+      if (!chatCollectionRef) {
+        throw new Error("Chat da live indisponivel.");
+      }
+      await addDoc(
+        chatCollectionRef,
+        {
+          mensagem: texto,
+          data: serverTimestamp(),
+          userRemetente: nomeRemetenteLive || currentUid,
+          userUid: currentUid,
+          idConversa: conversationId,
+        }
+      );
+
+      for (const conversaRef of getConversaDocRefs(contactId, conversationId)) {
+        await setDoc(
+          conversaRef,
+          {
+            idContato: contactId,
+            idConversa: conversationId,
+            assunto: String(liveModal?.titulo || "Live").trim() || "Live",
+            dataUltimaMensagem: serverTimestamp(),
+            ultimaMensagem: texto,
+          },
+          { merge: true }
+        );
+      }
+
+      for (const contatoRef of getContatoDocRefs(contactId)) {
+        await setDoc(
+          contatoRef,
+          {
+            idContato: contactId,
+            ultimaConversaData: serverTimestamp(),
+          },
+          { merge: true }
+        );
+      }
+
+      setLiveChatMensagem("");
+      setLiveChatErro("");
+    } catch (err) {
+      if (err?.code === "permission-denied") {
+        setLiveChatErro("Sem permissao para enviar mensagem.");
+        return;
+      }
+      setLiveChatErro("Falha ao enviar mensagem.");
+    }
   };
 
   const adicionarBloco = (bloco) => {
@@ -1465,7 +1997,7 @@ export default function EspacoPage() {
   const getBlocoDocRef = (bloco) =>
     bloco.__legacy
       ? doc(db, "blocos", bloco.id)
-      : doc(db, "users", ownerUserId, "espacos", espacoId, "blocos", bloco.id);
+      : getFirstRef(getBlocoDocRefs(ownerUserId, espacoId, bloco.id));
 
   const atualizarBloco = async (blocoId, updates = {}) => {
     if (!podeGerenciar) {
@@ -1703,25 +2235,24 @@ export default function EspacoPage() {
       }
 
       if (bloco?.tipo === "cards") {
-        const cardsRef = bloco.__legacy
-          ? collection(db, "blocos", bloco.id, "cards")
-          : collection(
-              db,
-              "users",
-              ownerUserId,
-              "espacos",
-              espacoId,
-              "blocos",
-              bloco.id,
-              "cards"
-            );
-        const cardsSnap = await getDocs(cardsRef);
-        for (const cardDoc of cardsSnap.docs) {
-          await deleteDoc(cardDoc.ref);
+        const cardsRefs = bloco.__legacy
+          ? [collection(db, "blocos", bloco.id, "cards")]
+          : getBlocoCardsCollectionRefs(ownerUserId, espacoId, bloco.id);
+        for (const cardsRef of cardsRefs) {
+          const cardsSnap = await getDocs(cardsRef);
+          for (const cardDoc of cardsSnap.docs) {
+            await deleteDoc(cardDoc.ref);
+          }
         }
       }
 
-      await deleteDoc(getBlocoDocRef(bloco));
+      if (bloco.__legacy) {
+        await deleteDoc(getBlocoDocRef(bloco));
+      } else {
+        for (const blocoRef of getBlocoDocRefs(ownerUserId, espacoId, bloco.id)) {
+          await deleteDoc(blocoRef);
+        }
+      }
 
       setBlocos((prev) => prev.filter((item) => item.id !== blocoId));
       setOriginaisPorBloco((prev) => {
@@ -1801,6 +2332,7 @@ export default function EspacoPage() {
         podeVerEspaco &&
         blocos.map((bloco) => {
           const blocoEhCards = bloco?.tipo === "cards";
+          const blocoEhLive = bloco?.tipo === "live";
           const cardsDoBloco = normalizarCardsDoBloco(bloco?.cards);
           const tituloBloco = String(bloco?.titulo || bloco?.nome || "").trim();
           const iconeBloco = String(bloco?.icone || bloco?.iconUrl || "").trim();
@@ -1812,6 +2344,16 @@ export default function EspacoPage() {
             tipoRestricao === "comprador" && currentUid
               ? formatarPreco(bloco?.precoCentavos, bloco?.moeda || "BRL")
               : null;
+          const liveInicioMs = parseLiveMs(bloco?.liveInicioEmMs, bloco?.liveInicioEmIso);
+          const liveFimMs = parseLiveMs(bloco?.liveFimEmMs, bloco?.liveFimEmIso);
+          const liveAgoraMs = Date.now();
+          const liveEmAndamento =
+            blocoEhLive &&
+            (!liveInicioMs || liveAgoraMs >= liveInicioMs) &&
+            (!liveFimMs || liveAgoraMs <= liveFimMs);
+          const liveAgendada = blocoEhLive && !!liveInicioMs && liveAgoraMs < liveInicioMs;
+          const liveEncerrada = blocoEhLive && !!liveFimMs && liveAgoraMs > liveFimMs;
+          const liveBannerUrl = String(bloco?.liveBannerUrl || "").trim();
 
           const previewsDoc = normalizarListaImagens(bloco.imagensPreview).filter(isRenderableUrl);
           const previewsResolvidas = Array.isArray(previewsPorBloco[bloco.id])
@@ -1847,7 +2389,7 @@ export default function EspacoPage() {
               null,
           })).filter((item) => item.originalPath || item.previewPath || item.displayUrl);
 
-          const imagensParaExibir = blocoEhCards
+          const imagensParaExibir = blocoEhCards || blocoEhLive
             ? []
             : bloqueado
             ? imagensBloqueadas
@@ -1876,13 +2418,114 @@ export default function EspacoPage() {
                   }}
                 >
                   {imagensParaExibir.map((url, i) => (
-                    <img
-                      key={`${bloco.id}-${i}`}
-                      src={url}
-                      alt=""
-                      style={{ maxWidth: "200px", margin: "4px" }}
-                    />
+                    bloqueado ? (
+                      <img
+                        key={`${bloco.id}-${i}`}
+                        src={url}
+                        alt=""
+                        style={{ maxWidth: "200px", margin: "4px" }}
+                      />
+                    ) : (
+                      <button
+                        key={`${bloco.id}-${i}`}
+                        type="button"
+                        onClick={() =>
+                          abrirModalImagem({
+                            url,
+                            titulo: tituloBloco || `${nomeBlocoSingularCapitalizado} ${i + 1}`,
+                            alt: "Imagem ampliada do bloco",
+                          })
+                        }
+                        style={{
+                          border: "none",
+                          background: "transparent",
+                          padding: 0,
+                          margin: "4px",
+                          cursor: "zoom-in",
+                        }}
+                        title="Clique para ampliar"
+                      >
+                        <img
+                          src={url}
+                          alt=""
+                          style={{ maxWidth: "200px", display: "block" }}
+                        />
+                      </button>
+                    )
                   ))}
+                </div>
+              )}
+
+              {blocoEhLive && (
+                <div style={{ marginBottom: 10 }}>
+                  {!!liveBannerUrl && (
+                    bloqueado ? (
+                      <img
+                        src={liveBannerUrl}
+                        alt="Anuncio da live"
+                        style={{
+                          width: "min(100%, 520px)",
+                          maxHeight: 240,
+                          objectFit: "cover",
+                          borderRadius: 8,
+                          filter: "blur(10px)",
+                          opacity: 0.75,
+                        }}
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          abrirModalImagem({
+                            url: liveBannerUrl,
+                            titulo: tituloBloco || "Anuncio da live",
+                            alt: "Anuncio da live ampliado",
+                          })
+                        }
+                        style={{
+                          border: "none",
+                          background: "transparent",
+                          padding: 0,
+                          cursor: "zoom-in",
+                        }}
+                        title="Clique para ampliar"
+                      >
+                        <img
+                          src={liveBannerUrl}
+                          alt="Anuncio da live"
+                          style={{
+                            width: "min(100%, 520px)",
+                            maxHeight: 240,
+                            objectFit: "cover",
+                            borderRadius: 8,
+                          }}
+                        />
+                      </button>
+                    )
+                  )}
+
+                  <p style={{ margin: "8px 0 4px" }}>
+                    <strong>Inicio:</strong> {formatarDataHoraLive(liveInicioMs)}
+                  </p>
+                  <p style={{ margin: "0 0 8px" }}>
+                    <strong>Fim:</strong> {formatarDataHoraLive(liveFimMs)}
+                  </p>
+
+                  {!bloqueado ? (
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                      {liveEmAndamento ? (
+                        <button type="button" onClick={() => abrirLiveBloco(bloco)}>
+                          Entrar na live
+                        </button>
+                      ) : liveAgendada ? (
+                        <span>Live agendada.</span>
+                      ) : liveEncerrada ? (
+                        <span>Live encerrada.</span>
+                      ) : (
+                        <span>Live indisponivel no momento.</span>
+                      )}
+                    </div>
+                  ) : null}
                 </div>
               )}
 
@@ -1914,6 +2557,13 @@ export default function EspacoPage() {
                       cardImagem="cardImagemHome"
                       cardDescricao="cardDescricaoHome"
                       imgCard="imgCardHome"
+                      onImagemClick={(imagemUrl) =>
+                        abrirModalImagem({
+                          url: imagemUrl,
+                          titulo: card.nome || tituloBloco || nomeBlocoSingularCapitalizado,
+                          alt: "Imagem ampliada do card",
+                        })
+                      }
                     />
                     );
                   })}
@@ -1951,7 +2601,7 @@ export default function EspacoPage() {
                 </div>
               )}
 
-              {!bloqueado && sessaoChatBloco?.contactId ? (
+              {!bloqueado && !blocoEhLive && sessaoChatBloco?.contactId ? (
                 <div style={{ marginTop: 8 }}>
                   <button onClick={() => abrirChatSessaoBloco(bloco.id)}>
                     Abrir chat da sessao
@@ -1959,7 +2609,7 @@ export default function EspacoPage() {
                 </div>
               ) : null}
 
-              {podeGerenciar && !blocoEhCards && (
+              {podeGerenciar && !blocoEhCards && !blocoEhLive && (
                 <EditorBloco
                   bloco={bloco}
                   imagensEditor={imagensEditor}
@@ -1970,7 +2620,7 @@ export default function EspacoPage() {
                 />
               )}
 
-              {podeGerenciar && blocoEhCards && (
+              {podeGerenciar && (blocoEhCards || blocoEhLive) && (
                 <div style={{ marginTop: 8 }}>
                   <button
                     onClick={() => excluirBloco(bloco.id)}
@@ -1986,6 +2636,287 @@ export default function EspacoPage() {
             </Container>
           );
         })}
+
+      {liveModal.aberto ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setLiveModal((prev) => ({ ...prev, aberto: false }))}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 99998,
+            background: "rgba(0,0,0,0.92)",
+            display: "flex",
+            alignItems: "stretch",
+            justifyContent: "stretch",
+          }}
+        >
+          <div
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              position: "relative",
+              width: "100vw",
+              height: "100dvh",
+              overflow: "hidden",
+            }}
+          >
+            {liveModalEhVideoDireto ? (
+              <video
+                src={liveModal.liveUrl}
+                controls
+                autoPlay
+                playsInline
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  background: "#000",
+                }}
+              />
+            ) : (
+              <iframe
+                title={liveModal.titulo || "Live"}
+                src={liveModal.embedUrl || liveModal.liveUrl}
+                allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                allowFullScreen
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  border: "none",
+                  background: "#000",
+                }}
+              />
+            )}
+
+            <button
+              type="button"
+              onClick={() => setLiveModal((prev) => ({ ...prev, aberto: false }))}
+              style={{
+                position: "absolute",
+                top: 12,
+                right: 12,
+                zIndex: 3,
+                cursor: "pointer",
+              }}
+            >
+              Fechar live
+            </button>
+
+            <div
+              style={{
+                position: "absolute",
+                right: 12,
+                top: typeof window !== "undefined" && window.innerWidth <= 860 ? "auto" : 12,
+                bottom: 12,
+                width:
+                  typeof window !== "undefined" && window.innerWidth <= 860
+                    ? "calc(100% - 24px)"
+                    : "min(360px, 34vw)",
+                height:
+                  typeof window !== "undefined" && window.innerWidth <= 860
+                    ? "45dvh"
+                    : "calc(100% - 24px)",
+                background: "rgba(0,0,0,0.58)",
+                border: "1px solid rgba(255,255,255,0.26)",
+                borderRadius: 10,
+                backdropFilter: "blur(6px)",
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden",
+                zIndex: 2,
+              }}
+            >
+              <div style={{ padding: "8px 10px", borderBottom: "1px solid rgba(255,255,255,0.2)" }}>
+                <strong style={{ color: "#fff" }}>Chat da live</strong>
+              </div>
+
+              {usuarioPodeControlarCameraLive ? (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 8,
+                    padding: "8px 10px",
+                    borderBottom: "1px solid rgba(255,255,255,0.2)",
+                  }}
+                >
+                  <span style={{ color: "#fff", fontSize: 12, opacity: 0.9 }}>
+                    Camera do criador
+                  </span>
+                  <button type="button" onClick={alternarCameraLive}>
+                    {liveCameraAtiva ? "Desligar camera" : "Ligar camera"}
+                  </button>
+                </div>
+              ) : null}
+
+              {liveCameraErro ? (
+                <p style={{ margin: "4px 10px", color: "#ffd4d4", fontSize: 12 }}>
+                  {liveCameraErro}
+                </p>
+              ) : null}
+
+              {liveCameraAtiva ? (
+                <div style={{ padding: "8px 10px", borderBottom: "1px solid rgba(255,255,255,0.2)" }}>
+                  <video
+                    ref={liveCameraVideoRef}
+                    autoPlay
+                    muted
+                    playsInline
+                    style={{
+                      width: "100%",
+                      maxHeight: 160,
+                      objectFit: "cover",
+                      borderRadius: 8,
+                      background: "#000",
+                    }}
+                  />
+                </div>
+              ) : null}
+
+              <div
+                ref={liveChatScrollRef}
+                style={{
+                  flex: 1,
+                  overflowY: "auto",
+                  padding: "8px 10px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 6,
+                }}
+              >
+                {!currentUid ? (
+                  <div style={{ color: "#fff" }}>
+                    <p style={{ marginTop: 0, marginBottom: 8 }}>
+                      Faça login para participar do chat.
+                    </p>
+                    <LoginButton />
+                  </div>
+                ) : liveChatMensagens.length ? (
+                  liveChatMensagens.map((mensagem) => {
+                    const minhaMensagem =
+                      String(mensagem?.userUid || "").trim() === String(currentUid || "").trim();
+                    return (
+                      <div
+                        key={mensagem.id}
+                        style={{
+                          alignSelf: minhaMensagem ? "flex-end" : "flex-start",
+                          maxWidth: "88%",
+                          background: minhaMensagem
+                            ? "rgba(255,255,255,0.2)"
+                            : "rgba(255,255,255,0.1)",
+                          color: "#fff",
+                          padding: "6px 8px",
+                          borderRadius: 8,
+                          textAlign: "left",
+                        }}
+                      >
+                        {!minhaMensagem ? (
+                          <p style={{ margin: "0 0 4px", fontSize: 11, opacity: 0.85 }}>
+                            {mensagem.userRemetente || "Usuario"}
+                          </p>
+                        ) : null}
+                        <p style={{ margin: 0, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+                          {mensagem.mensagem}
+                        </p>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p style={{ margin: 0, color: "#fff", opacity: 0.85 }}>
+                    Nenhuma mensagem ainda.
+                  </p>
+                )}
+              </div>
+
+              {!!liveChatErro && (
+                <p style={{ margin: "4px 10px", color: "#ffd4d4", fontSize: 12 }}>{liveChatErro}</p>
+              )}
+
+              <div
+                style={{
+                  padding: 10,
+                  borderTop: "1px solid rgba(255,255,255,0.2)",
+                  display: "flex",
+                  gap: 8,
+                }}
+              >
+                <input
+                  type="text"
+                  value={liveChatMensagem}
+                  onChange={(event) => setLiveChatMensagem(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      enviarMensagemLive();
+                    }
+                  }}
+                  placeholder={currentUid ? "Digite sua mensagem..." : "Faça login para enviar"}
+                  disabled={!currentUid}
+                  style={{ flex: 1, minWidth: 0 }}
+                />
+                <button type="button" onClick={enviarMensagemLive} disabled={!currentUid}>
+                  Enviar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {imagemModal.aberto && imagemModal.url ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setImagemModal((prev) => ({ ...prev, aberto: false }))}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 99999,
+            background: "rgba(0,0,0,0.88)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              width: "min(96vw, 1024px)",
+              maxHeight: "95vh",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 10,
+            }}
+          >
+            {!!imagemModal.titulo && (
+              <p style={{ margin: 0, color: "#fff", textAlign: "center" }}>
+                <strong>{imagemModal.titulo}</strong>
+              </p>
+            )}
+            <img
+              src={imagemModal.url}
+              alt={imagemModal.alt}
+              style={{
+                width: "min(92vw, 900px)",
+                height: "auto",
+                maxHeight: "82vh",
+                objectFit: "contain",
+                border: "1px solid rgba(255,255,255,0.35)",
+                background: "#fff",
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => setImagemModal((prev) => ({ ...prev, aberto: false }))}
+            >
+              Fechar
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

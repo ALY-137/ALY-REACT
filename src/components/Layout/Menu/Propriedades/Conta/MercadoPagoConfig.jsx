@@ -147,37 +147,50 @@ export default function MercadoPagoConfig() {
         </p>
       ) : null}
 
-      <input
-        type="password"
-        placeholder="Access Token Mercado Pago"
-        value={accessToken}
-        onChange={(event) => setAccessToken(event.target.value)}
-        style={{ width: "100%", marginTop: 8 }}
-        disabled={indisponivelNoProjeto}
-      />
-      <input
-        type="text"
-        placeholder="Public Key (opcional)"
-        value={publicKey}
-        onChange={(event) => setPublicKey(event.target.value)}
-        style={{ width: "100%", marginTop: 8 }}
-        disabled={indisponivelNoProjeto}
-      />
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          void salvar();
+        }}
+      >
+        <input
+          type="password"
+          placeholder="Access Token Mercado Pago"
+          autoComplete="current-password"
+          value={accessToken}
+          onChange={(event) => setAccessToken(event.target.value)}
+          style={{ width: "100%", marginTop: 8 }}
+          disabled={indisponivelNoProjeto}
+        />
+        <input
+          type="text"
+          placeholder="Public Key (opcional)"
+          value={publicKey}
+          onChange={(event) => setPublicKey(event.target.value)}
+          style={{ width: "100%", marginTop: 8 }}
+          disabled={indisponivelNoProjeto}
+        />
 
-      <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-        <button onClick={salvar} disabled={salvando || desconectando || indisponivelNoProjeto}>
-          {salvando ? "Salvando..." : "Salvar credenciais"}
-        </button>
-        <button onClick={carregarStatus} disabled={carregandoStatus || salvando || desconectando}>
-          Atualizar status
-        </button>
-        <button
-          onClick={desconectar}
-          disabled={!status?.conectado || salvando || carregandoStatus || desconectando}
-        >
-          {desconectando ? "Desconectando..." : "Desconectar"}
-        </button>
-      </div>
+        <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+          <button type="submit" disabled={salvando || desconectando || indisponivelNoProjeto}>
+            {salvando ? "Salvando..." : "Salvar credenciais"}
+          </button>
+          <button
+            type="button"
+            onClick={carregarStatus}
+            disabled={carregandoStatus || salvando || desconectando}
+          >
+            Atualizar status
+          </button>
+          <button
+            type="button"
+            onClick={desconectar}
+            disabled={!status?.conectado || salvando || carregandoStatus || desconectando}
+          >
+            {desconectando ? "Desconectando..." : "Desconectar"}
+          </button>
+        </div>
+      </form>
 
       {!!mensagem && <p style={{ marginTop: 10 }}>{mensagem}</p>}
     </div>

@@ -1,23 +1,26 @@
-import firebase from 'firebase/app';
-import 'firebase/firestore';
+import { collection, deleteDoc, doc, getDoc, getDocs } from "firebase/firestore";
+import { db } from "../../../Banco/init-firebase";
+import { getPrimaryProjectDoc } from "../../../Banco/projectDataRefs";
 
 const ExcluirFormulario = async (formToDelete) => {
   try {
-    const usersCollection = firebase.firestore().collection('users');
-    const userDoc = await usersCollection.doc(formToDelete.usuarioId).get();
+    const usuarioId = String(formToDelete?.usuarioId || "").trim();
+    const formId = String(formToDelete?.formId || "").trim();
+    if (!usuarioId || !formId) return;
 
-    const formulariosCollection = userDoc.ref.collection('formularios');
-    const formDoc = await formulariosCollection.doc(formToDelete.formId).get();
+    const userDocRef = getPrimaryProjectDoc(db, "users", usuarioId);
+    const userDoc = await getDoc(userDocRef);
+    if (!userDoc.exists()) return;
 
-    const respostasCollection = formDoc.ref.collection('respostas');
-    const respostasSnapshot = await respostasCollection.get();
-    respostasSnapshot.forEach(async (respostaDoc) => {
-      await respostaDoc.ref.delete();
-    });
+    const formDocRef = doc(collection(userDoc.ref, "formularios"), formId);
+    const formDoc = await getDoc(formDocRef);
+    if (!formDoc.exists()) return;
 
-    await formDoc.ref.delete();
+    const respostasSnapshot = await getDocs(collection(formDoc.ref, "respostas"));
+    await Promise.all(respostasSnapshot.docs.map((respostaDoc) => deleteDoc(respostaDoc.ref)));
+    await deleteDoc(formDoc.ref);
   } catch (error) {
-    console.error('Erro ao excluir formulário:', error);
+    console.error("Erro ao excluir formulario:", error);
     throw error;
   }
 };

@@ -2,15 +2,15 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   arrayRemove,
-  collection,
   deleteDoc,
-  doc,
   getDocs,
+  setDoc,
   updateDoc,
 } from "firebase/firestore";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 
 import { useAuth } from "../../../hooks/auth/useAuth";
-import { db } from "../../Banco/init-firebase";
+import { db, storage } from "../../Banco/init-firebase";
 import { buscarSkinLogada } from "./buscarSkinLogada";
 import { verificarESalvarskins } from "./verificaSkins";
 import { seforAdm } from "../../Scripts/verificacoes/verificaAdm";
@@ -25,6 +25,20 @@ import {
   obterConfigSistema,
   obterRotulosSkin,
 } from "../Sistema/configSistema";
+import {
+  uploadArquivoNoBucketCompartilhado,
+  usandoBucketCompartilhadoCrossProject,
+} from "../Storage/sharedBucketApi";
+import {
+  getProjectCollectionCandidates,
+  getProjectDocCandidates,
+} from "../../Banco/projectDataRefs";
+
+function nomeArquivoSeguro(nome = "avatar.png") {
+  return String(nome || "avatar.png")
+    .trim()
+    .replace(/[^\w.\-]/g, "_");
+}
 
 const SkinsManager = () => {
   const { user, loading } = useAuth();
@@ -42,6 +56,74 @@ const SkinsManager = () => {
   const [editingTheme, setEditingTheme] = useState("");
 
   const [feedback, setFeedback] = useState("");
+  const [avatarUploadSkinId, setAvatarUploadSkinId] = useState("");
+  const [avatarUploadMensagem, setAvatarUploadMensagem] = useState("");
+
+  const iconSkinPadraoUrl = String(
+    configSistema?.iconSkinPadraoUrl || DEFAULT_SISTEMA_CONFIG.iconSkinPadraoUrl || ""
+  ).trim();
+
+  const getSkinsCollectionRefs = () =>
+    getProjectCollectionCandidates(db, "users", user?.uid || "", "skins");
+  const getSkinDocRefs = (skinId = "") =>
+    getProjectDocCandidates(db, "users", user?.uid || "", "skins", skinId);
+  const getPaginasCollectionRefs = () =>
+    getProjectCollectionCandidates(db, "users", user?.uid || "", "paginas");
+
+  const subirAvatarSkin = async (skin, arquivo) => {
+    const skinId = String(skin?.id || "").trim();
+    if (!skinId || !user?.uid || !arquivo) return;
+
+    if (!arquivo.type?.startsWith("image/")) {
+      setAvatarUploadMensagem("Selecione um arquivo de imagem valido para avatar.");
+      return;
+    }
+    if (arquivo.size > 3 * 1024 * 1024) {
+      setAvatarUploadMensagem("Avatar muito grande. Use ate 3MB.");
+      return;
+    }
+
+    setAvatarUploadSkinId(skinId);
+    setAvatarUploadMensagem("");
+    try {
+      const nome = `${Date.now()}-${nomeArquivoSeguro(arquivo.name)}`;
+      const path = `users/${user.uid}/skins/${skinId}/avatar/${nome}`;
+      let url = "";
+
+      if (usandoBucketCompartilhadoCrossProject) {
+        const upload = await uploadArquivoNoBucketCompartilhado({
+          user,
+          path,
+          file: arquivo,
+        });
+        url = String(upload?.url || "").trim();
+      } else {
+        const avatarRef = ref(storage, path);
+        await uploadBytes(avatarRef, arquivo);
+        url = await getDownloadURL(avatarRef);
+      }
+
+      for (const skinRef of getSkinDocRefs(skinId)) {
+        await setDoc(
+          skinRef,
+          {
+            iconSkin: url || iconSkinPadraoUrl || null,
+            iconSkinPath: path,
+          },
+          { merge: true }
+        );
+      }
+
+      setAvatarUploadMensagem("Avatar atualizado com sucesso.");
+      await fetchSkins();
+    } catch (error) {
+      setAvatarUploadMensagem(
+        String(error?.message || "Falha ao atualizar avatar desta skin.")
+      );
+    } finally {
+      setAvatarUploadSkinId("");
+    }
+  };
 
   useEffect(() => {
     let ativo = true;
@@ -73,14 +155,19 @@ const SkinsManager = () => {
   const fetchSkins = async () => {
     setIsLoading(true);
     try {
-      const snap = await getDocs(collection(db, "users", user.uid, "skins"));
-
-      setSkins(
-        snap.docs.map((docItem) => ({
-          id: docItem.id,
-          ...docItem.data(),
-        }))
-      );
+      const snapshots = await Promise.all(getSkinsCollectionRefs().map((refItem) => getDocs(refItem)));
+      const dedupe = new Map();
+      snapshots.forEach((snap) => {
+        snap.docs.forEach((docItem) => {
+          if (!dedupe.has(docItem.id)) {
+            dedupe.set(docItem.id, {
+              id: docItem.id,
+              ...docItem.data(),
+            });
+          }
+        });
+      });
+      setSkins(Array.from(dedupe.values()));
     } catch (error) {
       console.error("Erro ao buscar skins:", error);
     } finally {
@@ -174,7 +261,9 @@ const SkinsManager = () => {
       .replace(/[^a-z0-9]/g, "");
     const username = `${prefixoPadrao || "skin"}${Math.floor(Math.random() * 10000)}`;
 
-    const resultado = await verificarESalvarskins(user.uid, username, temaCriacao);
+    const resultado = await verificarESalvarskins(user.uid, username, temaCriacao, {
+      iconSkinPadraoUrl,
+    });
     if (!resultado?.sucesso) {
       setFeedback(resultado?.mensagem || `Nao foi possivel criar ${nomeSkinSingular}.`);
       return;
@@ -212,7 +301,9 @@ const SkinsManager = () => {
       return;
     }
 
-    const resultado = await verificarESalvarskins(user.uid, newUsername, temaCriacao);
+    const resultado = await verificarESalvarskins(user.uid, newUsername, temaCriacao, {
+      iconSkinPadraoUrl,
+    });
 
     if (!resultado.sucesso) {
       setFeedback(resultado.mensagem || `Nao foi possivel criar ${nomeSkinSingular}.`);
@@ -240,9 +331,15 @@ const SkinsManager = () => {
     const temaAtualizado = resolverTemaCriacao(editingTheme);
     if (!temaAtualizado) return;
 
-    await updateDoc(doc(db, "users", user.uid, "skins", skinId), {
-      theme: temaAtualizado,
-    });
+    for (const skinRef of getSkinDocRefs(skinId)) {
+      await setDoc(
+        skinRef,
+        {
+          theme: temaAtualizado,
+        },
+        { merge: true }
+      );
+    }
 
     setEditingSkinId(null);
     setEditingTheme("");
@@ -258,15 +355,25 @@ const SkinsManager = () => {
     }
     if (!window.confirm(`Excluir "${skin.username}"?`)) return;
 
-    const paginasSnap = await getDocs(collection(db, "users", user.uid, "paginas"));
-
-    for (const pagina of paginasSnap.docs) {
-      await updateDoc(pagina.ref, {
-        skins_relacionadas: arrayRemove(skin.id),
-      });
+    const paginasRefs = getPaginasCollectionRefs();
+    for (const paginasRef of paginasRefs) {
+      const paginasSnap = await getDocs(paginasRef);
+      for (const pagina of paginasSnap.docs) {
+        await updateDoc(pagina.ref, {
+          skins_relacionadas: arrayRemove(skin.id),
+        });
+      }
     }
 
-    await deleteDoc(doc(db, "users", user.uid, "skins", skin.id));
+    for (const skinRef of getSkinDocRefs(skin.id)) {
+      try {
+        await deleteDoc(skinRef);
+      } catch (errorDelete) {
+        if (errorDelete?.code !== "not-found") {
+          throw errorDelete;
+        }
+      }
+    }
 
     fetchSkins();
   };
@@ -371,6 +478,63 @@ const SkinsManager = () => {
       <ul className="skins-list">
         {skins.map((skin) => (
           <li key={skin.id}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              {String(skin.iconSkin || iconSkinPadraoUrl || "").trim() ? (
+                <img
+                  src={String(skin.iconSkin || iconSkinPadraoUrl || "").trim()}
+                  alt={`Avatar da ${nomeSkinSingular} ${skin.username}`}
+                  style={{
+                    width: 34,
+                    height: 34,
+                    objectFit: "cover",
+                    borderRadius: "50%",
+                    border: "1px solid rgba(0,0,0,0.2)",
+                  }}
+                />
+              ) : null}
+              <label
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  cursor: "pointer",
+                }}
+              >
+                <span style={{ opacity: 0.9 }}>Trocar avatar</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(event) => {
+                    const arquivo = event.target.files?.[0];
+                    if (!arquivo) return;
+                    void subirAvatarSkin(skin, arquivo);
+                    event.target.value = "";
+                  }}
+                  disabled={avatarUploadSkinId === skin.id}
+                />
+              </label>
+              {String(skin.iconSkin || "").trim() ? (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    for (const skinRef of getSkinDocRefs(skin.id)) {
+                      await setDoc(
+                        skinRef,
+                        {
+                          iconSkin: iconSkinPadraoUrl || null,
+                          iconSkinPath: null,
+                        },
+                        { merge: true }
+                      );
+                    }
+                    await fetchSkins();
+                  }}
+                  disabled={avatarUploadSkinId === skin.id}
+                >
+                  Usar avatar padrao
+                </button>
+              ) : null}
+            </div>
             <strong
               onClick={() => handleSelectSkin(skin.username)}
               style={{ cursor: "pointer" }}
@@ -423,6 +587,9 @@ const SkinsManager = () => {
           </li>
         ))}
       </ul>
+      {!!avatarUploadMensagem ? (
+        <p style={{ marginTop: 8, opacity: 0.9 }}>{avatarUploadMensagem}</p>
+      ) : null}
     </div>
   );
 };

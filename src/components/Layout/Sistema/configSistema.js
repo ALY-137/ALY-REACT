@@ -14,8 +14,8 @@ import {
   salvarConfigProjetoNoGerenciador,
 } from "./gerenciadorProjetosApi";
 import { APPLYABLE_LOGIN_PRESET_IDS } from "./loginPresets";
+import { buildProjectDataPathCandidates } from "../../Banco/projectDataNamespace";
 
-const SISTEMA_CONFIG_REF = doc(db, "add_ons", "sistema_config");
 const SISTEMA_CONFIG_CACHE_KEY_BASE = "sistemaConfigCacheV1";
 const SISTEMA_PROJECT_CONTEXT_KEY = "systemProjectContextKey";
 const TEMAS_SISTEMA_VALIDOS = SYSTEM_THEMES.map((tema) => tema.id);
@@ -43,11 +43,33 @@ const LOGIN_PRESET_IDS_VALIDOS = Array.isArray(APPLYABLE_LOGIN_PRESET_IDS)
   : ["manual", "aly137"];
 const LOGIN_LOADING_MODE_VALIDOS = ["auto", "simple", "obeydom", "sprite_sheet"];
 
+function obterSistemaConfigRefsComFallback() {
+  const caminhos = buildProjectDataPathCandidates(["add_ons", "sistema_config"], {
+    activeProjectKey: activeFirebaseProjectKey,
+  });
+  const refs = caminhos.map((segmentos) => doc(db, ...segmentos));
+  const mapa = new Map();
+  refs.forEach((ref) => {
+    if (!mapa.has(ref.path)) {
+      mapa.set(ref.path, ref);
+    }
+  });
+  return Array.from(mapa.values());
+}
+
+function obterSistemaConfigRefPrincipal() {
+  return obterSistemaConfigRefsComFallback()[0];
+}
+
 export const DEFAULT_SISTEMA_CONFIG = {
   logoLoginUrl: "",
   faviconUrl: "/favicon.ico",
   loginButtonIconUrl:
     "https://firebasestorage.googleapis.com/v0/b/teste-aa015.appspot.com/o/imagens%2Fthemes%2Fcyberpink%2Fviolet%2Ffoguete.png?alt=media&token=19c205b6-b36f-49df-b336-4afc6565c9a5",
+  chatButtonIconUrl:
+    "https://firebasestorage.googleapis.com/v0/b/teste-aa015.appspot.com/o/imagens%2Fthemes%2Fcyberpink%2Fviolet%2Fchat.png?alt=media&token=663a432d-f916-4917-98b2-e90eacd65745",
+  iconSkinPadraoUrl:
+    "https://firebasestorage.googleapis.com/v0/b/teste-aa015.appspot.com/o/imagens%2Fthemes%2Fcyberpink%2Fviolet%2Fet.png?alt=media&token=4c09e6d5-5a0e-48d7-88ae-f56a9a5c1a5b",
   cardProfileUrl: "",
   cardProfilePath: "",
   tituloSistema: "ALY-137",
@@ -55,6 +77,8 @@ export const DEFAULT_SISTEMA_CONFIG = {
   textoLogin: "EMBARQUE COM O GOOGLE",
   loginLoadingMode: "auto",
   loginLoadingSpriteUrl: "",
+  solicitacaoStatusAguardandoSpriteUrl: "",
+  solicitacaoStatusConfirmadoIconUrl: "",
   googleFontsUrls: [],
   mensagemEspacoLoginRestrito:
     "Este {nomeEspacoSingular} requer login para visualizar o conteudo.",
@@ -83,6 +107,7 @@ export const DEFAULT_SISTEMA_CONFIG = {
   permitirTemasSkinSecundarios: true,
   metodosLoginHabilitados: { ...METODOS_LOGIN_PADRAO },
   chatHabilitado: true,
+  livesHabilitadas: false,
   mercadoPagoHabilitado: true,
   pixManualHabilitado: true,
   blocoCardsHabilitado: false,
@@ -237,18 +262,21 @@ async function sincronizarConfigSistemaRuntime(configNormalizada = DEFAULT_SISTE
   if (activeFirebaseProjectKey === "gerenciador-aly") return;
   if (!auth.currentUser?.uid) return;
 
-  try {
-    await setDoc(
-      SISTEMA_CONFIG_REF,
-      {
-        ...configNormalizada,
-        atualizadoEm: serverTimestamp(),
-      },
-      { merge: true }
-    );
-  } catch (error) {
-    if (error?.code !== "permission-denied") {
-      throw error;
+  const refsConfig = obterSistemaConfigRefsComFallback();
+  for (const refConfig of refsConfig) {
+    try {
+      await setDoc(
+        refConfig,
+        {
+          ...configNormalizada,
+          atualizadoEm: serverTimestamp(),
+        },
+        { merge: true }
+      );
+    } catch (error) {
+      if (error?.code !== "permission-denied") {
+        throw error;
+      }
     }
   }
 }
@@ -522,6 +550,11 @@ export function normalizarConfigSistema(data = {}) {
     DEFAULT_SISTEMA_CONFIG.loginButtonIconUrl,
     120000
   );
+  const chatButtonIconUrlNormalizado = normalizarTexto(
+    data.chatButtonIconUrl,
+    DEFAULT_SISTEMA_CONFIG.chatButtonIconUrl,
+    120000
+  );
   const cardProfileUrlNormalizado = normalizarTexto(
     data.cardProfileUrl,
     DEFAULT_SISTEMA_CONFIG.cardProfileUrl,
@@ -530,6 +563,11 @@ export function normalizarConfigSistema(data = {}) {
   const cardProfilePathNormalizado = normalizarTexto(
     data.cardProfilePath,
     DEFAULT_SISTEMA_CONFIG.cardProfilePath,
+    120000
+  );
+  const iconSkinPadraoUrlNormalizado = normalizarTexto(
+    data.iconSkinPadraoUrl,
+    DEFAULT_SISTEMA_CONFIG.iconSkinPadraoUrl,
     120000
   );
   const tituloSistemaNormalizado = normalizarTexto(
@@ -546,6 +584,16 @@ export function normalizarConfigSistema(data = {}) {
   const loginLoadingSpriteUrlNormalizado = normalizarTexto(
     data.loginLoadingSpriteUrl,
     DEFAULT_SISTEMA_CONFIG.loginLoadingSpriteUrl,
+    120000
+  );
+  const solicitacaoStatusAguardandoSpriteUrlNormalizada = normalizarTexto(
+    data.solicitacaoStatusAguardandoSpriteUrl,
+    DEFAULT_SISTEMA_CONFIG.solicitacaoStatusAguardandoSpriteUrl,
+    120000
+  );
+  const solicitacaoStatusConfirmadoIconUrlNormalizada = normalizarTexto(
+    data.solicitacaoStatusConfirmadoIconUrl,
+    DEFAULT_SISTEMA_CONFIG.solicitacaoStatusConfirmadoIconUrl,
     120000
   );
   const googleFontsUrlsNormalizadas = normalizarGoogleFontsUrls(data.googleFontsUrls);
@@ -659,6 +707,8 @@ export function normalizarConfigSistema(data = {}) {
     logoLoginUrl: logoNormalizada,
     faviconUrl: faviconNormalizado,
     loginButtonIconUrl: loginButtonIconUrlNormalizado,
+    chatButtonIconUrl: chatButtonIconUrlNormalizado,
+    iconSkinPadraoUrl: iconSkinPadraoUrlNormalizado,
     cardProfileUrl: cardProfileUrlNormalizado,
     cardProfilePath: cardProfilePathNormalizado,
     tituloSistema: tituloSistemaNormalizado,
@@ -669,6 +719,10 @@ export function normalizarConfigSistema(data = {}) {
     textoLogin: textoLoginNormalizado,
     loginLoadingMode: loginLoadingModeNormalizado,
     loginLoadingSpriteUrl: loginLoadingSpriteUrlNormalizado,
+    solicitacaoStatusAguardandoSpriteUrl:
+      solicitacaoStatusAguardandoSpriteUrlNormalizada,
+    solicitacaoStatusConfirmadoIconUrl:
+      solicitacaoStatusConfirmadoIconUrlNormalizada,
     googleFontsUrls: googleFontsUrlsNormalizadas,
     mensagemEspacoLoginRestrito: mensagemEspacoLoginRestritoNormalizada,
     mensagemEspacoLoginRestritoFontFamily:
@@ -732,6 +786,10 @@ export function normalizarConfigSistema(data = {}) {
       data.chatHabilitado,
       DEFAULT_SISTEMA_CONFIG.chatHabilitado
     ),
+    livesHabilitadas: normalizarBoolean(
+      data.livesHabilitadas,
+      DEFAULT_SISTEMA_CONFIG.livesHabilitadas
+    ),
     mercadoPagoHabilitado: normalizarBoolean(
       data.mercadoPagoHabilitado,
       DEFAULT_SISTEMA_CONFIG.mercadoPagoHabilitado
@@ -776,9 +834,29 @@ export async function obterConfigSistema() {
     // Segue fallback local.
   }
 
-  const snap = await getDoc(SISTEMA_CONFIG_REF);
-  if (!snap.exists()) {
+  let snap = null;
+  for (const refConfig of obterSistemaConfigRefsComFallback()) {
+    const snapAtual = await getDoc(refConfig);
+    if (snapAtual.exists()) {
+      snap = snapAtual;
+      break;
+    }
+  }
+
+  if (!snap?.exists?.()) {
     const fallback = aplicarDefaultsPorProjeto(obterDefaultConfigSistemaProjeto());
+    try {
+      await setDoc(
+        obterSistemaConfigRefPrincipal(),
+        {
+          ...fallback,
+          atualizadoEm: serverTimestamp(),
+        },
+        { merge: true }
+      );
+    } catch {
+      // Segue com fallback local.
+    }
     salvarConfigSistemaCacheLocal(fallback);
     return fallback;
   }
@@ -803,8 +881,13 @@ export async function estaConfigSistemaInicializada() {
     // Segue fallback local.
   }
 
-  const snap = await getDoc(SISTEMA_CONFIG_REF);
-  return snap.exists();
+  for (const refConfig of obterSistemaConfigRefsComFallback()) {
+    const snap = await getDoc(refConfig);
+    if (snap.exists()) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export async function salvarConfigSistemaAdmin(configParcial = {}) {
@@ -827,14 +910,17 @@ export async function salvarConfigSistemaAdmin(configParcial = {}) {
   }
 
   if (!salvoNoGerenciador) {
-    await setDoc(
-      SISTEMA_CONFIG_REF,
-      {
-        ...configNormalizada,
-        atualizadoEm: serverTimestamp(),
-      },
-      { merge: true }
-    );
+    const refsConfig = obterSistemaConfigRefsComFallback();
+    for (const refConfig of refsConfig) {
+      await setDoc(
+        refConfig,
+        {
+          ...configNormalizada,
+          atualizadoEm: serverTimestamp(),
+        },
+        { merge: true }
+      );
+    }
   } else {
     await sincronizarConfigSistemaRuntime(configNormalizada);
   }

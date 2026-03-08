@@ -5,7 +5,12 @@ import { seforAdm } from "../../Scripts/verificacoes/verificaAdm";
 import Navegacoes from "../../Scripts/navegacoes/Navegacoes";
 import { activeFirebaseProjectKey, db } from "../../Banco/init-firebase";
 
-import { collection, doc, getDoc, onSnapshot } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  onSnapshot,
+} from "firebase/firestore";
+import { getProjectCollectionCandidates } from "../../Banco/projectDataRefs";
 import { useAuth } from "../../../hooks/auth/useAuth";
 import { signOut } from "firebase/auth";
 import { auth } from "../../Banco/init-firebase";
@@ -20,6 +25,26 @@ import {
   obterProjectKeyContextual,
 } from "../Sistema/configSistema";
 import FirebaseProjectBadge from "../Geral/FirebaseProjectBadge";
+
+const SEGMENTOS_RESERVADOS_MENU = new Set([
+  "contatos",
+  "users",
+  "skins",
+  "acessos",
+  "propriedades",
+  "solicitacoes",
+  "pedidos",
+  "propriedades-sistema",
+  "espacos",
+  "configuracoes-gerenciador",
+  "gerenciar-layouts",
+  "gerenciador-icones",
+  "gerenciador-projetos",
+]);
+
+function ehSegmentoReservadoMenu(valor) {
+  return SEGMENTOS_RESERVADOS_MENU.has(String(valor || "").trim().toLowerCase());
+}
 
 function Menu({ menuOpen }) {
   const { user, loading } = useAuth();
@@ -44,7 +69,14 @@ function Menu({ menuOpen }) {
   const { userId: menuUserId, contactId } = useParams();
   const isManagerProject = activeFirebaseProjectKey === "gerenciador-aly";
 
-  const skinLogadoUserStorage = localStorage.getItem("skinLogadoUser");
+  const menuUserIdParam = String(menuUserId || "").trim();
+  const menuUserIdNormalizado = ehSegmentoReservadoMenu(menuUserIdParam)
+    ? ""
+    : menuUserIdParam;
+  const skinLogadoUserStorageBruto = String(localStorage.getItem("skinLogadoUser") || "").trim();
+  const skinLogadoUserStorage = ehSegmentoReservadoMenu(skinLogadoUserStorageBruto)
+    ? ""
+    : skinLogadoUserStorageBruto;
   const userIdCache = localStorage.getItem("userId");
   const modoAcessoProjeto = configSistema?.modoAcessoProjeto || "privado_com_login";
   const tipoExperiencia = configSistema?.tipoExperiencia || "multipage";
@@ -55,14 +87,14 @@ function Menu({ menuOpen }) {
       modoAcessoProjeto,
     });
   const rotaAdminMenuOnePage =
-    onePagePublicaAtiva && String(menuUserId || "").trim().toLowerCase() === "admin";
+    onePagePublicaAtiva && menuUserIdParam.toLowerCase() === "admin";
   const loginAdminSeparado = onePagePublicaAtiva && rotaAdminMenuOnePage;
   const skinLogadoUser = !isManagerProject
     ? onePagePublicaAtiva
       ? rotaAdminMenuOnePage
         ? skinLogadoUserStorage
-        : (skinLogadoUserStorage || String(menuUserId || "").trim())
-      : (skinLogadoUserStorage || String(menuUserId || "").trim())
+        : (skinLogadoUserStorage || menuUserIdNormalizado)
+      : (skinLogadoUserStorage || menuUserIdNormalizado)
     : "";
   const exigeSkinAtiva =
     !isManagerProject && (!onePagePublicaAtiva || !rotaAdminMenuOnePage);
@@ -72,10 +104,10 @@ function Menu({ menuOpen }) {
     ? Boolean(usuarioAuthAtual)
     : Boolean(usuarioAuthAtual || userIdCache);
   const menuTargetUser = isManagerProject
-    ? (menuUserId || "gerenciador").trim()
+    ? (menuUserIdParam || "gerenciador").trim()
     : rotaAdminMenuOnePage
       ? "admin"
-      : (skinLogadoUser || String(menuUserId || "").trim());
+      : (skinLogadoUser || menuUserIdNormalizado);
   const nomeSkinSingular = (configSistema.nomeSkinSingular || "skin").trim() || "skin";
   const nomeSkinPlural = (configSistema.nomeSkinPlural || "skins").trim() || "skins";
   const usarRotuloSkinSingular = tipoExperiencia === "onepage";
@@ -115,23 +147,18 @@ function Menu({ menuOpen }) {
           seforAdm(usuarioAuthAtual))
       )
   );
-  const limiteSkinsPorUsuario = String(
-    configSistema?.limiteSkinsPorUsuario || "ilimitado"
-  )
-    .trim()
-    .toLowerCase();
   const menuOnePageUsuarioComum = onePagePublicaAtiva && !rotaAdminMenuOnePage;
-  const projetoComSkinUnica = limiteSkinsPorUsuario === "1";
   const podeGerenciarUsuarios = usuarioEhAdminProjeto && !onePagePublicaAtiva;
   const adminOnePagePodeGerenciarSkins =
     onePagePublicaAtiva && rotaAdminMenuOnePage && usuarioEhAdminProjeto;
   const exibirGestaoSkins =
-    adminOnePagePodeGerenciarSkins ||
-    (Boolean(skinLogadoUser) && (!projetoComSkinUnica || menuOnePageUsuarioComum));
+    adminOnePagePodeGerenciarSkins || Boolean(skinLogadoUser);
   const exibirGestaoEspacos =
     (onePagePublicaAtiva && rotaAdminMenuOnePage && usuarioEhAdminProjeto) ||
     (Boolean(skinLogadoUser) && !menuOnePageUsuarioComum);
-  const exibirContatos = chatHabilitado && Boolean(skinLogadoUser) && !onePagePublicaAtiva;
+  const exibirGavetaChat = chatHabilitado && Boolean(skinLogadoUser);
+  const exibirContatos = exibirGavetaChat && usuarioEhAdminProjeto;
+  const exibirConversas = exibirGavetaChat && !usuarioEhAdminProjeto;
   const exibirPropriedades = !menuOnePageUsuarioComum;
   const exibirSolicitacoes =
     !isManagerProject &&
@@ -210,7 +237,7 @@ function Menu({ menuOpen }) {
     navigateIfChanged(`/menu/${menuTargetUser}/acessos`);
   }
 
-  function abrirContatos() {
+  async function abrirContatos() {
     navigateIfChanged(`/menu/${menuTargetUser}/contatos`);
   }
 
@@ -219,10 +246,18 @@ function Menu({ menuOpen }) {
   }
 
   function closeConversas() {
-    navigateIfChanged(`/menu/${menuTargetUser}/contatos`);
+    if (usuarioEhAdminProjeto) {
+      navigateIfChanged(`/menu/${menuTargetUser}/contatos`);
+      return;
+    }
+    returnMenu();
   }
 
   function closeChat() {
+    if (!usuarioEhAdminProjeto) {
+      navigateIfChanged(`/menu/${menuTargetUser}/contatos`);
+      return;
+    }
     navigateIfChanged(`/menu/${menuTargetUser}/contatos/${contactId}`);
   }
 
@@ -358,6 +393,7 @@ function Menu({ menuOpen }) {
     if (isManagerProject) return;
     if (onePagePublicaAtiva && rotaAdminMenuOnePage) return;
     if (!skinLogadoUser) return;
+    if (ehSegmentoReservadoMenu(skinLogadoUser)) return;
     if (skinLogadoUserStorage === skinLogadoUser) return;
 
     localStorage.setItem("skinLogadoUser", skinLogadoUser);
@@ -374,6 +410,14 @@ function Menu({ menuOpen }) {
 
   useEffect(() => {
     if (isManagerProject) return;
+    const valorAtual = String(localStorage.getItem("skinLogadoUser") || "").trim();
+    if (!valorAtual) return;
+    if (!ehSegmentoReservadoMenu(valorAtual)) return;
+    localStorage.removeItem("skinLogadoUser");
+  }, [isManagerProject]);
+
+  useEffect(() => {
+    if (isManagerProject) return;
     if (!chatHabilitado) {
       const estaEmRotasChat = location.pathname.includes("/contatos");
       if (estaEmRotasChat && menuTargetUser) {
@@ -386,24 +430,12 @@ function Menu({ menuOpen }) {
     if (isManagerProject) return;
     const path = location.pathname;
 
-    if (
-      projetoComSkinUnica &&
-      !onePagePublicaAtiva &&
-      !menuOnePageUsuarioComum &&
-      path.endsWith("/skins")
-    ) {
-      navigateIfChanged(`/menu/${menuTargetUser}`, { replace: true });
-      return;
-    }
-
     if (onePagePublicaAtiva && (path.endsWith("/users") || path.endsWith("/acessos"))) {
       navigateIfChanged(`/menu/${menuTargetUser}`, { replace: true });
       return;
     }
   }, [
     isManagerProject,
-    projetoComSkinUnica,
-    menuOnePageUsuarioComum,
     onePagePublicaAtiva,
     location.pathname,
     menuTargetUser,
@@ -467,9 +499,18 @@ function Menu({ menuOpen }) {
         setBackText("MENU");
         setBackAction(() => returnMenu);
       } else if (path.endsWith("/contatos") && chatHabilitado) {
-        setAtualTxt("CONTATOS");
+        setAtualTxt(usuarioEhAdminProjeto ? "CONTATOS" : "CONVERSAS");
         setBackText("MENU");
         setBackAction(() => returnMenu);
+      } else if (chatHabilitado && /\/contatos\/[^/]+$/.test(path)) {
+        setAtualTxt("CONVERSAS");
+        if (usuarioEhAdminProjeto) {
+          setBackText("CONTATOS");
+          setBackAction(() => closeConversas);
+        } else {
+          setBackText("MENU");
+          setBackAction(() => returnMenu);
+        }
       } else if (chatHabilitado && path.includes("/chat/") && contactId) {
         try {
           const contatoRef = doc(db, "contatos", contactId);
@@ -506,6 +547,7 @@ function Menu({ menuOpen }) {
     nomeSkinMenuUpper,
     nomeEspacoPluralUpper,
     chatHabilitado,
+    usuarioEhAdminProjeto,
   ]);
 
   useEffect(() => {
@@ -539,35 +581,64 @@ function Menu({ menuOpen }) {
       return;
     }
 
-    const pedidosRef = collection(db, "users", ownerSolicitacoesUid, "pedidos");
-    const unsubscribe = onSnapshot(
-      pedidosRef,
-      (snapshot) => {
-        let pendentes = 0;
-        let confirmadas = 0;
+    const pedidosRefs = getProjectCollectionCandidates(
+      db,
+      "users",
+      ownerSolicitacoesUid,
+      "pedidos"
+    );
+    if (!pedidosRefs.length) {
+      setBadgeSolicitacoes({ pendentes: 0, confirmadas: 0 });
+      return;
+    }
 
-        snapshot.docs.forEach((item) => {
-          const status = String(item.data()?.status || "pedido_solicitado")
-            .trim()
-            .toLowerCase();
-          if (status === "pagamento_confirmado") {
-            confirmadas += 1;
-          } else {
-            pendentes += 1;
+    const snapshotsPorRef = new Map();
+    const atualizarBadge = () => {
+      const pedidosPorId = new Map();
+      snapshotsPorRef.forEach((docs = []) => {
+        docs.forEach((item) => {
+          if (!pedidosPorId.has(item.id)) {
+            pedidosPorId.set(item.id, item.data() || {});
           }
         });
+      });
 
-        setBadgeSolicitacoes({ pendentes, confirmadas });
-      },
-      (err) => {
-        setBadgeSolicitacoes({ pendentes: 0, confirmadas: 0 });
-        if (err?.code !== "permission-denied") {
-          console.error("Erro ao carregar badge de solicitacoes:", err);
+      let pendentes = 0;
+      let confirmadas = 0;
+      pedidosPorId.forEach((pedidoData) => {
+        const status = String(pedidoData?.status || "pedido_solicitado")
+          .trim()
+          .toLowerCase();
+        if (status === "pagamento_confirmado") {
+          confirmadas += 1;
+        } else {
+          pendentes += 1;
         }
-      }
+      });
+
+      setBadgeSolicitacoes({ pendentes, confirmadas });
+    };
+
+    const unsubscribes = pedidosRefs.map((pedidosRef, idx) =>
+      onSnapshot(
+        pedidosRef,
+        (snapshot) => {
+          snapshotsPorRef.set(idx, snapshot.docs);
+          atualizarBadge();
+        },
+        (err) => {
+          snapshotsPorRef.set(idx, []);
+          atualizarBadge();
+          if (err?.code !== "permission-denied") {
+            console.error("Erro ao carregar badge de solicitacoes:", err);
+          }
+        }
+      )
     );
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribes.forEach((unsubscribe) => unsubscribe());
+    };
   }, [exibirBadgeSolicitacoes, ownerSolicitacoesUid]);
 
   if (aguardandoAuthInicial) {
@@ -654,6 +725,9 @@ function Menu({ menuOpen }) {
             ) : null}
             {exibirContatos && (
               <div onClick={abrirContatos} className="gavetaOption">CONTATOS</div>
+            )}
+            {exibirConversas && (
+              <div onClick={abrirContatos} className="gavetaOption">CONVERSAS</div>
             )}
             {exibirPropriedades ? (
               <div onClick={abrirPropriedades} className="gavetaOption">PROPRIEDADES</div>

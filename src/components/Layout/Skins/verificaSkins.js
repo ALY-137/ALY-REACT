@@ -1,7 +1,5 @@
 // verificaSkins.js
 import {
-  collection,
-  collectionGroup,
   doc,
   getDocs,
   limit,
@@ -13,43 +11,59 @@ import {
 
 import { db } from "../../Banco/init-firebase";
 import { sincronizarEstruturaPublicaEspaco } from "../Espacos/firebaseEspacos";
+import {
+  getProjectCollectionCandidates,
+  getProjectDocCandidates,
+} from "../../Banco/projectDataRefs";
+import {
+  findSkinByUsernameAcrossProject,
+  getOwnerUidFromSkinDoc,
+} from "./skinLookup";
 
 // ===============================
 // FUNCAO PARA VERIFICAR E CRIAR SKIN
 // ===============================
-export const verificarESalvarskins = async (userId, username, theme) => {
+export const verificarESalvarskins = async (
+  userId,
+  username,
+  theme,
+  { iconSkinPadraoUrl = "" } = {}
+) => {
   try {
     if (!userId) {
       return { sucesso: false, mensagem: "Usuario nao autenticado." };
     }
 
-    const userRef = doc(db, "users", userId);
-    const skinsRef = collection(userRef, "skins");
+    const userRefs = getProjectDocCandidates(db, "users", userId);
+    const skinsRefs = getProjectCollectionCandidates(db, "users", userId, "skins");
+    const skinsRefPrincipal = skinsRefs[0];
 
     // Garante documento pai do usuario para evitar "not-found" em updates futuros.
-    await setDoc(
-      userRef,
-      {
-        uid: userId,
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
+    for (const userRef of userRefs) {
+      await setDoc(
+        userRef,
+        {
+          uid: userId,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+    }
 
-    // Verificar se o username ja existe nas skins publicas/restritivas
-    // (skins privadas de terceiros nao sao consultaveis por regra)
-    const publicQuery = query(
-      collectionGroup(db, "skins"),
-      where("username", "==", username),
-      where("visibilidade", "in", ["publico", "publico_restritivo", "privado"]),
-      limit(1)
-    );
-
+    // Verificar se o username ja existe em outra skin do projeto
     try {
-      const publicSnapshot = await getDocs(publicQuery);
-      if (!publicSnapshot.empty) {
-        console.log("O nome de usuario da skin ja existe.");
-        return { sucesso: false, mensagem: "O nome de usuario ja existe!" };
+      const skinExistente = await findSkinByUsernameAcrossProject(db, username, {
+        authenticated: true,
+        allowPrivateWhenAuthenticated: true,
+        includeLegacy: true,
+      });
+
+      if (skinExistente) {
+        const ownerExistente = getOwnerUidFromSkinDoc(skinExistente);
+        if (ownerExistente && ownerExistente !== String(userId || "").trim()) {
+          console.log("O nome de usuario da skin ja existe.");
+          return { sucesso: false, mensagem: "O nome de usuario ja existe!" };
+        }
       }
     } catch (err) {
       if (err?.code !== "permission-denied") throw err;
@@ -61,40 +75,55 @@ export const verificarESalvarskins = async (userId, username, theme) => {
     }
 
     // Verificar conflito dentro do proprio usuario
-    const ownQuery = query(skinsRef, where("username", "==", username), limit(1));
-    const ownSnapshot = await getDocs(ownQuery);
-    if (!ownSnapshot.empty) {
-      return { sucesso: false, mensagem: "Voce ja possui uma skin com esse nome." };
+    for (const skinsRef of skinsRefs) {
+      const ownQuery = query(skinsRef, where("username", "==", username), limit(1));
+      const ownSnapshot = await getDocs(ownQuery);
+      if (!ownSnapshot.empty) {
+        return { sucesso: false, mensagem: "Voce ja possui uma skin com esse nome." };
+      }
     }
 
     // Definir se e a skin principal
-    const allSkinsSnapshot = await getDocs(skinsRef);
-    const is_main = allSkinsSnapshot.empty;
+    let is_main = true;
+    for (const skinsRef of skinsRefs) {
+      const allSkinsSnapshot = await getDocs(skinsRef);
+      if (!allSkinsSnapshot.empty) {
+        is_main = false;
+        break;
+      }
+    }
 
     // Criar a skin
-    const id_skin = doc(skinsRef).id;
+    const id_skin = doc(skinsRefPrincipal).id;
 
-    await setDoc(doc(skinsRef, id_skin), {
-      ownerUserId: userId,
-      id_skin,
-      username,
-      theme,
-      cardProfileUrl: "",
-      cardProfilePath: "",
-      is_main,
-      visibilidade: "publico",
-      data: serverTimestamp(),
-      iconSkin:
-        "https://firebasestorage.googleapis.com/v0/b/teste-aa015.appspot.com/o/imagens%2Fthemes%2Fcyberpink%2Fviolet%2Fet.png?alt=media&token=4c09e6d5-5a0e-48d7-88ae-f56a9a5c1a5b",
-    });
+    const iconSkinPadrao = String(
+      iconSkinPadraoUrl ||
+        "https://firebasestorage.googleapis.com/v0/b/teste-aa015.appspot.com/o/imagens%2Fthemes%2Fcyberpink%2Fviolet%2Fet.png?alt=media&token=4c09e6d5-5a0e-48d7-88ae-f56a9a5c1a5b"
+    ).trim();
+
+    for (const skinsRef of skinsRefs) {
+      await setDoc(doc(skinsRef, id_skin), {
+        ownerUserId: userId,
+        id_skin,
+        username,
+        theme,
+        cardProfileUrl: "",
+        cardProfilePath: "",
+        is_main,
+        visibilidade: "publico",
+        data: serverTimestamp(),
+        iconSkin: iconSkinPadrao,
+      });
+    }
 
     // Criar o espaco principal (Home)
-    const espacosRef = collection(userRef, "espacos");
-    const id_espaco = doc(espacosRef).id;
+    const espacosRefs = getProjectCollectionCandidates(db, "users", userId, "espacos");
+    const espacosRefPrincipal = espacosRefs[0];
+    const id_espaco = doc(espacosRefPrincipal).id;
     const homeData = {
       id_espaco,
       nome: "Home",
-      conteudo: "Conteudo da pagina principal",
+      conteudo: "",
       ordem: 0,
       ownerUserId: userId,
       skinOwner: id_skin,
@@ -105,7 +134,9 @@ export const verificarESalvarskins = async (userId, username, theme) => {
       skins_relacionadas: [id_skin],
     };
 
-    await setDoc(doc(espacosRef, id_espaco), homeData);
+    for (const espacosRef of espacosRefs) {
+      await setDoc(doc(espacosRef, id_espaco), homeData);
+    }
     await sincronizarEstruturaPublicaEspaco(userId, { ...homeData, id: id_espaco });
 
     console.log("Skin e pagina principal criadas com sucesso!");

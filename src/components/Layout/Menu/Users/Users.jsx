@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '../../../Banco/init-firebase.js';
+import { getPrimaryProjectCollection } from '../../../Banco/projectDataRefs.js';
 
 import './users.css';
 
@@ -13,7 +14,7 @@ function Users() {
     const carregarUsuarios = async () => {
       try {
         const q = query(
-          collection(db, 'users'),
+          getPrimaryProjectCollection(db, 'users'),
           orderBy('data', 'desc')
         );
 

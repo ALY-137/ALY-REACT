@@ -1,16 +1,13 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { getDoc } from "firebase/firestore";
+
+import { db } from "../../Banco/init-firebase";
+import { getProjectDocCandidates } from "../../Banco/projectDataRefs";
 import {
-  getFirestore,
-  collectionGroup,
-  query,
-  where,
-  limit,
-  getDocs,
-  doc,
-  getDoc
-} from "firebase/firestore";
-import { app } from "../../Banco/init-firebase";
+  findSkinByUsernameAcrossProject,
+  getOwnerUidFromSkinDoc,
+} from "../Skins/skinLookup";
 
 const SkinsEspaco = () => {
   const { skinsUsername, espacoId } = useParams();
@@ -19,53 +16,53 @@ const SkinsEspaco = () => {
 
   useEffect(() => {
     const fetchEspaco = async () => {
-      const db = getFirestore(app);
-
       try {
-        // 1️⃣ encontrar skin pelo username
-        const skinQuery = query(
-          collectionGroup(db, "skins"),
-          where("username", "==", skinsUsername),
-          limit(1)
-        );
+        const skinDoc = await findSkinByUsernameAcrossProject(db, skinsUsername, {
+          authenticated: false,
+          allowPrivateWhenAuthenticated: false,
+          includeLegacy: true,
+        });
 
-        const skinSnap = await getDocs(skinQuery);
-
-        if (skinSnap.empty) {
-          setErro("Skin não encontrada");
+        if (!skinDoc) {
+          setErro("Skin nao encontrada");
           return;
         }
 
-        const skinDoc = skinSnap.docs[0];
         const skinId = skinDoc.id;
-        const userId = skinDoc.ref.parent.parent.id;
+        const userId = getOwnerUidFromSkinDoc(skinDoc);
+        if (!userId) {
+          setErro("Owner da skin nao encontrado");
+          return;
+        }
 
-        // 2️⃣ buscar espaço no USER
-        const espacoRef = doc(db, "users", userId, "espacos", espacoId);
-        const espacoSnap = await getDoc(espacoRef);
+        let espacoSnap = null;
+        for (const espacoRef of getProjectDocCandidates(db, "users", userId, "espacos", espacoId)) {
+          const snapAtual = await getDoc(espacoRef).catch(() => null);
+          if (snapAtual?.exists?.()) {
+            espacoSnap = snapAtual;
+            break;
+          }
+        }
 
-        if (!espacoSnap.exists()) {
-          setErro("Espaço não encontrado");
+        if (!espacoSnap?.exists?.()) {
+          setErro("Espaco nao encontrado");
           return;
         }
 
         const espacoData = espacoSnap.data();
-
-        // 3️⃣ validar se o espaço pertence à skin
         const relacionadas = Array.isArray(espacoData.skins_relacionadas)
           ? espacoData.skins_relacionadas
           : [];
 
         if (!relacionadas.includes(skinId)) {
-          setErro("Este espaço não pertence a esta skin");
+          setErro("Este espaco nao pertence a esta skin");
           return;
         }
 
         setEspaco(espacoData);
-
       } catch (e) {
         console.error(e);
-        setErro("Erro ao carregar espaço");
+        setErro("Erro ao carregar espaco");
       }
     };
 
@@ -78,12 +75,10 @@ const SkinsEspaco = () => {
   return (
     <div>
       <h1>{espaco.nome}</h1>
-
-      {espaco.conteudo && (
-        <div dangerouslySetInnerHTML={{ __html: espaco.conteudo }} />
-      )}
+      {espaco.conteudo && <div dangerouslySetInnerHTML={{ __html: espaco.conteudo }} />}
     </div>
   );
 };
 
 export default SkinsEspaco;
+

@@ -1,10 +1,8 @@
 import { httpsCallable } from "firebase/functions";
 import {
-  collection,
-  collectionGroup,
-  doc,
   getDoc,
   getDocs,
+  limit,
   query,
   serverTimestamp,
   setDoc,
@@ -17,6 +15,11 @@ import {
   db,
   functions,
 } from "../../Banco/init-firebase";
+import {
+  getFirstExistingProjectDocSnapshot,
+  getProjectCollectionCandidates,
+  getProjectDocCandidates,
+} from "../../Banco/projectDataRefs";
 
 const callSalvarCredenciais = httpsCallable(functions, "salvarMercadoPagoCredenciais");
 const callStatusCredenciais = httpsCallable(functions, "obterStatusMercadoPago");
@@ -26,7 +29,11 @@ const callConfirmarPagamento = httpsCallable(functions, "confirmarPagamentoBloco
 
 const MAX_PIX_QRS = 20;
 const MERCADO_PAGO_UNAVAILABLE_CODE = "mercado-pago/unavailable";
-const PROJETOS_SEM_FUNCTIONS_MERCADO_PAGO = new Set(["aly-onepages-runtime"]);
+const PROJETOS_SEM_FUNCTIONS_MERCADO_PAGO = new Set([
+  "aly-onepages-runtime",
+]);
+const PROJETOS_MERCADO_PAGO_FALHA_RUNTIME = new Set();
+const MERCADO_PAGO_FALHA_STORAGE_KEY = "mercadoPagoProjectsUnavailable";
 
 function toPositiveInteger(value) {
   const parsed = Number(value);
@@ -38,26 +45,97 @@ function sanitizeString(value) {
   return String(value || "").trim();
 }
 
-function mercadoPagoDisponivelNesteProjeto() {
-  return !PROJETOS_SEM_FUNCTIONS_MERCADO_PAGO.has(
-    sanitizeString(activeFirebaseProjectKey)
-  );
+function carregarProjetosMercadoPagoIndisponiveisStorage() {
+  if (typeof window === "undefined") return;
+  try {
+    const raw = window.localStorage.getItem(MERCADO_PAGO_FALHA_STORAGE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return;
+    parsed
+      .map((item) => sanitizeString(item))
+      .filter(Boolean)
+      .forEach((item) => PROJETOS_MERCADO_PAGO_FALHA_RUNTIME.add(item));
+  } catch {
+    // Ignora indisponibilidade de storage.
+  }
 }
 
-function getMercadoPagoIndisponivelPayload() {
+function salvarProjetosMercadoPagoIndisponiveisStorage() {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      MERCADO_PAGO_FALHA_STORAGE_KEY,
+      JSON.stringify([...PROJETOS_MERCADO_PAGO_FALHA_RUNTIME])
+    );
+  } catch {
+    // Ignora indisponibilidade de storage.
+  }
+}
+
+function getProjetoAtivoMercadoPago() {
+  return sanitizeString(activeFirebaseProjectKey);
+}
+
+carregarProjetosMercadoPagoIndisponiveisStorage();
+
+function mercadoPagoDisponivelNesteProjeto() {
+  const projectKey = getProjetoAtivoMercadoPago();
+  if (!projectKey) return false;
+  if (PROJETOS_MERCADO_PAGO_FALHA_RUNTIME.has(projectKey)) return false;
+  return !PROJETOS_SEM_FUNCTIONS_MERCADO_PAGO.has(projectKey);
+}
+
+function getMercadoPagoIndisponivelPayload(motivoCustom = "") {
   return {
     ok: false,
     conectado: false,
     disponivel: false,
     motivo:
+      sanitizeString(motivoCustom) ||
       "Mercado Pago indisponivel neste projeto. Use PIX manual ou habilite Cloud Functions em um projeto com Blaze.",
   };
 }
 
-function criarErroMercadoPagoIndisponivel() {
-  const erro = new Error(getMercadoPagoIndisponivelPayload().motivo);
+function criarErroMercadoPagoIndisponivel(motivoCustom = "") {
+  const erro = new Error(getMercadoPagoIndisponivelPayload(motivoCustom).motivo);
   erro.code = MERCADO_PAGO_UNAVAILABLE_CODE;
   return erro;
+}
+
+function isMercadoPagoFunctionsIndisponivel(err) {
+  const code = sanitizeString(err?.code || "").toLowerCase();
+  const message = sanitizeString(err?.message || "").toLowerCase();
+  const details = sanitizeString(err?.details || err?.customData?.details || "").toLowerCase();
+  const texto = `${message} ${details}`.trim();
+
+  if (code === "functions/not-found" || code === "functions/unavailable") {
+    return true;
+  }
+
+  return (
+    texto.includes("cors") ||
+    texto.includes("preflight") ||
+    texto.includes("failed to fetch") ||
+    texto.includes("net::err_failed") ||
+    texto.includes("network request failed")
+  );
+}
+
+function marcarMercadoPagoIndisponivelNoProjetoAtual() {
+  const projectKey = getProjetoAtivoMercadoPago();
+  if (projectKey) {
+    PROJETOS_MERCADO_PAGO_FALHA_RUNTIME.add(projectKey);
+    salvarProjetosMercadoPagoIndisponiveisStorage();
+  }
+}
+
+function limparMercadoPagoIndisponivelNoProjetoAtual() {
+  const projectKey = getProjetoAtivoMercadoPago();
+  if (projectKey && PROJETOS_MERCADO_PAGO_FALHA_RUNTIME.has(projectKey)) {
+    PROJETOS_MERCADO_PAGO_FALHA_RUNTIME.delete(projectKey);
+    salvarProjetosMercadoPagoIndisponiveisStorage();
+  }
 }
 
 function normalizePixQr(raw, index = 0) {
@@ -103,13 +181,93 @@ function findPixQrByValue(qrs = [], valorCentavos = 0) {
   return qrs.find((item) => toPositiveInteger(item?.valorCentavos) === target) || null;
 }
 
-function getPixManualRef(uid) {
-  return doc(db, "users", sanitizeString(uid), "integracoes", "pixManual");
+function getFirstRef(refs = []) {
+  return Array.isArray(refs) && refs.length ? refs[0] : null;
 }
 
-function getSolicitacaoRef(ownerUid, solicitacaoId) {
+async function setDocOnCandidates(refs = [], payload = {}, options = { merge: true }) {
+  for (const refItem of refs) {
+    await setDoc(refItem, payload, options);
+  }
+}
+
+function getPixManualRefs(uid) {
+  return getProjectDocCandidates(db, "users", sanitizeString(uid), "integracoes", "pixManual");
+}
+
+function getSolicitacaoRefs(ownerUid, solicitacaoId) {
   // A colecao permanece "pedidos" por compatibilidade com dados e rules existentes.
-  return doc(db, "users", sanitizeString(ownerUid), "pedidos", sanitizeString(solicitacaoId));
+  return getProjectDocCandidates(
+    db,
+    "users",
+    sanitizeString(ownerUid),
+    "pedidos",
+    sanitizeString(solicitacaoId)
+  );
+}
+
+function getSkinsRefs(uid) {
+  return getProjectCollectionCandidates(db, "users", sanitizeString(uid), "skins");
+}
+
+function getSkinRefs(uid, skinId) {
+  return getProjectDocCandidates(db, "users", sanitizeString(uid), "skins", sanitizeString(skinId));
+}
+
+function getBlocoRefs(ownerUserId, espacoId, blocoId) {
+  return getProjectDocCandidates(
+    db,
+    "users",
+    sanitizeString(ownerUserId),
+    "espacos",
+    sanitizeString(espacoId),
+    "blocos",
+    sanitizeString(blocoId)
+  );
+}
+
+function getCompradorRefs(ownerUserId, espacoId, blocoId, compradorId) {
+  return getProjectDocCandidates(
+    db,
+    "users",
+    sanitizeString(ownerUserId),
+    "espacos",
+    sanitizeString(espacoId),
+    "blocos",
+    sanitizeString(blocoId),
+    "compradores",
+    sanitizeString(compradorId)
+  );
+}
+
+function getPedidosRefs(uid) {
+  return getProjectCollectionCandidates(db, "users", sanitizeString(uid), "pedidos");
+}
+
+function getContatoRefs(idContato) {
+  return getProjectDocCandidates(db, "contatos", sanitizeString(idContato));
+}
+
+function getConversaRefs(idContato, idConversa) {
+  return getProjectDocCandidates(
+    db,
+    "contatos",
+    sanitizeString(idContato),
+    "conversas",
+    sanitizeString(idConversa)
+  );
+}
+
+function getChatRefs(idContato, idConversa, idChat) {
+  return getProjectDocCandidates(
+    db,
+    "contatos",
+    sanitizeString(idContato),
+    "conversas",
+    sanitizeString(idConversa),
+    "chat",
+    sanitizeString(idChat)
+  );
 }
 
 function buildSolicitacaoId(blocoId, compradorUid) {
@@ -120,6 +278,59 @@ function sanitizeDocId(value = "") {
   return sanitizeString(value).replace(/[^\w.-]/g, "_");
 }
 
+function sanitizeLiveToken(value = "") {
+  return sanitizeString(value).replace(/[^a-zA-Z0-9_-]/g, "_");
+}
+
+function parseLiveMs(valueMs = null, valueIso = "") {
+  const ms = Number(valueMs);
+  if (Number.isFinite(ms) && ms > 0) return ms;
+  const fromIso = Date.parse(sanitizeString(valueIso));
+  return Number.isFinite(fromIso) ? fromIso : null;
+}
+
+function extrairMiniaturaBloco(blocoData = {}) {
+  const cards = Array.isArray(blocoData?.cards) ? blocoData.cards : [];
+  const imagensPreview = Array.isArray(blocoData?.imagensPreview)
+    ? blocoData.imagensPreview
+    : [];
+  const imagensOriginaisPublicas = Array.isArray(blocoData?.imagensOriginaisPublicas)
+    ? blocoData.imagensOriginaisPublicas
+    : [];
+  const imagensLegadas = Array.isArray(blocoData?.imagens) ? blocoData.imagens : [];
+  const imagensOriginaisPaths = Array.isArray(blocoData?.imagensOriginaisPaths)
+    ? blocoData.imagensOriginaisPaths
+    : [];
+
+  const cardComImagem = cards.find((card) => sanitizeString(card?.imagem));
+  const miniaturaUrl =
+    sanitizeString(cardComImagem?.imagem) ||
+    sanitizeString(imagensPreview[0]) ||
+    sanitizeString(imagensOriginaisPublicas[0]) ||
+    sanitizeString(imagensLegadas[0]);
+  const originalUrl =
+    sanitizeString(imagensOriginaisPublicas[0]) ||
+    sanitizeString(cardComImagem?.imagem) ||
+    "";
+  const originalPath =
+    sanitizeString(imagensOriginaisPaths[0]) ||
+    sanitizeString(cardComImagem?.imagemPath) ||
+    "";
+
+  const titulo =
+    sanitizeString(cardComImagem?.nome) ||
+    sanitizeString(blocoData?.titulo) ||
+    sanitizeString(blocoData?.nome);
+
+  return {
+    url: miniaturaUrl || "",
+    miniaturaUrl: miniaturaUrl || "",
+    originalUrl: originalUrl || "",
+    originalPath: originalPath || "",
+    titulo: titulo || "",
+  };
+}
+
 async function carregarUsernamePrincipal(userUid, preferredSkinId = "") {
   const uid = sanitizeString(userUid);
   if (!uid) return "";
@@ -127,44 +338,48 @@ async function carregarUsernamePrincipal(userUid, preferredSkinId = "") {
   const preferredId = sanitizeString(preferredSkinId);
   if (preferredId) {
     try {
-      const preferredSnap = await getDoc(doc(db, "users", uid, "skins", preferredId));
-      if (preferredSnap.exists()) {
-        const preferredUsername = sanitizeString(preferredSnap.data()?.username);
-        if (preferredUsername) return preferredUsername;
+      for (const preferredRef of getSkinRefs(uid, preferredId)) {
+        const preferredSnap = await getDoc(preferredRef);
+        if (preferredSnap.exists()) {
+          const preferredUsername = sanitizeString(preferredSnap.data()?.username);
+          if (preferredUsername) return preferredUsername;
+        }
       }
     } catch {
       // Ignora indisponibilidade de permissao e tenta fallback.
     }
   }
 
-  try {
-    const mainSnap = await getDocs(
-      query(collection(db, "users", uid, "skins"), where("is_main", "==", true), limit(1))
-    );
-    if (!mainSnap.empty) {
-      const mainUsername = sanitizeString(mainSnap.docs[0].data()?.username);
-      if (mainUsername) return mainUsername;
+  for (const skinsRef of getSkinsRefs(uid)) {
+    try {
+      const mainSnap = await getDocs(query(skinsRef, where("is_main", "==", true), limit(1)));
+      if (!mainSnap.empty) {
+        const mainUsername = sanitizeString(mainSnap.docs[0].data()?.username);
+        if (mainUsername) return mainUsername;
+      }
+    } catch {
+      // Ignora indisponibilidade de permissao e tenta fallback.
     }
-  } catch {
-    // Ignora indisponibilidade de permissao e tenta fallback.
   }
 
-  try {
-    const firstSnap = await getDocs(query(collection(db, "users", uid, "skins"), limit(1)));
-    if (!firstSnap.empty) {
-      return sanitizeString(firstSnap.docs[0].data()?.username);
+  for (const skinsRef of getSkinsRefs(uid)) {
+    try {
+      const firstSnap = await getDocs(query(skinsRef, limit(1)));
+      if (!firstSnap.empty) {
+        return sanitizeString(firstSnap.docs[0].data()?.username);
+      }
+    } catch {
+      return "";
     }
-  } catch {
-    return "";
   }
 
   return "";
 }
 
 async function getBuyerContext(compradorUid) {
-  const buyerUserSnap = await getDoc(doc(db, "users", compradorUid));
+  const buyerUserSnap = await getFirstExistingProjectDocSnapshot(db, "users", compradorUid);
   return {
-    skinAtivaId: sanitizeString(buyerUserSnap.data()?.skinAtivaId),
+    skinAtivaId: sanitizeString(buyerUserSnap?.data?.()?.skinAtivaId),
   };
 }
 
@@ -175,35 +390,23 @@ async function buyerAlreadyHasAccess({
   compradorUid,
   skinAtivaId = "",
 }) {
-  const compradorUidRef = doc(
-    db,
-    "users",
-    ownerUserId,
-    "espacos",
-    espacoId,
-    "blocos",
-    blocoId,
-    "compradores",
-    compradorUid
-  );
-  const compradorUidSnap = await getDoc(compradorUidRef);
-  if (compradorUidSnap.exists()) return true;
+  for (const compradorUidRef of getCompradorRefs(ownerUserId, espacoId, blocoId, compradorUid)) {
+    const compradorUidSnap = await getDoc(compradorUidRef);
+    if (compradorUidSnap.exists()) return true;
+  }
 
   if (!skinAtivaId) return false;
-  const compradorSkinRef = doc(
-    db,
-    "users",
-    ownerUserId,
-    "espacos",
-    espacoId,
-    "blocos",
-    blocoId,
-    "compradores",
-    skinAtivaId
-  );
   try {
-    const compradorSkinSnap = await getDoc(compradorSkinRef);
-    return compradorSkinSnap.exists();
+    for (const compradorSkinRef of getCompradorRefs(
+      ownerUserId,
+      espacoId,
+      blocoId,
+      skinAtivaId
+    )) {
+      const compradorSkinSnap = await getDoc(compradorSkinRef);
+      if (compradorSkinSnap.exists()) return true;
+    }
+    return false;
   } catch (err) {
     // Em alguns fluxos onepage, skinAtivaId pode nao ser uma skin propria do comprador.
     // Nesses casos, a leitura pode ser negada pelas rules e devemos tratar como "nao comprado".
@@ -215,9 +418,17 @@ async function buyerAlreadyHasAccess({
 }
 
 async function carregarBlocoCompravel(ownerUserId, espacoId, blocoId) {
-  const blocoRef = doc(db, "users", ownerUserId, "espacos", espacoId, "blocos", blocoId);
-  const blocoSnap = await getDoc(blocoRef);
-  if (!blocoSnap.exists()) {
+  const blocoRef = getFirstRef(getBlocoRefs(ownerUserId, espacoId, blocoId));
+  const blocoSnap = await getFirstExistingProjectDocSnapshot(
+    db,
+    "users",
+    ownerUserId,
+    "espacos",
+    espacoId,
+    "blocos",
+    blocoId
+  );
+  if (!blocoSnap?.exists?.()) {
     throw new Error("Bloco nao encontrado.");
   }
 
@@ -226,6 +437,7 @@ async function carregarBlocoCompravel(ownerUserId, espacoId, blocoId) {
   const precoCentavos = toPositiveInteger(blocoData?.precoCentavos);
   const moeda = sanitizeString(blocoData?.moeda || "BRL").toUpperCase() || "BRL";
   const requerCompra = visibilidade === "exclusivo_comprador" || visibilidade === "comprado";
+  const miniatura = extrairMiniaturaBloco(blocoData);
 
   if (!requerCompra || precoCentavos <= 0) {
     throw new Error("Esse bloco nao esta configurado para compra por PIX.");
@@ -234,15 +446,30 @@ async function carregarBlocoCompravel(ownerUserId, espacoId, blocoId) {
   return {
     ref: blocoRef,
     data: blocoData,
+    tipo: sanitizeString(blocoData?.tipo).toLowerCase() || "imagem",
     visibilidade,
     precoCentavos,
     moeda,
+    miniaturaUrl: miniatura.miniaturaUrl || miniatura.url,
+    originalUrl: miniatura.originalUrl || miniatura.url,
+    originalPath: miniatura.originalPath || "",
+    miniaturaTitulo: miniatura.titulo,
+    liveInicioEmMs: parseLiveMs(blocoData?.liveInicioEmMs, blocoData?.liveInicioEmIso),
+    liveFimEmMs: parseLiveMs(blocoData?.liveFimEmMs, blocoData?.liveFimEmIso),
+    liveInicioEmIso: sanitizeString(blocoData?.liveInicioEmIso) || "",
+    liveFimEmIso: sanitizeString(blocoData?.liveFimEmIso) || "",
   };
 }
 
 async function carregarPixManualOwner(ownerUserId) {
-  const pixSnap = await getDoc(getPixManualRef(ownerUserId));
-  const pixData = pixSnap.exists() ? pixSnap.data() : {};
+  const pixSnap = await getFirstExistingProjectDocSnapshot(
+    db,
+    "users",
+    ownerUserId,
+    "integracoes",
+    "pixManual"
+  );
+  const pixData = pixSnap?.exists?.() ? pixSnap.data() : {};
   const enabled = Boolean(pixData?.enabled);
   const chavePix = sanitizeString(pixData?.chavePix);
   const qrs = normalizePixQrs(pixData?.qrs);
@@ -262,24 +489,57 @@ export async function salvarMercadoPagoCredenciais({ accessToken, publicKey = ""
   if (!mercadoPagoDisponivelNesteProjeto()) {
     throw criarErroMercadoPagoIndisponivel();
   }
-  const response = await callSalvarCredenciais({ accessToken, publicKey });
-  return response?.data || { ok: false };
+  try {
+    const response = await callSalvarCredenciais({ accessToken, publicKey });
+    limparMercadoPagoIndisponivelNoProjetoAtual();
+    return response?.data || { ok: false };
+  } catch (err) {
+    if (isMercadoPagoFunctionsIndisponivel(err)) {
+      marcarMercadoPagoIndisponivelNoProjetoAtual();
+      throw criarErroMercadoPagoIndisponivel(
+        "Cloud Functions do Mercado Pago indisponiveis neste projeto. Use PIX manual ou faca deploy das Functions."
+      );
+    }
+    throw err;
+  }
 }
 
 export async function obterStatusMercadoPago() {
   if (!mercadoPagoDisponivelNesteProjeto()) {
     return getMercadoPagoIndisponivelPayload();
   }
-  const response = await callStatusCredenciais({});
-  return response?.data || { conectado: false };
+  try {
+    const response = await callStatusCredenciais({});
+    limparMercadoPagoIndisponivelNoProjetoAtual();
+    return response?.data || { conectado: false };
+  } catch (err) {
+    if (isMercadoPagoFunctionsIndisponivel(err)) {
+      marcarMercadoPagoIndisponivelNoProjetoAtual();
+      return getMercadoPagoIndisponivelPayload(
+        "Cloud Functions do Mercado Pago indisponiveis neste projeto (CORS/deploy). Use PIX manual ou faca deploy das Functions."
+      );
+    }
+    throw err;
+  }
 }
 
 export async function desconectarMercadoPago() {
   if (!mercadoPagoDisponivelNesteProjeto()) {
     throw criarErroMercadoPagoIndisponivel();
   }
-  const response = await callDesconectarCredenciais({});
-  return response?.data || { ok: true, conectado: false };
+  try {
+    const response = await callDesconectarCredenciais({});
+    limparMercadoPagoIndisponivelNoProjetoAtual();
+    return response?.data || { ok: true, conectado: false };
+  } catch (err) {
+    if (isMercadoPagoFunctionsIndisponivel(err)) {
+      marcarMercadoPagoIndisponivelNoProjetoAtual();
+      throw criarErroMercadoPagoIndisponivel(
+        "Cloud Functions do Mercado Pago indisponiveis neste projeto. Use PIX manual ou faca deploy das Functions."
+      );
+    }
+    throw err;
+  }
 }
 
 export async function criarCheckoutBlocoMercadoPago({
@@ -293,15 +553,26 @@ export async function criarCheckoutBlocoMercadoPago({
   if (!mercadoPagoDisponivelNesteProjeto()) {
     throw criarErroMercadoPagoIndisponivel();
   }
-  const response = await callCriarCheckout({
-    ownerUserId,
-    espacoId,
-    blocoId,
-    skinUsername,
-    returnTo,
-    baseUrl,
-  });
-  return response?.data || {};
+  try {
+    const response = await callCriarCheckout({
+      ownerUserId,
+      espacoId,
+      blocoId,
+      skinUsername,
+      returnTo,
+      baseUrl,
+    });
+    limparMercadoPagoIndisponivelNoProjetoAtual();
+    return response?.data || {};
+  } catch (err) {
+    if (isMercadoPagoFunctionsIndisponivel(err)) {
+      marcarMercadoPagoIndisponivelNoProjetoAtual();
+      throw criarErroMercadoPagoIndisponivel(
+        "Checkout Mercado Pago indisponivel neste projeto. Use PIX manual ou faca deploy das Functions."
+      );
+    }
+    throw err;
+  }
 }
 
 export async function confirmarPagamentoBlocoMercadoPago({
@@ -313,13 +584,24 @@ export async function confirmarPagamentoBlocoMercadoPago({
   if (!mercadoPagoDisponivelNesteProjeto()) {
     throw criarErroMercadoPagoIndisponivel();
   }
-  const response = await callConfirmarPagamento({
-    ownerUserId,
-    espacoId,
-    blocoId,
-    paymentId,
-  });
-  return response?.data || {};
+  try {
+    const response = await callConfirmarPagamento({
+      ownerUserId,
+      espacoId,
+      blocoId,
+      paymentId,
+    });
+    limparMercadoPagoIndisponivelNoProjetoAtual();
+    return response?.data || {};
+  } catch (err) {
+    if (isMercadoPagoFunctionsIndisponivel(err)) {
+      marcarMercadoPagoIndisponivelNoProjetoAtual();
+      throw criarErroMercadoPagoIndisponivel(
+        "Confirmacao Mercado Pago indisponivel neste projeto. Use PIX manual ou faca deploy das Functions."
+      );
+    }
+    throw err;
+  }
 }
 
 export async function salvarPixManualConfig({
@@ -343,8 +625,8 @@ export async function salvarPixManualConfig({
 
   const qrsNormalizados = normalizePixQrs(qrs);
 
-  await setDoc(
-    getPixManualRef(uid),
+  await setDocOnCandidates(
+    getPixManualRefs(uid),
     {
       enabled: Boolean(enabled),
       chavePix: chavePixLimpa || null,
@@ -503,35 +785,43 @@ export async function solicitarSolicitacaoPixManualBloco({
   ]);
 
   const solicitacaoId = buildSolicitacaoId(bloco, compradorUid);
-  const solicitacaoRef = getSolicitacaoRef(ownerUid, solicitacaoId);
+  const solicitacaoRefs = getSolicitacaoRefs(ownerUid, solicitacaoId);
+  const solicitacaoRef = getFirstRef(solicitacaoRefs);
   const compradorAtual = auth.currentUser;
+  const payloadSolicitacao = {
+    solicitacaoId,
+    pedidoId: solicitacaoId,
+    ownerUserId: ownerUid,
+    espacoId: espaco,
+    blocoId: bloco,
+    compradorUid,
+    compradorSkinId: buyerContext.skinAtivaId || null,
+    compradorEmail: sanitizeString(compradorAtual?.email) || null,
+    compradorNome: sanitizeString(compradorAtual?.displayName) || null,
+    compradorUsername: compradorUsername || null,
+    ownerUsername: ownerUsername || null,
+    observacaoComprador: sanitizeString(observacaoComprador) || null,
+    blocoTipo: blocoInfo.tipo || "imagem",
+    blocoLiveInicioEmMs: blocoInfo.liveInicioEmMs || null,
+    blocoLiveFimEmMs: blocoInfo.liveFimEmMs || null,
+    blocoLiveInicioEmIso: blocoInfo.liveInicioEmIso || null,
+    blocoLiveFimEmIso: blocoInfo.liveFimEmIso || null,
+    precoCentavos: blocoInfo.precoCentavos,
+    moeda: blocoInfo.moeda,
+    blocoMiniaturaUrl: blocoInfo.miniaturaUrl || null,
+    blocoMiniaturaTitulo: blocoInfo.miniaturaTitulo || null,
+    blocoOriginalUrl: blocoInfo.originalUrl || null,
+    blocoOriginalPath: blocoInfo.originalPath || null,
+    blocoOriginalTitulo: blocoInfo.miniaturaTitulo || null,
+    qrSelecionado,
+    status: "pedido_solicitado",
+    atualizadoEm: serverTimestamp(),
+    criadoEm: serverTimestamp(),
+    confirmadoEm: null,
+    confirmadoPorUid: null,
+  };
   try {
-    await setDoc(
-      solicitacaoRef,
-      {
-        solicitacaoId,
-        pedidoId: solicitacaoId,
-        ownerUserId: ownerUid,
-        espacoId: espaco,
-        blocoId: bloco,
-        compradorUid,
-        compradorSkinId: buyerContext.skinAtivaId || null,
-        compradorEmail: sanitizeString(compradorAtual?.email) || null,
-        compradorNome: sanitizeString(compradorAtual?.displayName) || null,
-        compradorUsername: compradorUsername || null,
-        ownerUsername: ownerUsername || null,
-        observacaoComprador: sanitizeString(observacaoComprador) || null,
-        precoCentavos: blocoInfo.precoCentavos,
-        moeda: blocoInfo.moeda,
-        qrSelecionado,
-        status: "pedido_solicitado",
-        atualizadoEm: serverTimestamp(),
-        criadoEm: serverTimestamp(),
-        confirmadoEm: null,
-        confirmadoPorUid: null,
-      },
-      { merge: true }
-    );
+    await setDocOnCandidates(solicitacaoRefs, payloadSolicitacao, { merge: true });
   } catch (err) {
     if (String(err?.code || "") !== "permission-denied") {
       throw err;
@@ -539,20 +829,22 @@ export async function solicitarSolicitacaoPixManualBloco({
 
     // Se a escrita falhou por permissao, pode ser que a solicitacao ja exista
     // (update bloqueado para comprador). Nessa situacao, retornamos a solicitacao existente.
-    const pedidoExistenteSnap = await getDoc(solicitacaoRef).catch(() => null);
-    if (pedidoExistenteSnap?.exists?.()) {
-      const pedidoExistente = pedidoExistenteSnap.data() || {};
-      const mesmoComprador = sanitizeString(pedidoExistente?.compradorUid) === compradorUid;
-      const mesmoOwner = sanitizeString(pedidoExistente?.ownerUserId) === ownerUid;
-      if (mesmoComprador && mesmoOwner) {
-        return {
-          ok: true,
-          alreadyPurchased: false,
-          alreadyRequested: true,
-          solicitacaoId,
-          pedidoId: solicitacaoId,
-          status: sanitizeString(pedidoExistente?.status) || "pedido_solicitado",
-        };
+    for (const refItem of solicitacaoRefs) {
+      const pedidoExistenteSnap = await getDoc(refItem).catch(() => null);
+      if (pedidoExistenteSnap?.exists?.()) {
+        const pedidoExistente = pedidoExistenteSnap.data() || {};
+        const mesmoComprador = sanitizeString(pedidoExistente?.compradorUid) === compradorUid;
+        const mesmoOwner = sanitizeString(pedidoExistente?.ownerUserId) === ownerUid;
+        if (mesmoComprador && mesmoOwner) {
+          return {
+            ok: true,
+            alreadyPurchased: false,
+            alreadyRequested: true,
+            solicitacaoId,
+            pedidoId: solicitacaoId,
+            status: sanitizeString(pedidoExistente?.status) || "pedido_solicitado",
+          };
+        }
       }
     }
 
@@ -594,32 +886,37 @@ export async function listarSolicitacoesPixManual({ ownerUserId = "" } = {}) {
     });
 
   const solicitacoes = [];
+  const appendSolicitacoesFromCollections = async (collections = [], filtroCompradorUid = "") => {
+    for (const pedidosRef of collections) {
+      const snap = filtroCompradorUid
+        ? await getDocs(query(pedidosRef, where("compradorUid", "==", filtroCompradorUid)))
+        : await getDocs(pedidosRef);
+      solicitacoes.push(...parseDocs(snap.docs));
+    }
+  };
+
   if (ownerUid) {
     const isOwnerView = ownerUid === currentUid;
-    const solicitacoesSnap = isOwnerView
-      ? await getDocs(collection(db, "users", currentUid, "pedidos"))
-      : await getDocs(
-          query(
-            collection(db, "users", ownerUid, "pedidos"),
-            where("compradorUid", "==", currentUid)
-          )
-        );
-    solicitacoes.push(...parseDocs(solicitacoesSnap.docs));
+    const colecoesPedido = isOwnerView ? getPedidosRefs(currentUid) : getPedidosRefs(ownerUid);
+    await appendSolicitacoesFromCollections(
+      colecoesPedido,
+      isOwnerView ? "" : currentUid
+    );
   } else {
-    const ownerSnap = await getDocs(collection(db, "users", currentUid, "pedidos"));
-    solicitacoes.push(...parseDocs(ownerSnap.docs));
+    await appendSolicitacoesFromCollections(getPedidosRefs(currentUid));
 
-    try {
-      const buyerSnap = await getDocs(
-        query(collectionGroup(db, "pedidos"), where("compradorUid", "==", currentUid))
+    const ownerCandidates = Array.from(
+      new Set(
+        [currentUid]
+          .filter(Boolean)
+          .map((value) => sanitizeString(value))
+      )
+    );
+    for (const ownerCandidate of ownerCandidates) {
+      await appendSolicitacoesFromCollections(
+        getPedidosRefs(ownerCandidate),
+        currentUid
       );
-      solicitacoes.push(...parseDocs(buyerSnap.docs));
-    } catch (err) {
-      if (String(err?.code || "") !== "permission-denied") {
-        throw err;
-      }
-      // Em alguns projetos/regras, collectionGroup da colecao legada "pedidos" pode ser bloqueado.
-      // Nesses casos, seguimos com a colecao local do usuario autenticado.
     }
   }
 
@@ -665,16 +962,16 @@ function montarSessaoChatContext({
   const idConversa = "principal";
   const idChat = sanitizeDocId(`sistema_confirmacao_${solicitacaoIdNorm}`) || "sistema_confirmacao";
 
-  const contatoRef = doc(db, "contatos", idContato);
-  const conversaRef = doc(db, "contatos", idContato, "conversas", idConversa);
-  const chatRef = doc(db, "contatos", idContato, "conversas", idConversa, "chat", idChat);
+  const contatoRefs = getContatoRefs(idContato);
+  const conversaRefs = getConversaRefs(idContato, idConversa);
+  const chatRefs = getChatRefs(idContato, idConversa, idChat);
 
   return {
     idContato,
     idConversa,
-    contatoRef,
-    conversaRef,
-    chatRef,
+    contatoRefs,
+    conversaRefs,
+    chatRefs,
     contatoPayload: {
       idContato,
       conversaId: idConversa,
@@ -694,7 +991,7 @@ function montarSessaoChatContext({
       solicitacaoId: solicitacaoIdNorm,
       espacoId: sanitizeString(espacoId),
       blocoId: sanitizeString(blocoId),
-      ultimaMensagem: "Sessao confirmada. Use este chat para combinar os detalhes.",
+      ultimaMensagem: "Sessao confirmada.",
       dataUltimaMensagem: serverTimestamp(),
       data: serverTimestamp(),
       origem: "sessao_pix_manual",
@@ -703,9 +1000,61 @@ function montarSessaoChatContext({
       idConversa,
       idChat,
       userRemetente: ownerUsernameNorm,
-      mensagem: "Sessao confirmada. Use este chat para combinar os detalhes.",
+      mensagem: "Sessao confirmada.",
       data: serverTimestamp(),
       origem: "sistema",
+    },
+  };
+}
+
+function montarSessaoChatLiveContext({
+  ownerUid = "",
+  espacoId = "",
+  blocoId = "",
+  ownerUsername = "",
+} = {}) {
+  const ownerUidNorm = sanitizeString(ownerUid);
+  const espacoIdNorm = sanitizeString(espacoId);
+  const blocoIdNorm = sanitizeString(blocoId);
+  const ownerUsernameNorm = sanitizeString(ownerUsername) || `admin_${ownerUidNorm.slice(0, 8)}`;
+
+  const idContato = `live_${sanitizeLiveToken(ownerUidNorm)}_${sanitizeLiveToken(
+    espacoIdNorm
+  )}_${sanitizeLiveToken(blocoIdNorm)}`.slice(0, 180);
+  const idConversa = "principal";
+
+  const contatoRefs = getContatoRefs(idContato);
+  const conversaRefs = getConversaRefs(idContato, idConversa);
+
+  return {
+    idContato,
+    idConversa,
+    contatoRefs,
+    conversaRefs,
+    contatoPayload: {
+      idContato,
+      conversaId: idConversa,
+      skinRemetente: ownerUsernameNorm,
+      skinDestinatario: "participantes_live",
+      ownerUserId: ownerUidNorm,
+      espacoId: espacoIdNorm,
+      blocoId: blocoIdNorm,
+      ultimaConversaData: serverTimestamp(),
+      origem: "live_grupo_pix_manual",
+      tipo: "live",
+    },
+    conversaPayload: {
+      assunto: "CHAT DA LIVE",
+      idContato,
+      idConversa,
+      ownerUserId: ownerUidNorm,
+      espacoId: espacoIdNorm,
+      blocoId: blocoIdNorm,
+      ultimaMensagem: "Acesso confirmado para a live.",
+      dataUltimaMensagem: serverTimestamp(),
+      data: serverTimestamp(),
+      origem: "live_grupo_pix_manual",
+      tipo: "live",
     },
   };
 }
@@ -725,9 +1074,16 @@ export async function confirmarSolicitacaoPixManual({
   }
 
   const idSolicitacaoNormalizado = sanitizeString(solicitacaoId);
-  const pedidoRef = getSolicitacaoRef(ownerUid, idSolicitacaoNormalizado);
-  const pedidoSnap = await getDoc(pedidoRef);
-  if (!pedidoSnap.exists()) {
+  const pedidoRefs = getSolicitacaoRefs(ownerUid, idSolicitacaoNormalizado);
+  let pedidoSnap = null;
+  for (const pedidoRefItem of pedidoRefs) {
+    const snapAtual = await getDoc(pedidoRefItem).catch(() => null);
+    if (snapAtual?.exists?.()) {
+      pedidoSnap = snapAtual;
+      break;
+    }
+  }
+  if (!pedidoSnap?.exists?.()) {
     throw new Error("Solicitacao nao encontrada.");
   }
 
@@ -740,12 +1096,75 @@ export async function confirmarSolicitacaoPixManual({
   const espacoId = sanitizeString(pedido?.espacoId);
   const compradorUid = sanitizeString(pedido?.compradorUid);
   const compradorSkinId = sanitizeString(pedido?.compradorSkinId);
+  let blocoTipo = sanitizeString(pedido?.blocoTipo).toLowerCase();
+  let blocoLiveInicioEmMs = parseLiveMs(
+    pedido?.blocoLiveInicioEmMs,
+    pedido?.blocoLiveInicioEmIso
+  );
+  let blocoLiveFimEmMs = parseLiveMs(pedido?.blocoLiveFimEmMs, pedido?.blocoLiveFimEmIso);
+  let blocoLiveInicioEmIso = sanitizeString(pedido?.blocoLiveInicioEmIso) || "";
+  let blocoLiveFimEmIso = sanitizeString(pedido?.blocoLiveFimEmIso) || "";
 
   if (!blocoId || !espacoId || !compradorUid) {
     throw new Error("Solicitacao invalida para confirmacao.");
   }
 
-  const contextoSessaoChat = montarSessaoChatContext({
+  let blocoMiniaturaUrl = sanitizeString(pedido?.blocoMiniaturaUrl);
+  let blocoOriginalUrl = sanitizeString(pedido?.blocoOriginalUrl);
+  let blocoOriginalPath = sanitizeString(pedido?.blocoOriginalPath);
+  try {
+    const blocoSnap = await getFirstExistingProjectDocSnapshot(
+      db,
+      "users",
+      ownerUid,
+      "espacos",
+      espacoId,
+      "blocos",
+      blocoId
+    );
+    if (blocoSnap?.exists?.()) {
+      const blocoAtual = blocoSnap.data() || {};
+      const miniaturaAtual = extrairMiniaturaBloco(blocoAtual);
+      blocoMiniaturaUrl = sanitizeString(
+        blocoMiniaturaUrl || miniaturaAtual.miniaturaUrl || miniaturaAtual.url
+      );
+      blocoOriginalPath = sanitizeString(blocoOriginalPath || miniaturaAtual.originalPath);
+      const originalAtual = sanitizeString(miniaturaAtual.originalUrl);
+      if (
+        (!blocoOriginalUrl || blocoOriginalUrl === blocoMiniaturaUrl) &&
+        originalAtual &&
+        originalAtual !== blocoMiniaturaUrl
+      ) {
+        blocoOriginalUrl = originalAtual;
+      }
+      if (!blocoTipo) {
+        blocoTipo = sanitizeString(blocoAtual?.tipo).toLowerCase() || "imagem";
+      }
+      if (!blocoLiveInicioEmMs) {
+        blocoLiveInicioEmMs = parseLiveMs(blocoAtual?.liveInicioEmMs, blocoAtual?.liveInicioEmIso);
+      }
+      if (!blocoLiveFimEmMs) {
+        blocoLiveFimEmMs = parseLiveMs(blocoAtual?.liveFimEmMs, blocoAtual?.liveFimEmIso);
+      }
+      if (!blocoLiveInicioEmIso) {
+        blocoLiveInicioEmIso = sanitizeString(blocoAtual?.liveInicioEmIso) || "";
+      }
+      if (!blocoLiveFimEmIso) {
+        blocoLiveFimEmIso = sanitizeString(blocoAtual?.liveFimEmIso) || "";
+      }
+    }
+  } catch {
+    // Mantem os dados ja persistidos na solicitacao em caso de falha de leitura.
+  }
+
+  const contextoSessaoChat = blocoTipo === "live"
+    ? montarSessaoChatLiveContext({
+        ownerUid,
+        espacoId,
+        blocoId,
+        ownerUsername: sanitizeString(pedido?.ownerUsername),
+      })
+    : montarSessaoChatContext({
     ownerUid,
     compradorUid,
     solicitacaoId: idSolicitacaoNormalizado,
@@ -755,52 +1174,17 @@ export async function confirmarSolicitacaoPixManual({
     compradorUsername: sanitizeString(pedido?.compradorUsername || pedido?.compradorNome),
   });
 
-  const compradorRef = doc(
-    db,
-    "users",
-    ownerUid,
-    "espacos",
-    espacoId,
-    "blocos",
-    blocoId,
-    "compradores",
-    compradorUid
-  );
+  const compradorRefs = getCompradorRefs(ownerUid, espacoId, blocoId, compradorUid);
 
   const batch = writeBatch(db);
-  batch.set(
-    compradorRef,
-    {
-      liberadoPorPedidoId: idSolicitacaoNormalizado,
-      liberadoEm: serverTimestamp(),
-      confirmadoPorUid: currentUid,
-      compradorUid,
-      espacoId,
-      blocoId,
-    },
-    { merge: true }
-  );
-
-  if (compradorSkinId) {
-    const compradorSkinRef = doc(
-      db,
-      "users",
-      ownerUid,
-      "espacos",
-      espacoId,
-      "blocos",
-      blocoId,
-      "compradores",
-      compradorSkinId
-    );
+  for (const compradorRef of compradorRefs) {
     batch.set(
-      compradorSkinRef,
+      compradorRef,
       {
         liberadoPorPedidoId: idSolicitacaoNormalizado,
         liberadoEm: serverTimestamp(),
         confirmadoPorUid: currentUid,
         compradorUid,
-        compradorSkinId,
         espacoId,
         blocoId,
       },
@@ -808,24 +1192,65 @@ export async function confirmarSolicitacaoPixManual({
     );
   }
 
-  batch.set(contextoSessaoChat.contatoRef, contextoSessaoChat.contatoPayload, { merge: true });
-  batch.set(contextoSessaoChat.conversaRef, contextoSessaoChat.conversaPayload, { merge: true });
-  batch.set(contextoSessaoChat.chatRef, contextoSessaoChat.chatPayload, { merge: true });
+  if (compradorSkinId) {
+    for (const compradorSkinRef of getCompradorRefs(
+      ownerUid,
+      espacoId,
+      blocoId,
+      compradorSkinId
+    )) {
+      batch.set(
+        compradorSkinRef,
+        {
+          liberadoPorPedidoId: idSolicitacaoNormalizado,
+          liberadoEm: serverTimestamp(),
+          confirmadoPorUid: currentUid,
+          compradorUid,
+          compradorSkinId,
+          espacoId,
+          blocoId,
+        },
+        { merge: true }
+      );
+    }
+  }
 
-  batch.set(
-    pedidoRef,
-    {
-      status: "pagamento_confirmado",
-      confirmadoEm: serverTimestamp(),
-      confirmadoPorUid: currentUid,
-      atualizadoEm: serverTimestamp(),
-      sessionStatus: "confirmada",
-      sessionCriadaEm: serverTimestamp(),
-      sessionContactId: contextoSessaoChat.idContato,
-      sessionConversationId: contextoSessaoChat.idConversa,
-    },
-    { merge: true }
-  );
+  for (const contatoRef of contextoSessaoChat.contatoRefs || []) {
+    batch.set(contatoRef, contextoSessaoChat.contatoPayload, { merge: true });
+  }
+  for (const conversaRef of contextoSessaoChat.conversaRefs || []) {
+    batch.set(conversaRef, contextoSessaoChat.conversaPayload, { merge: true });
+  }
+  if (contextoSessaoChat.chatRefs?.length && contextoSessaoChat.chatPayload) {
+    for (const chatRef of contextoSessaoChat.chatRefs) {
+      batch.set(chatRef, contextoSessaoChat.chatPayload, { merge: true });
+    }
+  }
+
+  for (const pedidoRef of pedidoRefs) {
+    batch.set(
+      pedidoRef,
+      {
+        status: "pagamento_confirmado",
+        confirmadoEm: serverTimestamp(),
+        confirmadoPorUid: currentUid,
+        atualizadoEm: serverTimestamp(),
+        sessionStatus: "confirmada",
+        sessionCriadaEm: serverTimestamp(),
+        sessionContactId: contextoSessaoChat.idContato,
+        sessionConversationId: contextoSessaoChat.idConversa,
+        blocoTipo: blocoTipo || "imagem",
+        blocoLiveInicioEmMs: blocoLiveInicioEmMs || null,
+        blocoLiveFimEmMs: blocoLiveFimEmMs || null,
+        blocoLiveInicioEmIso: blocoLiveInicioEmIso || null,
+        blocoLiveFimEmIso: blocoLiveFimEmIso || null,
+        blocoMiniaturaUrl: blocoMiniaturaUrl || null,
+        blocoOriginalUrl: blocoOriginalUrl || null,
+        blocoOriginalPath: blocoOriginalPath || null,
+      },
+      { merge: true }
+    );
+  }
 
   await batch.commit();
   return {

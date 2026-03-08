@@ -14,6 +14,10 @@ import {
   where,
 } from "firebase/firestore";
 import { auth, db } from "../../Banco/init-firebase";
+import {
+  getPrimaryProjectCollection,
+  getPrimaryProjectDoc,
+} from "../../Banco/projectDataRefs";
 import { obterStatusMercadoPago, obterStatusPixManual } from "../Pagamentos/mercadoPagoApi";
 import {
   DEFAULT_SISTEMA_CONFIG,
@@ -188,7 +192,7 @@ export default function EspacoManager() {
         for (const ownerUidCandidate of ownerUidCandidates) {
           if (!ownerUidCandidate) continue;
 
-          const skinsRef = collection(db, "users", ownerUidCandidate, "skins");
+          const skinsRef = getPrimaryProjectCollection(db, "users", ownerUidCandidate, "skins");
           let skinsSnap = await getDocs(query(skinsRef, where("is_main", "==", true), limit(1)));
 
           if (skinsSnap.empty) {
@@ -348,7 +352,7 @@ export default function EspacoManager() {
         // Continua com a leitura dos espacos com a config em cache.
       }
 
-      const espacosSnap = await getDocs(collection(db, "users", userId, "espacos"));
+      const espacosSnap = await getDocs(getPrimaryProjectCollection(db, "users", userId, "espacos"));
 
       const todosEspacos = espacosSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
@@ -398,7 +402,7 @@ export default function EspacoManager() {
     if (!novoNome.trim()) return;
     const iconPayload = parseIconSelectionValue(novaSelecaoIcone, iconCollectionsFiltradas);
 
-    const ref = doc(collection(db, "users", userId, "espacos"));
+    const ref = doc(getPrimaryProjectCollection(db, "users", userId, "espacos"));
 
     const novoEspaco = {
       id_espaco: ref.id,
@@ -454,7 +458,7 @@ export default function EspacoManager() {
       ownerUserId: espacoExistente?.ownerUserId || userId,
     };
 
-    await updateDoc(doc(db, "users", userId, "espacos", espacoId), {
+    await updateDoc(getPrimaryProjectDoc(db, "users", userId, "espacos", espacoId), {
       nome: editingNome.trim(),
       visibilidade: editingVisibilidade || "publico",
       ...iconPayload,
@@ -471,7 +475,7 @@ export default function EspacoManager() {
       ...homeDaSkin,
       ...patch,
     };
-    await updateDoc(doc(db, "users", userId, "espacos", homeDaSkin.id), {
+    await updateDoc(getPrimaryProjectDoc(db, "users", userId, "espacos", homeDaSkin.id), {
       ...patch,
     });
     await sincronizarEstruturaPublicaEspaco(userId, {
@@ -488,7 +492,7 @@ export default function EspacoManager() {
     );
     if (!ok) return;
 
-    await deleteDoc(doc(db, "users", userId, "espacos", espaco.id));
+    await deleteDoc(getPrimaryProjectDoc(db, "users", userId, "espacos", espaco.id));
     await removerEstruturaPublicaEspaco(userId, espaco.id);
 
     if (editingEspacoId === espaco.id) {
@@ -500,7 +504,7 @@ export default function EspacoManager() {
 
   const salvarOrdem = async (listaOrdenada) => {
     const updates = listaOrdenada.map((espaco, index) =>
-      updateDoc(doc(db, "users", userId, "espacos", espaco.id), {
+      updateDoc(getPrimaryProjectDoc(db, "users", userId, "espacos", espaco.id), {
         ordem: index + 1,
       })
     );
@@ -534,7 +538,7 @@ export default function EspacoManager() {
   };
 
   const relacionar = async (id) => {
-    await updateDoc(doc(db, "users", userId, "espacos", id), {
+    await updateDoc(getPrimaryProjectDoc(db, "users", userId, "espacos", id), {
       skins_relacionadas: arrayUnion(skinIdAtual),
     });
     const espaco = espacosRelacionaveis.find((item) => item.id === id);
@@ -551,7 +555,7 @@ export default function EspacoManager() {
   };
 
   const remover = async (id) => {
-    await updateDoc(doc(db, "users", userId, "espacos", id), {
+    await updateDoc(getPrimaryProjectDoc(db, "users", userId, "espacos", id), {
       skins_relacionadas: arrayRemove(skinIdAtual),
     });
     const espaco = espacosRelacionados.find((item) => item.id === id);
