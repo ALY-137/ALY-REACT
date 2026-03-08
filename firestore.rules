@@ -544,6 +544,22 @@ service cloud.firestore {
           allow create: if true;
           allow read, update, delete: if isAdmin() || signedIn();
         }
+
+        // Sinalizacao WebRTC para live (ofertas/respostas e ICE candidates).
+        match /webrtc/{peerId} {
+          allow create: if true;
+          allow read, update, delete: if isAdmin() || signedIn();
+
+          match /viewerCandidates/{candidateId} {
+            allow create: if true;
+            allow read, update, delete: if isAdmin() || signedIn();
+          }
+
+          match /hostCandidates/{candidateId} {
+            allow create: if true;
+            allow read, update, delete: if isAdmin() || signedIn();
+          }
+        }
       }
     }
 
@@ -806,6 +822,22 @@ service cloud.firestore {
           match /chats/{chatId} {
             allow create: if true;
             allow read, update, delete: if isAdmin() || isProjetoAdmin(projectKey) || signedIn();
+          }
+
+          // Sinalizacao WebRTC para live (ofertas/respostas e ICE candidates).
+          match /webrtc/{peerId} {
+            allow create: if true;
+            allow read, update, delete: if isAdmin() || isProjetoAdmin(projectKey) || signedIn();
+
+            match /viewerCandidates/{candidateId} {
+              allow create: if true;
+              allow read, update, delete: if isAdmin() || isProjetoAdmin(projectKey) || signedIn();
+            }
+
+            match /hostCandidates/{candidateId} {
+              allow create: if true;
+              allow read, update, delete: if isAdmin() || isProjetoAdmin(projectKey) || signedIn();
+            }
           }
         }
       }

@@ -91,6 +91,48 @@ const getConversaDocRefs = (contactId, conversationId) =>
   getProjectDocCandidates(db, "contatos", contactId, "conversas", conversationId);
 const getChatCollectionRefs = (contactId, conversationId) =>
   getProjectCollectionCandidates(db, "contatos", contactId, "conversas", conversationId, "chat");
+const getLiveRtcSessionCollectionRefs = (contactId, conversationId) =>
+  getProjectCollectionCandidates(
+    db,
+    "contatos",
+    contactId,
+    "conversas",
+    conversationId,
+    "webrtc"
+  );
+const getLiveRtcSessionDocRefs = (contactId, conversationId, viewerUid) =>
+  getProjectDocCandidates(
+    db,
+    "contatos",
+    contactId,
+    "conversas",
+    conversationId,
+    "webrtc",
+    viewerUid
+  );
+const getLiveRtcCandidatesCollectionRefs = (
+  contactId,
+  conversationId,
+  viewerUid,
+  side = "viewerCandidates"
+) =>
+  getProjectCollectionCandidates(
+    db,
+    "contatos",
+    contactId,
+    "conversas",
+    conversationId,
+    "webrtc",
+    viewerUid,
+    side
+  );
+
+const LIVE_WEBRTC_CONFIG = {
+  iceServers: [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+  ],
+};
 
 const isRenderableUrl = (valor) =>
   typeof valor === "string" &&
@@ -481,6 +523,9 @@ export default function EspacoPage() {
   const [liveChatErro, setLiveChatErro] = useState("");
   const [liveCameraAtiva, setLiveCameraAtiva] = useState(false);
   const [liveCameraErro, setLiveCameraErro] = useState("");
+  const [liveCameraRemotaAtiva, setLiveCameraRemotaAtiva] = useState(false);
+  const [liveCameraRemotaErro, setLiveCameraRemotaErro] = useState("");
+  const [liveCameraRemotaStatus, setLiveCameraRemotaStatus] = useState("");
   const liveModalEhVideoDireto = useMemo(
     () => /\.(mp4|webm|ogg)(\?|$)/i.test(String(liveModal.liveUrl || "").trim()),
     [liveModal.liveUrl]
@@ -491,6 +536,12 @@ export default function EspacoPage() {
   const liveChatScrollRef = useRef(null);
   const liveCameraVideoRef = useRef(null);
   const liveCameraStreamRef = useRef(null);
+  const liveCameraRemotaVideoRef = useRef(null);
+  const liveCameraRemotaStreamRef = useRef(null);
+  const liveRtcHostPeersRef = useRef(new Map());
+  const liveRtcHostRoomUnsubRef = useRef(null);
+  const liveRtcViewerPeerRef = useRef(null);
+  const liveRtcViewerUnsubsRef = useRef([]);
   const nomeEspacoSingularCapitalizado = capitalizar(nomeEspacoSingular);
   const nomeBlocoSingularCapitalizado = capitalizar(nomeBlocoSingular);
   const loginLoadingMode = String(configSistemaCacheLocal?.loginLoadingMode || "")
@@ -584,7 +635,98 @@ export default function EspacoPage() {
       )
   );
 
+  const limparCameraRemotaLive = (limparErro = false) => {
+    const streamRemoto = liveCameraRemotaStreamRef.current;
+    if (streamRemoto?.getTracks) {
+      streamRemoto.getTracks().forEach((track) => {
+        try {
+          track.stop();
+        } catch {
+          // Ignora falha ao finalizar track remoto.
+        }
+      });
+    }
+    liveCameraRemotaStreamRef.current = null;
+
+    if (liveCameraRemotaVideoRef.current) {
+      try {
+        liveCameraRemotaVideoRef.current.srcObject = null;
+      } catch {
+        // no-op
+      }
+    }
+
+    setLiveCameraRemotaAtiva(false);
+    setLiveCameraRemotaStatus("");
+    if (limparErro) {
+      setLiveCameraRemotaErro("");
+    }
+  };
+
+  const encerrarViewerRtcLive = (limparErro = false) => {
+    for (const unsubscribe of liveRtcViewerUnsubsRef.current) {
+      try {
+        unsubscribe?.();
+      } catch {
+        // no-op
+      }
+    }
+    liveRtcViewerUnsubsRef.current = [];
+
+    if (liveRtcViewerPeerRef.current) {
+      try {
+        liveRtcViewerPeerRef.current.close();
+      } catch {
+        // no-op
+      }
+      liveRtcViewerPeerRef.current = null;
+    }
+
+    limparCameraRemotaLive(limparErro);
+  };
+
+  const encerrarPeerRtcHost = (viewerUid) => {
+    const chave = String(viewerUid || "").trim();
+    if (!chave) return;
+
+    const peerContexto = liveRtcHostPeersRef.current.get(chave);
+    if (!peerContexto) return;
+
+    for (const unsubscribe of peerContexto.unsubscribers || []) {
+      try {
+        unsubscribe?.();
+      } catch {
+        // no-op
+      }
+    }
+
+    try {
+      peerContexto.pc?.close?.();
+    } catch {
+      // no-op
+    }
+
+    liveRtcHostPeersRef.current.delete(chave);
+  };
+
+  const encerrarHostRtcLive = () => {
+    if (liveRtcHostRoomUnsubRef.current) {
+      try {
+        liveRtcHostRoomUnsubRef.current();
+      } catch {
+        // no-op
+      }
+      liveRtcHostRoomUnsubRef.current = null;
+    }
+
+    for (const viewerUid of liveRtcHostPeersRef.current.keys()) {
+      encerrarPeerRtcHost(viewerUid);
+    }
+    liveRtcHostPeersRef.current.clear();
+  };
+
   const desligarCameraLive = (limparErro = false) => {
+    encerrarHostRtcLive();
     const streamAtual = liveCameraStreamRef.current;
     if (streamAtual?.getTracks) {
       streamAtual.getTracks().forEach((track) => {
@@ -709,6 +851,43 @@ export default function EspacoPage() {
 
   useEffect(
     () => () => {
+      try {
+        liveRtcHostRoomUnsubRef.current?.();
+      } catch {
+        // no-op
+      }
+      liveRtcHostRoomUnsubRef.current = null;
+      for (const peerContexto of liveRtcHostPeersRef.current.values()) {
+        for (const unsubscribe of peerContexto?.unsubscribers || []) {
+          try {
+            unsubscribe?.();
+          } catch {
+            // no-op
+          }
+        }
+        try {
+          peerContexto?.pc?.close?.();
+        } catch {
+          // no-op
+        }
+      }
+      liveRtcHostPeersRef.current.clear();
+
+      for (const unsubscribe of liveRtcViewerUnsubsRef.current) {
+        try {
+          unsubscribe?.();
+        } catch {
+          // no-op
+        }
+      }
+      liveRtcViewerUnsubsRef.current = [];
+      try {
+        liveRtcViewerPeerRef.current?.close?.();
+      } catch {
+        // no-op
+      }
+      liveRtcViewerPeerRef.current = null;
+
       const streamAtual = liveCameraStreamRef.current;
       if (streamAtual?.getTracks) {
         streamAtual.getTracks().forEach((track) => {
@@ -719,9 +898,340 @@ export default function EspacoPage() {
           }
         });
       }
+
+      const streamRemoto = liveCameraRemotaStreamRef.current;
+      if (streamRemoto?.getTracks) {
+        streamRemoto.getTracks().forEach((track) => {
+          try {
+            track.stop();
+          } catch {
+            // cleanup silencioso
+          }
+        });
+      }
     },
     []
   );
+
+  useEffect(() => {
+    const deveAtivarHostRtc =
+      liveModal.aberto &&
+      usuarioPodeControlarCameraLive &&
+      liveCameraAtiva &&
+      currentUid &&
+      liveModal.contactId &&
+      liveModal.conversationId;
+
+    if (!deveAtivarHostRtc) {
+      encerrarHostRtcLive();
+      return undefined;
+    }
+
+    const contactId = String(liveModal.contactId || "").trim();
+    const conversationId = String(liveModal.conversationId || "principal").trim();
+    const ownerUidAtual = String(currentUid || "").trim();
+    const streamLocal = liveCameraStreamRef.current;
+    const sessaoRtcRef = getFirstRef(
+      getLiveRtcSessionCollectionRefs(contactId, conversationId)
+    );
+
+    if (typeof RTCPeerConnection !== "function") return undefined;
+    if (!sessaoRtcRef || !streamLocal) return undefined;
+
+    const unsubscribeRoom = onSnapshot(
+      sessaoRtcRef,
+      (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+          const viewerUid = String(change.doc.id || "").trim();
+          if (!viewerUid || viewerUid === ownerUidAtual) return;
+
+          if (change.type === "removed") {
+            encerrarPeerRtcHost(viewerUid);
+            return;
+          }
+
+          const dadosSessao = change.doc.data() || {};
+          const offer = dadosSessao?.offer;
+          if (!offer || typeof offer !== "object") return;
+          if (liveRtcHostPeersRef.current.has(viewerUid)) return;
+
+          const peer = new RTCPeerConnection(LIVE_WEBRTC_CONFIG);
+          const viewerCandidateIds = new Set();
+          const unsubscribers = [];
+
+          streamLocal.getTracks().forEach((track) => {
+            try {
+              peer.addTrack(track, streamLocal);
+            } catch {
+              // Ignora track invalida.
+            }
+          });
+
+          peer.onicecandidate = (event) => {
+            const candidate = event.candidate;
+            if (!candidate) return;
+            const payload = {
+              candidate: candidate.toJSON(),
+              createdAt: serverTimestamp(),
+              fromUid: ownerUidAtual,
+            };
+            const hostCandidateRefs = getLiveRtcCandidatesCollectionRefs(
+              contactId,
+              conversationId,
+              viewerUid,
+              "hostCandidates"
+            );
+            hostCandidateRefs.forEach((refCandidates) => {
+              addDoc(refCandidates, payload).catch(() => {});
+            });
+          };
+
+          const viewerCandidatesRef = getFirstRef(
+            getLiveRtcCandidatesCollectionRefs(
+              contactId,
+              conversationId,
+              viewerUid,
+              "viewerCandidates"
+            )
+          );
+
+          if (viewerCandidatesRef) {
+            const unsubscribeCandidates = onSnapshot(
+              viewerCandidatesRef,
+              (candidateSnap) => {
+                candidateSnap.docChanges().forEach((candidateChange) => {
+                  if (candidateChange.type === "removed") return;
+                  if (viewerCandidateIds.has(candidateChange.doc.id)) return;
+                  viewerCandidateIds.add(candidateChange.doc.id);
+
+                  const candidateData = candidateChange.doc.data()?.candidate;
+                  if (!candidateData) return;
+                  peer
+                    .addIceCandidate(new RTCIceCandidate(candidateData))
+                    .catch(() => {});
+                });
+              },
+              () => {}
+            );
+            unsubscribers.push(unsubscribeCandidates);
+          }
+
+          liveRtcHostPeersRef.current.set(viewerUid, {
+            pc: peer,
+            unsubscribers,
+          });
+
+          const sessionDocRefs = getLiveRtcSessionDocRefs(
+            contactId,
+            conversationId,
+            viewerUid
+          );
+
+          Promise.resolve()
+            .then(async () => {
+              await peer.setRemoteDescription(new RTCSessionDescription(offer));
+              const answer = await peer.createAnswer();
+              await peer.setLocalDescription(answer);
+
+              for (const sessionDocRef of sessionDocRefs) {
+                await setDoc(
+                  sessionDocRef,
+                  {
+                    answer: answer.toJSON(),
+                    answerAt: serverTimestamp(),
+                    hostUid: ownerUidAtual,
+                    status: "answered",
+                  },
+                  { merge: true }
+                );
+              }
+            })
+            .catch(() => {
+              encerrarPeerRtcHost(viewerUid);
+            });
+        });
+      },
+      () => {}
+    );
+
+    liveRtcHostRoomUnsubRef.current = unsubscribeRoom;
+
+    return () => {
+      encerrarHostRtcLive();
+    };
+  }, [
+    liveModal.aberto,
+    liveModal.contactId,
+    liveModal.conversationId,
+    usuarioPodeControlarCameraLive,
+    liveCameraAtiva,
+    currentUid,
+  ]);
+
+  useEffect(() => {
+    const deveConectarViewer =
+      liveModal.aberto &&
+      !usuarioPodeControlarCameraLive &&
+      currentUid &&
+      liveModal.contactId &&
+      liveModal.conversationId;
+
+    if (!deveConectarViewer) {
+      encerrarViewerRtcLive(true);
+      return undefined;
+    }
+
+    const contactId = String(liveModal.contactId || "").trim();
+    const conversationId = String(liveModal.conversationId || "principal").trim();
+    const viewerUid = String(currentUid || "").trim();
+    const sessaoRef = getFirstRef(
+      getLiveRtcSessionDocRefs(contactId, conversationId, viewerUid)
+    );
+    const hostCandidatesRef = getFirstRef(
+      getLiveRtcCandidatesCollectionRefs(
+        contactId,
+        conversationId,
+        viewerUid,
+        "hostCandidates"
+      )
+    );
+    const viewerCandidatesRefs = getLiveRtcCandidatesCollectionRefs(
+      contactId,
+      conversationId,
+      viewerUid,
+      "viewerCandidates"
+    );
+
+    if (!sessaoRef) {
+      setLiveCameraRemotaErro("Canal da camera ao vivo indisponivel.");
+      return undefined;
+    }
+    if (typeof RTCPeerConnection !== "function") {
+      setLiveCameraRemotaErro("Seu navegador nao suporta transmissao ao vivo.");
+      return undefined;
+    }
+
+    setLiveCameraRemotaErro("");
+    setLiveCameraRemotaStatus("Aguardando camera do criador...");
+
+    const peer = new RTCPeerConnection(LIVE_WEBRTC_CONFIG);
+    liveRtcViewerPeerRef.current = peer;
+    let respostaAplicada = false;
+    const hostCandidateIds = new Set();
+
+    peer.addTransceiver("video", { direction: "recvonly" });
+
+    peer.ontrack = (event) => {
+      const stream = event.streams?.[0];
+      if (!stream) return;
+      liveCameraRemotaStreamRef.current = stream;
+      if (liveCameraRemotaVideoRef.current) {
+        try {
+          liveCameraRemotaVideoRef.current.srcObject = stream;
+          liveCameraRemotaVideoRef.current.play().catch(() => {});
+        } catch {
+          // no-op
+        }
+      }
+      setLiveCameraRemotaAtiva(true);
+      setLiveCameraRemotaErro("");
+      setLiveCameraRemotaStatus("Camera do criador conectada.");
+    };
+
+    peer.onconnectionstatechange = () => {
+      const estado = String(peer.connectionState || "").toLowerCase();
+      if (estado === "failed" || estado === "disconnected") {
+        setLiveCameraRemotaStatus("Conexao da camera interrompida.");
+      }
+    };
+
+    peer.onicecandidate = (event) => {
+      const candidate = event.candidate;
+      if (!candidate) return;
+      const payload = {
+        candidate: candidate.toJSON(),
+        createdAt: serverTimestamp(),
+        fromUid: viewerUid,
+      };
+      viewerCandidatesRefs.forEach((refCandidates) => {
+        addDoc(refCandidates, payload).catch(() => {});
+      });
+    };
+
+    const unsubscribeSessao = onSnapshot(
+      sessaoRef,
+      async (sessionSnap) => {
+        const dadosSessao = sessionSnap.data() || {};
+        const answer = dadosSessao?.answer;
+        if (!answer || respostaAplicada) return;
+
+        try {
+          await peer.setRemoteDescription(new RTCSessionDescription(answer));
+          respostaAplicada = true;
+        } catch {
+          setLiveCameraRemotaStatus("Falha ao conectar camera do criador.");
+        }
+      },
+      () => {
+        setLiveCameraRemotaStatus("Falha ao acompanhar camera ao vivo.");
+      }
+    );
+
+    const unsubscribeHostCandidates = hostCandidatesRef
+      ? onSnapshot(
+          hostCandidatesRef,
+          (candidateSnap) => {
+            candidateSnap.docChanges().forEach((candidateChange) => {
+              if (candidateChange.type === "removed") return;
+              if (hostCandidateIds.has(candidateChange.doc.id)) return;
+              hostCandidateIds.add(candidateChange.doc.id);
+              const candidateData = candidateChange.doc.data()?.candidate;
+              if (!candidateData) return;
+              peer
+                .addIceCandidate(new RTCIceCandidate(candidateData))
+                .catch(() => {});
+            });
+          },
+          () => {}
+        )
+      : () => {};
+
+    liveRtcViewerUnsubsRef.current = [unsubscribeSessao, unsubscribeHostCandidates];
+
+    Promise.resolve()
+      .then(async () => {
+        const offer = await peer.createOffer({
+          offerToReceiveVideo: true,
+          offerToReceiveAudio: false,
+        });
+        await peer.setLocalDescription(offer);
+
+        await setDoc(
+          sessaoRef,
+          {
+            viewerUid,
+            requestedAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            status: "offer",
+            offer: offer.toJSON(),
+          },
+          { merge: true }
+        );
+      })
+      .catch(() => {
+        setLiveCameraRemotaErro("Nao foi possivel iniciar camera ao vivo.");
+      });
+
+    return () => {
+      encerrarViewerRtcLive(true);
+    };
+  }, [
+    liveModal.aberto,
+    liveModal.contactId,
+    liveModal.conversationId,
+    usuarioPodeControlarCameraLive,
+    currentUid,
+  ]);
 
   useEffect(() => {
     if (!liveModal.aberto || !liveModal.contactId || !liveModal.conversationId) {
@@ -2773,6 +3283,67 @@ export default function EspacoPage() {
                     }}
                   />
                 </div>
+              ) : null}
+
+              {!usuarioPodeControlarCameraLive && currentUid ? (
+                <div style={{ padding: "8px 10px", borderBottom: "1px solid rgba(255,255,255,0.2)" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 8,
+                      marginBottom: 6,
+                    }}
+                  >
+                    <span style={{ color: "#fff", fontSize: 12, opacity: 0.9 }}>
+                      Camera ao vivo do criador
+                    </span>
+                    <span style={{ color: "#fff", fontSize: 11, opacity: 0.75 }}>
+                      {liveCameraRemotaStatus || "Aguardando..."}
+                    </span>
+                  </div>
+
+                  {liveCameraRemotaAtiva ? (
+                    <video
+                      ref={liveCameraRemotaVideoRef}
+                      autoPlay
+                      muted
+                      playsInline
+                      style={{
+                        width: "100%",
+                        maxHeight: 160,
+                        objectFit: "cover",
+                        borderRadius: 8,
+                        background: "#000",
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: "100%",
+                        minHeight: 88,
+                        borderRadius: 8,
+                        border: "1px dashed rgba(255,255,255,0.35)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "rgba(255,255,255,0.75)",
+                        fontSize: 12,
+                        textAlign: "center",
+                        padding: 8,
+                      }}
+                    >
+                      Aguardando o criador ligar a camera.
+                    </div>
+                  )}
+                </div>
+              ) : null}
+
+              {liveCameraRemotaErro ? (
+                <p style={{ margin: "4px 10px", color: "#ffd4d4", fontSize: 12 }}>
+                  {liveCameraRemotaErro}
+                </p>
               ) : null}
 
               <div
