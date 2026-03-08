@@ -775,11 +775,18 @@ export default function EspacoPage() {
         video: true,
         audio: false,
       });
+      const tracksVideo = stream?.getVideoTracks?.() || [];
+      if (!tracksVideo.length) {
+        throw new Error("Nenhuma trilha de video foi disponibilizada.");
+      }
 
       desligarCameraLive();
       liveCameraStreamRef.current = stream;
       if (liveCameraVideoRef.current) {
         liveCameraVideoRef.current.srcObject = stream;
+        liveCameraVideoRef.current.setAttribute("playsinline", "true");
+        liveCameraVideoRef.current.setAttribute("autoplay", "true");
+        liveCameraVideoRef.current.muted = true;
         await liveCameraVideoRef.current.play().catch(() => {});
       }
       setLiveCameraAtiva(true);
@@ -789,6 +796,46 @@ export default function EspacoPage() {
       setLiveCameraErro("Nao foi possivel acessar a camera.");
     }
   };
+
+  useEffect(() => {
+    const videoElement = liveCameraVideoRef.current;
+    const streamLocal = liveCameraStreamRef.current;
+    if (!liveModal.aberto || !liveCameraAtiva || !videoElement || !streamLocal) return;
+
+    try {
+      if (videoElement.srcObject !== streamLocal) {
+        videoElement.srcObject = streamLocal;
+      }
+      videoElement.setAttribute("playsinline", "true");
+      videoElement.setAttribute("autoplay", "true");
+      videoElement.muted = true;
+      videoElement.play().catch(() => {});
+    } catch {
+      // no-op
+    }
+  }, [liveModal.aberto, liveCameraAtiva, liveModal.contactId, liveModal.conversationId]);
+
+  useEffect(() => {
+    const videoElement = liveCameraRemotaVideoRef.current;
+    const streamRemoto = liveCameraRemotaStreamRef.current;
+    if (!liveModal.aberto || !liveCameraRemotaAtiva || !videoElement || !streamRemoto) return;
+
+    try {
+      if (videoElement.srcObject !== streamRemoto) {
+        videoElement.srcObject = streamRemoto;
+      }
+      videoElement.setAttribute("playsinline", "true");
+      videoElement.setAttribute("autoplay", "true");
+      videoElement.play().catch(() => {});
+    } catch {
+      // no-op
+    }
+  }, [
+    liveModal.aberto,
+    liveCameraRemotaAtiva,
+    liveModal.contactId,
+    liveModal.conversationId,
+  ]);
 
   const abrirModalImagem = ({ url = "", titulo = "", alt = "Imagem ampliada" } = {}) => {
     const imagemUrl = String(url || "").trim();
@@ -3270,12 +3317,28 @@ export default function EspacoPage() {
               {liveCameraAtiva ? (
                 <div style={{ padding: "8px 10px", borderBottom: "1px solid rgba(255,255,255,0.2)" }}>
                   <video
-                    ref={liveCameraVideoRef}
+                    ref={(node) => {
+                      liveCameraVideoRef.current = node;
+                      const stream = liveCameraStreamRef.current;
+                      if (!node || !stream) return;
+                      try {
+                        if (node.srcObject !== stream) {
+                          node.srcObject = stream;
+                        }
+                        node.setAttribute("playsinline", "true");
+                        node.setAttribute("autoplay", "true");
+                        node.muted = true;
+                        node.play().catch(() => {});
+                      } catch {
+                        // no-op
+                      }
+                    }}
                     autoPlay
                     muted
                     playsInline
                     style={{
                       width: "100%",
+                      height: 160,
                       maxHeight: 160,
                       objectFit: "cover",
                       borderRadius: 8,
@@ -3306,12 +3369,27 @@ export default function EspacoPage() {
 
                   {liveCameraRemotaAtiva ? (
                     <video
-                      ref={liveCameraRemotaVideoRef}
+                      ref={(node) => {
+                        liveCameraRemotaVideoRef.current = node;
+                        const stream = liveCameraRemotaStreamRef.current;
+                        if (!node || !stream) return;
+                        try {
+                          if (node.srcObject !== stream) {
+                            node.srcObject = stream;
+                          }
+                          node.setAttribute("playsinline", "true");
+                          node.setAttribute("autoplay", "true");
+                          node.play().catch(() => {});
+                        } catch {
+                          // no-op
+                        }
+                      }}
                       autoPlay
                       muted
                       playsInline
                       style={{
                         width: "100%",
+                        height: 160,
                         maxHeight: 160,
                         objectFit: "cover",
                         borderRadius: 8,
