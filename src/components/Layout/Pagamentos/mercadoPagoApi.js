@@ -30,9 +30,12 @@ const callConfirmarPagamento = httpsCallable(functions, "confirmarPagamentoBloco
 
 const MAX_PIX_QRS = 20;
 const MERCADO_PAGO_UNAVAILABLE_CODE = "mercado-pago/unavailable";
-const PROJETOS_SEM_FUNCTIONS_MERCADO_PAGO = new Set([
-  "aly-onepages-runtime",
-]);
+const PROJETOS_SEM_FUNCTIONS_MERCADO_PAGO = new Set(
+  String(process.env.REACT_APP_MERCADO_PAGO_DISABLE_PROJECTS || "")
+    .split(",")
+    .map((item) => String(item || "").trim())
+    .filter(Boolean)
+);
 const PROJETOS_MERCADO_PAGO_FALHA_RUNTIME = new Set();
 const MERCADO_PAGO_FALHA_STORAGE_KEY = "mercadoPagoProjectsUnavailable";
 

@@ -117,16 +117,49 @@ function ListaContatos() {
       setLoading(true);
       try {
         const contatosMap = new Map();
+        const uidAtual = String(auth?.currentUser?.uid || userId || "").trim();
+        const adicionarSnapshotAoMapa = (snapshot = null) => {
+          if (!snapshot?.docs?.length) return;
+          for (const contatoDoc of snapshot.docs) {
+            if (!contatosMap.has(contatoDoc.id)) {
+              contatosMap.set(contatoDoc.id, contatoDoc);
+            }
+          }
+        };
+
         for (const contatosRef of getContatosRefs()) {
           try {
-            const contatosQuery = query(
-              contatosRef,
-              orderBy("ultimaConversaData", "desc")
-            );
-            const snapshot = await getDocs(contatosQuery);
-            for (const contatoDoc of snapshot.docs) {
-              if (!contatosMap.has(contatoDoc.id)) {
-                contatosMap.set(contatoDoc.id, contatoDoc);
+            if (isAdmin) {
+              const contatosQuery = query(
+                contatosRef,
+                orderBy("ultimaConversaData", "desc")
+              );
+              const snapshot = await getDocs(contatosQuery);
+              adicionarSnapshotAoMapa(snapshot);
+              continue;
+            }
+
+            if (!uidAtual) {
+              continue;
+            }
+
+            const consultasUsuario = [
+              query(contatosRef, where("participantUids", "array-contains", uidAtual)),
+              query(contatosRef, where("ownerUserId", "==", uidAtual)),
+              query(contatosRef, where("compradorUid", "==", uidAtual)),
+            ];
+
+            for (const consulta of consultasUsuario) {
+              try {
+                const snapshot = await getDocs(consulta);
+                adicionarSnapshotAoMapa(snapshot);
+              } catch (erroConsultaUsuario) {
+                if (
+                  erroConsultaUsuario?.code !== "permission-denied" &&
+                  erroConsultaUsuario?.code !== "failed-precondition"
+                ) {
+                  throw erroConsultaUsuario;
+                }
               }
             }
           } catch (erroContatosRef) {
@@ -136,7 +169,6 @@ function ListaContatos() {
           }
         }
 
-        const uidAtual = String(auth?.currentUser?.uid || userId || "").trim();
         const contatoIdsLiberadosPorPedido = new Set();
         if (!isAdmin && uidAtual && contatosMap.size) {
           const owners = Array.from(
@@ -224,7 +256,13 @@ function ListaContatos() {
         );
 
         if (cancelado) return;
-        const contatosFiltrados = listaContatos.filter(Boolean);
+        const contatosFiltrados = listaContatos
+          .filter(Boolean)
+          .sort(
+            (a, b) =>
+              (b?.ultimaConversaData?.getTime?.() || 0) -
+              (a?.ultimaConversaData?.getTime?.() || 0)
+          );
         setContatos(contatosFiltrados);
 
         if (!isAdmin) {

@@ -14,6 +14,7 @@ on:
   push:
     branches:
       - main
+      - anova
     paths:
       - "firestore.rules"
       - ".github/workflows/deploy-firestore-rules.yml"

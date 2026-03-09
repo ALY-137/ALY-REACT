@@ -135,6 +135,39 @@ const LIVE_WEBRTC_CONFIG = {
   ],
 };
 
+const serializarRtcDescricao = (descricao) => {
+  if (!descricao) return null;
+  if (typeof descricao.toJSON === "function") {
+    try {
+      return descricao.toJSON();
+    } catch {
+      // fallback para shape minimo abaixo.
+    }
+  }
+  return {
+    type: String(descricao.type || "").trim(),
+    sdp: String(descricao.sdp || "").trim(),
+  };
+};
+
+const serializarIceCandidate = (candidate) => {
+  if (!candidate) return null;
+  if (typeof candidate.toJSON === "function") {
+    try {
+      return candidate.toJSON();
+    } catch {
+      // fallback para shape minimo abaixo.
+    }
+  }
+  return {
+    candidate: String(candidate.candidate || "").trim(),
+    sdpMid: candidate.sdpMid ?? null,
+    sdpMLineIndex:
+      typeof candidate.sdpMLineIndex === "number" ? candidate.sdpMLineIndex : null,
+    usernameFragment: candidate.usernameFragment ?? null,
+  };
+};
+
 const isRenderableUrl = (valor) =>
   typeof valor === "string" &&
   (
@@ -569,6 +602,7 @@ export default function EspacoPage() {
   const persistedUid = localStorage.getItem("userId");
   const authUserAtual = user || auth.currentUser || null;
   const authUid = auth.currentUser?.uid || null;
+  const currentUidAutenticado = user?.uid || authUid || null;
   const currentUid = user?.uid || authUid || persistedUid || null;
   const espacoAtual = espacos.find((e) => e.nome === espacoNome);
   const espacoId = espacoAtual?.id || espacoAtual?.id_espaco;
@@ -629,9 +663,9 @@ export default function EspacoPage() {
   ).trim();
   const usuarioPodeControlarCameraLive = Boolean(
     liveModal.aberto &&
-      currentUid &&
+      currentUidAutenticado &&
       (
-        String(ownerUserId || "").trim() === String(currentUid || "").trim() ||
+        String(ownerUserId || "").trim() === String(currentUidAutenticado || "").trim() ||
         usuarioEhAdminProjeto
       )
   );
@@ -966,7 +1000,7 @@ export default function EspacoPage() {
       liveModal.aberto &&
       usuarioPodeControlarCameraLive &&
       liveCameraAtiva &&
-      currentUid &&
+      currentUidAutenticado &&
       liveModal.contactId &&
       liveModal.conversationId;
 
@@ -977,7 +1011,7 @@ export default function EspacoPage() {
 
     const contactId = String(liveModal.contactId || "").trim();
     const conversationId = String(liveModal.conversationId || "principal").trim();
-    const ownerUidAtual = String(currentUid || "").trim();
+    const ownerUidAtual = String(currentUidAutenticado || "").trim();
     const streamLocal = liveCameraStreamRef.current;
     const sessaoRtcRef = getFirstRef(
       getLiveRtcSessionCollectionRefs(contactId, conversationId)
@@ -1000,12 +1034,32 @@ export default function EspacoPage() {
 
           const dadosSessao = change.doc.data() || {};
           const offer = dadosSessao?.offer;
+          const sessionToken = String(dadosSessao?.sessionToken || "").trim();
           if (!offer || typeof offer !== "object") return;
-          if (liveRtcHostPeersRef.current.has(viewerUid)) return;
+          const offerSerializado = JSON.stringify(offer);
+
+          const peerExistente = liveRtcHostPeersRef.current.get(viewerUid);
+          if (peerExistente) {
+            if (peerExistente.offerSerializado === offerSerializado) return;
+            encerrarPeerRtcHost(viewerUid);
+          }
 
           const peer = new RTCPeerConnection(LIVE_WEBRTC_CONFIG);
           const viewerCandidateIds = new Set();
           const unsubscribers = [];
+          const pendingViewerCandidates = [];
+          let hostRemoteDescriptionReady = false;
+
+          const aplicarViewerCandidate = (candidateData) => {
+            if (!candidateData) return;
+            if (!hostRemoteDescriptionReady) {
+              pendingViewerCandidates.push(candidateData);
+              return;
+            }
+            peer
+              .addIceCandidate(new RTCIceCandidate(candidateData))
+              .catch(() => {});
+          };
 
           streamLocal.getTracks().forEach((track) => {
             try {
@@ -1018,10 +1072,13 @@ export default function EspacoPage() {
           peer.onicecandidate = (event) => {
             const candidate = event.candidate;
             if (!candidate) return;
+            const candidateSerializado = serializarIceCandidate(candidate);
+            if (!candidateSerializado) return;
             const payload = {
-              candidate: candidate.toJSON(),
+              candidate: candidateSerializado,
               createdAt: serverTimestamp(),
               fromUid: ownerUidAtual,
+              sessionToken: sessionToken || null,
             };
             const hostCandidateRefs = getLiveRtcCandidatesCollectionRefs(
               contactId,
@@ -1053,10 +1110,17 @@ export default function EspacoPage() {
                   viewerCandidateIds.add(candidateChange.doc.id);
 
                   const candidateData = candidateChange.doc.data()?.candidate;
-                  if (!candidateData) return;
-                  peer
-                    .addIceCandidate(new RTCIceCandidate(candidateData))
-                    .catch(() => {});
+                  const candidateSessionToken = String(
+                    candidateChange.doc.data()?.sessionToken || ""
+                  ).trim();
+                  if (
+                    sessionToken &&
+                    candidateSessionToken &&
+                    candidateSessionToken !== sessionToken
+                  ) {
+                    return;
+                  }
+                  aplicarViewerCandidate(candidateData);
                 });
               },
               () => {}
@@ -1067,6 +1131,8 @@ export default function EspacoPage() {
           liveRtcHostPeersRef.current.set(viewerUid, {
             pc: peer,
             unsubscribers,
+            offerSerializado,
+            sessionToken,
           });
 
           const sessionDocRefs = getLiveRtcSessionDocRefs(
@@ -1078,6 +1144,14 @@ export default function EspacoPage() {
           Promise.resolve()
             .then(async () => {
               await peer.setRemoteDescription(new RTCSessionDescription(offer));
+              hostRemoteDescriptionReady = true;
+              while (pendingViewerCandidates.length) {
+                const queuedCandidate = pendingViewerCandidates.shift();
+                if (!queuedCandidate) continue;
+                await peer
+                  .addIceCandidate(new RTCIceCandidate(queuedCandidate))
+                  .catch(() => {});
+              }
               const answer = await peer.createAnswer();
               await peer.setLocalDescription(answer);
 
@@ -1085,10 +1159,11 @@ export default function EspacoPage() {
                 await setDoc(
                   sessionDocRef,
                   {
-                    answer: answer.toJSON(),
+                    answer: serializarRtcDescricao(answer),
                     answerAt: serverTimestamp(),
                     hostUid: ownerUidAtual,
                     status: "answered",
+                    sessionToken: sessionToken || null,
                   },
                   { merge: true }
                 );
@@ -1113,14 +1188,14 @@ export default function EspacoPage() {
     liveModal.conversationId,
     usuarioPodeControlarCameraLive,
     liveCameraAtiva,
-    currentUid,
+    currentUidAutenticado,
   ]);
 
   useEffect(() => {
     const deveConectarViewer =
       liveModal.aberto &&
       !usuarioPodeControlarCameraLive &&
-      currentUid &&
+      currentUidAutenticado &&
       liveModal.contactId &&
       liveModal.conversationId;
 
@@ -1131,7 +1206,7 @@ export default function EspacoPage() {
 
     const contactId = String(liveModal.contactId || "").trim();
     const conversationId = String(liveModal.conversationId || "principal").trim();
-    const viewerUid = String(currentUid || "").trim();
+    const viewerUid = String(currentUidAutenticado || "").trim();
     const sessaoRef = getFirstRef(
       getLiveRtcSessionDocRefs(contactId, conversationId, viewerUid)
     );
@@ -1164,8 +1239,24 @@ export default function EspacoPage() {
 
     const peer = new RTCPeerConnection(LIVE_WEBRTC_CONFIG);
     liveRtcViewerPeerRef.current = peer;
+    const sessionToken = `${viewerUid}_${Date.now()}_${Math.random()
+      .toString(36)
+      .slice(2, 8)}`;
     let respostaAplicada = false;
     const hostCandidateIds = new Set();
+    const pendingHostCandidates = [];
+    let viewerRemoteDescriptionReady = false;
+
+    const aplicarHostCandidate = (candidateData) => {
+      if (!candidateData) return;
+      if (!viewerRemoteDescriptionReady) {
+        pendingHostCandidates.push(candidateData);
+        return;
+      }
+      peer
+        .addIceCandidate(new RTCIceCandidate(candidateData))
+        .catch(() => {});
+    };
 
     peer.addTransceiver("video", { direction: "recvonly" });
 
@@ -1196,10 +1287,13 @@ export default function EspacoPage() {
     peer.onicecandidate = (event) => {
       const candidate = event.candidate;
       if (!candidate) return;
+      const candidateSerializado = serializarIceCandidate(candidate);
+      if (!candidateSerializado) return;
       const payload = {
-        candidate: candidate.toJSON(),
+        candidate: candidateSerializado,
         createdAt: serverTimestamp(),
         fromUid: viewerUid,
+        sessionToken,
       };
       viewerCandidatesRefs.forEach((refCandidates) => {
         addDoc(refCandidates, payload).catch(() => {});
@@ -1211,10 +1305,20 @@ export default function EspacoPage() {
       async (sessionSnap) => {
         const dadosSessao = sessionSnap.data() || {};
         const answer = dadosSessao?.answer;
+        const answerSessionToken = String(dadosSessao?.sessionToken || "").trim();
+        if (answerSessionToken && answerSessionToken !== sessionToken) return;
         if (!answer || respostaAplicada) return;
 
         try {
           await peer.setRemoteDescription(new RTCSessionDescription(answer));
+          viewerRemoteDescriptionReady = true;
+          while (pendingHostCandidates.length) {
+            const queuedCandidate = pendingHostCandidates.shift();
+            if (!queuedCandidate) continue;
+            await peer
+              .addIceCandidate(new RTCIceCandidate(queuedCandidate))
+              .catch(() => {});
+          }
           respostaAplicada = true;
         } catch {
           setLiveCameraRemotaStatus("Falha ao conectar camera do criador.");
@@ -1234,10 +1338,17 @@ export default function EspacoPage() {
               if (hostCandidateIds.has(candidateChange.doc.id)) return;
               hostCandidateIds.add(candidateChange.doc.id);
               const candidateData = candidateChange.doc.data()?.candidate;
-              if (!candidateData) return;
-              peer
-                .addIceCandidate(new RTCIceCandidate(candidateData))
-                .catch(() => {});
+              const candidateSessionToken = String(
+                candidateChange.doc.data()?.sessionToken || ""
+              ).trim();
+              if (
+                sessionToken &&
+                candidateSessionToken &&
+                candidateSessionToken !== sessionToken
+              ) {
+                return;
+              }
+              aplicarHostCandidate(candidateData);
             });
           },
           () => {}
@@ -1261,12 +1372,33 @@ export default function EspacoPage() {
             requestedAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
             status: "offer",
-            offer: offer.toJSON(),
+            offer: serializarRtcDescricao(offer),
+            answer: null,
+            answerAt: null,
+            hostUid: null,
+            sessionToken,
           },
           { merge: true }
         );
       })
-      .catch(() => {
+      .catch((erroInitViewer) => {
+        const code = String(erroInitViewer?.code || "").trim().toLowerCase();
+        const message = String(erroInitViewer?.message || "").trim();
+        console.error("Falha ao iniciar viewer WebRTC:", code || "-", message || "-", erroInitViewer);
+
+        if (code === "permission-denied") {
+          setLiveCameraRemotaErro("Sem permissao para iniciar camera ao vivo.");
+          return;
+        }
+        if (code === "unauthenticated") {
+          setLiveCameraRemotaErro("Sessao expirada. Faca login novamente para abrir a camera.");
+          return;
+        }
+        if (code === "unavailable" || code === "network-request-failed") {
+          setLiveCameraRemotaErro("Falha de rede com Firebase. Verifique sua conexao e tente novamente.");
+          return;
+        }
+
         setLiveCameraRemotaErro("Nao foi possivel iniciar camera ao vivo.");
       });
 
@@ -1278,20 +1410,20 @@ export default function EspacoPage() {
     liveModal.contactId,
     liveModal.conversationId,
     usuarioPodeControlarCameraLive,
-    currentUid,
+    currentUidAutenticado,
   ]);
 
   useEffect(() => {
     if (!liveModal.aberto || !liveModal.contactId || !liveModal.conversationId) {
       setLiveChatMensagens([]);
-      if (!currentUid) {
+      if (!currentUidAutenticado) {
         setLiveChatErro("Faça login para participar do chat da live.");
       } else {
         setLiveChatErro("");
       }
       return undefined;
     }
-    if (!currentUid) {
+    if (!currentUidAutenticado) {
       setLiveChatMensagens([]);
       setLiveChatErro("Faça login para participar do chat da live.");
       return undefined;
@@ -1334,7 +1466,7 @@ export default function EspacoPage() {
     );
 
     return () => unsubscribe();
-  }, [liveModal.aberto, liveModal.contactId, liveModal.conversationId, currentUid]);
+  }, [liveModal.aberto, liveModal.contactId, liveModal.conversationId, currentUidAutenticado]);
 
   useEffect(() => {
     if (!liveChatScrollRef.current) return;
@@ -2429,13 +2561,15 @@ export default function EspacoPage() {
       conversationId,
     });
     setLiveChatMensagem("");
-    setLiveChatErro(currentUid ? "" : "Faça login para participar do chat da live.");
+    setLiveChatErro(currentUidAutenticado ? "" : "Faça login para participar do chat da live.");
 
-    if (!currentUid) return;
+    if (!currentUidAutenticado) return;
 
     try {
-      const participantUids = [String(currentUid || "").trim(), String(ownerUserId || "").trim()]
-        .filter(Boolean);
+      const participantUids = [
+        String(currentUidAutenticado || "").trim(),
+        String(ownerUserId || "").trim(),
+      ].filter(Boolean);
       for (const contatoRef of getContatoDocRefs(contactId)) {
         const payloadContato = {
           idContato: contactId,
@@ -2482,7 +2616,7 @@ export default function EspacoPage() {
   const enviarMensagemLive = async () => {
     const texto = String(liveChatMensagem || "").trim();
     if (!texto) return;
-    if (!currentUid) {
+    if (!currentUidAutenticado) {
       setLiveChatErro("Faça login para enviar mensagens na live.");
       return;
     }
@@ -2504,7 +2638,7 @@ export default function EspacoPage() {
           mensagem: texto,
           data: serverTimestamp(),
           userRemetente: nomeRemetenteLive || currentUid,
-          userUid: currentUid,
+          userUid: currentUidAutenticado,
           idConversa: conversationId,
         }
       );
@@ -2524,8 +2658,10 @@ export default function EspacoPage() {
       }
 
       for (const contatoRef of getContatoDocRefs(contactId)) {
-        const participantUids = [String(currentUid || "").trim(), String(ownerUserId || "").trim()]
-          .filter(Boolean);
+        const participantUids = [
+          String(currentUidAutenticado || "").trim(),
+          String(ownerUserId || "").trim(),
+        ].filter(Boolean);
         const payloadContato = {
           idContato: contactId,
           ultimaConversaData: serverTimestamp(),
@@ -3361,7 +3497,7 @@ export default function EspacoPage() {
                 </div>
               ) : null}
 
-              {!usuarioPodeControlarCameraLive && currentUid ? (
+              {!usuarioPodeControlarCameraLive && currentUidAutenticado ? (
                 <div style={{ padding: "8px 10px", borderBottom: "1px solid rgba(255,255,255,0.2)" }}>
                   <div
                     style={{
@@ -3448,7 +3584,7 @@ export default function EspacoPage() {
                   gap: 6,
                 }}
               >
-                {!currentUid ? (
+                {!currentUidAutenticado ? (
                   <div style={{ color: "#fff" }}>
                     <p style={{ marginTop: 0, marginBottom: 8 }}>
                       Faça login para participar do chat.
@@ -3458,7 +3594,8 @@ export default function EspacoPage() {
                 ) : liveChatMensagens.length ? (
                   liveChatMensagens.map((mensagem) => {
                     const minhaMensagem =
-                      String(mensagem?.userUid || "").trim() === String(currentUid || "").trim();
+                      String(mensagem?.userUid || "").trim() ===
+                      String(currentUidAutenticado || "").trim();
                     return (
                       <div
                         key={mensagem.id}
@@ -3513,11 +3650,15 @@ export default function EspacoPage() {
                       enviarMensagemLive();
                     }
                   }}
-                  placeholder={currentUid ? "Digite sua mensagem..." : "Faça login para enviar"}
-                  disabled={!currentUid}
+                  placeholder={currentUidAutenticado ? "Digite sua mensagem..." : "Faça login para enviar"}
+                  disabled={!currentUidAutenticado}
                   style={{ flex: 1, minWidth: 0 }}
                 />
-                <button type="button" onClick={enviarMensagemLive} disabled={!currentUid}>
+                <button
+                  type="button"
+                  onClick={enviarMensagemLive}
+                  disabled={!currentUidAutenticado}
+                >
                   Enviar
                 </button>
               </div>
