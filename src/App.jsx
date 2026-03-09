@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { collection, doc, getDocs, onSnapshot, query, where } from "firebase/firestore";
@@ -17,7 +17,9 @@ import {
   aplicarBrandingNoDocumento,
   aplicarTemaNoBody,
   estaConfigSistemaInicializada,
-  isOnePageComEntradaPublica,
+  isOneOwnerComEntradaPublica,
+  obterOwnerEmailConfigurado,
+  obterOwnerUidConfigurado,
   obterConfigSistemaCacheLocal,
   obterConfigSistema,
 } from "./components/Layout/Sistema/configSistema";
@@ -128,14 +130,20 @@ const App = () => {
     setConfigSistema(config);
     setConfigSistemaPronta(true);
     aplicarBrandingNoDocumento(config);
-    if (config?.adminUid) {
-      localStorage.setItem("systemAdminUid", config.adminUid);
+    const ownerUidConfig = obterOwnerUidConfigurado(config);
+    const ownerEmailConfig = obterOwnerEmailConfigurado(config);
+    if (ownerUidConfig) {
+      localStorage.setItem("systemOwnerUid", ownerUidConfig);
+      localStorage.setItem("systemAdminUid", ownerUidConfig);
     } else {
+      localStorage.removeItem("systemOwnerUid");
       localStorage.removeItem("systemAdminUid");
     }
-    if (config?.adminEmail) {
-      localStorage.setItem("systemAdminEmail", String(config.adminEmail).toLowerCase());
+    if (ownerEmailConfig) {
+      localStorage.setItem("systemOwnerEmail", ownerEmailConfig);
+      localStorage.setItem("systemAdminEmail", ownerEmailConfig);
     } else {
+      localStorage.removeItem("systemOwnerEmail");
       localStorage.removeItem("systemAdminEmail");
     }
   };
@@ -227,15 +235,13 @@ const App = () => {
         return;
       }
 
-      const adminUidConfig = (
-        configSistema?.adminUid ||
-        localStorage.getItem("systemAdminUid") ||
+      const ownerUidConfig = (
+        obterOwnerUidConfigurado(configSistema) ||
         process.env.REACT_APP_SYSTEM_MANAGER_ADMIN_UID ||
         ""
       ).trim();
-      const adminEmailConfig = String(
-        configSistema?.adminEmail ||
-          localStorage.getItem("systemAdminEmail") ||
+      const ownerEmailConfig = String(
+        obterOwnerEmailConfigurado(configSistema) ||
           process.env.REACT_APP_SYSTEM_MANAGER_ADMIN_EMAIL ||
           ""
       )
@@ -245,19 +251,19 @@ const App = () => {
         .trim()
         .toLowerCase();
 
-      if (!adminUidConfig) {
+      if (!ownerUidConfig) {
         if (!ativo) return;
         setErroAcessoGerenciador("");
         setEncerrandoSessaoGerenciador(false);
         return;
       }
 
-      const usuarioEhAdminGerenciador =
-        (adminUidConfig && user.uid === adminUidConfig) ||
-        (adminEmailConfig && userEmailAtual === adminEmailConfig) ||
+      const usuarioEhOwnerGerenciador =
+        (ownerUidConfig && user.uid === ownerUidConfig) ||
+        (ownerEmailConfig && userEmailAtual === ownerEmailConfig) ||
         seforAdm(user);
 
-      if (usuarioEhAdminGerenciador) {
+      if (usuarioEhOwnerGerenciador) {
         if (!ativo) return;
         setErroAcessoGerenciador("");
         setEncerrandoSessaoGerenciador(false);
@@ -265,7 +271,7 @@ const App = () => {
       }
 
       if (!ativo) return;
-      setErroAcessoGerenciador("Acesso permitido apenas para administradores.");
+      setErroAcessoGerenciador("Acesso permitido apenas para owner.");
       setEncerrandoSessaoGerenciador(false);
     };
 
@@ -278,7 +284,7 @@ const App = () => {
     isManagerProject,
     authLoading,
     configSistemaPronta,
-    configSistema?.adminUid,
+    configSistema?.ownerUid,
     user?.uid,
   ]);
 
@@ -290,8 +296,8 @@ const App = () => {
     }
     if (!configSistemaPronta) return;
 
-    const onePagePublicaAtivaProjeto = isOnePageComEntradaPublica(configSistema);
-    if (onePagePublicaAtivaProjeto) {
+    const oneOwnerPublicaAtivaProjeto = isOneOwnerComEntradaPublica(configSistema);
+    if (oneOwnerPublicaAtivaProjeto) {
       setSkins([]);
       setSkinsLoading(false);
       return;
@@ -359,10 +365,10 @@ const App = () => {
         const configInicializada = await estaConfigSistemaInicializada();
         if (!ativo) return;
 
-        const adminUidConfig = configSistema?.adminUid || localStorage.getItem("systemAdminUid");
-        const possuiAdminDefinido = Boolean(adminUidConfig);
+        const ownerUidConfig = obterOwnerUidConfigurado(configSistema);
+        const possuiOwnerDefinido = Boolean(ownerUidConfig);
 
-        if (!configInicializada || !possuiAdminDefinido) {
+        if (!configInicializada || !possuiOwnerDefinido) {
           setSetupAdminBootstrap(true);
           setMostrarSetupAdmin(true);
           return;
@@ -372,8 +378,8 @@ const App = () => {
         setMostrarSetupAdmin(false);
       } catch {
         if (!ativo) return;
-        const adminUidConfig = configSistema?.adminUid || localStorage.getItem("systemAdminUid");
-        if (!adminUidConfig) {
+        const ownerUidConfig = obterOwnerUidConfigurado(configSistema);
+        if (!ownerUidConfig) {
           setSetupAdminBootstrap(true);
           setMostrarSetupAdmin(true);
         } else {
@@ -394,7 +400,7 @@ const App = () => {
     isManagerProject,
     authLoading,
     user?.uid,
-    configSistema?.adminUid,
+    configSistema?.ownerUid,
   ]);
 
   useEffect(() => {
@@ -428,28 +434,30 @@ const App = () => {
   const rotaAtual = String(location.pathname || "").toLowerCase();
   const isAuthHandlerRoute = rotaAtual.startsWith("/__/auth/handler");
   const isUserLoginRoute = !isManagerProject && rotaAtual === "/login";
-  const isAdminLoginRoute = !isManagerProject && rotaAtual === "/loginadmin";
+  const isAdminLoginRoute = !isManagerProject && rotaAtual === "/loginowner";
   const isLoginUiRoute = isUserLoginRoute || isAdminLoginRoute || isAuthHandlerRoute;
   const modoAcessoProjeto = configSistema?.modoAcessoProjeto || DEFAULT_SISTEMA_CONFIG.modoAcessoProjeto;
   const tipoExperiencia = configSistema?.tipoExperiencia || DEFAULT_SISTEMA_CONFIG.tipoExperiencia;
-  const onePagePublicaAtiva =
+  const oneOwnerPublicaAtiva =
     !isManagerProject &&
     (
-      isOnePageComEntradaPublica({
+      isOneOwnerComEntradaPublica({
         tipoExperiencia,
         modoAcessoProjeto,
       }) ||
       activeFirebaseProjectKey === "aly-onepages-runtime"
     );
-  const exibirHomePublica = onePagePublicaAtiva && !isLoginUiRoute;
+  const exibirHomePublica = oneOwnerPublicaAtiva && !isLoginUiRoute;
   const rotaEntradaRaiz = location.pathname === "/";
   const precisaSplashEntradaPublica =
-    !isLoginUiRoute && rotaEntradaRaiz && (onePagePublicaAtiva || !configSistemaPronta);
+    !isLoginUiRoute && rotaEntradaRaiz && (oneOwnerPublicaAtiva || !configSistemaPronta);
 
   const isPublicProfileRoute = useMemo(() => {
     if (isManagerProject) return false;
     const path = String(location.pathname || "").toLowerCase();
-    if (path === "/" || path === "/login" || path === "/loginadmin") return false;
+    if (path === "/" || path === "/login" || path === "/loginowner") {
+      return false;
+    }
     if (path.startsWith("/menu")) return false;
     if (path.startsWith("/__/")) return false;
     return path.split("/").length >= 2;
@@ -564,54 +572,48 @@ const App = () => {
     configSistema?.metodosLoginHabilitados?.emailSenha !== false;
   const possuiMetodoLoginHabilitado =
     loginComGoogleHabilitado || loginComTwitterHabilitado || loginComEmailSenhaHabilitado;
-  const uidAdminProjetoConfigurado = String(
-    configSistema?.adminUid || localStorage.getItem("systemAdminUid") || ""
-  ).trim();
-  const emailAdminProjetoConfigurado = String(
-    configSistema?.adminEmail || localStorage.getItem("systemAdminEmail") || ""
-  )
+  const uidOwnerProjetoConfigurado = String(obterOwnerUidConfigurado(configSistema) || "").trim();
+  const emailOwnerProjetoConfigurado = String(obterOwnerEmailConfigurado(configSistema) || "")
     .trim()
     .toLowerCase();
   const emailUsuarioAtual = String(user?.email || "")
     .trim()
     .toLowerCase();
-  const usuarioEhAdminProjeto = Boolean(
+  const usuarioEhOwnerProjeto = Boolean(
     user?.uid &&
-      ((uidAdminProjetoConfigurado && user.uid === uidAdminProjetoConfigurado) ||
-        (emailAdminProjetoConfigurado &&
-          emailUsuarioAtual === emailAdminProjetoConfigurado) ||
-        (!uidAdminProjetoConfigurado &&
-          !emailAdminProjetoConfigurado &&
+      ((uidOwnerProjetoConfigurado && user.uid === uidOwnerProjetoConfigurado) ||
+        (emailOwnerProjetoConfigurado &&
+          emailUsuarioAtual === emailOwnerProjetoConfigurado) ||
+        (!uidOwnerProjetoConfigurado &&
+          !emailOwnerProjetoConfigurado &&
           seforAdm(user)))
   );
-  const adminUidGerenciadorConfigurado = String(
-    configSistema?.adminUid ||
-      localStorage.getItem("systemAdminUid") ||
+  const ownerUidGerenciadorConfigurado = String(
+    obterOwnerUidConfigurado(configSistema) ||
       process.env.REACT_APP_SYSTEM_MANAGER_ADMIN_UID ||
       ""
   ).trim();
-  const adminEmailGerenciadorConfigurado = String(
-    configSistema?.adminEmail ||
-      localStorage.getItem("systemAdminEmail") ||
+  const ownerEmailGerenciadorConfigurado = String(
+    obterOwnerEmailConfigurado(configSistema) ||
       process.env.REACT_APP_SYSTEM_MANAGER_ADMIN_EMAIL ||
       ""
   )
     .trim()
     .toLowerCase();
-  const usuarioEhAdminGerenciador = Boolean(
+  const usuarioEhOwnerGerenciador = Boolean(
     user?.uid &&
-      ((adminUidGerenciadorConfigurado &&
-        user.uid === adminUidGerenciadorConfigurado) ||
-        (adminEmailGerenciadorConfigurado &&
-          emailUsuarioAtual === adminEmailGerenciadorConfigurado) ||
-        (!adminUidGerenciadorConfigurado &&
-          !adminEmailGerenciadorConfigurado &&
+      ((ownerUidGerenciadorConfigurado &&
+        user.uid === ownerUidGerenciadorConfigurado) ||
+        (ownerEmailGerenciadorConfigurado &&
+          emailUsuarioAtual === ownerEmailGerenciadorConfigurado) ||
+        (!ownerUidGerenciadorConfigurado &&
+          !ownerEmailGerenciadorConfigurado &&
           seforAdm(user)))
   );
 
   useEffect(() => {
     if (isManagerProject) return;
-    if (!usuarioEhAdminProjeto) return;
+    if (!usuarioEhOwnerProjeto) return;
     if (!user?.uid) return;
 
     registrarTokenPushAdmin().catch((err) => {
@@ -620,17 +622,17 @@ const App = () => {
         err?.code || err?.message || err
       );
     });
-  }, [isManagerProject, usuarioEhAdminProjeto, user?.uid]);
+  }, [isManagerProject, usuarioEhOwnerProjeto, user?.uid]);
 
   useEffect(() => {
     if (isManagerProject) return undefined;
-    if (!usuarioEhAdminProjeto) return undefined;
+    if (!usuarioEhOwnerProjeto) return undefined;
 
-    const adminUid = String(user?.uid || "").trim();
-    if (!adminUid) return undefined;
+    const ownerUid = String(user?.uid || "").trim();
+    if (!ownerUid) return undefined;
 
     // A colecao continua "pedidos" no Firestore por compatibilidade.
-    const solicitacoesRef = getPrimaryProjectCollection(db, "users", adminUid, "pedidos");
+    const solicitacoesRef = getPrimaryProjectCollection(db, "users", ownerUid, "pedidos");
     const solicitacoesQuery = query(
       solicitacoesRef,
       where("status", "==", "pedido_solicitado")
@@ -663,7 +665,7 @@ const App = () => {
             Number.isFinite(valorCentavos) && valorCentavos > 0
               ? ` de R$ ${(valorCentavos / 100).toFixed(2).replace(".", ",")}`
               : "";
-          const destino = `/menu/admin/solicitacoes?ownerUserId=${encodeURIComponent(adminUid)}`;
+          const destino = `/menu/owner/solicitacoes?ownerUserId=${encodeURIComponent(ownerUid)}`;
 
           exibirNotificacaoAdminLocal({
             title: "Nova solicitacao de desbloqueio",
@@ -687,7 +689,7 @@ const App = () => {
       snapshotSolicitacoesInicializadoRef.current = false;
       solicitacoesVistasRef.current = new Set();
     };
-  }, [isManagerProject, usuarioEhAdminProjeto, user?.uid]);
+  }, [isManagerProject, usuarioEhOwnerProjeto, user?.uid]);
 
   if (authLoading) {
     return renderTelaCarregamento();
@@ -706,7 +708,7 @@ const App = () => {
   }
 
   if (isAuthHandlerRoute && !authLoading) {
-    return <Navigate to={onePagePublicaAtiva ? "/login" : "/"} replace />;
+    return <Navigate to={oneOwnerPublicaAtiva ? "/login" : "/"} replace />;
   }
 
   if (exibindoFluxoSistema && !configSistemaPronta && !isAuthHandlerRoute) {
@@ -717,20 +719,20 @@ const App = () => {
     return renderTelaCarregamento();
   }
 
-  if (!authLoading && user && onePagePublicaAtiva && isUserLoginRoute) {
+  if (!authLoading && user && oneOwnerPublicaAtiva && isUserLoginRoute) {
     return <Navigate to="/home" replace />;
   }
 
-  if (!authLoading && user && onePagePublicaAtiva && isAdminLoginRoute && usuarioEhAdminProjeto) {
+  if (!authLoading && user && oneOwnerPublicaAtiva && isAdminLoginRoute && usuarioEhOwnerProjeto) {
     return <Navigate to="/home" replace />;
   }
 
   const exibirBloqueioAdminOnePage =
     !authLoading &&
     user &&
-    onePagePublicaAtiva &&
+    oneOwnerPublicaAtiva &&
     isAdminLoginRoute &&
-    !usuarioEhAdminProjeto;
+    !usuarioEhOwnerProjeto;
 
   return (
     <div>
@@ -759,7 +761,7 @@ const App = () => {
                 {exibirTituloSistemaNoLogin ? <p id="logoTxt">{tituloSistema}</p> : null}
               </div>
               <div id="divLogin" style={{ justifyContent: "center", gap: 10 }}>
-                <p id="textoLogin">Acesso permitido apenas para administradores.</p>
+                <p id="textoLogin">Acesso permitido apenas para owner.</p>
                 <button
                   className="loginCadastroButton"
                   type="button"
@@ -788,7 +790,7 @@ const App = () => {
                 {exibirTituloSistemaNoLogin ? <p id="logoTxt">{tituloSistema}</p> : null}
               </div>
               <div id="divLogin" style={{ justifyContent: "center", gap: 10 }}>
-                <p id="textoLogin">Acesso permitido apenas para administradores.</p>
+                <p id="textoLogin">Acesso permitido apenas para owner.</p>
                 <button
                   className="loginCadastroButton"
                   type="button"
@@ -817,7 +819,7 @@ const App = () => {
                 {exibirTituloSistemaNoLogin ? <p id="logoTxt">{tituloSistema}</p> : null}
               </div>
               <div id="divLogin" style={{ justifyContent: "center", gap: 10 }}>
-                <p id="textoLogin">Acesso permitido apenas para administradores.</p>
+                <p id="textoLogin">Acesso permitido apenas para owner.</p>
                 <button
                   className="loginCadastroButton"
                   type="button"
@@ -839,9 +841,9 @@ const App = () => {
           </div>
         )
       ) : (!user || exibirHomePublica) && !authLoading ? (
-        onePagePublicaAtiva && !isLoginUiRoute ? (
+        oneOwnerPublicaAtiva && !isLoginUiRoute ? (
           <Estrutura />
-        ) : onePagePublicaAtiva && !isLoginUiRoute ? (
+        ) : oneOwnerPublicaAtiva && !isLoginUiRoute ? (
           <div id="login" className={`containerLogin ${mostrarLogin ? "fadeIn" : ""}`}>
             <Navegacoes />
             <div id="iconsLogin">
@@ -880,7 +882,7 @@ const App = () => {
                 >
                   {erroAcessoGerenciador}
                 </p>
-              ) : isAdminLoginRoute && !usuarioEhAdminProjeto && user ? (
+              ) : isAdminLoginRoute && !usuarioEhOwnerProjeto && user ? (
                 <p
                   style={{
                     margin: "0 auto 12px auto",
@@ -888,7 +890,7 @@ const App = () => {
                     textAlign: "center",
                   }}
                 >
-                  Acesso permitido apenas para administradores.
+                  Acesso permitido apenas para owner.
                 </p>
               ) : null}
               <div id="iconsLogin">
@@ -937,7 +939,7 @@ const App = () => {
                 >
                   {erroAcessoGerenciador}
                 </p>
-              ) : isAdminLoginRoute && !usuarioEhAdminProjeto && user ? (
+              ) : isAdminLoginRoute && !usuarioEhOwnerProjeto && user ? (
                 <p
                   style={{
                     margin: "0 auto 12px auto",
@@ -945,7 +947,7 @@ const App = () => {
                     textAlign: "center",
                   }}
                 >
-                  Acesso permitido apenas para administradores.
+                  Acesso permitido apenas para owner.
                 </p>
               ) : null}
               <div id="iconsLogin">
@@ -994,7 +996,7 @@ const App = () => {
                 >
                   {erroAcessoGerenciador}
                 </p>
-              ) : isAdminLoginRoute && !usuarioEhAdminProjeto && user ? (
+              ) : isAdminLoginRoute && !usuarioEhOwnerProjeto && user ? (
                 <p
                   style={{
                     margin: "0 auto 12px auto",
@@ -1002,7 +1004,7 @@ const App = () => {
                     textAlign: "center",
                   }}
                 >
-                  Acesso permitido apenas para administradores.
+                  Acesso permitido apenas para owner.
                 </p>
               ) : null}
               <div id="iconsLogin">
@@ -1041,7 +1043,7 @@ const App = () => {
           )
         )
       ) : isManagerProject ? (
-        usuarioEhAdminGerenciador ? (
+        usuarioEhOwnerGerenciador ? (
           <Navigate to="/menu/gerenciador" replace />
         ) : (
           usarTransicaoSprite ? (
@@ -1057,7 +1059,7 @@ const App = () => {
                 </div>
                 <div id="divLogin" style={{ justifyContent: "center", gap: 10 }}>
                   <p id="textoLogin">
-                    {erroAcessoGerenciador || "Acesso permitido apenas para administradores."}
+                    {erroAcessoGerenciador || "Acesso permitido apenas para owner."}
                   </p>
                   <button
                     className="loginCadastroButton"
@@ -1088,7 +1090,7 @@ const App = () => {
                 </div>
                 <div id="divLogin" style={{ justifyContent: "center", gap: 10 }}>
                   <p id="textoLogin">
-                    {erroAcessoGerenciador || "Acesso permitido apenas para administradores."}
+                    {erroAcessoGerenciador || "Acesso permitido apenas para owner."}
                   </p>
                   <button
                     className="loginCadastroButton"
@@ -1119,7 +1121,7 @@ const App = () => {
                 </div>
                 <div id="divLogin" style={{ justifyContent: "center", gap: 10 }}>
                   <p id="textoLogin">
-                    {erroAcessoGerenciador || "Acesso permitido apenas para administradores."}
+                    {erroAcessoGerenciador || "Acesso permitido apenas para owner."}
                   </p>
                   <button
                     className="loginCadastroButton"
@@ -1153,3 +1155,5 @@ const App = () => {
 
 export { primeiroNomeCap, emailCap, picGoogleCap, fullnameCap };
 export default App;
+
+

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+﻿import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   createUserWithEmailAndPassword,
@@ -9,8 +9,8 @@ import { auth } from "../../Banco/init-firebase";
 import { bootstrapUser } from "../Menu/Users/bootstrapUser";
 import {
   DEFAULT_SISTEMA_CONFIG,
-  isOnePageComEntradaPublica,
   obterConfigSistemaCacheLocal,
+  resolverDestinoPosLoginPadrao as resolverDestinoPosLoginProjeto,
 } from "../Sistema/configSistema";
 
 const POST_LOGIN_REDIRECT_KEY = "postLoginRedirectPath";
@@ -51,13 +51,13 @@ const mapearErroAuth = (codigo) => {
   }
 };
 
-const isErroAcessoAdmin = (erro) => {
+const isErroAcessoOwner = (erro) => {
   const codigo = String(erro?.code || "").toLowerCase();
   const mensagem = String(erro?.message || "").toLowerCase();
   return (
     codigo.includes("permission-denied") ||
     (codigo === "auth/internal-error" &&
-      (mensagem.includes("administrador") || mensagem.includes("permission-denied")))
+      ((mensagem.includes("owner") || mensagem.includes("administrador") || mensagem.includes("permission-denied"))))
   );
 };
 
@@ -93,10 +93,7 @@ function LoginCadastroEmail({ onLogin, configSistema = null }) {
         ? { ...configEmCache, ...configSistema }
         : configEmCache;
 
-    if (isOnePageComEntradaPublica(configEfetiva)) {
-      return "/home";
-    }
-    return null;
+    return resolverDestinoPosLoginProjeto(configEfetiva);
   };
 
   const finalizarLogin = async (firebaseUser) => {
@@ -192,8 +189,8 @@ function LoginCadastroEmail({ onLogin, configSistema = null }) {
         await finalizarLogin(credenciais.user);
       }
     } catch (erroAuth) {
-      if (isErroAcessoAdmin(erroAuth)) {
-        setErro("Acesso permitido apenas para administradores.");
+      if (isErroAcessoOwner(erroAuth)) {
+        setErro("Acesso permitido apenas para owners.");
       } else {
         setErro(mapearErroAuth(erroAuth?.code));
       }
@@ -322,3 +319,6 @@ function LoginCadastroEmail({ onLogin, configSistema = null }) {
 }
 
 export default LoginCadastroEmail;
+
+
+

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useOutletContext, useParams } from "react-router-dom";
 import {
   addDoc,
@@ -36,7 +36,7 @@ import {
 } from "../Storage/sharedBucketApi";
 import {
   DEFAULT_SISTEMA_CONFIG,
-  isOnePageComEntradaPublica,
+  isOneOwnerComEntradaPublica,
   obterConfigSistema,
   obterConfigSistemaCacheLocal,
   obterRotulosBloco,
@@ -128,10 +128,44 @@ const getLiveRtcCandidatesCollectionRefs = (
     side
   );
 
+const LIVE_TURN_URLS = String(process.env.REACT_APP_LIVE_TURN_URLS || "")
+  .split(",")
+  .map((item) => String(item || "").trim())
+  .filter(Boolean);
+const LIVE_TURN_USERNAME = String(process.env.REACT_APP_LIVE_TURN_USERNAME || "").trim();
+const LIVE_TURN_CREDENTIAL = String(process.env.REACT_APP_LIVE_TURN_CREDENTIAL || "").trim();
+const LIVE_FALLBACK_TURN_URLS = [
+  "stun:openrelay.metered.ca:80",
+  "turn:openrelay.metered.ca:80",
+  "turn:openrelay.metered.ca:443",
+  "turn:openrelay.metered.ca:443?transport=tcp",
+];
+const LIVE_FALLBACK_TURN_USERNAME = "openrelayproject";
+const LIVE_FALLBACK_TURN_CREDENTIAL = "openrelayproject";
+const LIVE_USA_TURN_ENV = LIVE_TURN_URLS.length > 0;
+const LIVE_EFETIVE_TURN_URLS = LIVE_USA_TURN_ENV
+  ? LIVE_TURN_URLS
+  : LIVE_FALLBACK_TURN_URLS;
+const LIVE_EFETIVE_TURN_USERNAME = LIVE_USA_TURN_ENV
+  ? LIVE_TURN_USERNAME
+  : LIVE_FALLBACK_TURN_USERNAME;
+const LIVE_EFETIVE_TURN_CREDENTIAL = LIVE_USA_TURN_ENV
+  ? LIVE_TURN_CREDENTIAL
+  : LIVE_FALLBACK_TURN_CREDENTIAL;
+
 const LIVE_WEBRTC_CONFIG = {
   iceServers: [
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
+    ...(LIVE_EFETIVE_TURN_URLS.length
+      ? [
+          {
+            urls: LIVE_EFETIVE_TURN_URLS,
+            username: LIVE_EFETIVE_TURN_USERNAME || undefined,
+            credential: LIVE_EFETIVE_TURN_CREDENTIAL || undefined,
+          },
+        ]
+      : []),
   ],
 };
 
@@ -458,7 +492,7 @@ export default function EspacoPage() {
     espacos,
     skinIdAtual,
     user,
-    onePagePublicaAtiva: onePagePublicaAtivaContexto = false,
+    oneOwnerPublicaAtiva: oneOwnerPublicaAtivaContexto = false,
   } = useOutletContext();
   const configSistemaCacheLocal = obterConfigSistemaCacheLocal() || DEFAULT_SISTEMA_CONFIG;
   const [blocos, setBlocos] = useState([]);
@@ -484,15 +518,25 @@ export default function EspacoPage() {
     DEFAULT_SISTEMA_CONFIG.livesHabilitadas
   );
   const [espacoDetalheAtual, setEspacoDetalheAtual] = useState(null);
-  const [onePagePublicaAtiva, setOnePagePublicaAtiva] = useState(
-    isOnePageComEntradaPublica(configSistemaCacheLocal)
+  const [oneOwnerPublicaAtiva, setOneOwnerPublicaAtiva] = useState(
+    isOneOwnerComEntradaPublica(configSistemaCacheLocal)
   );
-  const [adminUidProjeto, setAdminUidProjeto] = useState(
-    String(configSistemaCacheLocal?.adminUid || localStorage.getItem("systemAdminUid") || "").trim()
-  );
-  const [adminEmailProjeto, setAdminEmailProjeto] = useState(
+  const [ownerUidProjeto, setOwnerUidProjeto] = useState(
     String(
-      configSistemaCacheLocal?.adminEmail || localStorage.getItem("systemAdminEmail") || ""
+      configSistemaCacheLocal?.ownerUid ||
+        configSistemaCacheLocal?.adminUid ||
+        localStorage.getItem("systemOwnerUid") ||
+        localStorage.getItem("systemAdminUid") ||
+        ""
+    ).trim()
+  );
+  const [ownerEmailProjeto, setOwnerEmailProjeto] = useState(
+    String(
+      configSistemaCacheLocal?.ownerEmail ||
+        configSistemaCacheLocal?.adminEmail ||
+        localStorage.getItem("systemOwnerEmail") ||
+        localStorage.getItem("systemAdminEmail") ||
+        ""
     )
       .trim()
       .toLowerCase()
@@ -560,6 +604,8 @@ export default function EspacoPage() {
   const [liveCameraRemotaAtiva, setLiveCameraRemotaAtiva] = useState(false);
   const [liveCameraRemotaErro, setLiveCameraRemotaErro] = useState("");
   const [liveCameraRemotaStatus, setLiveCameraRemotaStatus] = useState("");
+  const [liveViewerTentativas, setLiveViewerTentativas] = useState(0);
+  const [liveCriadorCameraAtiva, setLiveCriadorCameraAtiva] = useState(false);
   const liveModalEhVideoDireto = useMemo(
     () => /\.(mp4|webm|ogg)(\?|$)/i.test(String(liveModal.liveUrl || "").trim()),
     [liveModal.liveUrl]
@@ -606,40 +652,46 @@ export default function EspacoPage() {
   const currentUid = user?.uid || authUid || persistedUid || null;
   const espacoAtual = espacos.find((e) => e.nome === espacoNome);
   const espacoId = espacoAtual?.id || espacoAtual?.id_espaco;
-  const onePagePublicaAtivaEfetiva = Boolean(onePagePublicaAtivaContexto || onePagePublicaAtiva);
+  const oneOwnerPublicaAtivaEfetiva = Boolean(oneOwnerPublicaAtivaContexto || oneOwnerPublicaAtiva);
   const emailUsuarioAtual = String(authUserAtual?.email || "")
     .trim()
     .toLowerCase();
-  const adminUidProjetoEfetivo = String(
-    adminUidProjeto || localStorage.getItem("systemAdminUid") || ""
+  const ownerUidProjetoEfetivo = String(
+    ownerUidProjeto ||
+      localStorage.getItem("systemOwnerUid") ||
+      localStorage.getItem("systemAdminUid") ||
+      ""
   ).trim();
-  const adminEmailProjetoEfetivo = String(
-    adminEmailProjeto || localStorage.getItem("systemAdminEmail") || ""
+  const ownerEmailProjetoEfetivo = String(
+    ownerEmailProjeto ||
+      localStorage.getItem("systemOwnerEmail") ||
+      localStorage.getItem("systemAdminEmail") ||
+      ""
   )
     .trim()
     .toLowerCase();
-  const adminProjetoConfigurado = Boolean(
-    adminUidProjetoEfetivo || adminEmailProjetoEfetivo
+  const ownerProjetoConfigurado = Boolean(
+    ownerUidProjetoEfetivo || ownerEmailProjetoEfetivo
   );
   const espacoAtualEfetivo =
     espacoDetalheAtual &&
     String(espacoDetalheAtual.id || espacoDetalheAtual.id_espaco) === String(espacoId || "")
       ? { ...espacoAtual, ...espacoDetalheAtual }
       : espacoAtual;
-  const usuarioEhAdminProjeto = Boolean(
+  const usuarioEhOwnerProjeto = Boolean(
     currentUid &&
       (
-        (adminUidProjetoEfetivo && currentUid === adminUidProjetoEfetivo) ||
-        (adminEmailProjetoEfetivo && emailUsuarioAtual === adminEmailProjetoEfetivo) ||
-        (!adminProjetoConfigurado && authUserAtual && seforAdm(authUserAtual))
+        (ownerUidProjetoEfetivo && currentUid === ownerUidProjetoEfetivo) ||
+        (ownerEmailProjetoEfetivo && emailUsuarioAtual === ownerEmailProjetoEfetivo) ||
+        (!ownerProjetoConfigurado && authUserAtual && seforAdm(authUserAtual))
       )
   );
   const ownerUserId =
     espacoAtualEfetivo?.ownerUserId ||
     espacos?.[0]?.ownerUserId ||
     (
-      onePagePublicaAtivaEfetiva
-        ? adminUidProjetoEfetivo || (usuarioEhAdminProjeto ? currentUid : null)
+      oneOwnerPublicaAtivaEfetiva
+        ? ownerUidProjetoEfetivo || (usuarioEhOwnerProjeto ? currentUid : null)
         : null
     );
   const isOwner = !!currentUid && ownerUserId === currentUid;
@@ -648,12 +700,12 @@ export default function EspacoPage() {
     Array.isArray(espacoAtualEfetivo?.coCriadoresUids) &&
     espacoAtualEfetivo.coCriadoresUids.includes(currentUid);
   const podeGerenciarPadrao = isOwner || isCoCriador;
-  const podeGerenciar = onePagePublicaAtivaEfetiva
-    ? usuarioEhAdminProjeto
-    : (podeGerenciarPadrao || usuarioEhAdminProjeto);
+  const podeGerenciar = oneOwnerPublicaAtivaEfetiva
+    ? usuarioEhOwnerProjeto
+    : (podeGerenciarPadrao || usuarioEhOwnerProjeto);
   const visibilidadeEspaco = espacoAtualEfetivo?.visibilidade || "publico";
-  const visitanteOnePagePublico =
-    onePagePublicaAtivaEfetiva && !currentUid && !podeGerenciar;
+  const visitanteOneOwnerPublico =
+    oneOwnerPublicaAtivaEfetiva && !currentUid && !podeGerenciar;
   const nomeRemetenteLive = String(
     localStorage.getItem("skinLogadoUser") ||
       authUserAtual?.displayName ||
@@ -666,7 +718,7 @@ export default function EspacoPage() {
       currentUidAutenticado &&
       (
         String(ownerUserId || "").trim() === String(currentUidAutenticado || "").trim() ||
-        usuarioEhAdminProjeto
+        usuarioEhOwnerProjeto
       )
   );
 
@@ -760,6 +812,29 @@ export default function EspacoPage() {
     liveRtcHostPeersRef.current.clear();
   };
 
+  const atualizarStatusCameraLive = async (cameraAtiva = false) => {
+    const contactId = String(liveModal.contactId || "").trim();
+    const conversationId = String(liveModal.conversationId || "principal").trim();
+    if (!usuarioPodeControlarCameraLive || !contactId || !conversationId) return;
+
+    const ownerUidLive = String(currentUidAutenticado || ownerUserId || "").trim();
+    try {
+      for (const conversaRef of getConversaDocRefs(contactId, conversationId)) {
+        await setDoc(
+          conversaRef,
+          {
+            liveCameraAtiva: Boolean(cameraAtiva),
+            liveCameraOwnerUid: ownerUidLive || null,
+            liveCameraAtualizadoEm: serverTimestamp(),
+          },
+          { merge: true }
+        );
+      }
+    } catch {
+      // Nao interrompe fluxo de camera por falha de status.
+    }
+  };
+
   const desligarCameraLive = (limparErro = false) => {
     encerrarHostRtcLive();
     const streamAtual = liveCameraStreamRef.current;
@@ -783,6 +858,9 @@ export default function EspacoPage() {
     }
 
     setLiveCameraAtiva(false);
+    if (usuarioPodeControlarCameraLive) {
+      void atualizarStatusCameraLive(false);
+    }
     if (limparErro) {
       setLiveCameraErro("");
     }
@@ -826,6 +904,7 @@ export default function EspacoPage() {
       }
       setLiveCameraAtiva(true);
       setLiveCameraErro("");
+      void atualizarStatusCameraLive(true);
     } catch (erroCamera) {
       setLiveCameraAtiva(false);
       setLiveCameraErro("Nao foi possivel acessar a camera.");
@@ -924,6 +1003,7 @@ export default function EspacoPage() {
   useEffect(() => {
     if (liveModal.aberto) return;
     desligarCameraLive(true);
+    setLiveViewerTentativas(0);
   }, [liveModal.aberto]);
 
   useEffect(() => {
@@ -1040,7 +1120,13 @@ export default function EspacoPage() {
 
           const peerExistente = liveRtcHostPeersRef.current.get(viewerUid);
           if (peerExistente) {
-            if (peerExistente.offerSerializado === offerSerializado) return;
+            const tokenAnterior = String(peerExistente.sessionToken || "").trim();
+            if (
+              peerExistente.offerSerializado === offerSerializado &&
+              tokenAnterior === sessionToken
+            ) {
+              return;
+            }
             encerrarPeerRtcHost(viewerUid);
           }
 
@@ -1192,6 +1278,34 @@ export default function EspacoPage() {
   ]);
 
   useEffect(() => {
+    if (!liveModal.aberto || !liveModal.contactId || !liveModal.conversationId) {
+      setLiveCriadorCameraAtiva(false);
+      return undefined;
+    }
+
+    const contactId = String(liveModal.contactId || "").trim();
+    const conversationId = String(liveModal.conversationId || "principal").trim();
+    const conversaRef = getFirstRef(getConversaDocRefs(contactId, conversationId));
+    if (!conversaRef) {
+      setLiveCriadorCameraAtiva(false);
+      return undefined;
+    }
+
+    const unsubscribe = onSnapshot(
+      conversaRef,
+      (snap) => {
+        const data = snap.data() || {};
+        setLiveCriadorCameraAtiva(Boolean(data.liveCameraAtiva));
+      },
+      () => {}
+    );
+
+    return () => {
+      unsubscribe();
+    };
+  }, [liveModal.aberto, liveModal.contactId, liveModal.conversationId]);
+
+  useEffect(() => {
     const deveConectarViewer =
       liveModal.aberto &&
       !usuarioPodeControlarCameraLive &&
@@ -1201,6 +1315,13 @@ export default function EspacoPage() {
 
     if (!deveConectarViewer) {
       encerrarViewerRtcLive(true);
+      if (liveModal.aberto && !usuarioPodeControlarCameraLive && currentUidAutenticado) {
+        setLiveCameraRemotaStatus(
+          liveCriadorCameraAtiva
+            ? "Conectando camera do criador..."
+            : "Aguardando camera do criador..."
+        );
+      }
       return undefined;
     }
 
@@ -1235,10 +1356,15 @@ export default function EspacoPage() {
     }
 
     setLiveCameraRemotaErro("");
-    setLiveCameraRemotaStatus("Aguardando camera do criador...");
+    setLiveCameraRemotaStatus(
+      liveCriadorCameraAtiva
+        ? "Conectando camera do criador..."
+        : "Aguardando resposta da camera do criador..."
+    );
 
     const peer = new RTCPeerConnection(LIVE_WEBRTC_CONFIG);
     liveRtcViewerPeerRef.current = peer;
+    let watchdogId = null;
     const sessionToken = `${viewerUid}_${Date.now()}_${Math.random()
       .toString(36)
       .slice(2, 8)}`;
@@ -1261,6 +1387,10 @@ export default function EspacoPage() {
     peer.addTransceiver("video", { direction: "recvonly" });
 
     peer.ontrack = (event) => {
+      if (watchdogId) {
+        clearTimeout(watchdogId);
+        watchdogId = null;
+      }
       const stream = event.streams?.[0];
       if (!stream) return;
       liveCameraRemotaStreamRef.current = stream;
@@ -1279,8 +1409,43 @@ export default function EspacoPage() {
 
     peer.onconnectionstatechange = () => {
       const estado = String(peer.connectionState || "").toLowerCase();
+      if (estado === "connecting") {
+        setLiveCameraRemotaStatus("Conectando camera do criador...");
+        return;
+      }
+      if (estado === "connected") {
+        if (watchdogId) {
+          clearTimeout(watchdogId);
+          watchdogId = null;
+        }
+        setLiveCameraRemotaStatus("Camera do criador conectada.");
+        return;
+      }
       if (estado === "failed" || estado === "disconnected") {
         setLiveCameraRemotaStatus("Conexao da camera interrompida.");
+      }
+    };
+
+    peer.oniceconnectionstatechange = () => {
+      const iceEstado = String(peer.iceConnectionState || "").toLowerCase();
+      if (iceEstado === "checking") {
+        setLiveCameraRemotaStatus("Negociando conexao da camera...");
+        return;
+      }
+      if (iceEstado === "connected" || iceEstado === "completed") {
+        if (watchdogId) {
+          clearTimeout(watchdogId);
+          watchdogId = null;
+        }
+        setLiveCameraRemotaStatus("Camera do criador conectada.");
+        return;
+      }
+      if (iceEstado === "failed") {
+        setLiveCameraRemotaStatus(
+          LIVE_EFETIVE_TURN_URLS.length
+            ? "Falha na conexao da camera."
+            : "Falha na conexao da camera (configure TURN para redes diferentes)."
+        );
       }
     };
 
@@ -1357,6 +1522,19 @@ export default function EspacoPage() {
 
     liveRtcViewerUnsubsRef.current = [unsubscribeSessao, unsubscribeHostCandidates];
 
+    if (typeof window !== "undefined") {
+      watchdogId = window.setTimeout(() => {
+        if (liveCameraRemotaStreamRef.current) return;
+        if (liveViewerTentativas >= 2) {
+          setLiveCameraRemotaStatus("Falha ao conectar camera do criador.");
+          setLiveCameraRemotaErro("Nao foi possivel conectar a camera ao vivo.");
+          return;
+        }
+        setLiveCameraRemotaStatus("Tentando reconectar camera do criador...");
+        setLiveViewerTentativas((valorAtual) => valorAtual + 1);
+      }, 12000);
+    }
+
     Promise.resolve()
       .then(async () => {
         const offer = await peer.createOffer({
@@ -1403,6 +1581,9 @@ export default function EspacoPage() {
       });
 
     return () => {
+      if (watchdogId) {
+        clearTimeout(watchdogId);
+      }
       encerrarViewerRtcLive(true);
     };
   }, [
@@ -1411,13 +1592,14 @@ export default function EspacoPage() {
     liveModal.conversationId,
     usuarioPodeControlarCameraLive,
     currentUidAutenticado,
+    liveViewerTentativas,
   ]);
 
   useEffect(() => {
     if (!liveModal.aberto || !liveModal.contactId || !liveModal.conversationId) {
       setLiveChatMensagens([]);
       if (!currentUidAutenticado) {
-        setLiveChatErro("Faça login para participar do chat da live.");
+        setLiveChatErro("FaÃ§a login para participar do chat da live.");
       } else {
         setLiveChatErro("");
       }
@@ -1425,7 +1607,7 @@ export default function EspacoPage() {
     }
     if (!currentUidAutenticado) {
       setLiveChatMensagens([]);
-      setLiveChatErro("Faça login para participar do chat da live.");
+      setLiveChatErro("FaÃ§a login para participar do chat da live.");
       return undefined;
     }
 
@@ -1588,11 +1770,15 @@ export default function EspacoPage() {
         setMercadoPagoSistemaHabilitado(config?.mercadoPagoHabilitado !== false);
         setPixManualSistemaHabilitado(config?.pixManualHabilitado !== false);
         setLivesHabilitadas(config?.livesHabilitadas === true);
-        setOnePagePublicaAtiva(
-          isOnePageComEntradaPublica(config)
+        setOneOwnerPublicaAtiva(
+          isOneOwnerComEntradaPublica(config)
         );
-        setAdminUidProjeto(String(config?.adminUid || "").trim());
-        setAdminEmailProjeto(String(config?.adminEmail || "").trim().toLowerCase());
+        setOwnerUidProjeto(String(config?.ownerUid || config?.adminUid || "").trim());
+        setOwnerEmailProjeto(
+          String(config?.ownerEmail || config?.adminEmail || "")
+            .trim()
+            .toLowerCase()
+        );
         const rotulosSkin = obterRotulosSkin(config);
         const rotulosEspaco = obterRotulosEspaco(config);
         const rotulosBloco = obterRotulosBloco(config);
@@ -1643,17 +1829,25 @@ export default function EspacoPage() {
         setMercadoPagoSistemaHabilitado(configFallback?.mercadoPagoHabilitado !== false);
         setPixManualSistemaHabilitado(configFallback?.pixManualHabilitado !== false);
         setLivesHabilitadas(configFallback?.livesHabilitadas === true);
-        setOnePagePublicaAtiva(
-          isOnePageComEntradaPublica(configFallback)
+        setOneOwnerPublicaAtiva(
+          isOneOwnerComEntradaPublica(configFallback)
         );
-        setAdminUidProjeto(
+        setOwnerUidProjeto(
           String(
-            configFallback?.adminUid || localStorage.getItem("systemAdminUid") || ""
+            configFallback?.ownerUid ||
+              configFallback?.adminUid ||
+              localStorage.getItem("systemOwnerUid") ||
+              localStorage.getItem("systemAdminUid") ||
+              ""
           ).trim()
         );
-        setAdminEmailProjeto(
+        setOwnerEmailProjeto(
           String(
-            configFallback?.adminEmail || localStorage.getItem("systemAdminEmail") || ""
+            configFallback?.ownerEmail ||
+              configFallback?.adminEmail ||
+              localStorage.getItem("systemOwnerEmail") ||
+              localStorage.getItem("systemAdminEmail") ||
+              ""
           )
             .trim()
             .toLowerCase()
@@ -1786,7 +1980,7 @@ export default function EspacoPage() {
 
         const docs = [];
 
-        if (visitanteOnePagePublico) {
+        if (visitanteOneOwnerPublico) {
           for (const blocosRef of blocosRefs) {
             const queriesPublicas = [
               query(blocosRef, where("visibilidade", "==", "publico")),
@@ -2400,8 +2594,8 @@ export default function EspacoPage() {
 
   const resolverMenuBaseUsuario = () => {
     const skinMenu = String(localStorage.getItem("skinLogadoUser") || "").trim();
-    if (onePagePublicaAtivaEfetiva) {
-      if (isOwner) return "/menu/admin";
+    if (oneOwnerPublicaAtivaEfetiva) {
+      if (isOwner) return "/menu/owner";
       if (!skinMenu) return "";
       return `/menu/${encodeURIComponent(skinMenu)}`;
     }
@@ -2561,7 +2755,7 @@ export default function EspacoPage() {
       conversationId,
     });
     setLiveChatMensagem("");
-    setLiveChatErro(currentUidAutenticado ? "" : "Faça login para participar do chat da live.");
+    setLiveChatErro(currentUidAutenticado ? "" : "FaÃ§a login para participar do chat da live.");
 
     if (!currentUidAutenticado) return;
 
@@ -2617,7 +2811,7 @@ export default function EspacoPage() {
     const texto = String(liveChatMensagem || "").trim();
     if (!texto) return;
     if (!currentUidAutenticado) {
-      setLiveChatErro("Faça login para enviar mensagens na live.");
+      setLiveChatErro("FaÃ§a login para enviar mensagens na live.");
       return;
     }
 
@@ -2694,7 +2888,7 @@ export default function EspacoPage() {
       return [...dedupe.values()].sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
     });
 
-    // Reconsulta após breve janela para pegar dados consolidados (rules/indexações).
+    // Reconsulta apÃ³s breve janela para pegar dados consolidados (rules/indexaÃ§Ãµes).
     window.setTimeout(() => {
       setReloadNonce((n) => n + 1);
     }, 1200);
@@ -2707,7 +2901,7 @@ export default function EspacoPage() {
 
   const atualizarBloco = async (blocoId, updates = {}) => {
     if (!podeGerenciar) {
-      setErroAcaoBloco(`Apenas o administrador pode editar ${nomeBlocoPlural}.`);
+      setErroAcaoBloco(`Apenas o owner pode editar ${nomeBlocoPlural}.`);
       return false;
     }
 
@@ -2911,7 +3105,7 @@ export default function EspacoPage() {
 
   const excluirBloco = async (blocoId) => {
     if (!podeGerenciar) {
-      setErroAcaoBloco(`Apenas o administrador pode excluir ${nomeBlocoPlural}.`);
+      setErroAcaoBloco(`Apenas o owner pode excluir ${nomeBlocoPlural}.`);
       return;
     }
 
@@ -3385,7 +3579,6 @@ export default function EspacoPage() {
                 title={liveModal.titulo || "Live"}
                 src={liveModal.embedUrl || liveModal.liveUrl}
                 allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-                allowFullScreen
                 style={{
                   width: "100%",
                   height: "100%",
@@ -3561,7 +3754,10 @@ export default function EspacoPage() {
                         padding: 8,
                       }}
                     >
-                      Aguardando o criador ligar a camera.
+                      {liveCameraRemotaStatus ||
+                        (liveCriadorCameraAtiva
+                          ? "Criador com camera ativa. Conectando..."
+                          : "Aguardando o criador ligar a camera.")}
                     </div>
                   )}
                 </div>
@@ -3587,7 +3783,7 @@ export default function EspacoPage() {
                 {!currentUidAutenticado ? (
                   <div style={{ color: "#fff" }}>
                     <p style={{ marginTop: 0, marginBottom: 8 }}>
-                      Faça login para participar do chat.
+                      FaÃ§a login para participar do chat.
                     </p>
                     <LoginButton />
                   </div>
@@ -3650,7 +3846,7 @@ export default function EspacoPage() {
                       enviarMensagemLive();
                     }
                   }}
-                  placeholder={currentUidAutenticado ? "Digite sua mensagem..." : "Faça login para enviar"}
+                  placeholder={currentUidAutenticado ? "Digite sua mensagem..." : "FaÃ§a login para enviar"}
                   disabled={!currentUidAutenticado}
                   style={{ flex: 1, minWidth: 0 }}
                 />
@@ -3723,3 +3919,6 @@ export default function EspacoPage() {
     </div>
   );
 }
+
+
+

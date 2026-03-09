@@ -21,13 +21,10 @@ import {
   getProjectDocCandidates,
 } from "../../Banco/projectDataRefs";
 
-const VISIBILIDADES_ESPACO_RESTRITAS = [
+const VISIBILIDADES_ESPACO_AUTENTICADO = [
   "publico",
   "publico_restritivo",
   "privado",
-  "exclusivo_assinante",
-  "exclusivo_comprador",
-  "comprado",
 ];
 
 const getEstruturaPublicaEspacosRefs = (userId) =>
@@ -196,7 +193,7 @@ export async function getEspacosDaSkin({ userId, skinId, viewerUserId = null }) 
       compatQuery = query(
         espacosRef,
         where("skins_relacionadas", "array-contains", skinId),
-        where("visibilidade", "in", VISIBILIDADES_ESPACO_RESTRITAS)
+        where("visibilidade", "in", VISIBILIDADES_ESPACO_AUTENTICADO)
       );
     }
     if (isOwner) {
@@ -240,7 +237,7 @@ export async function getEspacosDaSkin({ userId, skinId, viewerUserId = null }) 
         compatLegacyQuery = query(
           espacosRef,
           where("skinOwner", "==", skinId),
-          where("visibilidade", "in", VISIBILIDADES_ESPACO_RESTRITAS)
+          where("visibilidade", "in", VISIBILIDADES_ESPACO_AUTENTICADO)
         );
       }
       if (isOwner) {
@@ -339,7 +336,7 @@ export async function getEspacosDoOwner({
     if (viewerUserId && !isOwner) {
       compatQuery = query(
         espacosRef,
-        where("visibilidade", "in", VISIBILIDADES_ESPACO_RESTRITAS)
+        where("visibilidade", "in", VISIBILIDADES_ESPACO_AUTENTICADO)
       );
     }
 

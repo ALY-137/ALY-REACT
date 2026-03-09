@@ -8,8 +8,9 @@ const LOGIN_PRESETS = {
     id: "aly137",
     label: "ALY-137",
     applyConfig: {
-      tipoExperiencia: "onepage",
+      tipoExperiencia: "oneowner",
       modoAcessoProjeto: "publico_com_area_restrita",
+      destinoPosLogin: "home_central_projeto",
       metodosLoginHabilitados: {
         google: true,
         emailSenha: true,

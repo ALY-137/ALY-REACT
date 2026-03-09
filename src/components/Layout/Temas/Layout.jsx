@@ -1,12 +1,12 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+﻿import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { obterConfigLayoutTemaSkin, obterCssTemaSkin } from "./themesRegistry";
 import {
   DEFAULT_SISTEMA_CONFIG,
-  isOnePageComEntradaPublica,
+  isOneOwnerComEntradaPublica,
   obterConfigSistemaCacheLocal,
 } from "../Sistema/configSistema";
 
-const ONEPAGE_HEADER_VERTICAL_PADDING = 32;
+const ONEOWNER_HEADER_VERTICAL_PADDING = 32;
 
 export default function Layout({
   profile,
@@ -24,7 +24,7 @@ export default function Layout({
     () => configSistemaOverride || obterConfigSistemaCacheLocal() || DEFAULT_SISTEMA_CONFIG
   );
   const configSistemaEfetiva = configSistemaOverride || configSistema;
-  const onePagePublicaAtiva = isOnePageComEntradaPublica(configSistemaEfetiva);
+  const oneOwnerPublicaAtiva = isOneOwnerComEntradaPublica(configSistemaEfetiva);
   const layoutConfig = useMemo(
     () => obterConfigLayoutTemaSkin(theme, configSistemaEfetiva?.layoutTema),
     [theme, configSistemaEfetiva?.layoutTema]
@@ -50,10 +50,10 @@ export default function Layout({
     };
   }, [cardProfileDimensionsOverride, layoutConfig.cardProfileSizePx]);
   const alturaCabecalhoEfetiva =
-    onePagePublicaAtiva && layoutConfig.headerVisible
+    oneOwnerPublicaAtiva && layoutConfig.headerVisible
       ? Math.max(
           layoutConfig.headerHeightPx,
-          dimensoesCardProfileEfetivas.height + ONEPAGE_HEADER_VERTICAL_PADDING
+          dimensoesCardProfileEfetivas.height + ONEOWNER_HEADER_VERTICAL_PADDING
         )
       : layoutConfig.headerHeightPx;
   const layoutClassName = useMemo(
@@ -131,10 +131,10 @@ export default function Layout({
         cabecalhoRef.current.style.width = `${larguraBase}px`;
         cabecalhoRef.current.style.height = `${alturaCabecalhoEfetiva}px`;
         cabecalhoRef.current.style.minHeight = `${alturaCabecalhoEfetiva}px`;
-        cabecalhoRef.current.style.flexDirection = onePagePublicaAtiva ? "column" : "";
-        cabecalhoRef.current.style.justifyContent = onePagePublicaAtiva ? "center" : "";
-        cabecalhoRef.current.style.alignItems = onePagePublicaAtiva ? "center" : "";
-        cabecalhoRef.current.style.gap = onePagePublicaAtiva ? "14px" : "";
+        cabecalhoRef.current.style.flexDirection = oneOwnerPublicaAtiva ? "column" : "";
+        cabecalhoRef.current.style.justifyContent = oneOwnerPublicaAtiva ? "center" : "";
+        cabecalhoRef.current.style.alignItems = oneOwnerPublicaAtiva ? "center" : "";
+        cabecalhoRef.current.style.gap = oneOwnerPublicaAtiva ? "14px" : "";
       }
 
       if (conteudoRef.current) {
@@ -152,7 +152,7 @@ export default function Layout({
     layoutConfig.headerVisible,
     layoutConfig.headerHeightPx,
     alturaCabecalhoEfetiva,
-    onePagePublicaAtiva,
+    oneOwnerPublicaAtiva,
   ]);
 
   // ---------- Tema ----------
@@ -187,8 +187,8 @@ export default function Layout({
       layoutConfig.navbarTabsSticky === false
     );
     body.classList.toggle(
-      "layout-onepage-header-active",
-      onePagePublicaAtiva && layoutConfig.headerVisible
+      "layout-oneowner-header-active",
+      oneOwnerPublicaAtiva && layoutConfig.headerVisible
     );
     root.style.setProperty("--layout-header-height", `${alturaCabecalhoEfetiva}px`);
     root.style.setProperty(
@@ -222,7 +222,7 @@ export default function Layout({
     dimensoesCardProfileEfetivas.height,
     dimensoesCardProfileEfetivas.width,
     alturaCabecalhoEfetiva,
-    onePagePublicaAtiva,
+    oneOwnerPublicaAtiva,
   ]);
 
   return (
@@ -239,3 +239,5 @@ export default function Layout({
     </div>
   );
 }
+
+

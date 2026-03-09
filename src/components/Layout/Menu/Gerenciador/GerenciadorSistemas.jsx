@@ -70,7 +70,7 @@ function montarChecklistRemocaoEnvVercel(systemKey = "") {
 const FORM_INICIAL = {
   nomeProjeto: "",
   systemKey: "",
-  tipoProjeto: "multipage",
+  tipoProjeto: "multiowner",
   domains: "",
   apiKey: "",
   authDomain: "",
@@ -100,6 +100,13 @@ function normalizeText(value) {
 
 function normalizeHost(value) {
   return normalizeText(value).toLowerCase().replace(/^https?:\/\//i, "").split("/")[0];
+}
+
+function normalizeTipoProjeto(value) {
+  const raw = normalizeText(value).toLowerCase();
+  if (raw === "onepage") return "oneowner";
+  if (raw === "multipage") return "multiowner";
+  return raw === "oneowner" ? "oneowner" : "multiowner";
 }
 
 function carregarSystemKeysOcultasStorage() {
@@ -144,16 +151,16 @@ function resolverFirebaseTargetPorProjeto(projeto) {
   return systemKey;
 }
 
-function validarFormularioCriacao(form, onepageRuntimeProjectId) {
+function validarFormularioCriacao(form, oneownerRuntimeProjectId) {
   const nomeProjeto = normalizeText(form?.nomeProjeto);
   if (!nomeProjeto) {
     return "Informe o nome do projeto.";
   }
 
-  const tipoProjeto = normalizeText(form?.tipoProjeto).toLowerCase();
-  if (tipoProjeto === "onepage") {
-    if (!normalizeText(onepageRuntimeProjectId)) {
-      return "Runtime onepage nao configurado no .env.local.";
+  const tipoProjeto = normalizeTipoProjeto(form?.tipoProjeto);
+  if (tipoProjeto === "oneowner") {
+    if (!normalizeText(oneownerRuntimeProjectId)) {
+      return "Runtime oneowner nao configurado no .env.local.";
     }
     return "";
   }
@@ -182,10 +189,9 @@ function projetoComCamposPadrao(projeto = {}) {
   const keyNormalizada = normalizeText(projeto.systemKey || projeto.key || projeto.id).toLowerCase();
   const nomeProjeto = normalizeText(projeto.nomeProjeto || nomeProjetoFallback(keyNormalizada));
   const tipoProjeto = normalizeText(
-    projeto.tipoProjeto || (projeto.configSistema?.tipoExperiencia === "onepage" ? "onepage" : "multipage")
-  )
-    .toLowerCase()
-    .trim();
+    projeto.tipoProjeto ||
+      (projeto.configSistema?.tipoExperiencia === "oneowner" ? "oneowner" : "multiowner")
+  );
   const domainsNormalizados = Array.isArray(projeto.domains)
     ? projeto.domains.map((domain) => normalizeHost(domain)).filter(Boolean)
     : [];
@@ -195,7 +201,7 @@ function projetoComCamposPadrao(projeto = {}) {
     sourceCollection: projeto.sourceCollection || "systems",
     systemKey: keyNormalizada,
     nomeProjeto,
-    tipoProjeto: tipoProjeto === "onepage" ? "onepage" : "multipage",
+    tipoProjeto: normalizeTipoProjeto(tipoProjeto),
     firebaseProjectId: normalizeText(projeto.firebaseProjectId || projeto.projectId),
     domains: domainsNormalizados,
     firebaseRuntimeConfig:
@@ -285,7 +291,7 @@ function GerenciadorProjetos() {
   const [systemKeysOcultas, setSystemKeysOcultas] = useState(() =>
     carregarSystemKeysOcultasStorage()
   );
-  const onepageRuntimeProjectId = normalizeText(
+  const oneownerRuntimeProjectId = normalizeText(
     process.env.REACT_APP_FIREBASE_ALY_ONEPAGES_RUNTIME_PROJECT_ID
   );
 
@@ -374,7 +380,7 @@ function GerenciadorProjetos() {
     setErro("");
     setMensagem("");
 
-    const erroValidacao = validarFormularioCriacao(form, onepageRuntimeProjectId);
+    const erroValidacao = validarFormularioCriacao(form, oneownerRuntimeProjectId);
     if (erroValidacao) {
       setErro(erroValidacao);
       return;
@@ -388,10 +394,10 @@ function GerenciadorProjetos() {
       const criado = await criarProjetoNoGerenciador({
         nomeProjeto: form.nomeProjeto,
         systemKey: form.systemKey,
-        tipoProjeto: form.tipoProjeto,
+        tipoProjeto: normalizeTipoProjeto(form.tipoProjeto),
         domains: form.domains,
         firebaseConfig:
-          form.tipoProjeto === "onepage"
+          normalizeTipoProjeto(form.tipoProjeto) === "oneowner"
             ? {}
             : {
                 apiKey: form.apiKey,
@@ -635,7 +641,7 @@ function GerenciadorProjetos() {
     return (
       <div>
         <h2>GERENCIADO DE PROJETOS</h2>
-        <p>Acesso restrito ao administrador.</p>
+        <p>Acesso restrito ao owner.</p>
       </div>
     );
   }
@@ -695,13 +701,13 @@ function GerenciadorProjetos() {
             onChange={(event) => atualizarCampo("tipoProjeto", event.target.value)}
             style={{ width: "100%", marginTop: 6 }}
           >
-            <option value="multipage">Multipage</option>
-            <option value="onepage">Onepage</option>
+            <option value="multiowner">Multiowner</option>
+            <option value="oneowner">Oneowner</option>
           </select>
 
-          {form.tipoProjeto === "onepage" ? (
+          {normalizeTipoProjeto(form.tipoProjeto) === "oneowner" ? (
             <p style={{ marginTop: 8, opacity: 0.8 }}>
-              {`Onepage usa runtime padrao: ${onepageRuntimeProjectId || "nao configurado"}.`}
+              {`Oneowner usa runtime padrao: ${oneownerRuntimeProjectId || "nao configurado"}.`}
             </p>
           ) : null}
 
@@ -717,7 +723,7 @@ function GerenciadorProjetos() {
             style={{ width: "100%", marginTop: 6 }}
           />
 
-          {form.tipoProjeto !== "onepage" ? (
+          {normalizeTipoProjeto(form.tipoProjeto) !== "oneowner" ? (
             <>
               <h4 style={{ marginTop: 12, marginBottom: 8 }}>Credenciais Firebase</h4>
 
@@ -845,7 +851,7 @@ function GerenciadorProjetos() {
               </p>
               <p style={{ margin: "6px 0 0 0" }}>Key: {projeto.systemKey}</p>
               <p style={{ margin: "2px 0 0 0" }}>
-                Tipo: {projeto.tipoProjeto === "onepage" ? "Onepage" : "Multipage"}
+                Tipo: {normalizeTipoProjeto(projeto.tipoProjeto) === "oneowner" ? "Oneowner" : "Multiowner"}
               </p>
               <p style={{ margin: "2px 0 0 0" }}>
                 Firebase Project: {projeto.firebaseProjectId || "-"}
@@ -919,7 +925,7 @@ function GerenciadorProjetos() {
               htmlFor="domainsProjetoEdicao"
               style={{ display: "block", marginBottom: 6 }}
             >
-              Dominios vinculados a esta onepage/projeto
+              Dominios vinculados a este oneowner/projeto
             </label>
             <input
               id="domainsProjetoEdicao"

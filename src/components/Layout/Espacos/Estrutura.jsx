@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect, useState } from "react";
+﻿import React, { Suspense, useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   collection,
@@ -24,7 +24,7 @@ import LoginButton from "../Geral/LoginButton";
 import Navbar from "../Navbar/Navbar";
 import {
   DEFAULT_SISTEMA_CONFIG,
-  isOnePageComEntradaPublica,
+  isOneOwnerComEntradaPublica,
   obterConfigSistema,
   obterConfigSistemaCacheLocal,
 } from "../Sistema/configSistema";
@@ -38,10 +38,10 @@ import {
   sincronizarEstruturaPublicaEspaco,
 } from "./firebaseEspacos";
 
-const ONEPAGE_ADMIN_USERNAME_KEY = "onePageAdminUsername";
-const ONEPAGE_CARDPROFILE_MAX_WIDTH = 420;
-const ONEPAGE_CARDPROFILE_MAX_HEIGHT = 420;
-const ONEPAGE_CARDPROFILE_VIEWPORT_PADDING = 48;
+const ONEOWNER_OWNER_USERNAME_KEY = "oneOwnerOwnerUsername";
+const ONEOWNER_CARDPROFILE_MAX_WIDTH = 420;
+const ONEOWNER_CARDPROFILE_MAX_HEIGHT = 420;
+const ONEOWNER_CARDPROFILE_VIEWPORT_PADDING = 48;
 
 const limparUsername = (valor = "") =>
   String(valor || "")
@@ -49,7 +49,7 @@ const limparUsername = (valor = "") =>
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "");
 
-const construirBaseUsernameOnePage = (firebaseUser = null) => {
+const construirBaseUsernameOneOwner = (firebaseUser = null) => {
   const nome = limparUsername(firebaseUser?.displayName || "");
   if (nome) return nome.slice(0, 18);
 
@@ -84,6 +84,50 @@ const buscarSkinPreferencial = async (consulta) => {
 const erroConsultaRecuperavelSkin = (err) =>
   err?.code === "permission-denied" || err?.code === "failed-precondition";
 
+const visibilidadeEspacoPermitida = (visibilidade = "", autenticado = false) => {
+  const visibilidadeNormalizada = String(visibilidade || "")
+    .trim()
+    .toLowerCase();
+  if (!visibilidadeNormalizada || visibilidadeNormalizada === "publico") return true;
+  if (
+    autenticado &&
+    (visibilidadeNormalizada === "publico_restritivo" ||
+      visibilidadeNormalizada === "privado")
+  ) {
+    return true;
+  }
+  return false;
+};
+
+const filtrarEspacosFallbackPorSkin = ({
+  espacos = [],
+  skinId = "",
+  autenticado = false,
+} = {}) => {
+  const skinIdNormalizado = String(skinId || "").trim();
+
+  return (Array.isArray(espacos) ? espacos : [])
+    .filter((espaco) => {
+      const visibilidade = espaco?.visibilidade;
+      if (!visibilidadeEspacoPermitida(visibilidade, autenticado)) return false;
+
+      if (!skinIdNormalizado) return true;
+
+      const skinOwner = String(espaco?.skinOwner || "").trim();
+      const skinsRelacionadas = Array.isArray(espaco?.skins_relacionadas)
+        ? espaco.skins_relacionadas
+            .map((item) => String(item || "").trim())
+            .filter(Boolean)
+        : [];
+
+      if (skinOwner && skinOwner === skinIdNormalizado) return true;
+      if (skinsRelacionadas.length && skinsRelacionadas.includes(skinIdNormalizado)) return true;
+
+      return !skinOwner && !skinsRelacionadas.length;
+    })
+    .sort((a, b) => (Number(a?.ordem) || 0) - (Number(b?.ordem) || 0));
+};
+
 const construirOwnerCandidates = (
   configSistemaProjeto = {},
   authUserAtual = null,
@@ -92,6 +136,7 @@ const construirOwnerCandidates = (
   Array.from(
     new Set(
       [
+        configSistemaProjeto?.ownerUid,
         configSistemaProjeto?.adminUid,
         configSistemaProjeto?.projectOwnerUid,
         configSistemaProjeto?.projectLastEditorUid,
@@ -102,7 +147,7 @@ const construirOwnerCandidates = (
     )
   );
 
-const calcularDimensoesCardProfileOnePage = (dimensoesNaturais = null) => {
+const calcularDimensoesCardProfileOneOwner = (dimensoesNaturais = null) => {
   const larguraNatural = Number(dimensoesNaturais?.width || 0);
   const alturaNatural = Number(dimensoesNaturais?.height || 0);
 
@@ -110,10 +155,10 @@ const calcularDimensoesCardProfileOnePage = (dimensoesNaturais = null) => {
 
   const larguraViewport =
     typeof window !== "undefined"
-      ? Math.max(160, Number(window.innerWidth || 0) - ONEPAGE_CARDPROFILE_VIEWPORT_PADDING)
-      : ONEPAGE_CARDPROFILE_MAX_WIDTH;
-  const larguraMaxima = Math.min(ONEPAGE_CARDPROFILE_MAX_WIDTH, larguraViewport);
-  const alturaMaxima = ONEPAGE_CARDPROFILE_MAX_HEIGHT;
+      ? Math.max(160, Number(window.innerWidth || 0) - ONEOWNER_CARDPROFILE_VIEWPORT_PADDING)
+      : ONEOWNER_CARDPROFILE_MAX_WIDTH;
+  const larguraMaxima = Math.min(ONEOWNER_CARDPROFILE_MAX_WIDTH, larguraViewport);
+  const alturaMaxima = ONEOWNER_CARDPROFILE_MAX_HEIGHT;
   const escala = Math.min(1, larguraMaxima / larguraNatural, alturaMaxima / alturaNatural);
 
   return {
@@ -122,7 +167,7 @@ const calcularDimensoesCardProfileOnePage = (dimensoesNaturais = null) => {
   };
 };
 
-const criarSkinUnicaOnePage = async ({
+const criarSkinUnicaOneOwner = async ({
   firebaseUser,
   temaPadraoSkin,
   iconSkinPadraoUrl = "",
@@ -130,8 +175,8 @@ const criarSkinUnicaOnePage = async ({
   if (!firebaseUser?.uid) return false;
 
   const uid = firebaseUser.uid;
-  const base = construirBaseUsernameOnePage(firebaseUser);
-  const usernameOnePage = `${base}-${uid.slice(0, 6)}`.slice(0, 24);
+  const base = construirBaseUsernameOneOwner(firebaseUser);
+  const usernameOneOwner = `${base}-${uid.slice(0, 6)}`.slice(0, 24);
   const temaCriacao = String(temaPadraoSkin || "").trim() || "CYBERPINK";
   const iconSkinPadrao = String(
     iconSkinPadraoUrl || DEFAULT_SISTEMA_CONFIG.iconSkinPadraoUrl || ""
@@ -171,7 +216,7 @@ const criarSkinUnicaOnePage = async ({
       {
         ownerUserId: uid,
         id_skin: skinId,
-        username: usernameOnePage,
+        username: usernameOneOwner,
         theme: temaCriacao,
         cardProfileUrl: "",
         cardProfilePath: "",
@@ -212,8 +257,8 @@ const criarSkinUnicaOnePage = async ({
       skins_relacionadas: [skinId],
     });
 
-    localStorage.setItem("targetUsername", usernameOnePage);
-    localStorage.setItem("skinLogadoUser", usernameOnePage);
+    localStorage.setItem("targetUsername", usernameOneOwner);
+    localStorage.setItem("skinLogadoUser", usernameOneOwner);
     localStorage.setItem("skinIdAtual", skinId);
     return true;
   } catch {
@@ -256,40 +301,48 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
     configSistemaAtual?.tipoExperiencia || DEFAULT_SISTEMA_CONFIG.tipoExperiencia;
   const modoAcessoProjeto =
     configSistemaAtual?.modoAcessoProjeto || DEFAULT_SISTEMA_CONFIG.modoAcessoProjeto;
-  const onePagePublicaAtiva = isOnePageComEntradaPublica({
+  const oneOwnerPublicaAtiva = isOneOwnerComEntradaPublica({
     tipoExperiencia,
     modoAcessoProjeto,
   }) || activeFirebaseProjectKey === "aly-onepages-runtime";
-  const adminUidProjetoConfigurado = String(
-    configSistemaAtual?.adminUid || localStorage.getItem("systemAdminUid") || ""
+  const ownerUidProjetoConfigurado = String(
+    configSistemaAtual?.ownerUid ||
+      configSistemaAtual?.adminUid ||
+      localStorage.getItem("systemOwnerUid") ||
+      localStorage.getItem("systemAdminUid") ||
+      ""
   ).trim();
-  const adminEmailProjetoConfigurado = String(
-    configSistemaAtual?.adminEmail || localStorage.getItem("systemAdminEmail") || ""
+  const ownerEmailProjetoConfigurado = String(
+    configSistemaAtual?.ownerEmail ||
+      configSistemaAtual?.adminEmail ||
+      localStorage.getItem("systemOwnerEmail") ||
+      localStorage.getItem("systemAdminEmail") ||
+      ""
   )
     .trim()
     .toLowerCase();
   const emailUsuarioAtual = String(user?.email || "")
     .trim()
     .toLowerCase();
-  const adminProjetoConfigurado = Boolean(
-    adminUidProjetoConfigurado || adminEmailProjetoConfigurado
+  const ownerProjetoConfigurado = Boolean(
+    ownerUidProjetoConfigurado || ownerEmailProjetoConfigurado
   );
-  const usuarioEhAdminOnePage = Boolean(
+  const usuarioEhOwnerOneOwner = Boolean(
     user?.uid &&
       (
-        (adminUidProjetoConfigurado && user.uid === adminUidProjetoConfigurado) ||
-        (adminEmailProjetoConfigurado &&
-          emailUsuarioAtual === adminEmailProjetoConfigurado) ||
-        (!adminProjetoConfigurado &&
+        (ownerUidProjetoConfigurado && user.uid === ownerUidProjetoConfigurado) ||
+        (ownerEmailProjetoConfigurado &&
+          emailUsuarioAtual === ownerEmailProjetoConfigurado) ||
+        (!ownerProjetoConfigurado &&
           seforAdm(user))
       )
   );
-  const usuarioPodeAbrirMenuOnePage = Boolean(user?.uid);
+  const usuarioPodeAbrirMenuOneOwner = Boolean(user?.uid);
   const segmentosRota = location.pathname
     .split("/")
     .map((segmento) => decodeURIComponent(segmento || "").trim())
     .filter(Boolean);
-  const nomeEspacoAtualRota = onePagePublicaAtiva
+  const nomeEspacoAtualRota = oneOwnerPublicaAtiva
     ? String(segmentosRota[0] || "").trim()
     : String(segmentosRota[1] || "").trim();
   const cardProfileUrlEfetiva = String(
@@ -308,7 +361,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
 
   useEffect(() => {
     const deveUsarImagemComoReferencia =
-      onePagePublicaAtiva && configSistemaAtual?.layoutTema?.headerVisible !== false;
+      oneOwnerPublicaAtiva && configSistemaAtual?.layoutTema?.headerVisible !== false;
 
     if (!deveUsarImagemComoReferencia || !cardProfileNaturalDimensions) {
       setCardProfileDimensions(null);
@@ -317,7 +370,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
 
     const atualizarDimensoes = () => {
       setCardProfileDimensions(
-        calcularDimensoesCardProfileOnePage(cardProfileNaturalDimensions)
+        calcularDimensoesCardProfileOneOwner(cardProfileNaturalDimensions)
       );
     };
 
@@ -327,10 +380,10 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
   }, [
     cardProfileNaturalDimensions,
     configSistemaAtual?.layoutTema?.headerVisible,
-    onePagePublicaAtiva,
+    oneOwnerPublicaAtiva,
   ]);
 
-  const aplicarFallbackOnePage = async (
+  const aplicarFallbackOneOwner = async (
     configSistemaProjeto,
     usernameFallback = "",
     ownerUidOverride = ""
@@ -341,22 +394,23 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
       configSistemaProjeto?.temaPadraoSistema,
       configSistemaProjeto?.permitirTemasSkinSecundarios !== false
     );
-    const usernameAdminCache = String(
-      localStorage.getItem(ONEPAGE_ADMIN_USERNAME_KEY) || ""
+    const usernameOwnerCache = String(
+      localStorage.getItem(ONEOWNER_OWNER_USERNAME_KEY) || ""
     ).trim();
-    const usernameLocal = onePagePublicaAtiva && !usuarioEhAdminOnePage
-      ? (usernameFallback || usernameAdminCache)
+    const usernameLocal = oneOwnerPublicaAtiva && !usuarioEhOwnerOneOwner
+      ? (usernameFallback || usernameOwnerCache)
       : (
           usernameFallback ||
           localStorage.getItem("targetUsername") ||
-          construirBaseUsernameOnePage(authUserAtual)
+          construirBaseUsernameOneOwner(authUserAtual)
         );
     const ownerUid = String(
       ownerUidOverride ||
+        configSistemaProjeto?.ownerUid ||
         configSistemaProjeto?.adminUid ||
         configSistemaProjeto?.projectOwnerUid ||
         configSistemaProjeto?.projectLastEditorUid ||
-        (usuarioEhAdminOnePage ? authUserAtual?.uid : "") ||
+        (usuarioEhOwnerOneOwner ? authUserAtual?.uid : "") ||
         ""
     ).trim();
     let espacosFallback = [
@@ -375,7 +429,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
         const espacosOwner = await getEspacosDoOwner({
           userId: ownerUid,
           viewerUserId: authUserAtual?.uid || null,
-          ignorarVisibilidade: onePagePublicaAtiva,
+          ignorarVisibilidade: oneOwnerPublicaAtiva,
         });
         if (espacosOwner.length) {
           espacosFallback = espacosOwner;
@@ -428,39 +482,45 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
         }
         setConfigSistemaAtual(configSistemaProjeto);
 
-        const onePagePublicaProjeto =
-          isOnePageComEntradaPublica(configSistemaProjeto) ||
+        const oneOwnerPublicaProjeto =
+          isOneOwnerComEntradaPublica(configSistemaProjeto) ||
           activeFirebaseProjectKey === "aly-onepages-runtime";
-        const adminUidProjeto = String(
-          configSistemaProjeto?.adminUid || localStorage.getItem("systemAdminUid") || ""
+        const ownerUidProjeto = String(
+          configSistemaProjeto?.ownerUid ||
+            configSistemaProjeto?.adminUid ||
+            localStorage.getItem("systemOwnerUid") ||
+            localStorage.getItem("systemAdminUid") ||
+            ""
         ).trim();
-        const adminEmailProjeto = String(configSistemaProjeto?.adminEmail || "")
+        const ownerEmailProjeto = String(
+          configSistemaProjeto?.ownerEmail || configSistemaProjeto?.adminEmail || ""
+        )
           .trim()
           .toLowerCase();
         const emailUsuarioAtual = String(authUserAtual?.email || "")
           .trim()
           .toLowerCase();
-        const adminProjetoConfigurado = Boolean(adminUidProjeto || adminEmailProjeto);
-        const usuarioEhAdminOnePage = Boolean(
+        const ownerProjetoConfigurado = Boolean(ownerUidProjeto || ownerEmailProjeto);
+        const usuarioEhOwnerOneOwner = Boolean(
           authUserAtual?.uid &&
-            ((adminUidProjeto && authUserAtual.uid === adminUidProjeto) ||
-              (adminEmailProjeto && emailUsuarioAtual === adminEmailProjeto) ||
-              (!adminProjetoConfigurado && seforAdm(authUserAtual)))
+            ((ownerUidProjeto && authUserAtual.uid === ownerUidProjeto) ||
+              (ownerEmailProjeto && emailUsuarioAtual === ownerEmailProjeto) ||
+              (!ownerProjetoConfigurado && seforAdm(authUserAtual)))
         );
         const ownerUidCandidates = construirOwnerCandidates(
           configSistemaProjeto,
           authUserAtual,
-          { includeAuthUser: !onePagePublicaProjeto || usuarioEhAdminOnePage }
+          { includeAuthUser: !oneOwnerPublicaProjeto || usuarioEhOwnerOneOwner }
         );
 
-        if (onePagePublicaProjeto) {
+        if (oneOwnerPublicaProjeto) {
           targetUsername = "";
         }
 
         let skinDocResolvido = null;
-        if (!targetUsername && onePagePublicaProjeto) {
-          const usernameAdminCache = String(
-            localStorage.getItem(ONEPAGE_ADMIN_USERNAME_KEY) || ""
+        if (!targetUsername && oneOwnerPublicaProjeto) {
+          const usernameOwnerCache = String(
+            localStorage.getItem(ONEOWNER_OWNER_USERNAME_KEY) || ""
           ).trim();
           if (ownerUidCandidates.length) {
             for (const ownerUidCandidate of ownerUidCandidates) {
@@ -477,7 +537,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
 
                 if (!skinDocResolvido) {
                   const temaPadraoSkin = obterTemaSkinPadrao(configSistemaProjeto?.temaPadraoSistema);
-                  await criarSkinUnicaOnePage({
+                  await criarSkinUnicaOneOwner({
                     firebaseUser: authUserAtual,
                     temaPadraoSkin,
                     iconSkinPadraoUrl: configSistemaProjeto?.iconSkinPadraoUrl,
@@ -515,7 +575,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
             }
           }
 
-          if (!skinDocResolvido && usuarioEhAdminOnePage && authUserAtual?.uid) {
+          if (!skinDocResolvido && usuarioEhOwnerOneOwner && authUserAtual?.uid) {
             const skinUsuarioQuery = query(
               getPrimaryProjectCollection(db, "users", authUserAtual.uid, "skins"),
               limit(1)
@@ -524,7 +584,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
 
             if (skinUsuarioSnap.empty) {
               const temaPadraoSkin = obterTemaSkinPadrao(configSistemaProjeto?.temaPadraoSistema);
-              await criarSkinUnicaOnePage({
+              await criarSkinUnicaOneOwner({
                 firebaseUser: authUserAtual,
                 temaPadraoSkin,
                 iconSkinPadraoUrl: configSistemaProjeto?.iconSkinPadraoUrl,
@@ -538,13 +598,13 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
           }
 
           if (!skinDocResolvido) {
-            if (onePagePublicaProjeto && usernameAdminCache) {
-              targetUsername = usernameAdminCache;
-            } else if (onePagePublicaProjeto) {
-              await aplicarFallbackOnePage(
+            if (oneOwnerPublicaProjeto && usernameOwnerCache) {
+              targetUsername = usernameOwnerCache;
+            } else if (oneOwnerPublicaProjeto) {
+              await aplicarFallbackOneOwner(
                 configSistemaProjeto,
                 targetUsername,
-                adminUidProjeto
+                ownerUidProjeto
               );
               return;
             } else {
@@ -555,11 +615,11 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
 
           targetUsername = String(skinDocResolvido.data()?.username || "").trim();
           if (!targetUsername) {
-            if (onePagePublicaProjeto) {
-              await aplicarFallbackOnePage(
+            if (oneOwnerPublicaProjeto) {
+              await aplicarFallbackOneOwner(
                 configSistemaProjeto,
                 targetUsername,
-                adminUidProjeto
+                ownerUidProjeto
               );
               return;
             }
@@ -602,30 +662,30 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
             if (!erroConsultaRecuperavelSkin(err)) throw err;
           }
 
-          if (skinsSnap.empty && onePagePublicaProjeto) {
-            if (adminUidProjeto) {
+          if (skinsSnap.empty && oneOwnerPublicaProjeto) {
+            if (ownerUidProjeto) {
               try {
-                const adminSkinsRef = getPrimaryProjectCollection(
+                const ownerSkinsRef = getPrimaryProjectCollection(
                   db,
                   "users",
-                  adminUidProjeto,
+                  ownerUidProjeto,
                   "skins"
                 );
-                const consultasAdminFallback = authUserAtual?.uid
+                const consultasOwnerFallback = authUserAtual?.uid
                   ? [
                       query(
-                        adminSkinsRef,
+                        ownerSkinsRef,
                         where("visibilidade", "in", ["publico", "publico_restritivo", "privado"])
                       ),
-                      query(adminSkinsRef, where("visibilidade", "==", "publico")),
-                      query(adminSkinsRef, where("visibilidade", "==", null)),
+                      query(ownerSkinsRef, where("visibilidade", "==", "publico")),
+                      query(ownerSkinsRef, where("visibilidade", "==", null)),
                     ]
                   : [
-                      query(adminSkinsRef, where("visibilidade", "==", "publico")),
-                      query(adminSkinsRef, where("visibilidade", "==", null)),
+                      query(ownerSkinsRef, where("visibilidade", "==", "publico")),
+                      query(ownerSkinsRef, where("visibilidade", "==", null)),
                     ];
 
-                for (const consulta of consultasAdminFallback) {
+                for (const consulta of consultasOwnerFallback) {
                   const docPreferencial = await buscarSkinPreferencial(consulta);
                   if (docPreferencial) {
                     skinsSnap = { empty: false, docs: [docPreferencial] };
@@ -637,13 +697,13 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
               }
             }
 
-            if (skinsSnap.empty && usuarioEhAdminOnePage && authUserAtual?.uid) {
+            if (skinsSnap.empty && usuarioEhOwnerOneOwner && authUserAtual?.uid) {
               try {
-                const adminOwnerSkinDoc = await buscarSkinPreferencial(
+                const ownerSelfSkinDoc = await buscarSkinPreferencial(
                   query(getPrimaryProjectCollection(db, "users", authUserAtual.uid, "skins"))
                 );
-                if (adminOwnerSkinDoc) {
-                  skinsSnap = { empty: false, docs: [adminOwnerSkinDoc] };
+                if (ownerSelfSkinDoc) {
+                  skinsSnap = { empty: false, docs: [ownerSelfSkinDoc] };
                 }
               } catch (err) {
                 if (!erroConsultaRecuperavelSkin(err)) throw err;
@@ -653,8 +713,8 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
         }
 
         if (skinsSnap.empty) {
-          if (onePagePublicaProjeto) {
-            aplicarFallbackOnePage(configSistemaProjeto, targetUsername);
+          if (oneOwnerPublicaProjeto) {
+            aplicarFallbackOneOwner(configSistemaProjeto, targetUsername);
             return;
           }
           navigate("/Error");
@@ -670,14 +730,14 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
           (skinData.visibilidade === "publico_restritivo" ||
             skinData.visibilidade === "privado") &&
           !!authUserAtual;
-        const usarSkinAdminNaOnePage =
-          onePagePublicaProjeto &&
-          Boolean(adminUidProjeto) &&
-          String(skinData.ownerUserId || "").trim() === adminUidProjeto;
+        const usarSkinOwnerNaOneOwner =
+          oneOwnerPublicaProjeto &&
+          Boolean(ownerUidProjeto) &&
+          String(skinData.ownerUserId || "").trim() === ownerUidProjeto;
 
-        if (!isOwner && !isPublic && !isAuthPublic && !usarSkinAdminNaOnePage) {
-          if (onePagePublicaProjeto) {
-            aplicarFallbackOnePage(configSistemaProjeto, targetUsername);
+        if (!isOwner && !isPublic && !isAuthPublic && !usarSkinOwnerNaOneOwner) {
+          if (oneOwnerPublicaProjeto) {
+            aplicarFallbackOneOwner(configSistemaProjeto, targetUsername);
             return;
           }
           navigate("/Error");
@@ -695,19 +755,19 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
         setSkins([skinData]);
         setTheme(temaEfetivo);
         localStorage.setItem("targetUsername", targetUsername);
-        if (onePagePublicaProjeto && targetUsername) {
-          localStorage.setItem(ONEPAGE_ADMIN_USERNAME_KEY, targetUsername);
+        if (oneOwnerPublicaProjeto && targetUsername) {
+          localStorage.setItem(ONEOWNER_OWNER_USERNAME_KEY, targetUsername);
         }
 
         let pagesList = [];
-        if (onePagePublicaProjeto && skinData.ownerUserId) {
+        if (oneOwnerPublicaProjeto && skinData.ownerUserId) {
           try {
             pagesList = await getEspacosDoOwner({
               userId: skinData.ownerUserId,
               viewerUserId: authUserAtual?.uid || null,
               ignorarVisibilidade: true,
             });
-            if (usuarioEhAdminOnePage && pagesList.length) {
+            if (usuarioEhOwnerOneOwner && pagesList.length) {
               await Promise.all(
                 pagesList.map((espaco) =>
                   sincronizarEstruturaPublicaEspaco(skinData.ownerUserId, {
@@ -746,10 +806,22 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
               "Permissao negada ao ler espacos da skin. Perfil sera exibido sem lista de espacos.",
               espacosErr?.message
             );
+            try {
+              const espacosEstruturaPublica = await getEspacosEstruturaPublica(
+                skinData.ownerUserId
+              );
+              pagesList = filtrarEspacosFallbackPorSkin({
+                espacos: espacosEstruturaPublica,
+                skinId,
+                autenticado: Boolean(authUserAtual?.uid),
+              });
+            } catch (estruturaErr) {
+              if (!erroConsultaRecuperavelSkin(estruturaErr)) throw estruturaErr;
+            }
           }
         }
 
-        if (onePagePublicaProjeto && skinData.ownerUserId && !pagesList.length) {
+        if (oneOwnerPublicaProjeto && skinData.ownerUserId && !pagesList.length) {
           try {
             const homeQueries = authUserAtual?.uid
               ? [
@@ -808,7 +880,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
 
         if (
           authUserAtual?.uid === skinData.ownerUserId ||
-          (onePagePublicaProjeto && usuarioEhAdminOnePage && authUserAtual?.uid)
+          (oneOwnerPublicaProjeto && usuarioEhOwnerOneOwner && authUserAtual?.uid)
         ) {
           localStorage.setItem("skinIdAtual", skinId);
           localStorage.setItem("skinLogadoUser", targetUsername);
@@ -835,30 +907,34 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
       } catch (err) {
         const configEmErro =
           obterConfigSistemaCacheLocal() || configSistemaProjeto || configSistemaAtual;
-        const onePageProjetoAtual =
-          isOnePageComEntradaPublica(configEmErro) ||
+        const oneOwnerProjetoAtual =
+          isOneOwnerComEntradaPublica(configEmErro) ||
           activeFirebaseProjectKey === "aly-onepages-runtime";
 
         if (err?.code === "permission-denied" || err?.code === "failed-precondition") {
-          if (onePageProjetoAtual) {
-            const adminUidErro = String(configEmErro?.adminUid || "").trim();
-            const adminEmailErro = String(configEmErro?.adminEmail || "")
+          if (oneOwnerProjetoAtual) {
+            const ownerUidErro = String(
+              configEmErro?.ownerUid || configEmErro?.adminUid || ""
+            ).trim();
+            const ownerEmailErro = String(
+              configEmErro?.ownerEmail || configEmErro?.adminEmail || ""
+            )
               .trim()
               .toLowerCase();
             const emailAtualErro = String(authUserAtual?.email || "")
               .trim()
               .toLowerCase();
-            const adminConfiguradoErro = Boolean(adminUidErro || adminEmailErro);
-            const usuarioEhAdminOnePageErro = Boolean(
+            const ownerConfiguradoErro = Boolean(ownerUidErro || ownerEmailErro);
+            const usuarioEhOwnerOneOwnerErro = Boolean(
               authUserAtual?.uid &&
-                ((adminUidErro && authUserAtual.uid === adminUidErro) ||
-                  (adminEmailErro && emailAtualErro === adminEmailErro) ||
-                  (!adminConfiguradoErro && seforAdm(authUserAtual)))
+                ((ownerUidErro && authUserAtual.uid === ownerUidErro) ||
+                  (ownerEmailErro && emailAtualErro === ownerEmailErro) ||
+                  (!ownerConfiguradoErro && seforAdm(authUserAtual)))
             );
 
-            if (usuarioEhAdminOnePageErro) {
+            if (usuarioEhOwnerOneOwnerErro) {
               const temaPadraoSkin = obterTemaSkinPadrao(configEmErro?.temaPadraoSistema);
-              await criarSkinUnicaOnePage({
+              await criarSkinUnicaOneOwner({
                 firebaseUser: authUserAtual,
                 temaPadraoSkin,
                 iconSkinPadraoUrl: configEmErro?.iconSkinPadraoUrl,
@@ -872,10 +948,10 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
               return;
             }
 
-            await aplicarFallbackOnePage(
+            await aplicarFallbackOneOwner(
               configEmErro,
               targetUsername,
-              adminUidErro
+              ownerUidErro
             );
             return;
           }
@@ -901,15 +977,19 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
 
   useEffect(() => {
     if (!espacos.length || hasNavigated) return;
-    if (!onePagePublicaAtiva && !username) return;
+    if (!oneOwnerPublicaAtiva && !username) return;
 
     const mainPage =
       espacos.find((p) => p.isHome === true) ||
       espacos.find((p) => p.is_main === true) ||
       espacos.find((p) => String(p?.id || p?.id_espaco || "").trim().toLowerCase() === "home") ||
       espacos.find((p) => String(p?.nome || "").trim().toLowerCase() === "home") ||
-      (onePagePublicaAtiva ? espacos[0] : null);
+      (oneOwnerPublicaAtiva ? espacos[0] : null);
     if (!mainPage) {
+      if (!espacos.length && !oneOwnerPublicaAtiva) {
+        setHasNavigated(true);
+        return;
+      }
       console.warn("Pagina principal nao encontrada.");
       navigate("/Error");
       setHasNavigated(true);
@@ -926,7 +1006,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
 
     const nomeMainPage =
       String(mainPage?.nome || mainPage?.id_espaco || mainPage?.id || "home").trim() || "home";
-    const destinoPrincipal = onePagePublicaAtiva
+    const destinoPrincipal = oneOwnerPublicaAtiva
       ? `/${nomeMainPage}`
       : `/${username}/${nomeMainPage}`;
     if (location.pathname !== destinoPrincipal) {
@@ -939,11 +1019,11 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
     location.pathname,
     navigate,
     nomeEspacoAtualRota,
-    onePagePublicaAtiva,
+    oneOwnerPublicaAtiva,
     username,
   ]);
 
-  const resolverUsernameMenuOnePage = async () => {
+  const resolverUsernameMenuOneOwner = async () => {
     if (!user?.uid) return "";
 
     const usernameStorage = String(localStorage.getItem("skinLogadoUser") || "").trim();
@@ -957,7 +1037,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
 
     if (skinUsuarioSnap.empty) {
       const temaPadraoSkin = obterTemaSkinPadrao(configSistemaAtual?.temaPadraoSistema);
-      await criarSkinUnicaOnePage({
+      await criarSkinUnicaOneOwner({
         firebaseUser: user,
         temaPadraoSkin,
         iconSkinPadraoUrl: configSistemaAtual?.iconSkinPadraoUrl,
@@ -979,7 +1059,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
   };
 
   const toggleMenu = async () => {
-    if (onePagePublicaAtiva && !usuarioPodeAbrirMenuOnePage) {
+    if (oneOwnerPublicaAtiva && !usuarioPodeAbrirMenuOneOwner) {
       alert("Faca login para abrir o menu.");
       return;
     }
@@ -987,16 +1067,16 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
     let destinoMenu = "";
     let destinoFechar = "/";
 
-    if (onePagePublicaAtiva) {
-      if (usuarioEhAdminOnePage) {
-        destinoMenu = "/menu/admin";
+    if (oneOwnerPublicaAtiva) {
+      if (usuarioEhOwnerOneOwner) {
+        destinoMenu = "/menu/owner";
       } else {
-        const usernameMenuOnePage = await resolverUsernameMenuOnePage();
-        if (!usernameMenuOnePage) {
+        const usernameMenuOneOwner = await resolverUsernameMenuOneOwner();
+        if (!usernameMenuOneOwner) {
           alert("Nao foi possivel identificar sua skin para abrir o menu.");
           return;
         }
-        destinoMenu = `/menu/${usernameMenuOnePage}`;
+        destinoMenu = `/menu/${usernameMenuOneOwner}`;
       }
       destinoFechar = "/home";
     } else {
@@ -1023,9 +1103,9 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
       <div id="navbar-menu" style={{ textAlign: "center" }}>
         {!user ? (
           <LoginButton />
-        ) : !onePagePublicaAtiva || usuarioPodeAbrirMenuOnePage ? (
+        ) : !oneOwnerPublicaAtiva || usuarioPodeAbrirMenuOneOwner ? (
           <p onClick={toggleMenu} style={{ cursor: "pointer" }}>
-            ㆔
+            ☰
           </p>
         ) : null}
       </div>
@@ -1033,7 +1113,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
       <div
         id="cardProfile"
         style={
-          onePagePublicaAtiva && configSistemaAtual?.layoutTema?.headerVisible !== false
+          oneOwnerPublicaAtiva && configSistemaAtual?.layoutTema?.headerVisible !== false
             ? {
                 display: menuOpen ? "none" : "block",
                 position: "relative",
@@ -1065,7 +1145,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
               });
             }}
             style={
-              onePagePublicaAtiva && configSistemaAtual?.layoutTema?.headerVisible !== false
+              oneOwnerPublicaAtiva && configSistemaAtual?.layoutTema?.headerVisible !== false
                 ? {
                     width: "100%",
                     height: "100%",
@@ -1125,8 +1205,8 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
           user,
           skinIdAtual,
           espacos,
-          onePagePublicaAtiva,
-          usuarioPodeAbrirMenuOnePage,
+          oneOwnerPublicaAtiva,
+          usuarioPodeAbrirMenuOneOwner,
         }}
       />
     </Suspense>
@@ -1154,3 +1234,6 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
 }
 
 export default Estrutura;
+
+
+

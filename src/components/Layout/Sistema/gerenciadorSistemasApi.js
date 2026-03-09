@@ -1,4 +1,4 @@
-import { initializeApp } from "firebase/app";
+﻿import { initializeApp } from "firebase/app";
 import { httpsCallable } from "firebase/functions";
 import {
   collection,
@@ -61,6 +61,13 @@ function normalizeThemeIds(value) {
   return normalizeIdList(value).map((item) => item.toUpperCase());
 }
 
+function normalizeProjectType(value) {
+  const raw = normalizeText(value).toLowerCase();
+  if (raw === "oneowner") return "oneowner";
+  if (raw === "multipage") return "multiowner";
+  return raw === "oneowner" ? "oneowner" : "multiowner";
+}
+
 function normalizeIconItems(value) {
   if (!Array.isArray(value)) return [];
   return value
@@ -88,7 +95,7 @@ function toEnvPrefix(systemKey) {
   return normalizeText(systemKey).replace(/[^a-zA-Z0-9]+/g, "_").toUpperCase();
 }
 
-function getOnepageRuntimeConfigFromEnv() {
+function getOneownerRuntimeConfigFromEnv() {
   const apiKey = normalizeText(process.env.REACT_APP_FIREBASE_ALY_ONEPAGES_RUNTIME_API_KEY);
   const authDomain = normalizeText(
     process.env.REACT_APP_FIREBASE_ALY_ONEPAGES_RUNTIME_AUTH_DOMAIN
@@ -402,7 +409,7 @@ export async function obterConfigSistemaDoGerenciador({
   }
 
   // 3) Busca por projectId Firebase.
-  // Importante: projectId pode ser compartilhado entre varias onepages.
+  // Importante: projectId pode ser compartilhado entre varios projetos oneowner.
   // Por isso ele deve ficar depois da busca por dominio.
   if (projectIdNormalizado) {
     const byProjectIdQuery = query(
@@ -489,7 +496,7 @@ export async function listarSistemasNoGerenciador() {
           sourceCollection: collectionName,
           systemKey: normalizeText(data.systemKey || docItem.id),
           nomeProjeto: normalizeText(data.nomeProjeto || data.systemName || docItem.id),
-          tipoProjeto: normalizeText(data.tipoProjeto || "multipage").toLowerCase(),
+          tipoProjeto: normalizeProjectType(data.tipoProjeto || "multiowner"),
           firebaseProjectId: normalizeText(data.firebaseProjectId),
           domains: Array.isArray(data.domains)
             ? data.domains.map((d) => normalizeHost(d)).filter(Boolean)
@@ -535,7 +542,7 @@ export async function criarSistemaNoGerenciador({
   nomeProjeto = "",
   systemKey = "",
   domains = [],
-  tipoProjeto = "multipage",
+  tipoProjeto = "multiowner",
   firebaseConfig = {},
   criadoPorUid = null,
 }) {
@@ -546,16 +553,15 @@ export async function criarSistemaNoGerenciador({
 
   const nomeNormalizado = normalizeText(nomeProjeto);
   const keyNormalizada = normalizeSystemKey(systemKey || nomeNormalizado);
-  const tipoProjetoNormalizado =
-    normalizeText(tipoProjeto).toLowerCase() === "onepage" ? "onepage" : "multipage";
+  const tipoProjetoNormalizado = normalizeProjectType(tipoProjeto);
   if (!keyNormalizada) {
     throw new Error("Nome/chave do projeto invalido.");
   }
 
   const domainsNorm = normalizeList(domains).map((host) => normalizeHost(host)).filter(Boolean);
   const payloadFirebase =
-    tipoProjetoNormalizado === "onepage"
-      ? getOnepageRuntimeConfigFromEnv()
+    tipoProjetoNormalizado === "oneowner"
+      ? getOneownerRuntimeConfigFromEnv()
       : {
           apiKey: normalizeText(firebaseConfig.apiKey),
           authDomain: normalizeText(firebaseConfig.authDomain),
@@ -569,7 +575,7 @@ export async function criarSistemaNoGerenciador({
 
   if (!payloadFirebase) {
     throw new Error(
-      "Runtime onepage nao configurado no .env (REACT_APP_FIREBASE_ALY_ONEPAGES_RUNTIME_*)."
+      "Runtime oneowner nao configurado no .env (REACT_APP_FIREBASE_ALY_ONEPAGES_RUNTIME_*)."
     );
   }
 
@@ -596,12 +602,14 @@ export async function criarSistemaNoGerenciador({
     tituloSistema: nomeNormalizado || keyNormalizada.toUpperCase(),
     temaPadraoSistema: "ALY_137",
     loginPresetId: "manual",
+    destinoPosLogin: "home_skin_usuario",
     exibirTituloSistemaNoLogin: true,
     textoLogin: "EMBARQUE COM O GOOGLE",
-    ...(tipoProjetoNormalizado === "onepage"
+    ...(tipoProjetoNormalizado === "oneowner"
       ? {
-          tipoExperiencia: "onepage",
+          tipoExperiencia: "oneowner",
           modoAcessoProjeto: "publico_com_area_restrita",
+          destinoPosLogin: "home_central_projeto",
         }
       : {}),
   };
@@ -729,3 +737,4 @@ export async function removerProjetoNoGerenciador({
     docsRemovidos,
   };
 }
+

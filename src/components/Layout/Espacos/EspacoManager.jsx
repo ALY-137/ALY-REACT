@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import {
   arrayRemove,
   arrayUnion,
@@ -21,7 +21,7 @@ import {
 import { obterStatusMercadoPago, obterStatusPixManual } from "../Pagamentos/mercadoPagoApi";
 import {
   DEFAULT_SISTEMA_CONFIG,
-  isOnePageComEntradaPublica,
+  isOneOwnerComEntradaPublica,
   obterConfigSistema,
   obterRotulosEspaco,
 } from "../Sistema/configSistema";
@@ -172,13 +172,14 @@ export default function EspacoManager() {
         const configSistema = await obterConfigSistema().catch(() => DEFAULT_SISTEMA_CONFIG);
         if (!ativo) return;
         setConfigSistemaAtual(configSistema);
-        const onepagePublica = isOnePageComEntradaPublica(configSistema);
+        const oneownerPublica = isOneOwnerComEntradaPublica(configSistema);
         const ownerUidCandidates = Array.from(
           new Set(
             [
-              onepagePublica ? configSistema?.adminUid : "",
-              onepagePublica ? configSistema?.projectOwnerUid : "",
-              onepagePublica ? configSistema?.projectLastEditorUid : "",
+              oneownerPublica ? configSistema?.ownerUid : "",
+              oneownerPublica ? configSistema?.adminUid : "",
+              oneownerPublica ? configSistema?.projectOwnerUid : "",
+              oneownerPublica ? configSistema?.projectLastEditorUid : "",
               authUser.uid,
             ]
               .map((value) => String(value || "").trim())
@@ -774,3 +775,4 @@ export default function EspacoManager() {
     </div>
   );
 }
+

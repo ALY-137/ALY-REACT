@@ -1,4 +1,4 @@
-import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+﻿import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { auth, db } from "../../Banco/init-firebase";
 import {
   activeFirebaseProjectId,
@@ -27,11 +27,15 @@ const LEGACY_MAP_TEMA_SKIN_TO_SISTEMA = {
   SUNSHINE: "LOJA_DE_ROUPAS",
 };
 const LIMITE_SKINS_VALIDOS = ["1", "ilimitado"];
-const TIPOS_EXPERIENCIA_VALIDOS = ["multipage", "onepage"];
+const TIPOS_EXPERIENCIA_VALIDOS = ["multiowner", "oneowner"];
 const MODOS_ACESSO_PROJETO_VALIDOS = [
   "privado_com_login",
   "publico_com_area_restrita",
   "publico_sem_login",
+];
+const DESTINOS_POS_LOGIN_VALIDOS = [
+  "home_central_projeto",
+  "home_skin_usuario",
 ];
 const METODOS_LOGIN_PADRAO = {
   google: true,
@@ -95,8 +99,9 @@ export const DEFAULT_SISTEMA_CONFIG = {
   temaPadraoSistema: TEMA_SISTEMA_FALLBACK,
   layoutTema: { ...DEFAULT_LAYOUT_THEME_OVERRIDES },
   loginPresetId: "manual",
-  tipoExperiencia: "multipage",
+  tipoExperiencia: "multiowner",
   modoAcessoProjeto: "privado_com_login",
+  destinoPosLogin: "home_skin_usuario",
   limiteSkinsPorUsuario: "ilimitado",
   nomeSkinSingular: "skin",
   nomeSkinPlural: "skins",
@@ -111,13 +116,16 @@ export const DEFAULT_SISTEMA_CONFIG = {
   mercadoPagoHabilitado: true,
   pixManualHabilitado: true,
   blocoCardsHabilitado: false,
+  ownerUid: "",
+  ownerEmail: "",
+  adminUid: "",
   adminEmail: "",
   iconCollectionIds: [],
   projectOwnerUid: "",
   projectLastEditorUid: "",
 };
 
-export function isOnePageComEntradaPublica(configSistema = DEFAULT_SISTEMA_CONFIG) {
+export function isOneOwnerComEntradaPublica(configSistema = DEFAULT_SISTEMA_CONFIG) {
   const tipoExperiencia = String(
     configSistema?.tipoExperiencia || DEFAULT_SISTEMA_CONFIG.tipoExperiencia
   )
@@ -130,12 +138,36 @@ export function isOnePageComEntradaPublica(configSistema = DEFAULT_SISTEMA_CONFI
     .toLowerCase();
 
   return (
-    tipoExperiencia === "onepage" &&
+    tipoExperiencia === "oneowner" &&
     (
       modoAcessoProjeto === "publico_sem_login" ||
       modoAcessoProjeto === "publico_com_area_restrita"
     )
   );
+}
+
+// Compatibilidade retroativa: mantenha chamadas antigas funcionando.
+export function isOnePageComEntradaPublica(configSistema = DEFAULT_SISTEMA_CONFIG) {
+  return isOneOwnerComEntradaPublica(configSistema);
+}
+
+function normalizarDestinoPosLogin(value) {
+  const normalizado = String(value || "").trim().toLowerCase();
+  if (DESTINOS_POS_LOGIN_VALIDOS.includes(normalizado)) {
+    return normalizado;
+  }
+  return DEFAULT_SISTEMA_CONFIG.destinoPosLogin;
+}
+
+export function resolverDestinoPosLoginPadrao(configSistema = DEFAULT_SISTEMA_CONFIG) {
+  const configNormalizada = normalizarConfigSistema(configSistema);
+  if (isOneOwnerComEntradaPublica(configNormalizada)) {
+    return "/home";
+  }
+  if (configNormalizada.destinoPosLogin === "home_central_projeto") {
+    return "/";
+  }
+  return null;
 }
 
 function obterDefaultConfigSistemaProjeto() {
@@ -339,7 +371,7 @@ function normalizarBoolean(value, fallback = false) {
   if (typeof value === "string") {
     const normalizado = value.trim().toLowerCase();
     if (["true", "1", "sim", "yes"].includes(normalizado)) return true;
-    if (["false", "0", "nao", "não", "no"].includes(normalizado)) return false;
+    if (["false", "0", "nao", "nÃ£o", "no"].includes(normalizado)) return false;
   }
   if (typeof value === "number") return value !== 0;
   return fallback;
@@ -357,7 +389,9 @@ function normalizarLimiteSkins(value) {
 }
 
 function normalizarTipoExperiencia(value) {
-  const normalizado = String(value || "").trim().toLowerCase();
+  let normalizado = String(value || "").trim().toLowerCase();
+  if (normalizado === "onepage") normalizado = "oneowner";
+  if (normalizado === "multipage") normalizado = "multiowner";
   if (TIPOS_EXPERIENCIA_VALIDOS.includes(normalizado)) {
     return normalizado;
   }
@@ -395,9 +429,35 @@ function normalizarNomeSkin(value, fallback, maxLen = 40) {
   return trim.slice(0, maxLen);
 }
 
-function normalizarEmailAdmin(value) {
+function normalizarEmailOwner(value) {
   if (typeof value !== "string") return "";
   return value.trim().toLowerCase().slice(0, 160);
+}
+
+export function obterOwnerUidConfigurado(configSistema = DEFAULT_SISTEMA_CONFIG) {
+  const ownerUid = String(configSistema?.ownerUid || configSistema?.adminUid || "").trim();
+  if (ownerUid) return ownerUid;
+  if (typeof window === "undefined") return "";
+  return String(
+    window.localStorage.getItem("systemOwnerUid") ||
+      window.localStorage.getItem("systemAdminUid") ||
+      ""
+  ).trim();
+}
+
+export function obterOwnerEmailConfigurado(configSistema = DEFAULT_SISTEMA_CONFIG) {
+  const ownerEmail = String(configSistema?.ownerEmail || configSistema?.adminEmail || "")
+    .trim()
+    .toLowerCase();
+  if (ownerEmail) return ownerEmail;
+  if (typeof window === "undefined") return "";
+  return String(
+    window.localStorage.getItem("systemOwnerEmail") ||
+      window.localStorage.getItem("systemAdminEmail") ||
+      ""
+  )
+    .trim()
+    .toLowerCase();
 }
 
 function normalizarLarguraIconsLogin(value) {
@@ -632,11 +692,9 @@ export function normalizarConfigSistema(data = {}) {
     DEFAULT_SISTEMA_CONFIG.politicaPrivacidadeUrl,
     2000
   );
-  const adminUidNormalizado =
-    typeof data.adminUid === "string" && data.adminUid.trim()
-      ? data.adminUid.trim()
-      : null;
-  const adminEmailNormalizado = normalizarEmailAdmin(data.adminEmail);
+  const ownerUidRaw = String(data.ownerUid || data.adminUid || "").trim();
+  const ownerUidNormalizado = ownerUidRaw || null;
+  const ownerEmailNormalizado = normalizarEmailOwner(data.ownerEmail || data.adminEmail);
   const projectOwnerUidNormalizado =
     typeof data.projectOwnerUid === "string" && data.projectOwnerUid.trim()
       ? data.projectOwnerUid.trim()
@@ -651,6 +709,7 @@ export function normalizarConfigSistema(data = {}) {
           : "");
   const tipoExperienciaNormalizado = normalizarTipoExperiencia(data.tipoExperiencia);
   const modoAcessoProjetoNormalizado = normalizarModoAcessoProjeto(data.modoAcessoProjeto);
+  const destinoPosLoginNormalizado = normalizarDestinoPosLogin(data.destinoPosLogin);
   const layoutTemaNormalizado = normalizarConfiguracaoLayoutTema({
     ...(data.layoutTema && typeof data.layoutTema === "object" ? data.layoutTema : {}),
     headerVisible:
@@ -699,7 +758,7 @@ export function normalizarConfigSistema(data = {}) {
         : data?.layoutTema?.viewportMargin,
   });
   const limiteSkinsNormalizado =
-    tipoExperienciaNormalizado === "onepage"
+    tipoExperienciaNormalizado === "oneowner"
       ? "1"
       : normalizarLimiteSkins(data.limiteSkinsPorUsuario);
 
@@ -747,6 +806,7 @@ export function normalizarConfigSistema(data = {}) {
     loginPresetId: normalizarLoginPresetId(data.loginPresetId),
     tipoExperiencia: tipoExperienciaNormalizado,
     modoAcessoProjeto: modoAcessoProjetoNormalizado,
+    destinoPosLogin: destinoPosLoginNormalizado,
     limiteSkinsPorUsuario: limiteSkinsNormalizado,
     nomeSkinSingular: normalizarNomeSkin(
       data.nomeSkinSingular,
@@ -802,8 +862,11 @@ export function normalizarConfigSistema(data = {}) {
       data.blocoCardsHabilitado,
       DEFAULT_SISTEMA_CONFIG.blocoCardsHabilitado
     ),
-    adminUid: adminUidNormalizado,
-    adminEmail: adminEmailNormalizado,
+    ownerUid: ownerUidNormalizado,
+    ownerEmail: ownerEmailNormalizado,
+    // Compatibilidade retroativa.
+    adminUid: ownerUidNormalizado,
+    adminEmail: ownerEmailNormalizado,
     iconCollectionIds: normalizarListaString(data.iconCollectionIds),
     projectOwnerUid: projectOwnerUidNormalizado,
     projectLastEditorUid: projectLastEditorUidNormalizado,
@@ -903,7 +966,7 @@ export async function salvarConfigSistemaAdmin(configParcial = {}) {
       projectId: activeFirebaseProjectId,
       hostname: hostnameAtual,
       configSistema: configNormalizada,
-      atualizadoPorUid: configNormalizada.adminUid || null,
+      atualizadoPorUid: configNormalizada.ownerUid || configNormalizada.adminUid || null,
     });
   } catch {
     salvoNoGerenciador = false;
@@ -992,3 +1055,4 @@ export function aplicarTemaNoBody(themeId) {
   body.classList.add(`theme-${layoutTheme.toLowerCase()}`);
   import(`../Temas/${layoutTheme.toLowerCase()}.css`).catch(() => {});
 }
+

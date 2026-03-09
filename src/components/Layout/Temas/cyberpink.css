@@ -1,4 +1,4 @@
-@import "./system-base.css";
+﻿@import "./system-base.css";
 
 body.theme-cyberpink .optionsAbas{
     height: 40px;
@@ -109,7 +109,7 @@ body.theme-cyberpink #abas.navbar-tabs .navbar-tab.navbar-tab--active {
 
 
 /* Depois */
-body.theme-cyberpink:not(.layout-onepage-header-active) #cardProfile {
+body.theme-cyberpink:not(.layout-oneowner-header-active) #cardProfile {
   height: 50px;
 }
 
@@ -248,13 +248,13 @@ body.theme-cyberpink .gavetaOption.highlight, body.theme-cyberpink .gavetaOption
 
 body.theme-cyberpink .gavetaOption.highlight::before,
 body.theme-cyberpink .gavetaOption:hover::before {
-    content: '❱';
+    content: 'â±';
     opacity: 1; 
 }
 
 body.theme-cyberpink .gavetaOption.highlight::after,
 body.theme-cyberpink .gavetaOption:hover::after {
-    content: '❰';
+    content: 'â°';
     opacity: 1; 
 }
 
@@ -294,7 +294,7 @@ body.theme-cyberpink #Gavetas{
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%); /* Centraliza no meio da tela */
-  padding: 1rem; /* opcional: adiciona espaço interno */
+  padding: 1rem; /* opcional: adiciona espaÃ§o interno */
   box-sizing: border-box;
 }  
 
@@ -708,3 +708,4 @@ body.theme-cyberpink .loginCadastroButton:hover,
 body.theme-cyberpink .loginCadastroButton:focus-visible {
   border-color: var(--cyberpink-border-strong);
 }
+

@@ -1,4 +1,4 @@
-const SHARED_ONEPAGE_RUNTIME_KEYS = new Set(["aly-onepages-runtime"]);
+const SHARED_ONEOWNER_RUNTIME_KEYS = new Set(["aly-onepages-runtime"]);
 const LOCAL_QUERY_PARAM = "firebaseProject";
 const STORAGE_CONTEXT_KEYS = ["systemProjectContextKey", "firebaseProjectTarget"];
 
@@ -51,7 +51,7 @@ function resolveContextProjectKeyFromWindow() {
 
 export function resolveProjectDataNamespaceKey(activeProjectKey = "") {
   const activeKey = normalizeKey(activeProjectKey);
-  if (!SHARED_ONEPAGE_RUNTIME_KEYS.has(activeKey)) return "";
+  if (!SHARED_ONEOWNER_RUNTIME_KEYS.has(activeKey)) return "";
 
   const contextKey = resolveContextProjectKeyFromWindow();
   if (!contextKey || contextKey === activeKey) return "";
@@ -87,7 +87,7 @@ export function buildProjectDataPathCandidates(
     return [legacyPath];
   }
 
-  // Runtime onepage com namespace ativo: usa somente caminho namespaced.
+  // Runtime oneowner com namespace ativo: usa somente caminho namespaced.
   // Isso evita criar/ler dados duplicados em /users na raiz.
   return [primaryPath];
 }

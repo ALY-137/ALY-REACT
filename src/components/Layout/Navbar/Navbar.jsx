@@ -1,23 +1,23 @@
-import { Link } from "react-router-dom";
+﻿import { Link } from "react-router-dom";
 import {
   DEFAULT_SISTEMA_CONFIG,
-  isOnePageComEntradaPublica,
+  isOneOwnerComEntradaPublica,
   obterConfigSistemaCacheLocal,
 } from "../Sistema/configSistema";
 
 const Navbar = ({ pages = [] }) => {
   const targetUsername = localStorage.getItem("targetUsername");
   const configSistema = obterConfigSistemaCacheLocal() || DEFAULT_SISTEMA_CONFIG;
-  const onePagePublicaAtiva = isOnePageComEntradaPublica(configSistema);
+  const oneOwnerPublicaAtiva = isOneOwnerComEntradaPublica(configSistema);
   const activePage = decodeURIComponent(window.location.pathname.split("/").pop() || "").toLowerCase();
 
   const menu = pages.map((p) => ({
     ...p,
     tipo: p.isHome ? "home" : "add",
-    rota: onePagePublicaAtiva ? `/${p.nome}` : `/${targetUsername}/${p.nome}`,
+    rota: oneOwnerPublicaAtiva ? `/${p.nome}` : `/${targetUsername}/${p.nome}`,
   }));
 
-  if ((!onePagePublicaAtiva && !targetUsername) || !menu.length) return null;
+  if ((!oneOwnerPublicaAtiva && !targetUsername) || !menu.length) return null;
 
   return (
     <div className="menu-navbar">
@@ -51,3 +51,4 @@ const Navbar = ({ pages = [] }) => {
 };
 
 export default Navbar;
+

@@ -412,7 +412,7 @@ async function buyerAlreadyHasAccess({
     }
     return false;
   } catch (err) {
-    // Em alguns fluxos onepage, skinAtivaId pode nao ser uma skin propria do comprador.
+    // Em alguns fluxos oneowner, skinAtivaId pode nao ser uma skin propria do comprador.
     // Nesses casos, a leitura pode ser negada pelas rules e devemos tratar como "nao comprado".
     if (String(err?.code || "") === "permission-denied") {
       return false;
@@ -957,7 +957,7 @@ function montarSessaoChatContext({
   const ownerUidNorm = sanitizeString(ownerUid);
   const compradorUidNorm = sanitizeString(compradorUid);
   const solicitacaoIdNorm = sanitizeString(solicitacaoId);
-  const ownerUsernameNorm = sanitizeString(ownerUsername) || `admin_${ownerUidNorm.slice(0, 8)}`;
+  const ownerUsernameNorm = sanitizeString(ownerUsername) || `owner_${ownerUidNorm.slice(0, 8)}`;
   const compradorUsernameNorm =
     sanitizeString(compradorUsername) || `cliente_${compradorUidNorm.slice(0, 8)}`;
 
@@ -1023,7 +1023,7 @@ function montarSessaoChatLiveContext({
   const compradorUidNorm = sanitizeString(compradorUid);
   const espacoIdNorm = sanitizeString(espacoId);
   const blocoIdNorm = sanitizeString(blocoId);
-  const ownerUsernameNorm = sanitizeString(ownerUsername) || `admin_${ownerUidNorm.slice(0, 8)}`;
+  const ownerUsernameNorm = sanitizeString(ownerUsername) || `owner_${ownerUidNorm.slice(0, 8)}`;
 
   const idContato = `live_${sanitizeLiveToken(ownerUidNorm)}_${sanitizeLiveToken(
     espacoIdNorm
@@ -1082,7 +1082,7 @@ export async function confirmarSolicitacaoPixManual({
 
   const ownerUid = sanitizeString(ownerUserId) || currentUid;
   if (ownerUid !== currentUid) {
-    throw new Error("Apenas o administrador pode confirmar solicitações.");
+    throw new Error("Apenas o owner pode confirmar solicitações.");
   }
 
   const idSolicitacaoNormalizado = sanitizeString(solicitacaoId);

@@ -209,9 +209,19 @@ function PropriedadesSistema({
   const editandoProjetoExterno =
     !!projetoGerenciadoKey && projetoGerenciadoKey !== "gerenciador-aly";
   const exibindoConfiguracoesProjeto = !isManagerProject || editandoProjetoExterno;
+  const tipoExperienciaAtual = String(config?.tipoExperiencia || "multiowner")
+    .trim()
+    .toLowerCase();
+  const projetoOneOwner = tipoExperienciaAtual === "oneowner";
   const bootstrapPrimeiroAdminHabilitado =
-    isManagerProject && !!user && !config?.adminUid;
+    isManagerProject && !!user && !(config?.ownerUid || config?.adminUid);
   const acessoAdminLiberado = modoBootstrap || bootstrapPrimeiroAdminHabilitado || seforAdm(user);
+  const modoAcessoProjetoAtual = String(config?.modoAcessoProjeto || "privado_com_login")
+    .trim()
+    .toLowerCase();
+  const exibirDestinoPosLogin =
+    modoAcessoProjetoAtual === "privado_com_login" ||
+    modoAcessoProjetoAtual === "publico_com_area_restrita";
 
   const erroPermissao = (error) => {
     const code = String(error?.code || "").toLowerCase();
@@ -419,10 +429,11 @@ function PropriedadesSistema({
             throw saveError;
           }
 
-          // Bootstrap de admin dinamico no projeto gerenciador e nova tentativa.
+          // Bootstrap de owner dinamico no projeto gerenciador e nova tentativa.
           const configGerenciadorAtual = await obterConfigSistema();
           await salvarConfigSistemaAdmin({
             ...configGerenciadorAtual,
+            ownerUid: user.uid,
             adminUid: user.uid,
           });
 
@@ -440,6 +451,7 @@ function PropriedadesSistema({
       } else {
         configSalva = await salvarConfigSistemaAdmin({
           ...configParaSalvar,
+          ownerUid: user?.uid || null,
           adminUid: user?.uid || null,
         });
         aplicarTemaNoBody(configSalva.temaPadraoSistema);
@@ -467,7 +479,7 @@ function PropriedadesSistema({
       const codigo = String(error?.code || "desconhecido");
       if (erroPermissao(error)) {
         setErro(
-          `Falha ao salvar configuracoes por permissao no Firestore (${codigo}). Verifique se o seu UID esta definido como admin no gerenciador.`
+          `Falha ao salvar configuracoes por permissao no Firestore (${codigo}). Verifique se o seu UID esta definido como owner no gerenciador.`
         );
       } else {
         setErro(`Falha ao salvar configuracoes (${codigo}).`);
@@ -518,7 +530,7 @@ function PropriedadesSistema({
     return (
       <div>
         <h2>{tituloSecao}</h2>
-        <p>Acesso restrito ao administrador.</p>
+        <p>Acesso restrito ao owner.</p>
       </div>
     );
   }
@@ -1334,7 +1346,7 @@ function PropriedadesSistema({
           <label htmlFor="tipoExperiencia">Tipo de experiencia</label>
           <select
             id="tipoExperiencia"
-            value={config.tipoExperiencia || "multipage"}
+            value={config.tipoExperiencia || "multiowner"}
             onChange={(event) =>
               setConfig((prev) => ({
                 ...prev,
@@ -1343,8 +1355,8 @@ function PropriedadesSistema({
             }
             style={{ width: "100%", marginTop: 8 }}
           >
-            <option value="multipage">Multipage</option>
-            <option value="onepage">Onepage</option>
+            <option value="multiowner">Multiowner</option>
+            <option value="oneowner">Oneowner</option>
           </select>
 
           <label htmlFor="modoAcessoProjeto" style={{ display: "block", marginTop: 12 }}>
@@ -1366,10 +1378,36 @@ function PropriedadesSistema({
             <option value="publico_sem_login">Publico sem login de usuario</option>
           </select>
 
+          {exibirDestinoPosLogin ? (
+            <>
+              <label htmlFor="destinoPosLogin" style={{ display: "block", marginTop: 12 }}>
+                Destino apos login
+              </label>
+              <select
+                id="destinoPosLogin"
+                value={config.destinoPosLogin || "home_skin_usuario"}
+                onChange={(event) =>
+                  setConfig((prev) => ({
+                    ...prev,
+                    destinoPosLogin: String(event.target.value || "home_skin_usuario"),
+                  }))
+                }
+                style={{ width: "100%", marginTop: 8 }}
+              >
+                <option value="home_central_projeto">Home central do projeto</option>
+                <option value="home_skin_usuario">Home skin do usuario</option>
+              </select>
+              <p style={{ marginTop: 8, opacity: 0.85 }}>
+                Home central: apos logar, abre <code>/</code> (ou <code>/home</code> em oneowner
+                publica). Home skin: mantem fluxo direto para a skin/perfil do usuario.
+              </p>
+            </>
+          ) : null}
+
           <p style={{ marginTop: 8, opacity: 0.85 }}>
-            Em projetos <code>onepage</code> com acesso publico, a pagina principal fica em{" "}
-            <code>/</code>, <code>/login</code> continua para usuarios comuns e o login admin usa{" "}
-            <code>/loginadmin</code>.
+            Em projetos <code>oneowner</code> com acesso publico, a pagina principal fica em{" "}
+            <code>/</code>, <code>/login</code> continua para usuarios comuns e o login owner usa{" "}
+            <code>/loginowner</code>.
           </p>
 
           <h4 style={{ marginTop: 16, marginBottom: 8 }}>Mensagens de restricao de acesso</h4>
@@ -1690,42 +1728,53 @@ function PropriedadesSistema({
             )}
           </div>
 
-          <label htmlFor="adminUidProjeto" style={{ display: "block", marginTop: 12 }}>
-            UID do administrador do projeto
-          </label>
-          <input
-            id="adminUidProjeto"
-            type="text"
-            value={config.adminUid || ""}
-            onChange={(event) =>
-              setConfig((prev) => ({
-                ...prev,
-                adminUid: event.target.value,
-              }))
-            }
-            placeholder="UID do Firebase Auth"
-            style={{ width: "100%", marginTop: 8 }}
-          />
-          <label htmlFor="adminEmailProjeto" style={{ display: "block", marginTop: 10 }}>
-            Email do administrador do projeto
-          </label>
-          <input
-            id="adminEmailProjeto"
-            type="email"
-            value={config.adminEmail || ""}
-            onChange={(event) =>
-              setConfig((prev) => ({
-                ...prev,
-                adminEmail: event.target.value,
-              }))
-            }
-            placeholder="admin@seuprojeto.com"
-            style={{ width: "100%", marginTop: 8 }}
-          />
-          <p style={{ marginTop: 6, opacity: 0.85 }}>
-            Em <code>onepage</code>, somente este UID ou email pode entrar em{" "}
-            <code>/loginadmin</code> e acessar <code>/menu/admin</code>.
-          </p>
+          {projetoOneOwner ? (
+            <>
+              <label htmlFor="ownerUidProjeto" style={{ display: "block", marginTop: 12 }}>
+                UID do owner do projeto
+              </label>
+              <input
+                id="ownerUidProjeto"
+                type="text"
+                value={config.ownerUid || config.adminUid || ""}
+                onChange={(event) =>
+                  setConfig((prev) => ({
+                    ...prev,
+                    ownerUid: event.target.value,
+                    adminUid: event.target.value,
+                  }))
+                }
+                placeholder="UID do Firebase Auth"
+                style={{ width: "100%", marginTop: 8 }}
+              />
+              <label htmlFor="ownerEmailProjeto" style={{ display: "block", marginTop: 10 }}>
+                Email do owner do projeto
+              </label>
+              <input
+                id="ownerEmailProjeto"
+                type="email"
+                value={config.ownerEmail || config.adminEmail || ""}
+                onChange={(event) =>
+                  setConfig((prev) => ({
+                    ...prev,
+                    ownerEmail: event.target.value,
+                    adminEmail: event.target.value,
+                  }))
+                }
+                placeholder="owner@seuprojeto.com"
+                style={{ width: "100%", marginTop: 8 }}
+              />
+              <p style={{ marginTop: 6, opacity: 0.85 }}>
+                Em <code>oneowner</code>, somente este UID ou email pode entrar em{" "}
+                <code>/loginowner</code> e acessar <code>/menu/owner</code>.
+              </p>
+            </>
+          ) : (
+            <p style={{ marginTop: 10, opacity: 0.8 }}>
+              Em <code>multiowner</code>, o owner operacional e o projeto{" "}
+              <code>gerenciador-aly</code>; nao e necessario configurar UID/email de owner aqui.
+            </p>
+          )}
         </div>
       ) : null}
 

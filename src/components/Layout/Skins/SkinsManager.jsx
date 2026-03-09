@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   arrayRemove,
@@ -181,12 +181,15 @@ const SkinsManager = () => {
     configSistema.limiteSkinsPorUsuario === "1" &&
     skins.length >= 1;
   const exibirSecaoCriacao = !limiteAtingido;
-  const projetoOnePage = configSistema?.tipoExperiencia === "onepage";
+  const tipoExperienciaProjeto = String(configSistema?.tipoExperiencia || "")
+    .trim()
+    .toLowerCase();
+  const projetoOneOwner = tipoExperienciaProjeto === "oneowner";
 
   const { singular, plural } = obterRotulosSkin(configSistema);
   const nomeSkinSingular = singular || "skin";
   const nomeSkinPlural = plural || "skins";
-  const usarTituloSingular = projetoOnePage;
+  const usarTituloSingular = projetoOneOwner;
   const nomeSkinGestao = usarTituloSingular ? nomeSkinSingular : nomeSkinPlural;
   const permitirTemasSkinSecundarios =
     configSistema.permitirTemasSkinSecundarios !== false;
@@ -238,9 +241,9 @@ const SkinsManager = () => {
   };
 
   const handleCreateFirstSkin = async (themeId) => {
-    if (projetoOnePage) {
+    if (projetoOneOwner) {
       setFeedback(
-        `Em projetos onepage, a ${nomeSkinSingular} e criada automaticamente no primeiro login.`
+        `Em projetos oneowner, a ${nomeSkinSingular} e criada automaticamente no primeiro login.`
       );
       return;
     }
@@ -277,9 +280,9 @@ const SkinsManager = () => {
   };
 
   const handleCreateSkin = async () => {
-    if (projetoOnePage) {
+    if (projetoOneOwner) {
       setFeedback(
-        `Em projetos onepage, a ${nomeSkinSingular} e criada automaticamente no primeiro login.`
+        `Em projetos oneowner, a ${nomeSkinSingular} e criada automaticamente no primeiro login.`
       );
       return;
     }
@@ -347,9 +350,9 @@ const SkinsManager = () => {
   };
 
   const handleDeleteSkin = async (skin) => {
-    if (projetoOnePage) {
+    if (projetoOneOwner) {
       setFeedback(
-        `Em projetos onepage, a ${nomeSkinSingular} automatica nao pode ser excluida.`
+        `Em projetos oneowner, a ${nomeSkinSingular} automatica nao pode ser excluida.`
       );
       return;
     }
@@ -391,12 +394,12 @@ const SkinsManager = () => {
   if (loading || isLoading || carregandoConfig) return <p>Carregando...</p>;
 
   if (skins.length === 0) {
-    if (projetoOnePage) {
+    if (projetoOneOwner) {
       return (
         <div className="theme-picker">
           <h2>Gerenciar {nomeSkinGestao}</h2>
           <p>
-            {`Em projetos onepage, a ${nomeSkinSingular} e criada automaticamente no primeiro login.`}
+            {`Em projetos oneowner, a ${nomeSkinSingular} e criada automaticamente no primeiro login.`}
           </p>
           <button type="button" onClick={fetchSkins}>
             Atualizar lista
@@ -438,7 +441,7 @@ const SkinsManager = () => {
     <div className="skins-manager">
       <h2>Gerenciar {nomeSkinGestao}</h2>
 
-      {!projetoOnePage && exibirSecaoCriacao ? (
+      {!projetoOneOwner && exibirSecaoCriacao ? (
         <div className="create-skin">
           <h3>Criar nova {nomeSkinSingular}</h3>
 
@@ -577,7 +580,7 @@ const SkinsManager = () => {
                     Alterar tema
                   </button>
                 )}
-                {!projetoOnePage ? (
+                {!projetoOneOwner ? (
                   <button onClick={() => handleDeleteSkin(skin)} style={{ color: "red" }}>
                     Excluir
                   </button>
@@ -595,3 +598,4 @@ const SkinsManager = () => {
 };
 
 export default SkinsManager;
+

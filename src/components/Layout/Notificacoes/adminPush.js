@@ -57,7 +57,7 @@ function ativarListenerForeground(messaging) {
     const body = sanitizeString(payload?.notification?.body);
     if (!title || Notification.permission !== "granted") return;
 
-    const link = sanitizeString(payload?.data?.link) || "/menu/admin/solicitacoes";
+    const link = sanitizeString(payload?.data?.link) || "/menu/owner/solicitacoes";
     exibirNotificacaoAdminLocal({
       title,
       body: body || "Nova solicitacao recebida.",
@@ -73,7 +73,7 @@ function ativarListenerForeground(messaging) {
 export async function exibirNotificacaoAdminLocal({
   title = "",
   body = "",
-  link = "/menu/admin/solicitacoes",
+  link = "/menu/owner/solicitacoes",
 } = {}) {
   const titulo = sanitizeString(title);
   if (!titulo) return false;
@@ -87,7 +87,7 @@ export async function exibirNotificacaoAdminLocal({
     body: sanitizeString(body) || "Nova solicitacao recebida.",
     icon: "/favicon.ico",
     badge: "/favicon.ico",
-    data: { link: sanitizeString(link) || "/menu/admin/solicitacoes" },
+    data: { link: sanitizeString(link) || "/menu/owner/solicitacoes" },
   };
 
   try {
@@ -155,6 +155,8 @@ export async function registrarTokenPushAdmin() {
   await setDoc(
     getPrimaryProjectDoc(db, "users", uid),
     {
+      ownerPushTokens: arrayUnion(token),
+      ownerPushTokensUpdatedAt: serverTimestamp(),
       adminPushTokens: arrayUnion(token),
       adminPushTokensUpdatedAt: serverTimestamp(),
     },

@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { getRedirectResult, signInWithPopup, signInWithRedirect } from "firebase/auth";
@@ -6,8 +6,8 @@ import { auth, providerTwitter } from "../../Banco/init-firebase";
 import { bootstrapUser } from "../Menu/Users/bootstrapUser";
 import {
   DEFAULT_SISTEMA_CONFIG,
-  isOnePageComEntradaPublica,
   obterConfigSistemaCacheLocal,
+  resolverDestinoPosLoginPadrao as resolverDestinoPosLoginProjeto,
 } from "../Sistema/configSistema";
 
 const POST_LOGIN_REDIRECT_KEY = "postLoginRedirectPath";
@@ -28,26 +28,23 @@ const mostrarAjudaRedeAuth = () => {
   );
 };
 
-const isErroAcessoAdmin = (erro) => {
+const isErroAcessoOwner = (erro) => {
   const codigo = String(erro?.code || "").toLowerCase();
   const mensagem = String(erro?.message || "").toLowerCase();
   return (
     codigo.includes("permission-denied") ||
     (codigo === "auth/internal-error" &&
-      (mensagem.includes("administrador") || mensagem.includes("permission-denied")))
+      ((mensagem.includes("owner") || mensagem.includes("administrador") || mensagem.includes("permission-denied"))))
   );
 };
 
 function LoginTwitter({ onLogin }) {
   const navigate = useNavigate();
 
-  const resolverDestinoPosLoginPadrao = () => {
-    const configSistema = obterConfigSistemaCacheLocal() || DEFAULT_SISTEMA_CONFIG;
-    if (isOnePageComEntradaPublica(configSistema)) {
-      return "/home";
-    }
-    return null;
-  };
+  const resolverDestinoPosLoginPadrao = () =>
+    resolverDestinoPosLoginProjeto(
+      obterConfigSistemaCacheLocal() || DEFAULT_SISTEMA_CONFIG
+    );
 
   const finalizarLogin = async (firebaseUser) => {
     if (firebaseUser?.uid) {
@@ -93,8 +90,8 @@ function LoginTwitter({ onLogin }) {
         if (!result?.user || !ativo) return;
         await finalizarLogin(result.user);
       } catch (err) {
-        if (isErroAcessoAdmin(err)) {
-          alert("Acesso permitido apenas para administradores.");
+        if (isErroAcessoOwner(err)) {
+          alert("Acesso permitido apenas para owners.");
           return;
         }
         if (err?.code === "auth/network-request-failed") {
@@ -146,8 +143,8 @@ function LoginTwitter({ onLogin }) {
         return;
       }
 
-      if (isErroAcessoAdmin(err)) {
-        alert("Acesso permitido apenas para administradores.");
+      if (isErroAcessoOwner(err)) {
+        alert("Acesso permitido apenas para owners.");
         return;
       }
 
@@ -180,3 +177,6 @@ function LoginTwitter({ onLogin }) {
 }
 
 export default LoginTwitter;
+
+
+

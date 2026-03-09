@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect } from "react";
+﻿import React, { useState, useEffect, useLayoutEffect } from "react";
 import { useNavigate, useLocation, useParams, Outlet } from "react-router-dom";
 import { seforAdm } from "../../Scripts/verificacoes/verificaAdm";
 
@@ -21,7 +21,9 @@ import {
   DEFAULT_SISTEMA_CONFIG,
   aplicarBrandingNoDocumento,
   aplicarTemaNoBody,
-  isOnePageComEntradaPublica,
+  isOneOwnerComEntradaPublica,
+  obterOwnerEmailConfigurado,
+  obterOwnerUidConfigurado,
   obterConfigSistemaCacheLocal,
   obterConfigSistema,
   obterProjectKeyContextual,
@@ -81,25 +83,26 @@ function Menu({ menuOpen }) {
     : skinLogadoUserStorageBruto;
   const userIdCache = localStorage.getItem("userId");
   const modoAcessoProjeto = configSistema?.modoAcessoProjeto || "privado_com_login";
-  const tipoExperiencia = configSistema?.tipoExperiencia || "multipage";
-  const onePagePublicaAtiva =
+  const tipoExperiencia = configSistema?.tipoExperiencia || "multiowner";
+  const oneOwnerPublicaAtiva =
     !isManagerProject &&
-    isOnePageComEntradaPublica({
+    isOneOwnerComEntradaPublica({
       tipoExperiencia,
       modoAcessoProjeto,
     });
-  const rotaAdminMenuOnePage =
-    onePagePublicaAtiva && menuUserIdParam.toLowerCase() === "admin";
-  const loginAdminSeparado = onePagePublicaAtiva && rotaAdminMenuOnePage;
+  const rotaOwnerMenuOneOwner =
+    oneOwnerPublicaAtiva &&
+    (menuUserIdParam.toLowerCase() === "owner" || menuUserIdParam.toLowerCase() === "admin");
+  const loginOwnerSeparado = oneOwnerPublicaAtiva && rotaOwnerMenuOneOwner;
   const skinLogadoUser = !isManagerProject
-    ? onePagePublicaAtiva
-      ? rotaAdminMenuOnePage
+    ? oneOwnerPublicaAtiva
+      ? rotaOwnerMenuOneOwner
         ? skinLogadoUserStorage
         : (skinLogadoUserStorage || menuUserIdNormalizado)
       : (skinLogadoUserStorage || menuUserIdNormalizado)
     : "";
   const exigeSkinAtiva =
-    !isManagerProject && (!onePagePublicaAtiva || !rotaAdminMenuOnePage);
+    !isManagerProject && (!oneOwnerPublicaAtiva || !rotaOwnerMenuOneOwner);
   const aguardandoAuthInicial =
     loading && !usuarioAuthAtual && (isManagerProject || !userIdCache);
   const temUsuarioAutenticado = isManagerProject
@@ -107,12 +110,12 @@ function Menu({ menuOpen }) {
     : Boolean(usuarioAuthAtual || userIdCache);
   const menuTargetUser = isManagerProject
     ? (menuUserIdParam || "gerenciador").trim()
-    : rotaAdminMenuOnePage
-      ? "admin"
+    : rotaOwnerMenuOneOwner
+      ? "owner"
       : (skinLogadoUser || menuUserIdNormalizado);
   const nomeSkinSingular = (configSistema.nomeSkinSingular || "skin").trim() || "skin";
   const nomeSkinPlural = (configSistema.nomeSkinPlural || "skins").trim() || "skins";
-  const usarRotuloSkinSingular = tipoExperiencia === "onepage";
+  const usarRotuloSkinSingular = tipoExperiencia === "oneowner";
   const nomeSkinMenu = usarRotuloSkinSingular ? nomeSkinSingular : nomeSkinPlural;
   const nomeSkinMenuUpper = nomeSkinMenu.toUpperCase();
   const nomeSkinPluralUpper = nomeSkinPlural.toUpperCase();
@@ -122,87 +125,81 @@ function Menu({ menuOpen }) {
   const mercadoPagoHabilitado = configSistema.mercadoPagoHabilitado !== false;
   const pixManualHabilitado = configSistema.pixManualHabilitado !== false;
   const pagamentosCompradorHabilitados = mercadoPagoHabilitado || pixManualHabilitado;
-  const rotaLoginProjeto = onePagePublicaAtiva ? "/login" : "/";
-  const rotaLoginAdminProjeto = onePagePublicaAtiva ? "/loginadmin" : rotaLoginProjeto;
-  const adminUidProjetoConfigurado = String(
-    configSistema?.adminUid || localStorage.getItem("systemAdminUid") || ""
-  ).trim();
-  const adminEmailProjetoConfigurado = String(
-    configSistema?.adminEmail || localStorage.getItem("systemAdminEmail") || ""
-  )
+  const rotaLoginProjeto = oneOwnerPublicaAtiva ? "/login" : "/";
+  const rotaLoginOwnerProjeto = oneOwnerPublicaAtiva ? "/loginowner" : rotaLoginProjeto;
+  const ownerUidProjetoConfigurado = String(obterOwnerUidConfigurado(configSistema) || "").trim();
+  const ownerEmailProjetoConfigurado = String(obterOwnerEmailConfigurado(configSistema) || "")
     .trim()
     .toLowerCase();
   const emailUsuarioAtual = String(usuarioAuthAtual?.email || "")
     .trim()
     .toLowerCase();
-  const adminProjetoConfigurado = Boolean(
-    adminUidProjetoConfigurado || adminEmailProjetoConfigurado
+  const ownerProjetoConfigurado = Boolean(
+    ownerUidProjetoConfigurado || ownerEmailProjetoConfigurado
   );
-  const usuarioEhAdminProjeto = Boolean(
+  const usuarioEhOwnerProjeto = Boolean(
     usuarioAuthAtual?.uid &&
       (
-        (adminUidProjetoConfigurado &&
-          usuarioAuthAtual.uid === adminUidProjetoConfigurado) ||
-        (adminEmailProjetoConfigurado &&
-          emailUsuarioAtual === adminEmailProjetoConfigurado) ||
-        (!adminProjetoConfigurado &&
+        (ownerUidProjetoConfigurado &&
+          usuarioAuthAtual.uid === ownerUidProjetoConfigurado) ||
+        (ownerEmailProjetoConfigurado &&
+          emailUsuarioAtual === ownerEmailProjetoConfigurado) ||
+        (!ownerProjetoConfigurado &&
           seforAdm(usuarioAuthAtual))
       )
   );
-  const menuOnePageUsuarioComum = onePagePublicaAtiva && !rotaAdminMenuOnePage;
-  const podeGerenciarUsuarios = usuarioEhAdminProjeto && !onePagePublicaAtiva;
-  const adminOnePagePodeGerenciarSkins =
-    onePagePublicaAtiva && rotaAdminMenuOnePage && usuarioEhAdminProjeto;
+  const menuOneOwnerUsuarioComum = oneOwnerPublicaAtiva && !rotaOwnerMenuOneOwner;
+  const podeGerenciarUsuarios = usuarioEhOwnerProjeto && !oneOwnerPublicaAtiva;
+  const ownerOneOwnerPodeGerenciarSkins =
+    oneOwnerPublicaAtiva && rotaOwnerMenuOneOwner && usuarioEhOwnerProjeto;
   const exibirGestaoSkins =
-    adminOnePagePodeGerenciarSkins || Boolean(skinLogadoUser);
+    ownerOneOwnerPodeGerenciarSkins || Boolean(skinLogadoUser);
   const exibirGestaoEspacos =
-    (onePagePublicaAtiva && rotaAdminMenuOnePage && usuarioEhAdminProjeto) ||
-    (Boolean(skinLogadoUser) && !menuOnePageUsuarioComum);
+    (oneOwnerPublicaAtiva && rotaOwnerMenuOneOwner && usuarioEhOwnerProjeto) ||
+    (Boolean(skinLogadoUser) && !menuOneOwnerUsuarioComum);
   const exibirGavetaChat = chatHabilitado && Boolean(skinLogadoUser);
-  const exibirContatos = exibirGavetaChat && usuarioEhAdminProjeto;
-  const exibirConversas = exibirGavetaChat && !usuarioEhAdminProjeto;
-  const exibirPropriedades = !menuOnePageUsuarioComum;
+  const exibirContatos = exibirGavetaChat && usuarioEhOwnerProjeto;
+  const exibirConversas = exibirGavetaChat && !usuarioEhOwnerProjeto;
+  const exibirPropriedades = !menuOneOwnerUsuarioComum;
   const exibirSolicitacoes =
     !isManagerProject &&
     pixManualHabilitado &&
     temUsuarioAutenticado;
   const ownerSolicitacoesUid = String(
-    onePagePublicaAtiva
-      ? adminUidProjetoConfigurado || usuarioAuthAtual?.uid || ""
+    oneOwnerPublicaAtiva
+      ? ownerUidProjetoConfigurado || usuarioAuthAtual?.uid || ""
       : usuarioAuthAtual?.uid || ""
   ).trim();
   const exibirBadgeSolicitacoes = Boolean(
-    exibirSolicitacoes && usuarioEhAdminProjeto && ownerSolicitacoesUid
+    exibirSolicitacoes && usuarioEhOwnerProjeto && ownerSolicitacoesUid
   );
-  const adminUidGerenciadorConfigurado = String(
-    configSistema?.adminUid ||
-      localStorage.getItem("systemAdminUid") ||
+  const ownerUidGerenciadorConfigurado = String(
+    obterOwnerUidConfigurado(configSistema) ||
       process.env.REACT_APP_SYSTEM_MANAGER_ADMIN_UID ||
       ""
   ).trim();
-  const adminEmailGerenciadorConfigurado = String(
-    configSistema?.adminEmail ||
-      localStorage.getItem("systemAdminEmail") ||
+  const ownerEmailGerenciadorConfigurado = String(
+    obterOwnerEmailConfigurado(configSistema) ||
       process.env.REACT_APP_SYSTEM_MANAGER_ADMIN_EMAIL ||
       ""
   )
     .trim()
     .toLowerCase();
-  const usuarioEhAdminGerenciador = Boolean(
+  const usuarioEhOwnerGerenciador = Boolean(
     usuarioAuthAtual?.uid &&
-      ((adminUidGerenciadorConfigurado &&
-        usuarioAuthAtual.uid === adminUidGerenciadorConfigurado) ||
-        (adminEmailGerenciadorConfigurado &&
-          emailUsuarioAtual === adminEmailGerenciadorConfigurado) ||
-        (!adminUidGerenciadorConfigurado &&
-          !adminEmailGerenciadorConfigurado &&
+      ((ownerUidGerenciadorConfigurado &&
+        usuarioAuthAtual.uid === ownerUidGerenciadorConfigurado) ||
+        (ownerEmailGerenciadorConfigurado &&
+          emailUsuarioAtual === ownerEmailGerenciadorConfigurado) ||
+        (!ownerUidGerenciadorConfigurado &&
+          !ownerEmailGerenciadorConfigurado &&
           seforAdm(usuarioAuthAtual)))
   );
   const semAutenticacao = !temUsuarioAutenticado;
   const semSkinObrigatoria = exigeSkinAtiva && !skinLogadoUser;
-  const semPermissaoAdminProjeto = rotaAdminMenuOnePage && !usuarioEhAdminProjeto;
-  const semPermissaoAdminGerenciador =
-    isManagerProject && temUsuarioAutenticado && !usuarioEhAdminGerenciador;
+  const semPermissaoOwnerProjeto = rotaOwnerMenuOneOwner && !usuarioEhOwnerProjeto;
+  const semPermissaoOwnerGerenciador =
+    isManagerProject && temUsuarioAutenticado && !usuarioEhOwnerGerenciador;
   const semSessaoValida = semAutenticacao || semSkinObrigatoria;
 
   function navigateIfChanged(path, options = undefined) {
@@ -216,11 +213,11 @@ function Menu({ menuOpen }) {
       navigateIfChanged(`/menu/${menuTargetUser}`);
       return;
     }
-    if (onePagePublicaAtiva && rotaAdminMenuOnePage) {
+    if (oneOwnerPublicaAtiva && rotaOwnerMenuOneOwner) {
       navigateIfChanged("/");
       return;
     }
-    if (onePagePublicaAtiva) {
+    if (oneOwnerPublicaAtiva) {
       navigateIfChanged("/home");
       return;
     }
@@ -248,7 +245,7 @@ function Menu({ menuOpen }) {
   }
 
   function closeConversas() {
-    if (usuarioEhAdminProjeto) {
+    if (usuarioEhOwnerProjeto) {
       navigateIfChanged(`/menu/${menuTargetUser}/contatos`);
       return;
     }
@@ -256,7 +253,7 @@ function Menu({ menuOpen }) {
   }
 
   function closeChat() {
-    if (!usuarioEhAdminProjeto) {
+    if (!usuarioEhOwnerProjeto) {
       navigateIfChanged(`/menu/${menuTargetUser}/contatos`);
       return;
     }
@@ -269,8 +266,8 @@ function Menu({ menuOpen }) {
 
   function abrirSolicitacoes() {
     const ownerQuery =
-      onePagePublicaAtiva && adminUidProjetoConfigurado
-        ? `?ownerUserId=${encodeURIComponent(adminUidProjetoConfigurado)}`
+      oneOwnerPublicaAtiva && ownerUidProjetoConfigurado
+        ? `?ownerUserId=${encodeURIComponent(ownerUidProjetoConfigurado)}`
         : "";
     const destino = `/menu/${menuTargetUser}/solicitacoes${ownerQuery}`;
     if (`${location.pathname}${location.search}` === destino) return;
@@ -340,14 +337,14 @@ function Menu({ menuOpen }) {
     if (executandoNoLocalhost) {
       const queryProjeto =
         projetoAtivoLogout ? `?firebaseProject=${encodeURIComponent(projetoAtivoLogout)}` : "";
-      const destinoLocal = loginAdminSeparado
-        ? `${rotaLoginAdminProjeto}${queryProjeto}`
+      const destinoLocal = loginOwnerSeparado
+        ? `${rotaLoginOwnerProjeto}${queryProjeto}`
         : `/${queryProjeto}`;
       window.location.replace(destinoLocal);
       return;
     }
 
-    navigate(loginAdminSeparado ? rotaLoginAdminProjeto : rotaLoginProjeto, { replace: true });
+    navigate(loginOwnerSeparado ? rotaLoginOwnerProjeto : rotaLoginProjeto, { replace: true });
   }
 
   useLayoutEffect(() => {
@@ -393,7 +390,7 @@ function Menu({ menuOpen }) {
 
   useEffect(() => {
     if (isManagerProject) return;
-    if (onePagePublicaAtiva && rotaAdminMenuOnePage) return;
+    if (oneOwnerPublicaAtiva && rotaOwnerMenuOneOwner) return;
     if (!skinLogadoUser) return;
     if (ehSegmentoReservadoMenu(skinLogadoUser)) return;
     if (skinLogadoUserStorage === skinLogadoUser) return;
@@ -404,8 +401,8 @@ function Menu({ menuOpen }) {
     }
   }, [
     isManagerProject,
-    onePagePublicaAtiva,
-    rotaAdminMenuOnePage,
+    oneOwnerPublicaAtiva,
+    rotaOwnerMenuOneOwner,
     skinLogadoUser,
     skinLogadoUserStorage,
   ]);
@@ -432,13 +429,13 @@ function Menu({ menuOpen }) {
     if (isManagerProject) return;
     const path = location.pathname;
 
-    if (onePagePublicaAtiva && (path.endsWith("/users") || path.endsWith("/acessos"))) {
+    if (oneOwnerPublicaAtiva && (path.endsWith("/users") || path.endsWith("/acessos"))) {
       navigateIfChanged(`/menu/${menuTargetUser}`, { replace: true });
       return;
     }
   }, [
     isManagerProject,
-    onePagePublicaAtiva,
+    oneOwnerPublicaAtiva,
     location.pathname,
     menuTargetUser,
   ]);
@@ -501,12 +498,12 @@ function Menu({ menuOpen }) {
         setBackText("MENU");
         setBackAction(() => returnMenu);
       } else if (path.endsWith("/contatos") && chatHabilitado) {
-        setAtualTxt(usuarioEhAdminProjeto ? "CONTATOS" : "CONVERSAS");
+        setAtualTxt(usuarioEhOwnerProjeto ? "CONTATOS" : "CONVERSAS");
         setBackText("MENU");
         setBackAction(() => returnMenu);
       } else if (chatHabilitado && /\/contatos\/[^/]+$/.test(path)) {
         setAtualTxt("CONVERSAS");
-        if (usuarioEhAdminProjeto) {
+        if (usuarioEhOwnerProjeto) {
           setBackText("CONTATOS");
           setBackAction(() => closeConversas);
         } else {
@@ -554,14 +551,14 @@ function Menu({ menuOpen }) {
     nomeSkinMenuUpper,
     nomeEspacoPluralUpper,
     chatHabilitado,
-    usuarioEhAdminProjeto,
+    usuarioEhOwnerProjeto,
   ]);
 
   useEffect(() => {
     if (!configSistemaPronta) return;
     if (aguardandoAuthInicial) return;
-    if (semPermissaoAdminGerenciador) return;
-    if (semPermissaoAdminProjeto) {
+    if (semPermissaoOwnerGerenciador) return;
+    if (semPermissaoOwnerProjeto) {
       if (location.pathname !== "/") {
         navigate("/", { replace: true });
       }
@@ -574,8 +571,8 @@ function Menu({ menuOpen }) {
   }, [
     aguardandoAuthInicial,
     semSessaoValida,
-    semPermissaoAdminProjeto,
-    semPermissaoAdminGerenciador,
+    semPermissaoOwnerProjeto,
+    semPermissaoOwnerGerenciador,
     configSistemaPronta,
     location.pathname,
     rotaLoginProjeto,
@@ -652,11 +649,11 @@ function Menu({ menuOpen }) {
     return <div className="loader">Carregando menu...</div>;
   }
 
-  if (semPermissaoAdminGerenciador) {
+  if (semPermissaoOwnerGerenciador) {
     return (
       <div id="MenuContainer" className={menuOpen ? "mostra" : "openMenu"}>
         <div className="menuContentArea">
-          <p>Acesso permitido apenas para administradores.</p>
+          <p>Acesso permitido apenas para owner.</p>
           <button
             type="button"
             onClick={async () => {
@@ -786,5 +783,8 @@ function Menu({ menuOpen }) {
 }
 
 export default Menu;
+
+
+
 
 

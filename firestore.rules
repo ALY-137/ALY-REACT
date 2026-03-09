@@ -1,15 +1,27 @@
-rules_version = '2';
+﻿rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function hasSistemaConfig() {
       return exists(/databases/$(database)/documents/add_ons/sistema_config);
     }
 
+    function configuredOwnerUidRuntime() {
+      return hasSistemaConfig() &&
+        (get(/databases/$(database)/documents/add_ons/sistema_config).data.ownerUid is string)
+          ? get(/databases/$(database)/documents/add_ons/sistema_config).data.ownerUid
+          : (
+              hasSistemaConfig() &&
+              (get(/databases/$(database)/documents/add_ons/sistema_config).data.adminUid is string)
+                ? get(/databases/$(database)/documents/add_ons/sistema_config).data.adminUid
+                : ""
+            );
+    }
+
     function isAdminDinamico() {
       return signedIn() &&
         hasSistemaConfig() &&
-        (get(/databases/$(database)/documents/add_ons/sistema_config).data.adminUid is string) &&
-        request.auth.uid == get(/databases/$(database)/documents/add_ons/sistema_config).data.adminUid;
+        configuredOwnerUidRuntime() != "" &&
+        request.auth.uid == configuredOwnerUidRuntime();
     }
 
     function signedIn() {
@@ -55,7 +67,7 @@ service cloud.firestore {
     function canReadSkin(userId, skinId) {
       return isAdmin() ||
         isOwner(userId) ||
-        isOnePageAdminSkin(userId) ||
+        isOneOwnerSkin(userId) ||
         (
           exists(/databases/$(database)/documents/users/$(userId)/skins/$(skinId)) &&
           canReadPublic(
@@ -65,16 +77,16 @@ service cloud.firestore {
     }
 
     function configuredAdminUid() {
-      return hasSistemaConfig() &&
-        (get(/databases/$(database)/documents/add_ons/sistema_config).data.adminUid is string)
-          ? get(/databases/$(database)/documents/add_ons/sistema_config).data.adminUid
-          : "";
+      return configuredOwnerUidRuntime();
     }
 
-    function isOnePagePublicEntryMode() {
+    function isOneOwnerPublicEntryMode() {
       return hasSistemaConfig() &&
         (get(/databases/$(database)/documents/add_ons/sistema_config).data.tipoExperiencia is string) &&
-        get(/databases/$(database)/documents/add_ons/sistema_config).data.tipoExperiencia == "onepage" &&
+        (
+          get(/databases/$(database)/documents/add_ons/sistema_config).data.tipoExperiencia == "oneowner" ||
+          get(/databases/$(database)/documents/add_ons/sistema_config).data.tipoExperiencia == "onepage"
+        ) &&
         (get(/databases/$(database)/documents/add_ons/sistema_config).data.modoAcessoProjeto is string) &&
         (
           get(/databases/$(database)/documents/add_ons/sistema_config).data.modoAcessoProjeto == "publico_sem_login" ||
@@ -82,8 +94,8 @@ service cloud.firestore {
         );
     }
 
-    function isOnePageAdminSkin(userId) {
-      return isOnePagePublicEntryMode() &&
+    function isOneOwnerSkin(userId) {
+      return isOneOwnerPublicEntryMode() &&
         configuredAdminUid() != "" &&
         userId == configuredAdminUid();
     }
@@ -124,7 +136,7 @@ service cloud.firestore {
 
     function canReadEspacoEstruturaData(data, userId, espacoId) {
       return canReadEspacoData(data, userId, espacoId) ||
-        isOnePagePublicMode();
+        isOneOwnerPublicMode();
     }
 
     function isBlocoCoCriador(data) {
@@ -190,12 +202,12 @@ service cloud.firestore {
         );
     }
 
-    function isOnePagePublicMode() {
-      return isOnePagePublicEntryMode();
+    function isOneOwnerPublicMode() {
+      return isOneOwnerPublicEntryMode();
     }
 
     function canWriteBlocosNoProjetoAtual() {
-      return !isOnePagePublicMode() || isAdmin();
+      return !isOneOwnerPublicMode() || isAdmin();
     }
 
     function hasProjetoSistemaConfig(projectKey) {
@@ -208,11 +220,20 @@ service cloud.firestore {
       return hasProjetoSistemaConfig(projectKey) &&
         (get(
           /databases/$(database)/documents/projetos/$(projectKey)/add_ons/sistema_config
-        ).data.adminUid is string)
+        ).data.ownerUid is string)
           ? get(
             /databases/$(database)/documents/projetos/$(projectKey)/add_ons/sistema_config
-          ).data.adminUid
-          : "";
+          ).data.ownerUid
+          : (
+              hasProjetoSistemaConfig(projectKey) &&
+              (get(
+                /databases/$(database)/documents/projetos/$(projectKey)/add_ons/sistema_config
+              ).data.adminUid is string)
+                ? get(
+                  /databases/$(database)/documents/projetos/$(projectKey)/add_ons/sistema_config
+                ).data.adminUid
+                : ""
+            );
     }
 
     function isProjetoAdmin(projectKey) {
@@ -221,14 +242,19 @@ service cloud.firestore {
         request.auth.uid == projetoAdminUid(projectKey);
     }
 
-    function isProjetoOnePagePublicMode(projectKey) {
+    function isProjetoOneOwnerPublicMode(projectKey) {
       return hasProjetoSistemaConfig(projectKey) &&
         (get(
           /databases/$(database)/documents/projetos/$(projectKey)/add_ons/sistema_config
         ).data.tipoExperiencia is string) &&
-        get(
-          /databases/$(database)/documents/projetos/$(projectKey)/add_ons/sistema_config
-        ).data.tipoExperiencia == "onepage" &&
+        (
+          get(
+            /databases/$(database)/documents/projetos/$(projectKey)/add_ons/sistema_config
+          ).data.tipoExperiencia == "oneowner" ||
+          get(
+            /databases/$(database)/documents/projetos/$(projectKey)/add_ons/sistema_config
+          ).data.tipoExperiencia == "onepage"
+        ) &&
         (get(
           /databases/$(database)/documents/projetos/$(projectKey)/add_ons/sistema_config
         ).data.modoAcessoProjeto is string) &&
@@ -311,7 +337,7 @@ service cloud.firestore {
 
     function canReadProjetoEspacoEstruturaData(projectKey, data, userId, espacoId) {
       return canReadProjetoEspacoData(projectKey, data, userId, espacoId) ||
-        isProjetoOnePagePublicMode(projectKey);
+        isProjetoOneOwnerPublicMode(projectKey);
     }
 
     function canReadProjetoBlocoData(projectKey, data, userId, espacoId, blocoId) {
@@ -342,7 +368,7 @@ service cloud.firestore {
     }
 
     function canWriteProjetoBlocos(projectKey) {
-      return !isProjetoOnePagePublicMode(projectKey) || isAdmin() || isProjetoAdmin(projectKey);
+      return !isProjetoOneOwnerPublicMode(projectKey) || isAdmin() || isProjetoAdmin(projectKey);
     }
 
     function canCreateProjetoEspacoBloco(projectKey, userId, espacoId, data) {
@@ -455,7 +481,7 @@ service cloud.firestore {
       match /skins/{skinId} {
         allow get, list: if isAdmin() ||
           isOwner(userId) ||
-          isOnePageAdminSkin(userId) ||
+          isOneOwnerSkin(userId) ||
           (signedIn() && resource.data.ownerUserId == request.auth.uid) ||
           canReadPublic(resource.data.visibilidade);
         allow create: if isAdmin() ||
@@ -615,13 +641,16 @@ service cloud.firestore {
       allow read, update, delete: if isAdmin();
     }
 
-        match /add_ons/{addonId} {
+    match /add_ons/{addonId} {
       allow read: if true;
       allow create: if isAdmin() || (
         addonId == "sistema_config" &&
         signedIn() &&
         !hasSistemaConfig() &&
-        request.resource.data.adminUid == request.auth.uid
+        (
+          request.resource.data.ownerUid == request.auth.uid ||
+          request.resource.data.adminUid == request.auth.uid
+        )
       );
       allow update, delete: if isAdmin();
     }
@@ -682,14 +711,17 @@ service cloud.firestore {
       );
     }
 
-    // Namespace de dados por projeto (onepages em runtime compartilhado).
+    // Namespace de dados por projeto (oneowners em runtime compartilhado).
     match /projetos/{projectKey} {
       match /add_ons/{addonId} {
         allow read: if true;
         allow create: if isAdmin() || (
           addonId == "sistema_config" &&
           signedIn() &&
-          request.resource.data.adminUid == request.auth.uid
+          (
+            request.resource.data.ownerUid == request.auth.uid ||
+            request.resource.data.adminUid == request.auth.uid
+          )
         );
         allow update, delete: if isAdmin() || isProjetoAdmin(projectKey);
       }
@@ -897,5 +929,6 @@ service cloud.firestore {
     }
   }
 }
+
 
 

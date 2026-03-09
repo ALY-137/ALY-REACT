@@ -1,4 +1,4 @@
-const DEFAULT_FUNCTIONS_REGION = "us-central1";
+﻿const DEFAULT_FUNCTIONS_REGION = "us-central1";
 const LOCAL_STORAGE_PROJECT_KEY = "firebaseProjectTarget";
 const LOCAL_STORAGE_PROJECT_ALIASES_KEY = "firebaseProjectAliases";
 const LOCAL_QUERY_PARAM = "firebaseProject";
@@ -282,7 +282,7 @@ function resolveProjectKeyByProjectId(projects, projectId) {
   return match?.key || "";
 }
 
-function getOnepageRuntimeProjectKey(projects) {
+function getOneownerRuntimeProjectKey(projects) {
   const keyConfigurada = String(
     process.env.REACT_APP_FIREBASE_ALY_ONEPAGES_RUNTIME_KEY || ""
   ).trim();
@@ -363,13 +363,13 @@ function resolveRequestedProjectKey(projects, hostProjectMap) {
         }
       }
 
-      // Fallback para onepage: permite usar ?firebaseProject=<systemKey>
+      // Fallback para oneowner: permite usar ?firebaseProject=<systemKey>
       // mesmo quando o runtime real e compartilhado.
-      const onepageRuntimeKey = getOnepageRuntimeProjectKey(projects);
-      if (onepageRuntimeKey && isProbablySystemKey(queryTargetAlias)) {
-        safeWriteProjectAliasToStorage(queryTargetAlias, onepageRuntimeKey);
-        safeWriteLocalProjectToStorage(onepageRuntimeKey);
-        return onepageRuntimeKey;
+      const oneownerRuntimeKey = getOneownerRuntimeProjectKey(projects);
+      if (oneownerRuntimeKey && isProbablySystemKey(queryTargetAlias)) {
+        safeWriteProjectAliasToStorage(queryTargetAlias, oneownerRuntimeKey);
+        safeWriteLocalProjectToStorage(oneownerRuntimeKey);
+        return oneownerRuntimeKey;
       }
     }
 
@@ -405,21 +405,21 @@ function resolveRequestedProjectKey(projects, hostProjectMap) {
       return aliasSlugNormalizado;
     }
 
-    // Fallback para onepage em dominios sem mapeamento explicito:
+    // Fallback para oneowner em dominios sem mapeamento explicito:
     // usa o runtime compartilhado e registra alias local pelo slug do host.
-    const onepageRuntimeKey = getOnepageRuntimeProjectKey(projects);
-    if (onepageRuntimeKey && isProbablySystemKey(slugHostAlias)) {
-      safeWriteProjectAliasToStorage(slugHostAlias, onepageRuntimeKey);
-      return onepageRuntimeKey;
+    const oneownerRuntimeKey = getOneownerRuntimeProjectKey(projects);
+    if (oneownerRuntimeKey && isProbablySystemKey(slugHostAlias)) {
+      safeWriteProjectAliasToStorage(slugHostAlias, oneownerRuntimeKey);
+      return oneownerRuntimeKey;
     }
 
     // Fallback final para custom domains nao mapeados explicitamente:
-    // se houver runtime onepage compartilhado configurado, qualquer hostname
+    // se houver runtime oneowner compartilhado configurado, qualquer hostname
     // publico desconhecido passa a usar esse runtime. A configuracao especifica
     // do projeto continua sendo resolvida depois pelo Gerenciador de Projetos
     // via campo `domains`.
-    if (onepageRuntimeKey) {
-      return onepageRuntimeKey;
+    if (oneownerRuntimeKey) {
+      return oneownerRuntimeKey;
     }
   }
 
@@ -492,3 +492,4 @@ export function resolveFirebaseProject() {
     messagingVapidKey: selectedProject.messagingVapidKey || "",
   };
 }
+

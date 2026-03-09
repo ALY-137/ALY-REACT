@@ -1,4 +1,4 @@
-import { getDocs, limit, query, where } from "firebase/firestore";
+import { collectionGroup, getDocs, limit, query, where } from "firebase/firestore";
 import { getProjectCollectionCandidates } from "../../Banco/projectDataRefs";
 
 const VISIBILIDADES_AUTH = ["publico", "publico_restritivo", "privado"];
@@ -65,6 +65,59 @@ async function firstSkinDocFromQueries(queries = []) {
   return null;
 }
 
+function buildCollectionGroupQueriesForUsername(
+  db,
+  username,
+  { authenticated = false, allowPrivateWhenAuthenticated = true, includeLegacy = true } = {}
+) {
+  const normalized = normalizeUsername(username);
+  if (!normalized || !db) return [];
+
+  const skinsGroupRef = collectionGroup(db, "skins");
+  const queries = [];
+
+  if (authenticated && allowPrivateWhenAuthenticated) {
+    queries.push(
+      query(
+        skinsGroupRef,
+        where("username", "==", normalized),
+        where("visibilidade", "in", VISIBILIDADES_AUTH),
+        limit(1)
+      )
+    );
+    queries.push(
+      query(
+        skinsGroupRef,
+        where("username", "==", normalized),
+        where("visibilidade", "in", VISIBILIDADES_SEMI_PUBLICAS),
+        limit(1)
+      )
+    );
+  }
+
+  queries.push(
+    query(
+      skinsGroupRef,
+      where("username", "==", normalized),
+      where("visibilidade", "==", "publico"),
+      limit(1)
+    )
+  );
+
+  if (includeLegacy) {
+    queries.push(
+      query(
+        skinsGroupRef,
+        where("username", "==", normalized),
+        where("visibilidade", "==", null),
+        limit(1)
+      )
+    );
+  }
+
+  return queries;
+}
+
 export function getOwnerUidFromSkinDoc(skinDoc = null) {
   const ownerFromPath = skinDoc?.ref?.parent?.parent?.id;
   if (ownerFromPath) return String(ownerFromPath || "").trim();
@@ -107,6 +160,12 @@ export async function findSkinByUsernameAcrossProject(db, username, options = {}
     if (foundOwnerDoc) return foundOwnerDoc;
   }
 
+  // Lookup global por username em todas as skins publicas/permitidas.
+  // Evita depender de listagem da colecao /users, que pode ser bloqueada por regras.
+  const groupQueries = buildCollectionGroupQueriesForUsername(db, usernameNorm, options);
+  const foundByGroup = await firstSkinDocFromQueries(groupQueries);
+  if (foundByGroup) return foundByGroup;
+
   const usersRefs = getProjectCollectionCandidates(db, "users");
   const maxUsers = Number.isFinite(Number(options?.maxUsers))
     ? Math.max(1, Number(options.maxUsers))
@@ -139,4 +198,3 @@ export async function skinUsernameExists(db, username, options = {}) {
   const found = await findSkinByUsernameAcrossProject(db, username, options);
   return Boolean(found);
 }
-

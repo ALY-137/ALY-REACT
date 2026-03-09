@@ -15,11 +15,11 @@ const LoginButton = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const configSistema = obterConfigSistemaCacheLocal() || DEFAULT_SISTEMA_CONFIG;
+  const tipoExperiencia = String(configSistema?.tipoExperiencia || "").trim().toLowerCase();
   const loginButtonIconSrc = String(
     configSistema?.loginButtonIconUrl || DEFAULT_LOGIN_BUTTON_ICON
   ).trim();
-  const rotaLogin =
-    configSistema?.tipoExperiencia === "onepage" ? "/login" : "/";
+  const rotaLogin = tipoExperiencia === "oneowner" ? "/login" : "/";
 
   if (userId) {
     return null;

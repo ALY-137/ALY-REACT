@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import {
   createBrowserRouter,
   Navigate,
@@ -9,7 +9,7 @@ import { useRoutesContext } from "./context/RoutesContext";
 import { activeFirebaseProjectKey } from "./components/Banco/init-firebase";
 import {
   DEFAULT_SISTEMA_CONFIG,
-  isOnePageComEntradaPublica,
+  isOneOwnerComEntradaPublica,
   obterConfigSistema,
   obterConfigSistemaCacheLocal,
 } from "./components/Layout/Sistema/configSistema";
@@ -33,7 +33,7 @@ import GerenciadorIcones from "./components/Layout/Menu/Gerenciador/GerenciadorI
 import GerenciarLayouts from "./components/Layout/Menu/Layouts/GerenciarLayouts";
 import SolicitacoesPixManual from "./components/Layout/Pagamentos/SolicitacoesPixManual";
 
-function RedirectOnePageLegacyPath() {
+function RedirectOneOwnerLegacyPath() {
   const { espacoNome } = useParams();
   return <Navigate to={`/${espacoNome || "home"}`} replace />;
 }
@@ -81,8 +81,8 @@ export default function RouterComponent() {
     return <div className="loader" aria-live="polite" />;
   }
 
-  const onePagePublicaAtiva =
-    !isManagerProject && isOnePageComEntradaPublica(configSistemaCache);
+  const oneOwnerPublicaAtiva =
+    !isManagerProject && isOneOwnerComEntradaPublica(configSistemaCache);
   const menuChildren = isManagerProject
     ? [
         {
@@ -108,7 +108,7 @@ export default function RouterComponent() {
       ];
 
   const estruturaRoutes = !isManagerProject
-    ? onePagePublicaAtiva
+    ? oneOwnerPublicaAtiva
       ? [
           {
             path: ":espacoNome",
@@ -117,7 +117,7 @@ export default function RouterComponent() {
           },
           {
             path: ":skinsUsername/:espacoNome",
-            element: <RedirectOnePageLegacyPath />,
+            element: <RedirectOneOwnerLegacyPath />,
           },
         ]
       : [
@@ -152,6 +152,11 @@ export default function RouterComponent() {
     },
     {
       path: "/loginadmin",
+      element: <Navigate to="/loginowner" replace />,
+      errorElement: <Error />,
+    },
+    {
+      path: "/loginowner",
       element: <App />,
       errorElement: <Error />,
     },
@@ -169,3 +174,4 @@ export default function RouterComponent() {
 
   return <RouterProvider router={router} future={{ v7_startTransition: true }} />;
 }
+

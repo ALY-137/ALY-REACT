@@ -55,12 +55,16 @@ const ADMIN_ONLY_AUTH_PROJECTS = [
 ].filter(Boolean);
 const ADMIN_ONLY_ALLOWED_UIDS = new Set(
   [
+    ...parseCsv(process.env.SYSTEM_MANAGER_OWNER_UIDS),
+    sanitizeString(process.env.SYSTEM_MANAGER_OWNER_UID),
     ...parseCsv(process.env.SYSTEM_MANAGER_ADMIN_UIDS),
     sanitizeString(process.env.SYSTEM_MANAGER_ADMIN_UID),
   ].filter(Boolean)
 );
 const ADMIN_ONLY_ALLOWED_EMAILS = new Set(
   [
+    ...parseCsv(process.env.SYSTEM_MANAGER_OWNER_EMAILS),
+    sanitizeString(process.env.SYSTEM_MANAGER_OWNER_EMAIL),
     ...parseCsv(process.env.SYSTEM_MANAGER_ADMIN_EMAILS),
     sanitizeString(process.env.SYSTEM_MANAGER_ADMIN_EMAIL),
   ]
@@ -200,7 +204,7 @@ async function assertSystemManagerAdminPermission(request) {
 
   throw new HttpsError(
     "permission-denied",
-    "Apenas administrador pode executar esta acao."
+    "Apenas owner pode executar esta acao."
   );
 }
 
@@ -212,7 +216,10 @@ async function getDynamicAdminUidFromConfig() {
   try {
     const configSnap = await db.doc("add_ons/sistema_config").get();
     if (!configSnap.exists) return "";
-    return sanitizeString(configSnap.data()?.adminUid);
+    return (
+      sanitizeString(configSnap.data()?.ownerUid) ||
+      sanitizeString(configSnap.data()?.adminUid)
+    );
   } catch {
     return "";
   }
@@ -235,7 +242,7 @@ async function assertAdminOnlyAuthAllowed(event) {
   if (!hasAnyAdminConfigured) {
     console.warn(
       `[AUTH-ADMIN-ONLY] Nenhum admin configurado para ${CURRENT_PROJECT_ID}. ` +
-        "Defina SYSTEM_MANAGER_ADMIN_UID(S)/EMAIL(S) ou add_ons/sistema_config.adminUid."
+        "Defina SYSTEM_MANAGER_OWNER_UID(S)/EMAIL(S) (ou ADMIN_ legado) ou add_ons/sistema_config.ownerUid."
     );
     return;
   }
@@ -261,7 +268,7 @@ async function assertAdminOnlyAuthAllowed(event) {
 
   throw new IdentityHttpsError(
     "permission-denied",
-    "Acesso permitido apenas para administradores."
+    "Acesso permitido apenas para owners."
   );
 }
 
@@ -798,10 +805,13 @@ exports.notificarAdminNovaSolicitacaoPix = onDocumentCreated(
       }
 
       const ownerData = ownerSnap.data() || {};
-      const tokens = normalizePushTokens(ownerData?.adminPushTokens);
+      const tokens = normalizePushTokens([
+        ...(Array.isArray(ownerData?.ownerPushTokens) ? ownerData.ownerPushTokens : []),
+        ...(Array.isArray(ownerData?.adminPushTokens) ? ownerData.adminPushTokens : []),
+      ]);
       if (!tokens.length) {
         console.log(
-          `[PUSH-SOLICITACAO] Admin sem token registrado. owner=${ownerUserId}, pedido=${pedidoId}`
+          `[PUSH-SOLICITACAO] Owner sem token registrado. owner=${ownerUserId}, pedido=${pedidoId}`
         );
         return;
       }
@@ -817,7 +827,7 @@ exports.notificarAdminNovaSolicitacaoPix = onDocumentCreated(
       const body = valor
         ? `${compradorNome} solicitou desbloqueio de ${valor}.`
         : `${compradorNome} solicitou desbloqueio de bloco.`;
-      const link = `/menu/admin/solicitacoes?ownerUserId=${encodeURIComponent(ownerUserId)}`;
+      const link = `/menu/owner/solicitacoes?ownerUserId=${encodeURIComponent(ownerUserId)}`;
 
       const result = await admin.messaging().sendEachForMulticast({
         tokens,
@@ -868,6 +878,8 @@ exports.notificarAdminNovaSolicitacaoPix = onDocumentCreated(
       if (invalidTokens.length) {
         await ownerRef.set(
           {
+            ownerPushTokens: admin.firestore.FieldValue.arrayRemove(...invalidTokens),
+            ownerPushTokensUpdatedAt: serverTimestamp(),
             adminPushTokens: admin.firestore.FieldValue.arrayRemove(...invalidTokens),
             adminPushTokensUpdatedAt: serverTimestamp(),
           },

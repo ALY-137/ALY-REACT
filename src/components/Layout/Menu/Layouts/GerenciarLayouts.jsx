@@ -103,7 +103,8 @@ export default function GerenciarLayouts() {
     try {
       const configSalva = await salvarConfigSistemaAdmin({
         ...config,
-        adminUid: config?.adminUid || user?.uid || null,
+        ownerUid: config?.ownerUid || config?.adminUid || user?.uid || null,
+        adminUid: config?.ownerUid || config?.adminUid || user?.uid || null,
       });
       setConfig(configSalva);
       aplicarTemaNoBody(configSalva.temaPadraoSistema);
@@ -138,7 +139,7 @@ export default function GerenciarLayouts() {
     return (
       <div>
         <h2>GERENCIAR LAYOUTS</h2>
-        <p>Acesso restrito ao administrador.</p>
+        <p>Acesso restrito ao owner.</p>
       </div>
     );
   }

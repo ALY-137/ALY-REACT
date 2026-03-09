@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import { getDownloadURL, ref } from "firebase/storage";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
@@ -13,7 +13,7 @@ import {
 } from "../Storage/sharedBucketApi";
 import {
   DEFAULT_SISTEMA_CONFIG,
-  isOnePageComEntradaPublica,
+  isOneOwnerComEntradaPublica,
   obterConfigSistemaCacheLocal,
 } from "../Sistema/configSistema";
 
@@ -179,9 +179,9 @@ export default function SolicitacoesPixManual() {
     const fromQuery = String(params.get("ownerUserId") || "").trim();
     if (fromQuery) return fromQuery;
 
-    const onePagePublica = isOnePageComEntradaPublica(configSistemaCache);
+    const onePagePublica = isOneOwnerComEntradaPublica(configSistemaCache);
     if (!onePagePublica) return "";
-    return String(configSistemaCache?.adminUid || "").trim();
+    return String(configSistemaCache?.ownerUid || configSistemaCache?.adminUid || "").trim();
   }, [location.search, configSistemaCache]);
 
   const solicitacaoStatusAguardandoSpriteUrl = String(
@@ -202,7 +202,7 @@ export default function SolicitacoesPixManual() {
   );
 
   const menuTargetUser = String(
-    menuUserId || localStorage.getItem("skinLogadoUser") || "admin"
+    menuUserId || localStorage.getItem("skinLogadoUser") || "owner"
   ).trim();
 
   useEffect(() => {
@@ -755,3 +755,4 @@ export default function SolicitacoesPixManual() {
     </div>
   );
 }
+

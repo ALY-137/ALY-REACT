@@ -60,7 +60,7 @@ export default function CheckoutBlocoMercadoPago({
     const match = String(location.pathname || "").match(/^\/menu\/[^/]+/);
     if (match?.[0]) return match[0];
     if (skinLogadoUser) return `/menu/${skinLogadoUser}`;
-    return "/menu/admin";
+    return "/menu/owner";
   }, [location.pathname, skinLogadoUser]);
 
   const checkoutAtivo = Boolean(blocoId && espacoId && ownerUserId);
@@ -249,7 +249,7 @@ export default function CheckoutBlocoMercadoPago({
         solicitacaoId: data?.solicitacaoId || data?.pedidoId || "",
         status: data?.status || "pedido_solicitado",
       });
-      setMensagem("Solicitacao enviada. Aguarde confirmacao do pagamento pelo administrador.");
+      setMensagem("Solicitacao enviada. Aguarde confirmacao do pagamento pelo owner.");
     } catch (err) {
       setMensagem(err?.message || "Erro ao enviar solicitacao de pagamento.");
     } finally {
