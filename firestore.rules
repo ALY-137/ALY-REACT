@@ -368,6 +368,59 @@ service cloud.firestore {
         canManageBlocoData(get(/databases/$(database)/documents/blocos/$(blocoId)).data);
     }
 
+    function isContatoParticipantData(data) {
+      return signedIn() &&
+        (
+          ((data.participantUids is list) && data.participantUids.hasAny([request.auth.uid])) ||
+          ((data.ownerUserId is string) && data.ownerUserId == request.auth.uid) ||
+          ((data.compradorUid is string) && data.compradorUid == request.auth.uid)
+        );
+    }
+
+    function canAccessContatoData(data) {
+      return isAdmin() || isContatoParticipantData(data);
+    }
+
+    function canAccessContatoById(contatoId) {
+      return isAdmin() ||
+        (
+          signedIn() &&
+          exists(/databases/$(database)/documents/contatos/$(contatoId)) &&
+          isContatoParticipantData(
+            get(/databases/$(database)/documents/contatos/$(contatoId)).data
+          )
+        );
+    }
+
+    function isProjetoContatoParticipantData(projectKey, data) {
+      return signedIn() &&
+        (
+          ((data.participantUids is list) && data.participantUids.hasAny([request.auth.uid])) ||
+          ((data.ownerUserId is string) && data.ownerUserId == request.auth.uid) ||
+          ((data.compradorUid is string) && data.compradorUid == request.auth.uid) ||
+          isProjetoAdmin(projectKey)
+        );
+    }
+
+    function canAccessProjetoContatoData(projectKey, data) {
+      return isAdmin() || isProjetoContatoParticipantData(projectKey, data);
+    }
+
+    function canAccessProjetoContatoById(projectKey, contatoId) {
+      return isAdmin() ||
+        isProjetoAdmin(projectKey) ||
+        (
+          signedIn() &&
+          exists(/databases/$(database)/documents/projetos/$(projectKey)/contatos/$(contatoId)) &&
+          isProjetoContatoParticipantData(
+            projectKey,
+            get(
+              /databases/$(database)/documents/projetos/$(projectKey)/contatos/$(contatoId)
+            ).data
+          )
+        );
+    }
+
     match /users/{userId} {
       allow read: if isAdmin() || isOwner(userId);
       allow create: if isAdmin() || isOwner(userId);
@@ -527,37 +580,31 @@ service cloud.firestore {
     }
 
     match /contatos/{contatoId} {
-      allow create: if true;
-      allow read, update, delete: if isAdmin() || signedIn();
+      allow create: if signedIn();
+      allow read, update, delete: if canAccessContatoData(resource.data);
 
       match /conversas/{conversaId} {
-        allow create: if true;
-        allow read, update, delete: if isAdmin() || signedIn();
+        allow create, read, update, delete: if canAccessContatoById(contatoId);
 
         match /chat/{chatId} {
-          allow create: if true;
-          allow read, update, delete: if isAdmin() || signedIn();
+          allow create, read, update, delete: if canAccessContatoById(contatoId);
         }
 
         // Compatibilidade com legado que ainda usa "chats".
         match /chats/{chatId} {
-          allow create: if true;
-          allow read, update, delete: if isAdmin() || signedIn();
+          allow create, read, update, delete: if canAccessContatoById(contatoId);
         }
 
         // Sinalizacao WebRTC para live (ofertas/respostas e ICE candidates).
         match /webrtc/{peerId} {
-          allow create: if true;
-          allow read, update, delete: if isAdmin() || signedIn();
+          allow create, read, update, delete: if canAccessContatoById(contatoId);
 
           match /viewerCandidates/{candidateId} {
-            allow create: if true;
-            allow read, update, delete: if isAdmin() || signedIn();
+            allow create, read, update, delete: if canAccessContatoById(contatoId);
           }
 
           match /hostCandidates/{candidateId} {
-            allow create: if true;
-            allow read, update, delete: if isAdmin() || signedIn();
+            allow create, read, update, delete: if canAccessContatoById(contatoId);
           }
         }
       }
@@ -807,36 +854,30 @@ service cloud.firestore {
       }
 
       match /contatos/{contatoId} {
-        allow create: if true;
-        allow read, update, delete: if isAdmin() || isProjetoAdmin(projectKey) || signedIn();
+        allow create: if signedIn();
+        allow read, update, delete: if canAccessProjetoContatoData(projectKey, resource.data);
 
         match /conversas/{conversaId} {
-          allow create: if true;
-          allow read, update, delete: if isAdmin() || isProjetoAdmin(projectKey) || signedIn();
+          allow create, read, update, delete: if canAccessProjetoContatoById(projectKey, contatoId);
 
           match /chat/{chatId} {
-            allow create: if true;
-            allow read, update, delete: if isAdmin() || isProjetoAdmin(projectKey) || signedIn();
+            allow create, read, update, delete: if canAccessProjetoContatoById(projectKey, contatoId);
           }
 
           match /chats/{chatId} {
-            allow create: if true;
-            allow read, update, delete: if isAdmin() || isProjetoAdmin(projectKey) || signedIn();
+            allow create, read, update, delete: if canAccessProjetoContatoById(projectKey, contatoId);
           }
 
           // Sinalizacao WebRTC para live (ofertas/respostas e ICE candidates).
           match /webrtc/{peerId} {
-            allow create: if true;
-            allow read, update, delete: if isAdmin() || isProjetoAdmin(projectKey) || signedIn();
+            allow create, read, update, delete: if canAccessProjetoContatoById(projectKey, contatoId);
 
             match /viewerCandidates/{candidateId} {
-              allow create: if true;
-              allow read, update, delete: if isAdmin() || isProjetoAdmin(projectKey) || signedIn();
+              allow create, read, update, delete: if canAccessProjetoContatoById(projectKey, contatoId);
             }
 
             match /hostCandidates/{candidateId} {
-              allow create: if true;
-              allow read, update, delete: if isAdmin() || isProjetoAdmin(projectKey) || signedIn();
+              allow create, read, update, delete: if canAccessProjetoContatoById(projectKey, contatoId);
             }
           }
         }

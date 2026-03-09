@@ -1,5 +1,6 @@
 import { httpsCallable } from "firebase/functions";
 import {
+  arrayUnion,
   getDoc,
   getDocs,
   limit,
@@ -979,6 +980,7 @@ function montarSessaoChatContext({
       skinDestinatario: compradorUsernameNorm,
       ownerUserId: ownerUidNorm,
       compradorUid: compradorUidNorm,
+      participantUids: [ownerUidNorm, compradorUidNorm].filter(Boolean),
       ultimaConversaData: serverTimestamp(),
       origem: "sessao_pix_manual",
     },
@@ -1009,11 +1011,13 @@ function montarSessaoChatContext({
 
 function montarSessaoChatLiveContext({
   ownerUid = "",
+  compradorUid = "",
   espacoId = "",
   blocoId = "",
   ownerUsername = "",
 } = {}) {
   const ownerUidNorm = sanitizeString(ownerUid);
+  const compradorUidNorm = sanitizeString(compradorUid);
   const espacoIdNorm = sanitizeString(espacoId);
   const blocoIdNorm = sanitizeString(blocoId);
   const ownerUsernameNorm = sanitizeString(ownerUsername) || `admin_${ownerUidNorm.slice(0, 8)}`;
@@ -1025,24 +1029,29 @@ function montarSessaoChatLiveContext({
 
   const contatoRefs = getContatoRefs(idContato);
   const conversaRefs = getConversaRefs(idContato, idConversa);
+  const participantUids = [ownerUidNorm, compradorUidNorm].filter(Boolean);
+  const contatoPayload = {
+    idContato,
+    conversaId: idConversa,
+    skinRemetente: ownerUsernameNorm,
+    skinDestinatario: "participantes_live",
+    ownerUserId: ownerUidNorm,
+    espacoId: espacoIdNorm,
+    blocoId: blocoIdNorm,
+    ultimaConversaData: serverTimestamp(),
+    origem: "live_grupo_pix_manual",
+    tipo: "live",
+  };
+  if (participantUids.length) {
+    contatoPayload.participantUids = arrayUnion(...participantUids);
+  }
 
   return {
     idContato,
     idConversa,
     contatoRefs,
     conversaRefs,
-    contatoPayload: {
-      idContato,
-      conversaId: idConversa,
-      skinRemetente: ownerUsernameNorm,
-      skinDestinatario: "participantes_live",
-      ownerUserId: ownerUidNorm,
-      espacoId: espacoIdNorm,
-      blocoId: blocoIdNorm,
-      ultimaConversaData: serverTimestamp(),
-      origem: "live_grupo_pix_manual",
-      tipo: "live",
-    },
+    contatoPayload,
     conversaPayload: {
       assunto: "CHAT DA LIVE",
       idContato,
@@ -1160,6 +1169,7 @@ export async function confirmarSolicitacaoPixManual({
   const contextoSessaoChat = blocoTipo === "live"
     ? montarSessaoChatLiveContext({
         ownerUid,
+        compradorUid,
         espacoId,
         blocoId,
         ownerUsername: sanitizeString(pedido?.ownerUsername),

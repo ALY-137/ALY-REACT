@@ -68,3 +68,48 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/d
 ### `npm run build` fails to minify
 
 This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+
+## Deploy de Firestore Rules (portavel)
+
+Este repositorio inclui:
+
+1. Script portavel: `scripts/deploy-firestore-rules.js`
+2. Comando npm: `npm run firestore:rules:deploy:portable`
+3. Workflow GitHub Actions: `.github/workflows/deploy-firestore-rules.yml`
+
+Variaveis aceitas pelo script:
+
+1. `FIREBASE_SERVICE_ACCOUNT`
+   - JSON da Service Account (texto puro ou base64).
+2. `FIREBASE_RULES_PROJECTS`
+   - Lista de projetos separada por virgula.
+3. `FIREBASE_TOKEN`
+   - Alternativa de autenticacao (quando nao usar Service Account).
+4. `FIREBASE_TOOLS_VERSION`
+   - Opcional, default: `13.35.1`.
+
+Uso local/manual:
+
+1. (Opcional) se nao usar Service Account/Token no ambiente local:
+   - `npx firebase-tools login`
+2. Execute via npm:
+   - `npm run firestore:rules:deploy:portable -- --project aly-onepages-runtime`
+   - `npm run firestore:rules:deploy:portable -- --projects teste-aa015,aly-onepages-runtime`
+   - `npm run firestore:rules:deploy:portable -- --project-file ./projects.txt`
+3. Ou execute direto:
+   - `node scripts/deploy-firestore-rules.js --project aly-onepages-runtime`
+
+GitHub Actions:
+
+1. Configure em `Settings > Secrets and variables > Actions`:
+   - Secret `FIREBASE_SERVICE_ACCOUNT`
+   - Variable `FIREBASE_RULES_PROJECTS`
+2. O workflow roda automaticamente no push da `main` quando `firestore.rules` muda.
+3. Tambem pode rodar manualmente em Actions > `Deploy Firestore Rules`.
+
+Outros provedores de CI:
+
+1. Configure as mesmas variaveis no provedor.
+2. Execute:
+   - `node scripts/deploy-firestore-rules.js`
+   - ou `npm run firestore:rules:deploy:portable`

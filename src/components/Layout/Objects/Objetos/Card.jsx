@@ -1,6 +1,18 @@
 import React, { useEffect, useRef, useState } from "react";
 import { db } from "../../../Banco/init-firebase";
-import { collection, doc, getDoc, getDocs } from "firebase/firestore";
+import { getDoc, getDocs } from "firebase/firestore";
+import {
+  getProjectCollectionCandidates,
+  getProjectDocCandidates,
+} from "../../../Banco/projectDataRefs";
+
+async function getFirstExistingDoc(refs = []) {
+  for (const refItem of refs) {
+    const snapshot = await getDoc(refItem).catch(() => null);
+    if (snapshot?.exists?.()) return snapshot;
+  }
+  return null;
+}
 
 function Card({
   id,
@@ -51,11 +63,11 @@ function Card({
   useEffect(() => {
     const fetchAddOns = async () => {
       try {
-        let addOnsRefsCol = null;
+        let addOnsRefsCols = [];
 
         if (ownerUserId && espacoId && blocoId && id) {
           // Estrutura nova: users/{owner}/espacos/{espaco}/blocos/{bloco}/cards/{card}
-          addOnsRefsCol = collection(
+          addOnsRefsCols = getProjectCollectionCandidates(
             db,
             "users",
             ownerUserId,
@@ -69,7 +81,7 @@ function Card({
           );
         } else if (id_user && id_skin && id_container && id) {
           // Fallback legado
-          addOnsRefsCol = collection(
+          addOnsRefsCols = getProjectCollectionCandidates(
             db,
             "users",
             id_user,
@@ -81,22 +93,33 @@ function Card({
           );
         }
 
-        if (!addOnsRefsCol) {
+        if (!Array.isArray(addOnsRefsCols) || !addOnsRefsCols.length) {
           setAddOns([]);
           return;
         }
 
-        const addOnsSnapshot = await getDocs(addOnsRefsCol);
+        const addOnsRefsData = [];
+        for (const addOnsRefsCol of addOnsRefsCols) {
+          const addOnsSnapshot = await getDocs(addOnsRefsCol);
+          addOnsRefsData.push(...addOnsSnapshot.docs.map((docRef) => docRef.data() || {}));
+        }
 
-        const promises = addOnsSnapshot.docs.map(async (docRef) => {
-          const id_add = docRef.data().id_add;
-          const addOnDocRef = doc(db, "add_ons", id_add);
-          const addOnDoc = await getDoc(addOnDocRef);
-          return addOnDoc.exists() ? { id: addOnDoc.id, ...addOnDoc.data() } : null;
+        const promises = addOnsRefsData.map(async (docData) => {
+          const id_add = String(docData?.id_add || "").trim();
+          if (!id_add) return null;
+
+          const addOnDoc = await getFirstExistingDoc(
+            getProjectDocCandidates(db, "add_ons", id_add)
+          );
+          return addOnDoc?.exists?.() ? { id: addOnDoc.id, ...addOnDoc.data() } : null;
         });
 
         const resolvedAddOns = await Promise.all(promises);
-        setAddOns(resolvedAddOns.filter(Boolean));
+        const dedupe = new Map();
+        resolvedAddOns.filter(Boolean).forEach((addOn) => {
+          dedupe.set(addOn.id, addOn);
+        });
+        setAddOns([...dedupe.values()]);
       } catch (error) {
         console.error("Erro ao buscar add-ons:", error);
       }

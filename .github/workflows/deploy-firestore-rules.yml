@@ -1,0 +1,52 @@
+name: Deploy Firestore Rules
+
+on:
+  workflow_dispatch:
+    inputs:
+      project_id:
+        description: "Projeto Firebase unico (ex.: aly-onepages-runtime)"
+        required: false
+        type: string
+      project_ids:
+        description: "Lista separada por virgula (ex.: teste-aa015,aly-onepages-runtime)"
+        required: false
+        type: string
+  push:
+    branches:
+      - main
+    paths:
+      - "firestore.rules"
+      - ".github/workflows/deploy-firestore-rules.yml"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      FIREBASE_RULES_PROJECTS: ${{ vars.FIREBASE_RULES_PROJECTS }}
+      INPUT_PROJECT_ID: ${{ github.event.inputs.project_id }}
+      INPUT_PROJECT_IDS: ${{ github.event.inputs.project_ids }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Validate auth secret
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "Secret FIREBASE_SERVICE_ACCOUNT nao configurado."
+            exit 1
+          fi
+
+      - name: Deploy Firestore rules
+        shell: bash
+        run: |
+          node scripts/deploy-firestore-rules.js \
+            --projects "$INPUT_PROJECT_IDS" \
+            --project "$INPUT_PROJECT_ID"

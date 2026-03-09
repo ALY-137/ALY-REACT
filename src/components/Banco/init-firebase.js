@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase/app";
 import {
+  arrayUnion,
   getFirestore,
   initializeFirestore,
   collection,
@@ -119,6 +120,7 @@ export const enviarChat = async ({
 }) => {
   const idContatoNorm = String(idContato || "").trim();
   const idConversaNorm = String(idConversa || "").trim();
+  const senderUid = String(userUid || auth?.currentUser?.uid || "").trim();
   const conversaRefs = getConversaRefs(idContatoNorm, idConversaNorm);
 
   const conversaSnap = await getFirstExistingDoc(conversaRefs);
@@ -132,7 +134,7 @@ export const enviarChat = async ({
     mensagem,
     data: serverTimestamp(),
     userRemetente,
-    userUid: String(userUid || auth?.currentUser?.uid || "").trim(),
+    userUid: senderUid,
     senderSkinId: String(senderSkinId || "").trim(),
     iconSkin: String(iconSkin || "").trim() || null,
     idConversa: idConversaNorm,
@@ -155,11 +157,15 @@ export const enviarChat = async ({
   }
 
   for (const contatoRef of getContatoRefs(idContatoNorm)) {
+    const payloadContato = {
+      ultimaConversaData: serverTimestamp(),
+    };
+    if (senderUid) {
+      payloadContato.participantUids = arrayUnion(senderUid);
+    }
     await setDoc(
       contatoRef,
-      {
-        ultimaConversaData: serverTimestamp(),
-      },
+      payloadContato,
       { merge: true }
     );
   }
@@ -177,16 +183,21 @@ export const enviarMensagem = async (
 ) => {
   const _idDestinatario = idDestinatario;
   const idContato = criarIdChat();
+  const senderUid = String(auth?.currentUser?.uid || "").trim();
 
   for (const contatoRef of getContatoRefs(idContato)) {
+    const payloadContato = {
+      idContato,
+      ultimaConversaData: serverTimestamp(),
+      skinRemetente: skinLogado,
+      skinDestinatario: "savannaoliveira",
+    };
+    if (senderUid) {
+      payloadContato.participantUids = arrayUnion(senderUid);
+    }
     await setDoc(
       contatoRef,
-      {
-        idContato,
-        ultimaConversaData: serverTimestamp(),
-        skinRemetente: skinLogado,
-        skinDestinatario: "savannaoliveira",
-      },
+      payloadContato,
       { merge: true }
     );
   }

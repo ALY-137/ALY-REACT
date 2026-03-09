@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useOutletContext, useParams } from "react-router-dom";
 import {
   addDoc,
+  arrayUnion,
   collection,
   deleteDoc,
   doc,
@@ -2433,18 +2434,24 @@ export default function EspacoPage() {
     if (!currentUid) return;
 
     try {
+      const participantUids = [String(currentUid || "").trim(), String(ownerUserId || "").trim()]
+        .filter(Boolean);
       for (const contatoRef of getContatoDocRefs(contactId)) {
+        const payloadContato = {
+          idContato: contactId,
+          tipo: "live",
+          ownerUserId: ownerUserId || "",
+          espacoId: espacoId || "",
+          blocoId: String(bloco?.id || "").trim(),
+          assunto: tituloLive || "Live",
+          ultimaConversaData: serverTimestamp(),
+        };
+        if (participantUids.length) {
+          payloadContato.participantUids = arrayUnion(...participantUids);
+        }
         await setDoc(
           contatoRef,
-          {
-            idContato: contactId,
-            tipo: "live",
-            ownerUserId: ownerUserId || "",
-            espacoId: espacoId || "",
-            blocoId: String(bloco?.id || "").trim(),
-            assunto: tituloLive || "Live",
-            ultimaConversaData: serverTimestamp(),
-          },
+          payloadContato,
           { merge: true }
         );
       }
@@ -2517,12 +2524,18 @@ export default function EspacoPage() {
       }
 
       for (const contatoRef of getContatoDocRefs(contactId)) {
+        const participantUids = [String(currentUid || "").trim(), String(ownerUserId || "").trim()]
+          .filter(Boolean);
+        const payloadContato = {
+          idContato: contactId,
+          ultimaConversaData: serverTimestamp(),
+        };
+        if (participantUids.length) {
+          payloadContato.participantUids = arrayUnion(...participantUids);
+        }
         await setDoc(
           contatoRef,
-          {
-            idContato: contactId,
-            ultimaConversaData: serverTimestamp(),
-          },
+          payloadContato,
           { merge: true }
         );
       }

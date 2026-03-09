@@ -16,6 +16,7 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "firestore:rules:deploy": "npx firebase-tools deploy --only firestore:rules",
+    "firestore:rules:deploy:portable": "node scripts/deploy-firestore-rules.js",
     "storage:rules:deploy": "npx firebase-tools deploy --only storage",
     "firestore:emulators": "npx firebase-tools emulators:start --only firestore",
     "functions:install": "npm --prefix functions install",

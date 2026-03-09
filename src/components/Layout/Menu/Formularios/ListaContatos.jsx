@@ -176,14 +176,27 @@ function ListaContatos() {
             const remetente = String(data.skinRemetente || "").trim();
             const destinatario = String(data.skinDestinatario || "").trim();
             const contatoIdAtual = String(contatoDoc.id || "").trim();
+            const ownerUserIdContato = String(data.ownerUserId || "").trim();
+            const compradorUidContato = String(data.compradorUid || "").trim();
+            const participantUids = Array.isArray(data.participantUids)
+              ? data.participantUids
+                  .map((value) => String(value || "").trim())
+                  .filter(Boolean)
+              : [];
+            const userIsInvolvedByUid = Boolean(
+              uidAtual &&
+                (
+                  participantUids.includes(uidAtual) ||
+                  ownerUserIdContato === uidAtual ||
+                  compradorUidContato === uidAtual
+                )
+            );
 
             if (!isAdmin) {
-              const userIsInvolved =
-                remetente === skinLogadoUser || destinatario === skinLogadoUser;
               const userTemPedidoConfirmado =
                 contatoIdAtual && contatoIdsLiberadosPorPedido.has(contatoIdAtual);
 
-              if (!userIsInvolved && !userTemPedidoConfirmado) return null;
+              if (!userIsInvolvedByUid && !userTemPedidoConfirmado) return null;
             }
 
             const remetenteData = await fetchSkinDataByUsername(remetente);
@@ -198,7 +211,7 @@ function ListaContatos() {
             return {
               contatoId: contatoIdAtual,
               conversaId: data.conversaId,
-              ownerUserId: String(data.ownerUserId || "").trim(),
+              ownerUserId: ownerUserIdContato,
               fotoRemetente: remetenteData.foto,
               fotoDestinatario: destinatarioData.foto,
               nomeRemetente: remetenteData.nome,

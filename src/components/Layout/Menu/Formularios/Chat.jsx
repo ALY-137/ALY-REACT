@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
+  arrayUnion,
   collection,
   doc,
   getDoc,
@@ -433,11 +434,15 @@ function Chat() {
       }
 
       for (const contatoRef of getContatoRefs(idContato)) {
+        const payloadContato = {
+          ultimaConversaData: serverTimestamp(),
+        };
+        if (userUid) {
+          payloadContato.participantUids = arrayUnion(userUid);
+        }
         await setDoc(
           contatoRef,
-          {
-            ultimaConversaData: serverTimestamp(),
-          },
+          payloadContato,
           { merge: true }
         );
       }

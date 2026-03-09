@@ -6,11 +6,13 @@ import Navegacoes from "../../Scripts/navegacoes/Navegacoes";
 import { activeFirebaseProjectKey, db } from "../../Banco/init-firebase";
 
 import {
-  doc,
   getDoc,
   onSnapshot,
 } from "firebase/firestore";
-import { getProjectCollectionCandidates } from "../../Banco/projectDataRefs";
+import {
+  getProjectCollectionCandidates,
+  getProjectDocCandidates,
+} from "../../Banco/projectDataRefs";
 import { useAuth } from "../../../hooks/auth/useAuth";
 import { signOut } from "firebase/auth";
 import { auth } from "../../Banco/init-firebase";
@@ -513,9 +515,14 @@ function Menu({ menuOpen }) {
         }
       } else if (chatHabilitado && path.includes("/chat/") && contactId) {
         try {
-          const contatoRef = doc(db, "contatos", contactId);
-          const contatoSnap = await getDoc(contatoRef);
-          const contato = contatoSnap.exists() ? contatoSnap.data() : null;
+          let contato = null;
+          for (const contatoRef of getProjectDocCandidates(db, "contatos", contactId)) {
+            const contatoSnap = await getDoc(contatoRef).catch(() => null);
+            if (contatoSnap?.exists?.()) {
+              contato = contatoSnap.data() || null;
+              break;
+            }
+          }
 
           if (contato) {
             const outro =
