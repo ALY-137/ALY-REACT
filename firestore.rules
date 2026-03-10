@@ -1,4 +1,4 @@
-﻿rules_version = '2';
+rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function hasSistemaConfig() {
@@ -407,6 +407,39 @@ service cloud.firestore {
       return isAdmin() || isContatoParticipantData(data);
     }
 
+    function canJoinLiveContatoData(resourceData, requestData) {
+      return signedIn() &&
+        (resourceData.tipo is string) &&
+        resourceData.tipo == "live" &&
+        (requestData.tipo is string) &&
+        requestData.tipo == resourceData.tipo &&
+        (requestData.idContato is string) &&
+        requestData.idContato == resourceData.idContato &&
+        (
+          !('ownerUserId' in resourceData) ||
+          (
+            (requestData.ownerUserId is string) &&
+            requestData.ownerUserId == resourceData.ownerUserId
+          )
+        ) &&
+        (
+          !('espacoId' in resourceData) ||
+          (
+            (requestData.espacoId is string) &&
+            requestData.espacoId == resourceData.espacoId
+          )
+        ) &&
+        (
+          !('blocoId' in resourceData) ||
+          (
+            (requestData.blocoId is string) &&
+            requestData.blocoId == resourceData.blocoId
+          )
+        ) &&
+        (requestData.participantUids is list) &&
+        requestData.participantUids.hasAny([request.auth.uid]);
+    }
+
     function canAccessContatoById(contatoId) {
       return isAdmin() ||
         (
@@ -430,6 +463,39 @@ service cloud.firestore {
 
     function canAccessProjetoContatoData(projectKey, data) {
       return isAdmin() || isProjetoContatoParticipantData(projectKey, data);
+    }
+
+    function canJoinProjetoLiveContatoData(projectKey, resourceData, requestData) {
+      return signedIn() &&
+        (resourceData.tipo is string) &&
+        resourceData.tipo == "live" &&
+        (requestData.tipo is string) &&
+        requestData.tipo == resourceData.tipo &&
+        (requestData.idContato is string) &&
+        requestData.idContato == resourceData.idContato &&
+        (
+          !('ownerUserId' in resourceData) ||
+          (
+            (requestData.ownerUserId is string) &&
+            requestData.ownerUserId == resourceData.ownerUserId
+          )
+        ) &&
+        (
+          !('espacoId' in resourceData) ||
+          (
+            (requestData.espacoId is string) &&
+            requestData.espacoId == resourceData.espacoId
+          )
+        ) &&
+        (
+          !('blocoId' in resourceData) ||
+          (
+            (requestData.blocoId is string) &&
+            requestData.blocoId == resourceData.blocoId
+          )
+        ) &&
+        (requestData.participantUids is list) &&
+        requestData.participantUids.hasAny([request.auth.uid]);
     }
 
     function canAccessProjetoContatoById(projectKey, contatoId) {
@@ -607,7 +673,10 @@ service cloud.firestore {
 
     match /contatos/{contatoId} {
       allow create: if signedIn();
-      allow read, update, delete: if canAccessContatoData(resource.data);
+      allow read: if canAccessContatoData(resource.data);
+      allow update: if canAccessContatoData(resource.data) ||
+        canJoinLiveContatoData(resource.data, request.resource.data);
+      allow delete: if canAccessContatoData(resource.data);
 
       match /conversas/{conversaId} {
         allow create, read, update, delete: if canAccessContatoById(contatoId);
@@ -887,7 +956,10 @@ service cloud.firestore {
 
       match /contatos/{contatoId} {
         allow create: if signedIn();
-        allow read, update, delete: if canAccessProjetoContatoData(projectKey, resource.data);
+        allow read: if canAccessProjetoContatoData(projectKey, resource.data);
+        allow update: if canAccessProjetoContatoData(projectKey, resource.data) ||
+          canJoinProjetoLiveContatoData(projectKey, resource.data, request.resource.data);
+        allow delete: if canAccessProjetoContatoData(projectKey, resource.data);
 
         match /conversas/{conversaId} {
           allow create, read, update, delete: if canAccessProjetoContatoById(projectKey, contatoId);

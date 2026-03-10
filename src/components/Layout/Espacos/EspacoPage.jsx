@@ -297,6 +297,14 @@ const montarLiveContactId = ({ ownerUserId = "", espacoId = "", blocoId = "" } =
   const owner = sanitizarTokenLive(ownerUserId);
   const espaco = sanitizarTokenLive(espacoId);
   const bloco = sanitizarTokenLive(blocoId);
+  // Usa espaco+bloco como chave principal para evitar desencontro quando ownerUid
+  // nao chega preenchido no fallback publico.
+  if (espaco && bloco) {
+    return `live_${espaco}_${bloco}`.slice(0, 180);
+  }
+  if (bloco) {
+    return `live_${bloco}`.slice(0, 180);
+  }
   return `live_${owner}_${espaco}_${bloco}`.slice(0, 180);
 };
 
@@ -694,6 +702,9 @@ export default function EspacoPage() {
         ? ownerUidProjetoEfetivo || (usuarioEhOwnerProjeto ? currentUid : null)
         : null
     );
+  const ownerUserIdLiveEfetivo = String(
+    ownerUserId || (oneOwnerPublicaAtivaEfetiva ? ownerUidProjetoEfetivo : "") || ""
+  ).trim();
   const isOwner = !!currentUid && ownerUserId === currentUid;
   const isCoCriador =
     !!currentUid &&
@@ -1537,6 +1548,13 @@ export default function EspacoPage() {
 
     Promise.resolve()
       .then(async () => {
+        await garantirContatoConversaLive({
+          contactId,
+          conversationId,
+          tituloLive: String(liveModal?.titulo || "Live").trim() || "Live",
+          blocoId: String(liveModal?.blocoId || "").trim(),
+        });
+
         const offer = await peer.createOffer({
           offerToReceiveVideo: true,
           offerToReceiveAudio: false,
@@ -2715,6 +2733,56 @@ export default function EspacoPage() {
     );
   };
 
+  const garantirContatoConversaLive = async ({
+    contactId = "",
+    conversationId = "principal",
+    tituloLive = "Live",
+    blocoId = "",
+  } = {}) => {
+    const idContato = String(contactId || "").trim();
+    const idConversa = String(conversationId || "principal").trim() || "principal";
+    const titulo = String(tituloLive || "Live").trim() || "Live";
+    const idBloco = String(blocoId || "").trim();
+
+    if (!currentUidAutenticado || !idContato) return;
+
+    const participantUids = [
+      String(currentUidAutenticado || "").trim(),
+      ownerUserIdLiveEfetivo,
+    ].filter(Boolean);
+
+    for (const contatoRef of getContatoDocRefs(idContato)) {
+      const payloadContato = {
+        idContato,
+        tipo: "live",
+        ownerUserId: ownerUserIdLiveEfetivo || "",
+        espacoId: espacoId || "",
+        blocoId: idBloco,
+        assunto: titulo,
+        ultimaConversaData: serverTimestamp(),
+      };
+      if (participantUids.length) {
+        payloadContato.participantUids = arrayUnion(...participantUids);
+      }
+      await setDoc(contatoRef, payloadContato, { merge: true });
+    }
+
+    for (const conversaRef of getConversaDocRefs(idContato, idConversa)) {
+      await setDoc(
+        conversaRef,
+        {
+          idContato,
+          idConversa,
+          assunto: titulo,
+          data: serverTimestamp(),
+          dataUltimaMensagem: serverTimestamp(),
+          ultimaMensagem: "Live iniciada",
+        },
+        { merge: true }
+      );
+    }
+  };
+
   const abrirLiveBloco = async (bloco = {}) => {
     if (!livesHabilitadas) {
       alert("Lives desativadas neste projeto.");
@@ -2738,12 +2806,30 @@ export default function EspacoPage() {
     }
 
     const contactId = montarLiveContactId({
-      ownerUserId,
+      ownerUserId: ownerUserIdLiveEfetivo,
       espacoId,
       blocoId: bloco?.id || "",
     });
     const conversationId = "principal";
     const tituloLive = String(bloco?.titulo || bloco?.nome || bloco?.id || "Live").trim();
+
+    if (currentUidAutenticado) {
+      try {
+        await garantirContatoConversaLive({
+          contactId,
+          conversationId,
+          tituloLive,
+          blocoId: String(bloco?.id || "").trim(),
+        });
+      } catch (err) {
+        if (err?.code === "permission-denied") {
+          setLiveChatErro("Sem permissao para abrir o chat da live.");
+          return;
+        }
+        setLiveChatErro("Falha ao preparar o chat da live.");
+        return;
+      }
+    }
 
     setLiveModal({
       aberto: true,
@@ -2756,55 +2842,6 @@ export default function EspacoPage() {
     });
     setLiveChatMensagem("");
     setLiveChatErro(currentUidAutenticado ? "" : "FaÃ§a login para participar do chat da live.");
-
-    if (!currentUidAutenticado) return;
-
-    try {
-      const participantUids = [
-        String(currentUidAutenticado || "").trim(),
-        String(ownerUserId || "").trim(),
-      ].filter(Boolean);
-      for (const contatoRef of getContatoDocRefs(contactId)) {
-        const payloadContato = {
-          idContato: contactId,
-          tipo: "live",
-          ownerUserId: ownerUserId || "",
-          espacoId: espacoId || "",
-          blocoId: String(bloco?.id || "").trim(),
-          assunto: tituloLive || "Live",
-          ultimaConversaData: serverTimestamp(),
-        };
-        if (participantUids.length) {
-          payloadContato.participantUids = arrayUnion(...participantUids);
-        }
-        await setDoc(
-          contatoRef,
-          payloadContato,
-          { merge: true }
-        );
-      }
-
-      for (const conversaRef of getConversaDocRefs(contactId, conversationId)) {
-        await setDoc(
-          conversaRef,
-          {
-            idContato: contactId,
-            idConversa: conversationId,
-            assunto: tituloLive || "Live",
-            data: serverTimestamp(),
-            dataUltimaMensagem: serverTimestamp(),
-            ultimaMensagem: "Live iniciada",
-          },
-          { merge: true }
-        );
-      }
-    } catch (err) {
-      if (err?.code === "permission-denied") {
-        setLiveChatErro("Sem permissao para abrir o chat da live.");
-        return;
-      }
-      setLiveChatErro("Falha ao preparar o chat da live.");
-    }
   };
 
   const enviarMensagemLive = async () => {
@@ -2854,7 +2891,7 @@ export default function EspacoPage() {
       for (const contatoRef of getContatoDocRefs(contactId)) {
         const participantUids = [
           String(currentUidAutenticado || "").trim(),
-          String(ownerUserId || "").trim(),
+          ownerUserIdLiveEfetivo,
         ].filter(Boolean);
         const payloadContato = {
           idContato: contactId,
