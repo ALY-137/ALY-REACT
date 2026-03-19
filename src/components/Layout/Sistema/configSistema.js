@@ -18,6 +18,7 @@ import { buildProjectDataPathCandidates } from "../../Banco/projectDataNamespace
 
 const SISTEMA_CONFIG_CACHE_KEY_BASE = "sistemaConfigCacheV1";
 const SISTEMA_PROJECT_CONTEXT_KEY = "systemProjectContextKey";
+const SHARED_ONEOWNER_RUNTIME_KEYS = new Set(["aly-onepages-runtime"]);
 const TEMAS_SISTEMA_VALIDOS = SYSTEM_THEMES.map((tema) => tema.id);
 const TEMA_SISTEMA_FALLBACK = TEMAS_SISTEMA_VALIDOS.includes("PADRAO_INICIAL")
   ? "PADRAO_INICIAL"
@@ -45,7 +46,7 @@ const METODOS_LOGIN_PADRAO = {
 const LOGIN_PRESET_IDS_VALIDOS = Array.isArray(APPLYABLE_LOGIN_PRESET_IDS)
   ? APPLYABLE_LOGIN_PRESET_IDS
   : ["manual", "aly137"];
-const LOGIN_LOADING_MODE_VALIDOS = ["auto", "simple", "obeydom", "sprite_sheet"];
+const LOGIN_LOADING_MODE_VALIDOS = ["auto", "simple", "ritual", "obeydom", "sprite_sheet"];
 
 function obterSistemaConfigRefsComFallback() {
   const caminhos = buildProjectDataPathCandidates(["add_ons", "sistema_config"], {
@@ -66,6 +67,7 @@ function obterSistemaConfigRefPrincipal() {
 }
 
 export const DEFAULT_SISTEMA_CONFIG = {
+  projectSystemKey: "",
   logoLoginUrl: "",
   faviconUrl: "/favicon.ico",
   loginButtonIconUrl:
@@ -92,6 +94,7 @@ export const DEFAULT_SISTEMA_CONFIG = {
   mensagemEspacoAssinanteRestritoFontFamily: "",
   exibirBotaoLoginMensagemRestricao: true,
   mensagemRestricaoAvatarUrl: "",
+  exibirBadgeProjetoFirebase: true,
   termosUsoUrl: "",
   politicaPrivacidadeUrl: "",
   exigirAceiteTermosNoCadastro: false,
@@ -124,6 +127,26 @@ export const DEFAULT_SISTEMA_CONFIG = {
   projectOwnerUid: "",
   projectLastEditorUid: "",
 };
+
+function limparProjectSystemKey(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-_]+/g, "")
+    .slice(0, 80);
+}
+
+function isHostnameLocal(hostname = "") {
+  const host = String(hostname || "").trim().toLowerCase();
+  return host === "localhost" || host === "127.0.0.1" || host === "::1";
+}
+
+function exigirResolucaoEstritaPorDominio(hostname = "") {
+  return (
+    SHARED_ONEOWNER_RUNTIME_KEYS.has(String(activeFirebaseProjectKey || "").trim().toLowerCase()) &&
+    !isHostnameLocal(hostname)
+  );
+}
 
 export function isOneOwnerComEntradaPublica(configSistema = DEFAULT_SISTEMA_CONFIG) {
   const tipoExperiencia = String(
@@ -266,9 +289,18 @@ export function obterProjectKeyContextual() {
     }
   }
 
-  const projectKeyHost = String(hostname.split(".")[0] || "")
-    .trim()
-    .toLowerCase();
+  try {
+    const keySalva = String(window.localStorage.getItem(SISTEMA_PROJECT_CONTEXT_KEY) || "")
+      .trim()
+      .toLowerCase();
+    if (keySalva) {
+      return keySalva;
+    }
+  } catch {
+    // Ignora indisponibilidade de storage local.
+  }
+
+  const projectKeyHost = limparProjectSystemKey(String(hostname.split(".")[0] || ""));
   try {
     window.localStorage.setItem(SISTEMA_PROJECT_CONTEXT_KEY, projectKeyHost);
   } catch {
@@ -315,6 +347,9 @@ async function sincronizarConfigSistemaRuntime(configNormalizada = DEFAULT_SISTE
 
 export function obterConfigSistemaCacheLocal() {
   if (typeof window === "undefined") return null;
+  if (exigirResolucaoEstritaPorDominio(window.location.hostname || "")) {
+    return null;
+  }
   try {
     const chaveCacheProjeto = obterChaveCacheSistemaProjeto();
     const bruto = window.localStorage.getItem(chaveCacheProjeto);
@@ -408,6 +443,9 @@ function normalizarLoginPresetId(value) {
 
 function normalizarLoginLoadingMode(value) {
   const normalizado = String(value || "").trim().toLowerCase();
+  if (normalizado === "obeydom") {
+    return "ritual";
+  }
   if (LOGIN_LOADING_MODE_VALIDOS.includes(normalizado)) {
     return normalizado;
   }
@@ -695,6 +733,9 @@ export function normalizarConfigSistema(data = {}) {
   const ownerUidRaw = String(data.ownerUid || data.adminUid || "").trim();
   const ownerUidNormalizado = ownerUidRaw || null;
   const ownerEmailNormalizado = normalizarEmailOwner(data.ownerEmail || data.adminEmail);
+  const projectSystemKeyNormalizado = limparProjectSystemKey(
+    data.projectSystemKey || data.systemKey
+  );
   const projectOwnerUidNormalizado =
     typeof data.projectOwnerUid === "string" && data.projectOwnerUid.trim()
       ? data.projectOwnerUid.trim()
@@ -763,6 +804,7 @@ export function normalizarConfigSistema(data = {}) {
       : normalizarLimiteSkins(data.limiteSkinsPorUsuario);
 
   return {
+    projectSystemKey: projectSystemKeyNormalizado,
     logoLoginUrl: logoNormalizada,
     faviconUrl: faviconNormalizado,
     loginButtonIconUrl: loginButtonIconUrlNormalizado,
@@ -792,6 +834,10 @@ export function normalizarConfigSistema(data = {}) {
     exibirBotaoLoginMensagemRestricao: normalizarBoolean(
       data.exibirBotaoLoginMensagemRestricao,
       DEFAULT_SISTEMA_CONFIG.exibirBotaoLoginMensagemRestricao
+    ),
+    exibirBadgeProjetoFirebase: normalizarBoolean(
+      data.exibirBadgeProjetoFirebase,
+      DEFAULT_SISTEMA_CONFIG.exibirBadgeProjetoFirebase
     ),
     mensagemRestricaoAvatarUrl: mensagemRestricaoAvatarUrlNormalizada,
     termosUsoUrl: termosUsoUrlNormalizado,
@@ -877,12 +923,14 @@ export async function obterConfigSistema() {
   const hostnameAtual =
     typeof window !== "undefined" ? window.location.hostname || "" : "";
   const projectKeyContextual = obterProjectKeyContextual();
+  const strictDomainMatch = exigirResolucaoEstritaPorDominio(hostnameAtual);
 
   try {
     const configGerenciada = await obterConfigProjetoDoGerenciador({
-      projectKey: projectKeyContextual || activeFirebaseProjectKey,
-      projectId: activeFirebaseProjectId,
+      projectKey: strictDomainMatch ? "" : (projectKeyContextual || activeFirebaseProjectKey),
+      projectId: strictDomainMatch ? "" : activeFirebaseProjectId,
       hostname: hostnameAtual,
+      strictDomainMatch,
     });
 
     if (configGerenciada) {
@@ -895,6 +943,12 @@ export async function obterConfigSistema() {
     }
   } catch {
     // Segue fallback local.
+  }
+
+  if (strictDomainMatch) {
+    const error = new Error("Dominio publico nao vinculado a nenhum projeto do runtime compartilhado.");
+    error.code = "project-domain-not-bound";
+    throw error;
   }
 
   let snap = null;
@@ -933,11 +987,13 @@ export async function estaConfigSistemaInicializada() {
   const hostnameAtual =
     typeof window !== "undefined" ? window.location.hostname || "" : "";
   const projectKeyContextual = obterProjectKeyContextual();
+  const strictDomainMatch = exigirResolucaoEstritaPorDominio(hostnameAtual);
   try {
     const configGerenciada = await obterConfigProjetoDoGerenciador({
-      projectKey: projectKeyContextual || activeFirebaseProjectKey,
-      projectId: activeFirebaseProjectId,
+      projectKey: strictDomainMatch ? "" : (projectKeyContextual || activeFirebaseProjectKey),
+      projectId: strictDomainMatch ? "" : activeFirebaseProjectId,
       hostname: hostnameAtual,
+      strictDomainMatch,
     });
     if (configGerenciada) return true;
   } catch {
@@ -958,11 +1014,14 @@ export async function salvarConfigSistemaAdmin(configParcial = {}) {
   const hostnameAtual =
     typeof window !== "undefined" ? window.location.hostname || "" : "";
   const projectKeyContextual = obterProjectKeyContextual();
+  const projectSystemKey = limparProjectSystemKey(
+    configNormalizada.projectSystemKey || projectKeyContextual || activeFirebaseProjectKey
+  );
 
   let salvoNoGerenciador = false;
   try {
     salvoNoGerenciador = await salvarConfigProjetoNoGerenciador({
-      projectKey: projectKeyContextual || activeFirebaseProjectKey,
+      projectKey: projectSystemKey,
       projectId: activeFirebaseProjectId,
       hostname: hostnameAtual,
       configSistema: configNormalizada,

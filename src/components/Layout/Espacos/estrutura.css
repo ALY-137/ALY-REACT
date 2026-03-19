@@ -72,6 +72,14 @@
   gap: 8px;
 }
 
+.live-modal__toolbar-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .live-modal__camera-toolbar {
   margin-bottom: 6px;
 }
@@ -96,6 +104,25 @@
   background: #000;
 }
 
+.live-modal__camera-stage {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.14), rgba(0, 0, 0, 0.34)),
+    rgba(0, 0, 0, 0.08);
+}
+
+.live-modal__camera-stage-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #000;
+}
+
 .live-modal__camera-placeholder {
   width: 100%;
   min-height: 88px;
@@ -108,6 +135,10 @@
   color: rgba(255, 255, 255, 0.75);
   border-radius: 10px;
   border: 1px dashed rgba(255, 255, 255, 0.35);
+}
+
+.live-modal__camera-placeholder--compact {
+  min-height: 60px;
 }
 
 .live-modal__messages {
@@ -174,6 +205,10 @@
 .live-modal__input {
   flex: 1;
   min-width: 0;
+}
+
+.live-modal__camera-toggle {
+  white-space: nowrap;
 }
 
 @media (max-width: 860px) {

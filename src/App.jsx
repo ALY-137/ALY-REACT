@@ -36,9 +36,13 @@ import LoginGoogle from "./components/Layout/Geral/LoginGoogle.jsx";
 import LoginTwitter from "./components/Layout/Geral/LoginTwitter.jsx";
 import LoginCadastroEmail from "./components/Layout/Geral/LoginCadastroEmail.jsx";
 import FirebaseProjectBadge from "./components/Layout/Geral/FirebaseProjectBadge.jsx";
+import RitualLoaderSymbol from "./components/Projects/LoginTransitions/RitualLoaderSymbol";
+import RitualLoginTransition from "./components/Projects/LoginTransitions/RitualLoginTransition";
+import SpriteSheetLoginTransition from "./components/Projects/LoginTransitions/SpriteSheetLoginTransition";
 import Navegacoes from "./components/Scripts/navegacoes/Navegacoes.jsx";
 import AnoAtualizado from "./components/Scripts/data/AnoAtualizado";
 import { seforAdm } from "./components/Scripts/verificacoes/verificaAdm";
+import { temaSistemaUsaLoginRitual } from "./components/Layout/Temas/themesRegistry";
 
 import "./App.css";
 import "./components/Layout/Temas/system-base-login.css";
@@ -50,56 +54,8 @@ let picGoogleCap = null;
 let fullnameCap = null;
 const POST_LOGIN_REDIRECT_KEY = "postLoginRedirectPath";
 const LOGIN_REVEAL_DELAY_DEFAULT_MS = 1000;
-const LOGIN_REVEAL_DELAY_OBEYDOM_MS = 6200;
+const LOGIN_REVEAL_DELAY_RITUAL_MS = 6200;
 const LOGIN_REVEAL_DELAY_SPRITE_MS = 1200;
-
-const ObeydomLoaderSymbol = () => (
-  <div className="obeydom-loader-symbol" aria-hidden="true">
-    <div className="obeydom-loader-triangle obeydom-loader-triangle-up" />
-    <div className="obeydom-loader-triangle obeydom-loader-triangle-down" />
-    <div className="obeydom-loader-intersection" />
-    <div className="obeydom-loader-glow" />
-    <svg
-      className="obeydom-loader-y"
-      width="100"
-      height="100"
-      viewBox="0 0 100 100"
-      aria-hidden="true"
-    >
-      <path className="obeydom-loader-y-path" d="M20 20 L50 55 L80 20 M50 55 L50 85" />
-    </svg>
-  </div>
-);
-
-const ObeydomLoginTransition = ({ mostrarLogin, children }) => (
-  <div id="login" className="obeydom-login-transition-shell" aria-live="polite">
-    <div
-      className={`obeydom-loader-layer ${mostrarLogin ? "obeydom-loader-layer-hidden" : ""}`}
-    >
-      <ObeydomLoaderSymbol />
-    </div>
-    <div
-      className={`obeydom-login-content-layer containerLogin ${mostrarLogin ? "fadeIn" : ""}`}
-    >
-      {children}
-    </div>
-  </div>
-);
-
-const SpriteSheetLoginTransition = ({ mostrarLogin, spriteUrl, children }) => (
-  <div id="login" className="sprite-loader-transition-shell" aria-live="polite">
-    <div className={`sprite-loader-layer ${mostrarLogin ? "sprite-loader-layer-hidden" : ""}`}>
-      <div
-        className="loader-cherry"
-        aria-hidden="true"
-        style={spriteUrl ? { backgroundImage: `url("${spriteUrl}")` } : undefined}
-      />
-    </div>
-    <div className={`sprite-login-content-layer containerLogin ${mostrarLogin ? "fadeIn" : ""}`}>
-      {children}
-    </div>
-  </div>
-);
 
 const App = () => {
   const isManagerProject = activeFirebaseProjectKey === "gerenciador-aly";
@@ -120,6 +76,7 @@ const App = () => {
   const [setupAdminBootstrap, setSetupAdminBootstrap] = useState(false);
   const [encerrandoSessaoGerenciador, setEncerrandoSessaoGerenciador] = useState(false);
   const [erroAcessoGerenciador, setErroAcessoGerenciador] = useState("");
+  const [erroResolucaoProjeto, setErroResolucaoProjeto] = useState("");
   const [splashEntradaPublicaConcluida, setSplashEntradaPublicaConcluida] = useState(false);
   const snapshotSolicitacoesInicializadoRef = useRef(false);
   const solicitacoesVistasRef = useRef(new Set());
@@ -128,6 +85,14 @@ const App = () => {
 
 
   const aplicarConfigSistemaLocal = (config) => {
+    const projectSystemKey = String(config?.projectSystemKey || "").trim().toLowerCase();
+    if (projectSystemKey) {
+      try {
+        localStorage.setItem("systemProjectContextKey", projectSystemKey);
+      } catch {
+        // Ignora indisponibilidade de storage local.
+      }
+    }
     setConfigSistema(config);
     setConfigSistemaPronta(true);
     aplicarBrandingNoDocumento(config);
@@ -156,9 +121,17 @@ const App = () => {
       try {
         const config = await obterConfigSistema();
         if (!ativo) return;
+        setErroResolucaoProjeto("");
         aplicarConfigSistemaLocal(config);
       } catch (error) {
-        // Se falhar, segue com defaults locais.
+        if (!ativo) return;
+        if (String(error?.code || "").trim().toLowerCase() === "project-domain-not-bound") {
+          const hostnameAtual = typeof window !== "undefined" ? window.location.hostname || "" : "";
+          setErroResolucaoProjeto(
+            `O dominio '${hostnameAtual}' nao esta vinculado a nenhum projeto no gerenciador.`
+          );
+          return;
+        }
       } finally {
         if (ativo) setConfigSistemaPronta(true);
       }
@@ -201,6 +174,7 @@ const App = () => {
 
   useEffect(() => {
     if (isManagerProject) return;
+    if (erroResolucaoProjeto) return;
     if (!configSistemaPronta) return;
     if (!user?.uid) return;
 
@@ -217,6 +191,7 @@ const App = () => {
     garantirDocumentoUsuario();
   }, [
     isManagerProject,
+    erroResolucaoProjeto,
     configSistemaPronta,
     user,
   ]);
@@ -295,6 +270,11 @@ const App = () => {
       setSkinsLoading(false);
       return;
     }
+    if (erroResolucaoProjeto) {
+      setSkins([]);
+      setSkinsLoading(false);
+      return;
+    }
     if (!configSistemaPronta) return;
 
     const oneOwnerPublicaAtivaProjeto = isOneOwnerComEntradaPublica(configSistema);
@@ -336,6 +316,7 @@ const App = () => {
     fetchSkins();
   }, [
     isManagerProject,
+    erroResolucaoProjeto,
     user,
     configSistemaPronta,
     configSistema?.tipoExperiencia,
@@ -477,16 +458,16 @@ const App = () => {
   const loginLoadingSpriteUrl = String(configSistema?.loginLoadingSpriteUrl || "").trim();
   const usarTransicaoSprite =
     loginLoadingMode === "sprite_sheet" && Boolean(loginLoadingSpriteUrl);
-  const usarTransicaoObeydom =
+  const usarTransicaoRitual =
     !usarTransicaoSprite &&
     (
-      loginLoadingMode === "obeydom" ||
-      (loginLoadingMode === "auto" && temaSistemaEfetivo === "OBEYDOM")
+      loginLoadingMode === "ritual" ||
+      (loginLoadingMode === "auto" && temaSistemaUsaLoginRitual(temaSistemaEfetivo))
     );
   const loginRevealDelayMs = usarTransicaoSprite
     ? LOGIN_REVEAL_DELAY_SPRITE_MS
-    : usarTransicaoObeydom
-      ? LOGIN_REVEAL_DELAY_OBEYDOM_MS
+    : usarTransicaoRitual
+      ? LOGIN_REVEAL_DELAY_RITUAL_MS
       : LOGIN_REVEAL_DELAY_DEFAULT_MS;
 
   const renderTelaCarregamento = () => {
@@ -504,11 +485,11 @@ const App = () => {
       );
     }
 
-    if (usarTransicaoObeydom) {
+    if (usarTransicaoRitual) {
       return (
-        <div id="login" className="obeydom-login-transition-shell" aria-live="polite">
-          <div className="obeydom-loader-layer">
-            <ObeydomLoaderSymbol />
+        <div id="login" className="ritual-login-transition-shell" aria-live="polite">
+          <div className="ritual-loader-layer">
+            <RitualLoaderSymbol />
           </div>
         </div>
       );
@@ -564,6 +545,7 @@ const App = () => {
     ? configSistema.tituloSistema || "GERENCIADO DE PROJETOS"
     : configSistema.tituloSistema || DEFAULT_SISTEMA_CONFIG.tituloSistema;
   const exibirTituloSistemaNoLogin = configSistema.exibirTituloSistemaNoLogin !== false;
+  const exibirBadgeProjetoFirebase = configSistema.exibirBadgeProjetoFirebase !== false;
   const textoLogin = configSistema.textoLogin || DEFAULT_SISTEMA_CONFIG.textoLogin;
   const loginComGoogleHabilitado =
     configSistema?.metodosLoginHabilitados?.google !== false;
@@ -708,6 +690,24 @@ const App = () => {
     return renderTelaCarregamento();
   }
 
+  if (erroResolucaoProjeto) {
+    return (
+      <div id="login" className={`containerLogin ${mostrarLogin ? "fadeIn" : ""}`}>
+        <div id="iconsLogin">
+          <div id="loginMain">
+            <p id="logoTxt">PROJETO NAO VINCULADO</p>
+          </div>
+          <div id="divLogin" style={{ justifyContent: "center", gap: 10 }}>
+            <p id="textoLogin">{erroResolucaoProjeto}</p>
+            <p id="rodapeLogin" style={{ marginTop: 12 }}>
+              Vincule este dominio em Gerenciador de Projetos -> Dominios autorizados do projeto.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (isAuthHandlerRoute && !authLoading) {
     return <Navigate to={oneOwnerPublicaAtiva ? "/login" : "/"} replace />;
   }
@@ -737,7 +737,7 @@ const App = () => {
 
   return (
     <div>
-      <FirebaseProjectBadge />
+      {exibirBadgeProjetoFirebase ? <FirebaseProjectBadge /> : null}
       {mostrarSetupAdmin && !isPublicProfileRoute ? (
         <PropriedadesSistema
           modoBootstrap={setupAdminBootstrap}
@@ -782,8 +782,8 @@ const App = () => {
               {`${tituloSistema}\u00A9`} <AnoAtualizado />
             </p>
           </SpriteSheetLoginTransition>
-        ) : usarTransicaoObeydom ? (
-          <ObeydomLoginTransition mostrarLogin={mostrarLogin}>
+        ) : usarTransicaoRitual ? (
+          <RitualLoginTransition mostrarLogin={mostrarLogin}>
             <Navegacoes />
             <div id="iconsLogin">
               <div id="loginMain">
@@ -810,7 +810,7 @@ const App = () => {
             <p id="rodapeLogin">
               {`${tituloSistema}\u00A9`} <AnoAtualizado />
             </p>
-          </ObeydomLoginTransition>
+          </RitualLoginTransition>
         ) : (
           <div id="login" className={`containerLogin ${mostrarLogin ? "fadeIn" : ""}`}>
             <Navegacoes />
@@ -927,8 +927,8 @@ const App = () => {
                 {`${tituloSistema}\u00A9`} <AnoAtualizado />
               </p>
             </SpriteSheetLoginTransition>
-          ) : usarTransicaoObeydom ? (
-            <ObeydomLoginTransition mostrarLogin={mostrarLogin}>
+          ) : usarTransicaoRitual ? (
+            <RitualLoginTransition mostrarLogin={mostrarLogin}>
               <Navegacoes />
               {erroAcessoGerenciador ? (
                 <p
@@ -983,7 +983,7 @@ const App = () => {
               <p id="rodapeLogin">
                 {`${tituloSistema}\u00A9`} <AnoAtualizado />
               </p>
-            </ObeydomLoginTransition>
+            </RitualLoginTransition>
           ) : (
             <div id="login" className={`containerLogin ${mostrarLogin ? "fadeIn" : ""}`}>
               <Navegacoes />
@@ -1081,8 +1081,8 @@ const App = () => {
                 {`${tituloSistema}\u00A9`} <AnoAtualizado />
               </p>
             </SpriteSheetLoginTransition>
-          ) : usarTransicaoObeydom ? (
-            <ObeydomLoginTransition mostrarLogin={mostrarLogin}>
+          ) : usarTransicaoRitual ? (
+            <RitualLoginTransition mostrarLogin={mostrarLogin}>
               <Navegacoes />
               <div id="iconsLogin">
                 <div id="loginMain">
@@ -1111,7 +1111,7 @@ const App = () => {
               <p id="rodapeLogin">
                 {`${tituloSistema}\u00A9`} <AnoAtualizado />
               </p>
-            </ObeydomLoginTransition>
+            </RitualLoginTransition>
           ) : (
             <div id="login" className={`containerLogin ${mostrarLogin ? "fadeIn" : ""}`}>
               <Navegacoes />
@@ -1156,4 +1156,3 @@ const App = () => {
 
 export { primeiroNomeCap, emailCap, picGoogleCap, fullnameCap };
 export default App;
-

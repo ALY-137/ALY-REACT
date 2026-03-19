@@ -569,6 +569,24 @@ function PropriedadesSistema({
           style={{ width: "100%", marginTop: 8 }}
         />
 
+        <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
+          <input
+            type="checkbox"
+            checked={config.exibirBadgeProjetoFirebase !== false}
+            onChange={(event) =>
+              setConfig((prev) => ({
+                ...prev,
+                exibirBadgeProjetoFirebase: event.target.checked,
+              }))
+            }
+          />
+          Exibir caixinha de infraestrutura do projeto (FB/Storage)
+        </label>
+        <p style={{ marginTop: 6, opacity: 0.8 }}>
+          Mostra no canto da interface o projeto Firebase, hostname atual e bucket de storage em
+          uso.
+        </p>
+
         <label htmlFor="logoLoginUrl" style={{ display: "block", marginTop: 12 }}>
           URL da logo do projeto (tela de login)
         </label>
@@ -851,7 +869,7 @@ function PropriedadesSistema({
         >
           <option value="auto">Automatico (tema)</option>
           <option value="simple">Sem animacao (simples)</option>
-          <option value="obeydom">Obeydom ritual</option>
+          <option value="ritual">Ritual</option>
           <option value="sprite_sheet">Sprite sheet</option>
         </select>
 

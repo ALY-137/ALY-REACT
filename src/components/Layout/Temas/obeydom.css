@@ -38,11 +38,13 @@ body.theme-obeydom #login {
   background-image: linear-gradient(180deg, #000000 0%, #090909 100%);
 }
 
+body.theme-obeydom .ritual-login-transition-shell,
 body.theme-obeydom .obeydom-login-transition-shell {
   background-color: var(--obey-black);
   background-image: linear-gradient(180deg, #000000 0%, #090909 100%);
 }
 
+body.theme-obeydom .ritual-loader-layer,
 body.theme-obeydom .obeydom-loader-layer {
   position: absolute;
   inset: 0;
@@ -54,21 +56,25 @@ body.theme-obeydom .obeydom-loader-layer {
   pointer-events: none;
 }
 
+body.theme-obeydom .ritual-loader-layer.ritual-loader-layer-hidden,
 body.theme-obeydom .obeydom-loader-layer.obeydom-loader-layer-hidden {
   opacity: 0.08;
 }
 
+body.theme-obeydom .ritual-login-content-layer,
 body.theme-obeydom .obeydom-login-content-layer {
   position: relative;
   z-index: 2;
 }
 
+body.theme-obeydom .ritual-loader-symbol,
 body.theme-obeydom .obeydom-loader-symbol {
   position: relative;
   width: 220px;
   height: 220px;
 }
 
+body.theme-obeydom .ritual-loader-triangle,
 body.theme-obeydom .obeydom-loader-triangle {
   position: absolute;
   width: 0;
@@ -78,18 +84,21 @@ body.theme-obeydom .obeydom-loader-triangle {
   opacity: 0.95;
 }
 
+body.theme-obeydom .ritual-loader-triangle-up,
 body.theme-obeydom .obeydom-loader-triangle-up {
   border-bottom: 190px solid var(--obey-gray-1);
   top: -70px;
-  animation: obeydomLoaderMoveDown 5s ease forwards;
+  animation: ritualLoaderMoveDown 5s ease forwards;
 }
 
+body.theme-obeydom .ritual-loader-triangle-down,
 body.theme-obeydom .obeydom-loader-triangle-down {
   border-top: 190px solid var(--obey-gray-1);
   bottom: -70px;
-  animation: obeydomLoaderMoveUp 5s ease forwards;
+  animation: ritualLoaderMoveUp 5s ease forwards;
 }
 
+body.theme-obeydom .ritual-loader-intersection,
 body.theme-obeydom .obeydom-loader-intersection {
   position: absolute;
   top: 50%;
@@ -99,9 +108,10 @@ body.theme-obeydom .obeydom-loader-intersection {
   background: radial-gradient(circle, #8b0000 0%, #400000 70%);
   transform: translate(-50%, -50%) scale(0);
   opacity: 0;
-  animation: obeydomLoaderReveal 5s ease forwards;
+  animation: ritualLoaderReveal 5s ease forwards;
 }
 
+body.theme-obeydom .ritual-loader-glow,
 body.theme-obeydom .obeydom-loader-glow {
   position: absolute;
   width: 220px;
@@ -109,9 +119,10 @@ body.theme-obeydom .obeydom-loader-glow {
   border-radius: 50%;
   box-shadow: 0 0 25px rgba(139, 0, 0, 0.3);
   opacity: 0;
-  animation: obeydomLoaderGlowPulse 5s ease forwards;
+  animation: ritualLoaderGlowPulse 5s ease forwards;
 }
 
+body.theme-obeydom .ritual-loader-y,
 body.theme-obeydom .obeydom-loader-y {
   position: absolute;
   top: 50%;
@@ -119,6 +130,7 @@ body.theme-obeydom .obeydom-loader-y {
   transform: translate(-50%, -50%);
 }
 
+body.theme-obeydom .ritual-loader-y-path,
 body.theme-obeydom .obeydom-loader-y-path {
   stroke: #ffffff;
   stroke-width: 3;
@@ -126,21 +138,21 @@ body.theme-obeydom .obeydom-loader-y-path {
   stroke-dasharray: 200;
   stroke-dashoffset: 200;
   opacity: 0;
-  animation: obeydomLoaderDrawY 2s ease forwards;
+  animation: ritualLoaderDrawY 2s ease forwards;
   animation-delay: 4s;
 }
 
-@keyframes obeydomLoaderMoveDown {
+@keyframes ritualLoaderMoveDown {
   0% { top: -70px; }
   100% { top: 0; }
 }
 
-@keyframes obeydomLoaderMoveUp {
+@keyframes ritualLoaderMoveUp {
   0% { bottom: -70px; }
   100% { bottom: 0; }
 }
 
-@keyframes obeydomLoaderReveal {
+@keyframes ritualLoaderReveal {
   0% {
     transform: translate(-50%, -50%) scale(0);
     opacity: 0;
@@ -151,12 +163,12 @@ body.theme-obeydom .obeydom-loader-y-path {
   }
 }
 
-@keyframes obeydomLoaderGlowPulse {
+@keyframes ritualLoaderGlowPulse {
   0% { opacity: 0; }
   100% { opacity: 1; }
 }
 
-@keyframes obeydomLoaderDrawY {
+@keyframes ritualLoaderDrawY {
   0% {
     stroke-dashoffset: 200;
     opacity: 0;
@@ -227,6 +239,63 @@ body.theme-obeydom .firebaseProjectBadge {
   background: rgba(17, 17, 17, 0.95);
   color: var(--obey-text-muted);
   font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+body.theme-obeydom .live-modal {
+  background:
+    radial-gradient(circle at top, rgba(90, 51, 51, 0.14), transparent 42%),
+    rgba(0, 0, 0, 0.9);
+}
+
+body.theme-obeydom .live-modal__chat {
+  background: linear-gradient(180deg, rgba(10, 10, 10, 0.9), rgba(16, 16, 16, 0.76));
+  border-color: rgba(90, 51, 51, 0.56);
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.42);
+}
+
+body.theme-obeydom .live-modal__header,
+body.theme-obeydom .live-modal__toolbar,
+body.theme-obeydom .live-modal__camera-section,
+body.theme-obeydom .live-modal__composer {
+  border-color: rgba(90, 51, 51, 0.24);
+}
+
+body.theme-obeydom .live-modal__title,
+body.theme-obeydom .live-modal__toolbar-label,
+body.theme-obeydom .live-modal__toolbar-status,
+body.theme-obeydom .live-modal__login,
+body.theme-obeydom .live-modal__empty,
+body.theme-obeydom .live-modal__text,
+body.theme-obeydom .live-modal__author {
+  color: var(--obey-text-primary);
+}
+
+body.theme-obeydom .live-modal__message {
+  border: 1px solid rgba(90, 51, 51, 0.2);
+}
+
+body.theme-obeydom .live-modal__message--mine {
+  background: rgba(90, 51, 51, 0.24);
+}
+
+body.theme-obeydom .live-modal__message--other {
+  background: rgba(28, 28, 28, 0.74);
+}
+
+body.theme-obeydom .live-modal__camera-placeholder {
+  background: rgba(17, 17, 17, 0.76);
+  border-color: rgba(90, 51, 51, 0.32);
+  color: var(--obey-text-muted);
+}
+
+body.theme-obeydom .live-modal__camera-stage {
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.48)),
+    rgba(0, 0, 0, 0.08);
+}
+
+body.theme-obeydom .live-modal__error {
+  color: #f1c7c7;
 }
 
 body.theme-obeydom #fundo {

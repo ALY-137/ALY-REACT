@@ -211,6 +211,16 @@ function extrairConfigSistemaDoDocumento(data = {}) {
   return data;
 }
 
+function montarResultadoConfigSistema(docSnap) {
+  if (!docSnap?.exists?.()) return null;
+  const data = docSnap.data() || {};
+  const configBase = extrairConfigSistemaDoDocumento(data);
+  return {
+    ...configBase,
+    systemKey: normalizeText(data.systemKey || docSnap.id),
+  };
+}
+
 export function gerenciadorSistemasHabilitado() {
   return !!buildManagerConfigFromEnv();
 }
@@ -378,6 +388,7 @@ export async function obterConfigSistemaDoGerenciador({
   projectKey = "",
   projectId = "",
   hostname = "",
+  strictDomainMatch = false,
 } = {}) {
   const managerDb = getManagerDb();
   if (!managerDb) return null;
@@ -386,12 +397,25 @@ export async function obterConfigSistemaDoGerenciador({
   const projectIdNormalizado = normalizeText(projectId);
   const hostNormalizado = normalizeHost(hostname);
 
+  if (strictDomainMatch && hostNormalizado) {
+    const byDomainQuery = query(
+      collection(managerDb, MANAGER_COLLECTION),
+      where("domains", "array-contains", hostNormalizado),
+      limit(1)
+    );
+    const domainSnap = await getDocs(byDomainQuery);
+    if (!domainSnap.empty) {
+      return montarResultadoConfigSistema(domainSnap.docs[0]);
+    }
+    return null;
+  }
+
   // 1) Prioridade: doc por key do sistema.
   if (keyNormalizada) {
     const docRef = doc(managerDb, MANAGER_COLLECTION, keyNormalizada);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
-      return extrairConfigSistemaDoDocumento(docSnap.data());
+      return montarResultadoConfigSistema(docSnap);
     }
   }
 
@@ -404,7 +428,7 @@ export async function obterConfigSistemaDoGerenciador({
     );
     const domainSnap = await getDocs(byDomainQuery);
     if (!domainSnap.empty) {
-      return extrairConfigSistemaDoDocumento(domainSnap.docs[0].data());
+      return montarResultadoConfigSistema(domainSnap.docs[0]);
     }
   }
 
@@ -419,7 +443,7 @@ export async function obterConfigSistemaDoGerenciador({
     );
     const projectIdSnap = await getDocs(byProjectIdQuery);
     if (!projectIdSnap.empty) {
-      return extrairConfigSistemaDoDocumento(projectIdSnap.docs[0].data());
+      return montarResultadoConfigSistema(projectIdSnap.docs[0]);
     }
   }
 

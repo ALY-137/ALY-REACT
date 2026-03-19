@@ -650,6 +650,70 @@ body.theme-cyberpink .firebaseProjectBadge {
   background: rgba(10, 3, 22, 0.9);
 }
 
+body.theme-cyberpink .live-modal {
+  background:
+    radial-gradient(circle at top, rgba(126, 14, 255, 0.18), transparent 42%),
+    rgba(2, 1, 16, 0.88);
+}
+
+body.theme-cyberpink .live-modal__chat {
+  background: linear-gradient(180deg, rgba(12, 4, 28, 0.84), rgba(20, 4, 46, 0.72));
+  border-radius: 0;
+  border-color: rgba(126, 14, 255, 0.56);
+  box-shadow:
+    0 0 0 1px rgba(126, 14, 255, 0.18),
+    0 0 22px rgba(126, 14, 255, 0.18);
+}
+
+body.theme-cyberpink .live-modal__header,
+body.theme-cyberpink .live-modal__toolbar,
+body.theme-cyberpink .live-modal__camera-section,
+body.theme-cyberpink .live-modal__composer {
+  border-color: rgba(126, 14, 255, 0.24);
+}
+
+body.theme-cyberpink .live-modal__title,
+body.theme-cyberpink .live-modal__toolbar-label,
+body.theme-cyberpink .live-modal__toolbar-status,
+body.theme-cyberpink .live-modal__login,
+body.theme-cyberpink .live-modal__empty,
+body.theme-cyberpink .live-modal__text,
+body.theme-cyberpink .live-modal__author {
+  color: #e8d4ff;
+  text-shadow:
+    0 0 1px #7e0eff,
+    0 0 2px rgba(126, 14, 255, 0.55);
+}
+
+body.theme-cyberpink .live-modal__message {
+  border-radius: 0;
+  border: 1px solid rgba(126, 14, 255, 0.28);
+}
+
+body.theme-cyberpink .live-modal__message--mine {
+  background: rgba(126, 14, 255, 0.22);
+}
+
+body.theme-cyberpink .live-modal__message--other {
+  background: rgba(20, 4, 46, 0.62);
+}
+
+body.theme-cyberpink .live-modal__camera-placeholder {
+  background: rgba(3, 1, 16, 0.72);
+  border-color: rgba(126, 14, 255, 0.34);
+  color: #d7b8ff;
+}
+
+body.theme-cyberpink .live-modal__camera-stage {
+  background:
+    linear-gradient(180deg, rgba(2, 1, 16, 0.18), rgba(2, 1, 16, 0.46)),
+    rgba(2, 1, 16, 0.1);
+}
+
+body.theme-cyberpink .live-modal__error {
+  color: #ffb8ff;
+}
+
 body.theme-cyberpink .gavetaOption {
   border: none;
   background-color: transparent;

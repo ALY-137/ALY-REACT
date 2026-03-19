@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from "react";
 import LoginButton from "../../Geral/LoginButton";
 
 export default function LiveModal({
@@ -27,9 +28,90 @@ export default function LiveModal({
   setLiveChatMensagem,
   enviarMensagemLive,
 }) {
-  if (!aberto) return null;
+  const [cameraTelaCheia, setCameraTelaCheia] = useState(false);
 
   const isMobile = typeof window !== "undefined" && window.innerWidth <= 860;
+  const cameraLocalDisponivel = Boolean(usuarioPodeControlarCameraLive && liveCameraAtiva);
+  const cameraRemotaDisponivel = Boolean(
+    !usuarioPodeControlarCameraLive && currentUidAutenticado && liveCameraRemotaAtiva
+  );
+  const cameraDisponivel = cameraLocalDisponivel || cameraRemotaDisponivel;
+
+  const cameraStage = useMemo(() => {
+    if (cameraLocalDisponivel) {
+      return {
+        ref: liveCameraVideoRef,
+        stream: liveCameraStream,
+        muted: true,
+      };
+    }
+
+    if (cameraRemotaDisponivel) {
+      return {
+        ref: liveCameraRemotaVideoRef,
+        stream: liveCameraRemotaStream,
+        muted: false,
+      };
+    }
+
+    return null;
+  }, [
+    cameraLocalDisponivel,
+    cameraRemotaDisponivel,
+    liveCameraRemotaStream,
+    liveCameraRemotaVideoRef,
+    liveCameraStream,
+    liveCameraVideoRef,
+  ]);
+
+  useEffect(() => {
+    if (!aberto || !cameraDisponivel) {
+      setCameraTelaCheia(false);
+    }
+  }, [aberto, cameraDisponivel]);
+
+  const conectarVideoAoStream = (node, stream, { muted = false } = {}) => {
+    if (!node || !stream) return;
+    try {
+      if (node.srcObject !== stream) {
+        node.srcObject = stream;
+      }
+      node.setAttribute("playsinline", "true");
+      node.setAttribute("autoplay", "true");
+      node.muted = Boolean(muted);
+      node.play().catch(() => {});
+    } catch {
+      // no-op
+    }
+  };
+
+  const aplicarRefVideo = (externalRef, node, stream, { muted = false } = {}) => {
+    if (typeof externalRef === "function") {
+      externalRef(node);
+    } else if (externalRef && "current" in externalRef) {
+      externalRef.current = node;
+    }
+    conectarVideoAoStream(node, stream, { muted });
+  };
+
+  const renderVideoCamera = ({
+    className = "live-modal__camera",
+    refExterno,
+    stream = null,
+    muted = false,
+  }) => (
+    <video
+      className={className}
+      ref={(node) => {
+        aplicarRefVideo(refExterno, node, stream, { muted });
+      }}
+      autoPlay
+      muted={Boolean(muted)}
+      playsInline
+    />
+  );
+
+  if (!aberto) return null;
 
   return (
     <div
@@ -101,6 +183,17 @@ export default function LiveModal({
           Fechar live
         </button>
 
+        {cameraTelaCheia && cameraStage ? (
+          <div className="live-modal__camera-stage">
+            {renderVideoCamera({
+              className: "live-modal__camera-stage-video",
+              refExterno: cameraStage.ref,
+              stream: cameraStage.stream,
+              muted: cameraStage.muted,
+            })}
+          </div>
+        ) : null}
+
         <div
           className="live-modal__chat"
           style={{
@@ -123,9 +216,20 @@ export default function LiveModal({
           {usuarioPodeControlarCameraLive ? (
             <div className="live-modal__toolbar">
               <span className="live-modal__toolbar-label">Camera do criador</span>
-              <button type="button" onClick={alternarCameraLive}>
-                {liveCameraAtiva ? "Desligar camera" : "Ligar camera"}
-              </button>
+              <div className="live-modal__toolbar-actions">
+                {cameraLocalDisponivel ? (
+                  <button
+                    type="button"
+                    className="live-modal__camera-toggle"
+                    onClick={() => setCameraTelaCheia((estadoAtual) => !estadoAtual)}
+                  >
+                    {cameraTelaCheia ? "Miniatura" : "Tela cheia"}
+                  </button>
+                ) : null}
+                <button type="button" onClick={alternarCameraLive}>
+                  {liveCameraAtiva ? "Desligar camera" : "Ligar camera"}
+                </button>
+              </div>
             </div>
           ) : null}
 
@@ -135,34 +239,17 @@ export default function LiveModal({
 
           {liveCameraAtiva ? (
             <div className="live-modal__camera-section">
-              <video
-                className="live-modal__camera"
-                ref={(node) => {
-                  if (typeof liveCameraVideoRef === "function") {
-                    liveCameraVideoRef(node);
-                    return;
-                  }
-                  if (liveCameraVideoRef && "current" in liveCameraVideoRef) {
-                    liveCameraVideoRef.current = node;
-                  }
-                  const stream = liveCameraStream;
-                  if (!node || !stream) return;
-                  try {
-                    if (node.srcObject !== stream) {
-                      node.srcObject = stream;
-                    }
-                    node.setAttribute("playsinline", "true");
-                    node.setAttribute("autoplay", "true");
-                    node.muted = true;
-                    node.play().catch(() => {});
-                  } catch {
-                    // no-op
-                  }
-                }}
-                autoPlay
-                muted
-                playsInline
-              />
+              {!cameraTelaCheia
+                ? renderVideoCamera({
+                    refExterno: liveCameraVideoRef,
+                    stream: liveCameraStream,
+                    muted: true,
+                  })
+                : (
+                  <div className="live-modal__camera-placeholder live-modal__camera-placeholder--compact">
+                    Camera exibida em tela cheia.
+                  </div>
+                )}
             </div>
           ) : null}
 
@@ -170,39 +257,34 @@ export default function LiveModal({
             <div className="live-modal__camera-section">
               <div className="live-modal__camera-toolbar">
                 <span className="live-modal__toolbar-label">Camera ao vivo do criador</span>
-                <span className="live-modal__toolbar-status">
-                  {liveCameraRemotaStatus || "Aguardando..."}
-                </span>
+                <div className="live-modal__toolbar-actions">
+                  <span className="live-modal__toolbar-status">
+                    {liveCameraRemotaStatus || "Aguardando..."}
+                  </span>
+                  {cameraRemotaDisponivel ? (
+                    <button
+                      type="button"
+                      className="live-modal__camera-toggle"
+                      onClick={() => setCameraTelaCheia((estadoAtual) => !estadoAtual)}
+                    >
+                      {cameraTelaCheia ? "Miniatura" : "Tela cheia"}
+                    </button>
+                  ) : null}
+                </div>
               </div>
 
               {liveCameraRemotaAtiva ? (
-                <video
-                  className="live-modal__camera"
-                  ref={(node) => {
-                    if (typeof liveCameraRemotaVideoRef === "function") {
-                      liveCameraRemotaVideoRef(node);
-                      return;
-                    }
-                    if (liveCameraRemotaVideoRef && "current" in liveCameraRemotaVideoRef) {
-                      liveCameraRemotaVideoRef.current = node;
-                    }
-                    const stream = liveCameraRemotaStream;
-                    if (!node || !stream) return;
-                    try {
-                      if (node.srcObject !== stream) {
-                        node.srcObject = stream;
-                      }
-                      node.setAttribute("playsinline", "true");
-                      node.setAttribute("autoplay", "true");
-                      node.play().catch(() => {});
-                    } catch {
-                      // no-op
-                    }
-                  }}
-                  autoPlay
-                  muted
-                  playsInline
-                />
+                !cameraTelaCheia
+                  ? renderVideoCamera({
+                      refExterno: liveCameraRemotaVideoRef,
+                      stream: liveCameraRemotaStream,
+                      muted: false,
+                    })
+                  : (
+                    <div className="live-modal__camera-placeholder live-modal__camera-placeholder--compact">
+                      Camera exibida em tela cheia.
+                    </div>
+                  )
               ) : (
                 <div className="live-modal__camera-placeholder">
                   {liveCameraRemotaStatus ||

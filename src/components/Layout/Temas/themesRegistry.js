@@ -318,6 +318,11 @@ export function obterCssTemaSkin(temaSkinId) {
   return normalizarIdTema(temaDef.cssTheme || temaDef.id || "CYBERPINK");
 }
 
+export function temaSistemaUsaLoginRitual(themeId) {
+  const normalizado = normalizarIdTema(themeId);
+  return normalizado === "OBEYDOM";
+}
+
 const LAYOUT_MENU_POSITIONS = new Set(["drawer", "top"]);
 const LAYOUT_SURFACE_DENSITIES = new Set(["compact", "comfortable", "airy"]);
 const LAYOUT_MENU_POSITION_OVERRIDES = new Set(["inherit", "drawer", "top"]);
