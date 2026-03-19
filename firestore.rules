@@ -411,33 +411,9 @@ service cloud.firestore {
       return signedIn() &&
         (resourceData.tipo is string) &&
         resourceData.tipo == "live" &&
-        (requestData.tipo is string) &&
-        requestData.tipo == resourceData.tipo &&
         (requestData.idContato is string) &&
         requestData.idContato == resourceData.idContato &&
-        (
-          !('ownerUserId' in resourceData) ||
-          (
-            (requestData.ownerUserId is string) &&
-            requestData.ownerUserId == resourceData.ownerUserId
-          )
-        ) &&
-        (
-          !('espacoId' in resourceData) ||
-          (
-            (requestData.espacoId is string) &&
-            requestData.espacoId == resourceData.espacoId
-          )
-        ) &&
-        (
-          !('blocoId' in resourceData) ||
-          (
-            (requestData.blocoId is string) &&
-            requestData.blocoId == resourceData.blocoId
-          )
-        ) &&
-        (requestData.participantUids is list) &&
-        requestData.participantUids.hasAny([request.auth.uid]);
+        (!('tipo' in requestData) || requestData.tipo == "live");
     }
 
     function canAccessContatoById(contatoId) {
@@ -469,33 +445,9 @@ service cloud.firestore {
       return signedIn() &&
         (resourceData.tipo is string) &&
         resourceData.tipo == "live" &&
-        (requestData.tipo is string) &&
-        requestData.tipo == resourceData.tipo &&
         (requestData.idContato is string) &&
         requestData.idContato == resourceData.idContato &&
-        (
-          !('ownerUserId' in resourceData) ||
-          (
-            (requestData.ownerUserId is string) &&
-            requestData.ownerUserId == resourceData.ownerUserId
-          )
-        ) &&
-        (
-          !('espacoId' in resourceData) ||
-          (
-            (requestData.espacoId is string) &&
-            requestData.espacoId == resourceData.espacoId
-          )
-        ) &&
-        (
-          !('blocoId' in resourceData) ||
-          (
-            (requestData.blocoId is string) &&
-            requestData.blocoId == resourceData.blocoId
-          )
-        ) &&
-        (requestData.participantUids is list) &&
-        requestData.participantUids.hasAny([request.auth.uid]);
+        (!('tipo' in requestData) || requestData.tipo == "live");
     }
 
     function canAccessProjetoContatoById(projectKey, contatoId) {

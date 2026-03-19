@@ -328,6 +328,58 @@ body.theme-passy .solicitacao-pix-card__status-confirmado-icon {
 
 }
 
+body.theme-passy .live-modal {
+  background:
+    radial-gradient(circle at top, rgba(255, 177, 215, 0.18), transparent 44%),
+    rgba(41, 6, 24, 0.82);
+}
+
+body.theme-passy .live-modal__chat {
+  background: linear-gradient(180deg, rgba(118, 10, 58, 0.68), rgba(74, 8, 38, 0.5));
+  border: 1px solid rgba(219, 48, 142, 0.5);
+  box-shadow: 0 18px 40px rgba(75, 6, 38, 0.34);
+}
+
+body.theme-passy .live-modal__header,
+body.theme-passy .live-modal__toolbar,
+body.theme-passy .live-modal__camera-section,
+body.theme-passy .live-modal__composer {
+  border-color: rgba(255, 205, 229, 0.22);
+}
+
+body.theme-passy .live-modal__title,
+body.theme-passy .live-modal__toolbar-label,
+body.theme-passy .live-modal__toolbar-status,
+body.theme-passy .live-modal__login,
+body.theme-passy .live-modal__empty,
+body.theme-passy .live-modal__text,
+body.theme-passy .live-modal__author {
+  color: #fff3f9;
+}
+
+body.theme-passy .live-modal__camera-placeholder {
+  color: #ffe8f4;
+  border-color: rgba(255, 205, 229, 0.32);
+  background: rgba(255, 226, 242, 0.08);
+}
+
+body.theme-passy .live-modal__message {
+  border: 1px solid rgba(255, 205, 229, 0.18);
+  box-shadow: none;
+}
+
+body.theme-passy .live-modal__message--mine {
+  background: rgba(255, 185, 223, 0.24);
+}
+
+body.theme-passy .live-modal__message--other {
+  background: rgba(93, 10, 49, 0.36);
+}
+
+body.theme-passy .live-modal__error {
+  color: #ffd7e8;
+}
+
 body.theme-passy #MenuContainer {
   width: 100%;
   min-height: 100dvh;

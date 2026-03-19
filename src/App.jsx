@@ -126,6 +126,7 @@ const App = () => {
 
   const location = useLocation();
 
+
   const aplicarConfigSistemaLocal = (config) => {
     setConfigSistema(config);
     setConfigSistemaPronta(true);
@@ -1155,5 +1156,4 @@ const App = () => {
 
 export { primeiroNomeCap, emailCap, picGoogleCap, fullnameCap };
 export default App;
-
 

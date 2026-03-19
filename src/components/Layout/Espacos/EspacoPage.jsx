@@ -2,7 +2,6 @@
 import { useNavigate, useOutletContext, useParams } from "react-router-dom";
 import {
   addDoc,
-  arrayUnion,
   collection,
   deleteDoc,
   doc,
@@ -23,6 +22,31 @@ import EditorBloco from "../Blocos/EditorBloco";
 import LoginButton from "../Geral/LoginButton";
 import Card from "../Objects/Objetos/Card";
 import Container from "../Objects/Containers/Container";
+import LiveModal from "./components/LiveModal";
+import {
+  LIVE_EFETIVE_TURN_URLS,
+  LIVE_WEBRTC_CONFIG,
+  formatarDataHoraLive,
+  montarLiveContactId,
+  normalizarRtcDescricao,
+  normalizarEmbedLiveUrl,
+  parseLiveMs,
+  serializarIceCandidate,
+  serializarRtcDescricao,
+} from "./live/liveUtils";
+import {
+  enviarMensagemContatoLive,
+  garantirContatoConversaLive,
+} from "./live/liveContatoApi";
+import {
+  getChatCollectionRefs,
+  getContatoDocRefs,
+  getConversaDocRefs,
+  getFirstRef,
+  getLiveRtcCandidatesCollectionRefs,
+  getLiveRtcSessionCollectionRefs,
+  getLiveRtcSessionDocRefs,
+} from "./live/liveRefs";
 import { auth, db, storage } from "../../Banco/init-firebase";
 import {
   getProjectCollectionCandidates,
@@ -47,7 +71,6 @@ import { solicitarSolicitacaoPixManualBloco } from "../Pagamentos/mercadoPagoApi
 import { seforAdm } from "../../Scripts/verificacoes/verificaAdm";
 import { getEspacoCompleto } from "./firebaseEspacos";
 
-const getFirstRef = (refs = []) => (Array.isArray(refs) && refs.length ? refs[0] : null);
 const getBlocosCollectionRefs = (ownerUserId, espacoId) =>
   getProjectCollectionCandidates(db, "users", ownerUserId, "espacos", espacoId, "blocos");
 const getBlocoDocRefs = (ownerUserId, espacoId, blocoId) =>
@@ -87,120 +110,6 @@ const getEspacoAssinanteRefs = (ownerUserId, espacoId, assinanteId) =>
   );
 const getPedidosCollectionRefs = (ownerUserId) =>
   getProjectCollectionCandidates(db, "users", ownerUserId, "pedidos");
-const getContatoDocRefs = (contactId) => getProjectDocCandidates(db, "contatos", contactId);
-const getConversaDocRefs = (contactId, conversationId) =>
-  getProjectDocCandidates(db, "contatos", contactId, "conversas", conversationId);
-const getChatCollectionRefs = (contactId, conversationId) =>
-  getProjectCollectionCandidates(db, "contatos", contactId, "conversas", conversationId, "chat");
-const getLiveRtcSessionCollectionRefs = (contactId, conversationId) =>
-  getProjectCollectionCandidates(
-    db,
-    "contatos",
-    contactId,
-    "conversas",
-    conversationId,
-    "webrtc"
-  );
-const getLiveRtcSessionDocRefs = (contactId, conversationId, viewerUid) =>
-  getProjectDocCandidates(
-    db,
-    "contatos",
-    contactId,
-    "conversas",
-    conversationId,
-    "webrtc",
-    viewerUid
-  );
-const getLiveRtcCandidatesCollectionRefs = (
-  contactId,
-  conversationId,
-  viewerUid,
-  side = "viewerCandidates"
-) =>
-  getProjectCollectionCandidates(
-    db,
-    "contatos",
-    contactId,
-    "conversas",
-    conversationId,
-    "webrtc",
-    viewerUid,
-    side
-  );
-
-const LIVE_TURN_URLS = String(process.env.REACT_APP_LIVE_TURN_URLS || "")
-  .split(",")
-  .map((item) => String(item || "").trim())
-  .filter(Boolean);
-const LIVE_TURN_USERNAME = String(process.env.REACT_APP_LIVE_TURN_USERNAME || "").trim();
-const LIVE_TURN_CREDENTIAL = String(process.env.REACT_APP_LIVE_TURN_CREDENTIAL || "").trim();
-const LIVE_FALLBACK_TURN_URLS = [
-  "stun:openrelay.metered.ca:80",
-  "turn:openrelay.metered.ca:80",
-  "turn:openrelay.metered.ca:443",
-  "turn:openrelay.metered.ca:443?transport=tcp",
-];
-const LIVE_FALLBACK_TURN_USERNAME = "openrelayproject";
-const LIVE_FALLBACK_TURN_CREDENTIAL = "openrelayproject";
-const LIVE_USA_TURN_ENV = LIVE_TURN_URLS.length > 0;
-const LIVE_EFETIVE_TURN_URLS = LIVE_USA_TURN_ENV
-  ? LIVE_TURN_URLS
-  : LIVE_FALLBACK_TURN_URLS;
-const LIVE_EFETIVE_TURN_USERNAME = LIVE_USA_TURN_ENV
-  ? LIVE_TURN_USERNAME
-  : LIVE_FALLBACK_TURN_USERNAME;
-const LIVE_EFETIVE_TURN_CREDENTIAL = LIVE_USA_TURN_ENV
-  ? LIVE_TURN_CREDENTIAL
-  : LIVE_FALLBACK_TURN_CREDENTIAL;
-
-const LIVE_WEBRTC_CONFIG = {
-  iceServers: [
-    { urls: "stun:stun.l.google.com:19302" },
-    { urls: "stun:stun1.l.google.com:19302" },
-    ...(LIVE_EFETIVE_TURN_URLS.length
-      ? [
-          {
-            urls: LIVE_EFETIVE_TURN_URLS,
-            username: LIVE_EFETIVE_TURN_USERNAME || undefined,
-            credential: LIVE_EFETIVE_TURN_CREDENTIAL || undefined,
-          },
-        ]
-      : []),
-  ],
-};
-
-const serializarRtcDescricao = (descricao) => {
-  if (!descricao) return null;
-  if (typeof descricao.toJSON === "function") {
-    try {
-      return descricao.toJSON();
-    } catch {
-      // fallback para shape minimo abaixo.
-    }
-  }
-  return {
-    type: String(descricao.type || "").trim(),
-    sdp: String(descricao.sdp || "").trim(),
-  };
-};
-
-const serializarIceCandidate = (candidate) => {
-  if (!candidate) return null;
-  if (typeof candidate.toJSON === "function") {
-    try {
-      return candidate.toJSON();
-    } catch {
-      // fallback para shape minimo abaixo.
-    }
-  }
-  return {
-    candidate: String(candidate.candidate || "").trim(),
-    sdpMid: candidate.sdpMid ?? null,
-    sdpMLineIndex:
-      typeof candidate.sdpMLineIndex === "number" ? candidate.sdpMLineIndex : null,
-    usernameFragment: candidate.usernameFragment ?? null,
-  };
-};
 
 const isRenderableUrl = (valor) =>
   typeof valor === "string" &&
@@ -266,88 +175,6 @@ const PLACEHOLDER_HOME_CONTENT = "conteudo da pagina principal";
 
 const capitalizar = (texto = "") =>
   texto ? texto.charAt(0).toUpperCase() + texto.slice(1) : "";
-
-const parseLiveMs = (valorMs, valorIso) => {
-  const fromMs = Number(valorMs);
-  if (Number.isFinite(fromMs) && fromMs > 0) return fromMs;
-  const fromIso = Date.parse(String(valorIso || "").trim());
-  return Number.isFinite(fromIso) ? fromIso : null;
-};
-
-const formatarDataHoraLive = (valorMs) => {
-  const ms = Number(valorMs);
-  if (!Number.isFinite(ms) || ms <= 0) return "-";
-  try {
-    return new Intl.DateTimeFormat("pt-BR", {
-      dateStyle: "short",
-      timeStyle: "short",
-    }).format(new Date(ms));
-  } catch {
-    return new Date(ms).toLocaleString("pt-BR");
-  }
-};
-
-const sanitizarTokenLive = (valor = "") =>
-  String(valor || "")
-    .trim()
-    .replace(/[^a-zA-Z0-9_-]/g, "_")
-    .slice(0, 80);
-
-const montarLiveContactId = ({ ownerUserId = "", espacoId = "", blocoId = "" } = {}) => {
-  const owner = sanitizarTokenLive(ownerUserId);
-  const espaco = sanitizarTokenLive(espacoId);
-  const bloco = sanitizarTokenLive(blocoId);
-  // Usa espaco+bloco como chave principal para evitar desencontro quando ownerUid
-  // nao chega preenchido no fallback publico.
-  if (espaco && bloco) {
-    return `live_${espaco}_${bloco}`.slice(0, 180);
-  }
-  if (bloco) {
-    return `live_${bloco}`.slice(0, 180);
-  }
-  return `live_${owner}_${espaco}_${bloco}`.slice(0, 180);
-};
-
-const normalizarEmbedLiveUrl = (url = "") => {
-  const origem = String(url || "").trim();
-  if (!origem) return "";
-
-  try {
-    const parsed = new URL(origem);
-    const host = String(parsed.hostname || "").toLowerCase();
-    const path = String(parsed.pathname || "");
-
-    if (host.includes("youtu.be")) {
-      const id = path.replace("/", "").trim();
-      if (id) return `https://www.youtube.com/embed/${id}?autoplay=1&rel=0`;
-    }
-
-    if (host.includes("youtube.com")) {
-      if (path.includes("/embed/")) return `${parsed.toString()}${parsed.search ? "&" : "?"}autoplay=1`;
-      const id = String(parsed.searchParams.get("v") || "").trim();
-      if (id) return `https://www.youtube.com/embed/${id}?autoplay=1&rel=0`;
-      if (path.includes("/live/")) {
-        const idFromPath = path.split("/live/")[1]?.split("/")[0] || "";
-        if (idFromPath) {
-          return `https://www.youtube.com/embed/${idFromPath}?autoplay=1&rel=0`;
-        }
-      }
-    }
-
-    if (host.includes("vimeo.com")) {
-      const id = path.split("/").filter(Boolean).pop();
-      if (id) return `https://player.vimeo.com/video/${id}?autoplay=1`;
-    }
-
-    if (host.includes("twitch.tv") && path.includes("/videos/")) {
-      return parsed.toString();
-    }
-
-    return parsed.toString();
-  } catch {
-    return origem;
-  }
-};
 
 const extrairPrimeiraUrl = (texto = "") => {
   const bruto = String(texto || "").trim();
@@ -603,6 +430,7 @@ export default function EspacoPage() {
     embedUrl: "",
     contactId: "",
     conversationId: "principal",
+    ownerUserId: "",
   });
   const [liveChatMensagens, setLiveChatMensagens] = useState([]);
   const [liveChatMensagem, setLiveChatMensagem] = useState("");
@@ -704,6 +532,9 @@ export default function EspacoPage() {
     );
   const ownerUserIdLiveEfetivo = String(
     ownerUserId || (oneOwnerPublicaAtivaEfetiva ? ownerUidProjetoEfetivo : "") || ""
+  ).trim();
+  const ownerUserIdLiveFallback = String(
+    ownerUserIdLiveEfetivo || ownerUidProjetoEfetivo || ""
   ).trim();
   const isOwner = !!currentUid && ownerUserId === currentUid;
   const isCoCriador =
@@ -828,9 +659,11 @@ export default function EspacoPage() {
     const conversationId = String(liveModal.conversationId || "principal").trim();
     if (!usuarioPodeControlarCameraLive || !contactId || !conversationId) return;
 
-    const ownerUidLive = String(currentUidAutenticado || ownerUserId || "").trim();
+    const ownerUidLive = String(
+      currentUidAutenticado || liveModal.ownerUserId || ownerUserIdLiveFallback || ""
+    ).trim();
     try {
-      for (const conversaRef of getConversaDocRefs(contactId, conversationId)) {
+      for (const conversaRef of getConversaDocRefs(db, contactId, conversationId)) {
         await setDoc(
           conversaRef,
           {
@@ -1103,13 +936,27 @@ export default function EspacoPage() {
     const contactId = String(liveModal.contactId || "").trim();
     const conversationId = String(liveModal.conversationId || "principal").trim();
     const ownerUidAtual = String(currentUidAutenticado || "").trim();
+    const ownerUidLiveHost = String(
+      liveModal.ownerUserId || ownerUserIdLiveFallback || ownerUidAtual || ""
+    ).trim();
     const streamLocal = liveCameraStreamRef.current;
     const sessaoRtcRef = getFirstRef(
-      getLiveRtcSessionCollectionRefs(contactId, conversationId)
+      getLiveRtcSessionCollectionRefs(db, contactId, conversationId)
     );
 
     if (typeof RTCPeerConnection !== "function") return undefined;
     if (!sessaoRtcRef || !streamLocal) return undefined;
+
+    void garantirContatoConversaLive({
+      db,
+      currentUidAutenticado,
+      contactId,
+      conversationId,
+      tituloLive: String(liveModal?.titulo || "Live").trim() || "Live",
+      blocoId: String(liveModal?.blocoId || "").trim(),
+      ownerUserId: ownerUidLiveHost,
+      espacoId,
+    }).catch(() => {});
 
     const unsubscribeRoom = onSnapshot(
       sessaoRtcRef,
@@ -1124,9 +971,32 @@ export default function EspacoPage() {
           }
 
           const dadosSessao = change.doc.data() || {};
-          const offer = dadosSessao?.offer;
+          const offer = normalizarRtcDescricao(dadosSessao?.offer);
+          const statusSessao = String(dadosSessao?.status || "").trim().toLowerCase();
           const sessionToken = String(dadosSessao?.sessionToken || "").trim();
+          if (statusSessao && statusSessao !== "offer") return;
           if (!offer || typeof offer !== "object") return;
+          if (!String(offer?.type || "").trim() || !String(offer?.sdp || "").trim()) {
+            const sessionDocRefs = getLiveRtcSessionDocRefs(
+              db,
+              contactId,
+              conversationId,
+              viewerUid
+            );
+            sessionDocRefs.forEach((sessionDocRef) => {
+              setDoc(
+                sessionDocRef,
+                {
+                  hostUid: ownerUidAtual,
+                  status: "host_invalid_offer",
+                  hostErrorAt: serverTimestamp(),
+                  hostErrorCode: "invalid-offer",
+                },
+                { merge: true }
+              ).catch(() => {});
+            });
+            return;
+          }
           const offerSerializado = JSON.stringify(offer);
 
           const peerExistente = liveRtcHostPeersRef.current.get(viewerUid);
@@ -1146,6 +1016,7 @@ export default function EspacoPage() {
           const unsubscribers = [];
           const pendingViewerCandidates = [];
           let hostRemoteDescriptionReady = false;
+          let hostTracksAdicionadas = false;
 
           const aplicarViewerCandidate = (candidateData) => {
             if (!candidateData) return;
@@ -1157,14 +1028,6 @@ export default function EspacoPage() {
               .addIceCandidate(new RTCIceCandidate(candidateData))
               .catch(() => {});
           };
-
-          streamLocal.getTracks().forEach((track) => {
-            try {
-              peer.addTrack(track, streamLocal);
-            } catch {
-              // Ignora track invalida.
-            }
-          });
 
           peer.onicecandidate = (event) => {
             const candidate = event.candidate;
@@ -1178,6 +1041,7 @@ export default function EspacoPage() {
               sessionToken: sessionToken || null,
             };
             const hostCandidateRefs = getLiveRtcCandidatesCollectionRefs(
+              db,
               contactId,
               conversationId,
               viewerUid,
@@ -1190,6 +1054,7 @@ export default function EspacoPage() {
 
           const viewerCandidatesRef = getFirstRef(
             getLiveRtcCandidatesCollectionRefs(
+              db,
               contactId,
               conversationId,
               viewerUid,
@@ -1233,45 +1098,171 @@ export default function EspacoPage() {
           });
 
           const sessionDocRefs = getLiveRtcSessionDocRefs(
+            db,
             contactId,
             conversationId,
             viewerUid
           );
+          const registrarStatusHostRtc = async (
+            status,
+            {
+              hostStage = "",
+              hostErrorCode = "",
+              hostErrorMessage = "",
+              answer = null,
+            } = {}
+          ) => {
+            const payloadBase = {
+              hostUid: ownerUidAtual,
+              status,
+              sessionToken: sessionToken || null,
+            };
+            if (hostStage) payloadBase.hostStage = hostStage;
+            if (status === "processing") {
+              payloadBase.hostProcessingAt = serverTimestamp();
+            }
+            if (status === "host_error") {
+              payloadBase.hostErrorAt = serverTimestamp();
+            }
+            if (hostErrorCode) payloadBase.hostErrorCode = hostErrorCode;
+            if (hostErrorMessage) {
+              payloadBase.hostErrorMessage = hostErrorMessage.slice(0, 500);
+            }
+            if (answer) {
+              payloadBase.answer = answer;
+              payloadBase.answerAt = serverTimestamp();
+            }
+            for (const sessionDocRef of sessionDocRefs) {
+              await setDoc(
+                sessionDocRef,
+                payloadBase,
+                { merge: true }
+              );
+            }
+          };
 
           Promise.resolve()
             .then(async () => {
-              await peer.setRemoteDescription(new RTCSessionDescription(offer));
+              await registrarStatusHostRtc("processing", {
+                hostStage: "set-remote-description",
+              });
+
+              try {
+                await peer.setRemoteDescription(offer);
+              } catch (erroStage) {
+                erroStage.__hostRtcCode = "set-remote-description";
+                erroStage.__hostRtcStage = "set-remote-description";
+                await registrarStatusHostRtc("host_error", {
+                  hostStage: "set-remote-description",
+                  hostErrorCode: "set-remote-description",
+                  hostErrorMessage: String(erroStage?.message || erroStage || ""),
+                });
+                throw erroStage;
+              }
               hostRemoteDescriptionReady = true;
+
+              if (!hostTracksAdicionadas) {
+                try {
+                  streamLocal.getTracks().forEach((track) => {
+                    peer.addTrack(track, streamLocal);
+                  });
+                } catch (erroStage) {
+                  erroStage.__hostRtcCode = "add-local-tracks";
+                  erroStage.__hostRtcStage = "add-local-tracks";
+                  await registrarStatusHostRtc("host_error", {
+                    hostStage: "add-local-tracks",
+                    hostErrorCode: "add-local-tracks",
+                    hostErrorMessage: String(erroStage?.message || erroStage || ""),
+                  });
+                  throw erroStage;
+                }
+                hostTracksAdicionadas = true;
+              }
+
               while (pendingViewerCandidates.length) {
                 const queuedCandidate = pendingViewerCandidates.shift();
                 if (!queuedCandidate) continue;
-                await peer
-                  .addIceCandidate(new RTCIceCandidate(queuedCandidate))
-                  .catch(() => {});
+                try {
+                  await peer.addIceCandidate(new RTCIceCandidate(queuedCandidate));
+                } catch {
+                  // ICE ruim nao deve derrubar a sessao inteira.
+                }
               }
-              const answer = await peer.createAnswer();
-              await peer.setLocalDescription(answer);
 
-              for (const sessionDocRef of sessionDocRefs) {
-                await setDoc(
-                  sessionDocRef,
-                  {
-                    answer: serializarRtcDescricao(answer),
-                    answerAt: serverTimestamp(),
-                    hostUid: ownerUidAtual,
-                    status: "answered",
-                    sessionToken: sessionToken || null,
-                  },
-                  { merge: true }
-                );
+              await registrarStatusHostRtc("processing", {
+                hostStage: "create-answer",
+              });
+
+              let answer = null;
+              try {
+                answer = await peer.createAnswer();
+              } catch (erroStage) {
+                erroStage.__hostRtcCode = "create-answer";
+                erroStage.__hostRtcStage = "create-answer";
+                await registrarStatusHostRtc("host_error", {
+                  hostStage: "create-answer",
+                  hostErrorCode: "create-answer",
+                  hostErrorMessage: String(erroStage?.message || erroStage || ""),
+                });
+                throw erroStage;
               }
+
+              try {
+                await peer.setLocalDescription(answer);
+              } catch (erroStage) {
+                erroStage.__hostRtcCode = "set-local-description";
+                erroStage.__hostRtcStage = "set-local-description";
+                await registrarStatusHostRtc("host_error", {
+                  hostStage: "set-local-description",
+                  hostErrorCode: "set-local-description",
+                  hostErrorMessage: String(erroStage?.message || erroStage || ""),
+                });
+                throw erroStage;
+              }
+
+              const answerSerializada = serializarRtcDescricao(peer.localDescription || answer);
+              if (!answerSerializada?.type || !answerSerializada?.sdp) {
+                await registrarStatusHostRtc("host_error", {
+                  hostStage: "serialize-answer",
+                  hostErrorCode: "serialize-answer",
+                  hostErrorMessage: "Resposta WebRTC invalida apos setLocalDescription.",
+                });
+                const erroStage = new Error("Resposta WebRTC invalida apos setLocalDescription.");
+                erroStage.__hostRtcCode = "serialize-answer";
+                erroStage.__hostRtcStage = "serialize-answer";
+                throw erroStage;
+              }
+
+              await registrarStatusHostRtc("answered", {
+                hostStage: "answered",
+                answer: answerSerializada,
+              });
             })
-            .catch(() => {
+            .catch(async (erroHost) => {
+              const erroHostCode =
+                String(erroHost?.__hostRtcCode || erroHost?.code || "").trim().toLowerCase() ||
+                "host-error";
+              const erroHostMessage = String(erroHost?.message || "").trim();
+              console.error("Falha host WebRTC:", erroHost);
+              await registrarStatusHostRtc("host_error", {
+                hostStage:
+                  String(erroHost?.__hostRtcStage || "").trim() ||
+                  (hostRemoteDescriptionReady ? "create-answer" : "set-remote-description"),
+                hostErrorCode: erroHostCode,
+                hostErrorMessage: erroHostMessage,
+              }).catch(() => {});
               encerrarPeerRtcHost(viewerUid);
             });
         });
       },
-      () => {}
+      (erroRoom) => {
+        const code = String(erroRoom?.code || "").trim().toLowerCase();
+        if (code === "permission-denied") {
+          setLiveCameraErro("Sem permissao para responder camera ao vivo.");
+          return;
+        }
+        setLiveCameraErro("Falha ao sincronizar solicitacoes de camera ao vivo.");
+      }
     );
 
     liveRtcHostRoomUnsubRef.current = unsubscribeRoom;
@@ -1283,9 +1274,13 @@ export default function EspacoPage() {
     liveModal.aberto,
     liveModal.contactId,
     liveModal.conversationId,
+    liveModal.ownerUserId,
+    liveModal.titulo,
+    liveModal.blocoId,
     usuarioPodeControlarCameraLive,
     liveCameraAtiva,
     currentUidAutenticado,
+    ownerUserIdLiveFallback,
   ]);
 
   useEffect(() => {
@@ -1296,7 +1291,7 @@ export default function EspacoPage() {
 
     const contactId = String(liveModal.contactId || "").trim();
     const conversationId = String(liveModal.conversationId || "principal").trim();
-    const conversaRef = getFirstRef(getConversaDocRefs(contactId, conversationId));
+    const conversaRef = getFirstRef(getConversaDocRefs(db, contactId, conversationId));
     if (!conversaRef) {
       setLiveCriadorCameraAtiva(false);
       return undefined;
@@ -1340,10 +1335,11 @@ export default function EspacoPage() {
     const conversationId = String(liveModal.conversationId || "principal").trim();
     const viewerUid = String(currentUidAutenticado || "").trim();
     const sessaoRef = getFirstRef(
-      getLiveRtcSessionDocRefs(contactId, conversationId, viewerUid)
+      getLiveRtcSessionDocRefs(db, contactId, conversationId, viewerUid)
     );
     const hostCandidatesRef = getFirstRef(
       getLiveRtcCandidatesCollectionRefs(
+        db,
         contactId,
         conversationId,
         viewerUid,
@@ -1351,6 +1347,7 @@ export default function EspacoPage() {
       )
     );
     const viewerCandidatesRefs = getLiveRtcCandidatesCollectionRefs(
+      db,
       contactId,
       conversationId,
       viewerUid,
@@ -1480,13 +1477,13 @@ export default function EspacoPage() {
       sessaoRef,
       async (sessionSnap) => {
         const dadosSessao = sessionSnap.data() || {};
-        const answer = dadosSessao?.answer;
+        const answer = normalizarRtcDescricao(dadosSessao?.answer);
         const answerSessionToken = String(dadosSessao?.sessionToken || "").trim();
         if (answerSessionToken && answerSessionToken !== sessionToken) return;
         if (!answer || respostaAplicada) return;
 
         try {
-          await peer.setRemoteDescription(new RTCSessionDescription(answer));
+          await peer.setRemoteDescription(answer);
           viewerRemoteDescriptionReady = true;
           while (pendingHostCandidates.length) {
             const queuedCandidate = pendingHostCandidates.shift();
@@ -1549,10 +1546,14 @@ export default function EspacoPage() {
     Promise.resolve()
       .then(async () => {
         await garantirContatoConversaLive({
+          db,
+          currentUidAutenticado,
           contactId,
           conversationId,
           tituloLive: String(liveModal?.titulo || "Live").trim() || "Live",
           blocoId: String(liveModal?.blocoId || "").trim(),
+          ownerUserId: String(liveModal?.ownerUserId || ownerUserIdLiveFallback || "").trim(),
+          espacoId,
         });
 
         const offer = await peer.createOffer({
@@ -1568,7 +1569,7 @@ export default function EspacoPage() {
             requestedAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
             status: "offer",
-            offer: serializarRtcDescricao(offer),
+            offer: serializarRtcDescricao(peer.localDescription || offer),
             answer: null,
             answerAt: null,
             hostUid: null,
@@ -1611,6 +1612,7 @@ export default function EspacoPage() {
     usuarioPodeControlarCameraLive,
     currentUidAutenticado,
     liveViewerTentativas,
+    ownerUserIdLiveFallback,
   ]);
 
   useEffect(() => {
@@ -1630,7 +1632,7 @@ export default function EspacoPage() {
     }
 
     const chatRef = getFirstRef(
-      getChatCollectionRefs(liveModal.contactId, liveModal.conversationId)
+      getChatCollectionRefs(db, liveModal.contactId, liveModal.conversationId)
     );
     if (!chatRef) {
       setLiveChatErro("Chat da live indisponivel.");
@@ -2733,56 +2735,6 @@ export default function EspacoPage() {
     );
   };
 
-  const garantirContatoConversaLive = async ({
-    contactId = "",
-    conversationId = "principal",
-    tituloLive = "Live",
-    blocoId = "",
-  } = {}) => {
-    const idContato = String(contactId || "").trim();
-    const idConversa = String(conversationId || "principal").trim() || "principal";
-    const titulo = String(tituloLive || "Live").trim() || "Live";
-    const idBloco = String(blocoId || "").trim();
-
-    if (!currentUidAutenticado || !idContato) return;
-
-    const participantUids = [
-      String(currentUidAutenticado || "").trim(),
-      ownerUserIdLiveEfetivo,
-    ].filter(Boolean);
-
-    for (const contatoRef of getContatoDocRefs(idContato)) {
-      const payloadContato = {
-        idContato,
-        tipo: "live",
-        ownerUserId: ownerUserIdLiveEfetivo || "",
-        espacoId: espacoId || "",
-        blocoId: idBloco,
-        assunto: titulo,
-        ultimaConversaData: serverTimestamp(),
-      };
-      if (participantUids.length) {
-        payloadContato.participantUids = arrayUnion(...participantUids);
-      }
-      await setDoc(contatoRef, payloadContato, { merge: true });
-    }
-
-    for (const conversaRef of getConversaDocRefs(idContato, idConversa)) {
-      await setDoc(
-        conversaRef,
-        {
-          idContato,
-          idConversa,
-          assunto: titulo,
-          data: serverTimestamp(),
-          dataUltimaMensagem: serverTimestamp(),
-          ultimaMensagem: "Live iniciada",
-        },
-        { merge: true }
-      );
-    }
-  };
-
   const abrirLiveBloco = async (bloco = {}) => {
     if (!livesHabilitadas) {
       alert("Lives desativadas neste projeto.");
@@ -2805,8 +2757,15 @@ export default function EspacoPage() {
       return;
     }
 
+    const ownerUidLive = String(
+      bloco?.ownerUserId ||
+        bloco?.criadoPor ||
+        ownerUserIdLiveFallback ||
+        (usuarioEhOwnerProjeto ? currentUidAutenticado : "") ||
+        ""
+    ).trim();
     const contactId = montarLiveContactId({
-      ownerUserId: ownerUserIdLiveEfetivo,
+      ownerUserId: ownerUidLive,
       espacoId,
       blocoId: bloco?.id || "",
     });
@@ -2816,10 +2775,14 @@ export default function EspacoPage() {
     if (currentUidAutenticado) {
       try {
         await garantirContatoConversaLive({
+          db,
+          currentUidAutenticado,
           contactId,
           conversationId,
           tituloLive,
           blocoId: String(bloco?.id || "").trim(),
+          ownerUserId: ownerUidLive,
+          espacoId,
         });
       } catch (err) {
         if (err?.code === "permission-denied") {
@@ -2839,6 +2802,7 @@ export default function EspacoPage() {
       embedUrl: normalizarEmbedLiveUrl(liveUrl),
       contactId,
       conversationId,
+      ownerUserId: ownerUidLive,
     });
     setLiveChatMensagem("");
     setLiveChatErro(currentUidAutenticado ? "" : "FaÃ§a login para participar do chat da live.");
@@ -2857,55 +2821,16 @@ export default function EspacoPage() {
     if (!contactId) return;
 
     try {
-      const chatCollectionRef = getFirstRef(
-        getChatCollectionRefs(contactId, conversationId)
-      );
-      if (!chatCollectionRef) {
-        throw new Error("Chat da live indisponivel.");
-      }
-      await addDoc(
-        chatCollectionRef,
-        {
-          mensagem: texto,
-          data: serverTimestamp(),
-          userRemetente: nomeRemetenteLive || currentUid,
-          userUid: currentUidAutenticado,
-          idConversa: conversationId,
-        }
-      );
-
-      for (const conversaRef of getConversaDocRefs(contactId, conversationId)) {
-        await setDoc(
-          conversaRef,
-          {
-            idContato: contactId,
-            idConversa: conversationId,
-            assunto: String(liveModal?.titulo || "Live").trim() || "Live",
-            dataUltimaMensagem: serverTimestamp(),
-            ultimaMensagem: texto,
-          },
-          { merge: true }
-        );
-      }
-
-      for (const contatoRef of getContatoDocRefs(contactId)) {
-        const participantUids = [
-          String(currentUidAutenticado || "").trim(),
-          ownerUserIdLiveEfetivo,
-        ].filter(Boolean);
-        const payloadContato = {
-          idContato: contactId,
-          ultimaConversaData: serverTimestamp(),
-        };
-        if (participantUids.length) {
-          payloadContato.participantUids = arrayUnion(...participantUids);
-        }
-        await setDoc(
-          contatoRef,
-          payloadContato,
-          { merge: true }
-        );
-      }
+      await enviarMensagemContatoLive({
+        db,
+        contactId,
+        conversationId,
+        mensagem: texto,
+        tituloLive: String(liveModal?.titulo || "Live").trim() || "Live",
+        userUid: currentUidAutenticado,
+        userRemetente: nomeRemetenteLive || currentUid,
+        ownerUserId: String(liveModal?.ownerUserId || ownerUserIdLiveFallback || "").trim(),
+      });
 
       setLiveChatMensagem("");
       setLiveChatErro("");
@@ -3574,331 +3499,33 @@ export default function EspacoPage() {
           );
         })}
 
-      {liveModal.aberto ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          onClick={() => setLiveModal((prev) => ({ ...prev, aberto: false }))}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 99998,
-            background: "rgba(0,0,0,0.92)",
-            display: "flex",
-            alignItems: "stretch",
-            justifyContent: "stretch",
-          }}
-        >
-          <div
-            onClick={(event) => event.stopPropagation()}
-            style={{
-              position: "relative",
-              width: "100vw",
-              height: "100dvh",
-              overflow: "hidden",
-            }}
-          >
-            {liveModalEhVideoDireto ? (
-              <video
-                src={liveModal.liveUrl}
-                controls
-                autoPlay
-                playsInline
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "cover",
-                  background: "#000",
-                }}
-              />
-            ) : (
-              <iframe
-                title={liveModal.titulo || "Live"}
-                src={liveModal.embedUrl || liveModal.liveUrl}
-                allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  border: "none",
-                  background: "#000",
-                }}
-              />
-            )}
-
-            <button
-              type="button"
-              onClick={() => setLiveModal((prev) => ({ ...prev, aberto: false }))}
-              style={{
-                position: "absolute",
-                top: 12,
-                right: 12,
-                zIndex: 3,
-                cursor: "pointer",
-              }}
-            >
-              Fechar live
-            </button>
-
-            <div
-              style={{
-                position: "absolute",
-                right: 12,
-                top: typeof window !== "undefined" && window.innerWidth <= 860 ? "auto" : 12,
-                bottom: 12,
-                width:
-                  typeof window !== "undefined" && window.innerWidth <= 860
-                    ? "calc(100% - 24px)"
-                    : "min(360px, 34vw)",
-                height:
-                  typeof window !== "undefined" && window.innerWidth <= 860
-                    ? "45dvh"
-                    : "calc(100% - 24px)",
-                background: "rgba(0,0,0,0.58)",
-                border: "1px solid rgba(255,255,255,0.26)",
-                borderRadius: 10,
-                backdropFilter: "blur(6px)",
-                display: "flex",
-                flexDirection: "column",
-                overflow: "hidden",
-                zIndex: 2,
-              }}
-            >
-              <div style={{ padding: "8px 10px", borderBottom: "1px solid rgba(255,255,255,0.2)" }}>
-                <strong style={{ color: "#fff" }}>Chat da live</strong>
-              </div>
-
-              {usuarioPodeControlarCameraLive ? (
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 8,
-                    padding: "8px 10px",
-                    borderBottom: "1px solid rgba(255,255,255,0.2)",
-                  }}
-                >
-                  <span style={{ color: "#fff", fontSize: 12, opacity: 0.9 }}>
-                    Camera do criador
-                  </span>
-                  <button type="button" onClick={alternarCameraLive}>
-                    {liveCameraAtiva ? "Desligar camera" : "Ligar camera"}
-                  </button>
-                </div>
-              ) : null}
-
-              {liveCameraErro ? (
-                <p style={{ margin: "4px 10px", color: "#ffd4d4", fontSize: 12 }}>
-                  {liveCameraErro}
-                </p>
-              ) : null}
-
-              {liveCameraAtiva ? (
-                <div style={{ padding: "8px 10px", borderBottom: "1px solid rgba(255,255,255,0.2)" }}>
-                  <video
-                    ref={(node) => {
-                      liveCameraVideoRef.current = node;
-                      const stream = liveCameraStreamRef.current;
-                      if (!node || !stream) return;
-                      try {
-                        if (node.srcObject !== stream) {
-                          node.srcObject = stream;
-                        }
-                        node.setAttribute("playsinline", "true");
-                        node.setAttribute("autoplay", "true");
-                        node.muted = true;
-                        node.play().catch(() => {});
-                      } catch {
-                        // no-op
-                      }
-                    }}
-                    autoPlay
-                    muted
-                    playsInline
-                    style={{
-                      width: "100%",
-                      height: 160,
-                      maxHeight: 160,
-                      objectFit: "cover",
-                      borderRadius: 8,
-                      background: "#000",
-                    }}
-                  />
-                </div>
-              ) : null}
-
-              {!usuarioPodeControlarCameraLive && currentUidAutenticado ? (
-                <div style={{ padding: "8px 10px", borderBottom: "1px solid rgba(255,255,255,0.2)" }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: 8,
-                      marginBottom: 6,
-                    }}
-                  >
-                    <span style={{ color: "#fff", fontSize: 12, opacity: 0.9 }}>
-                      Camera ao vivo do criador
-                    </span>
-                    <span style={{ color: "#fff", fontSize: 11, opacity: 0.75 }}>
-                      {liveCameraRemotaStatus || "Aguardando..."}
-                    </span>
-                  </div>
-
-                  {liveCameraRemotaAtiva ? (
-                    <video
-                      ref={(node) => {
-                        liveCameraRemotaVideoRef.current = node;
-                        const stream = liveCameraRemotaStreamRef.current;
-                        if (!node || !stream) return;
-                        try {
-                          if (node.srcObject !== stream) {
-                            node.srcObject = stream;
-                          }
-                          node.setAttribute("playsinline", "true");
-                          node.setAttribute("autoplay", "true");
-                          node.play().catch(() => {});
-                        } catch {
-                          // no-op
-                        }
-                      }}
-                      autoPlay
-                      muted
-                      playsInline
-                      style={{
-                        width: "100%",
-                        height: 160,
-                        maxHeight: 160,
-                        objectFit: "cover",
-                        borderRadius: 8,
-                        background: "#000",
-                      }}
-                    />
-                  ) : (
-                    <div
-                      style={{
-                        width: "100%",
-                        minHeight: 88,
-                        borderRadius: 8,
-                        border: "1px dashed rgba(255,255,255,0.35)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        color: "rgba(255,255,255,0.75)",
-                        fontSize: 12,
-                        textAlign: "center",
-                        padding: 8,
-                      }}
-                    >
-                      {liveCameraRemotaStatus ||
-                        (liveCriadorCameraAtiva
-                          ? "Criador com camera ativa. Conectando..."
-                          : "Aguardando o criador ligar a camera.")}
-                    </div>
-                  )}
-                </div>
-              ) : null}
-
-              {liveCameraRemotaErro ? (
-                <p style={{ margin: "4px 10px", color: "#ffd4d4", fontSize: 12 }}>
-                  {liveCameraRemotaErro}
-                </p>
-              ) : null}
-
-              <div
-                ref={liveChatScrollRef}
-                style={{
-                  flex: 1,
-                  overflowY: "auto",
-                  padding: "8px 10px",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 6,
-                }}
-              >
-                {!currentUidAutenticado ? (
-                  <div style={{ color: "#fff" }}>
-                    <p style={{ marginTop: 0, marginBottom: 8 }}>
-                      FaÃ§a login para participar do chat.
-                    </p>
-                    <LoginButton />
-                  </div>
-                ) : liveChatMensagens.length ? (
-                  liveChatMensagens.map((mensagem) => {
-                    const minhaMensagem =
-                      String(mensagem?.userUid || "").trim() ===
-                      String(currentUidAutenticado || "").trim();
-                    return (
-                      <div
-                        key={mensagem.id}
-                        style={{
-                          alignSelf: minhaMensagem ? "flex-end" : "flex-start",
-                          maxWidth: "88%",
-                          background: minhaMensagem
-                            ? "rgba(255,255,255,0.2)"
-                            : "rgba(255,255,255,0.1)",
-                          color: "#fff",
-                          padding: "6px 8px",
-                          borderRadius: 8,
-                          textAlign: "left",
-                        }}
-                      >
-                        {!minhaMensagem ? (
-                          <p style={{ margin: "0 0 4px", fontSize: 11, opacity: 0.85 }}>
-                            {mensagem.userRemetente || "Usuario"}
-                          </p>
-                        ) : null}
-                        <p style={{ margin: 0, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
-                          {mensagem.mensagem}
-                        </p>
-                      </div>
-                    );
-                  })
-                ) : (
-                  <p style={{ margin: 0, color: "#fff", opacity: 0.85 }}>
-                    Nenhuma mensagem ainda.
-                  </p>
-                )}
-              </div>
-
-              {!!liveChatErro && (
-                <p style={{ margin: "4px 10px", color: "#ffd4d4", fontSize: 12 }}>{liveChatErro}</p>
-              )}
-
-              <div
-                style={{
-                  padding: 10,
-                  borderTop: "1px solid rgba(255,255,255,0.2)",
-                  display: "flex",
-                  gap: 8,
-                }}
-              >
-                <input
-                  type="text"
-                  value={liveChatMensagem}
-                  onChange={(event) => setLiveChatMensagem(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      enviarMensagemLive();
-                    }
-                  }}
-                  placeholder={currentUidAutenticado ? "Digite sua mensagem..." : "FaÃ§a login para enviar"}
-                  disabled={!currentUidAutenticado}
-                  style={{ flex: 1, minWidth: 0 }}
-                />
-                <button
-                  type="button"
-                  onClick={enviarMensagemLive}
-                  disabled={!currentUidAutenticado}
-                >
-                  Enviar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <LiveModal
+        aberto={liveModal.aberto}
+        onClose={() => setLiveModal((prev) => ({ ...prev, aberto: false }))}
+        ehVideoDireto={liveModalEhVideoDireto}
+        titulo={liveModal.titulo || "Live"}
+        liveUrl={liveModal.liveUrl}
+        embedUrl={liveModal.embedUrl}
+        usuarioPodeControlarCameraLive={usuarioPodeControlarCameraLive}
+        alternarCameraLive={alternarCameraLive}
+        liveCameraAtiva={liveCameraAtiva}
+        liveCameraErro={liveCameraErro}
+        liveCameraVideoRef={liveCameraVideoRef}
+        liveCameraStream={liveCameraStreamRef.current}
+        currentUidAutenticado={currentUidAutenticado}
+        liveCameraRemotaStatus={liveCameraRemotaStatus}
+        liveCameraRemotaAtiva={liveCameraRemotaAtiva}
+        liveCameraRemotaVideoRef={liveCameraRemotaVideoRef}
+        liveCameraRemotaStream={liveCameraRemotaStreamRef.current}
+        liveCriadorCameraAtiva={liveCriadorCameraAtiva}
+        liveCameraRemotaErro={liveCameraRemotaErro}
+        liveChatScrollRef={liveChatScrollRef}
+        liveChatMensagens={liveChatMensagens}
+        liveChatErro={liveChatErro}
+        liveChatMensagem={liveChatMensagem}
+        setLiveChatMensagem={setLiveChatMensagem}
+        enviarMensagemLive={enviarMensagemLive}
+      />
 
       {imagemModal.aberto && imagemModal.url ? (
         <div
