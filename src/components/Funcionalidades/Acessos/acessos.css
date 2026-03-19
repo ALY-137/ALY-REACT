@@ -1,0 +1,109 @@
+.acessos-lista {
+  width: 100%;
+  margin-top: 40px;
+  display: grid;
+  gap: 16px;
+}
+
+.acessos-lista__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.acessos-lista__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.acessos-lista__subtitle {
+  margin: 4px 0 0;
+  opacity: 0.8;
+  font-size: 12px;
+}
+
+.acessos-lista__filter {
+  display: grid;
+  gap: 6px;
+  min-width: 220px;
+}
+
+.acessos-lista__filter span {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.acessos-lista__filter select {
+  width: 100%;
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.15);
+  color: inherit;
+}
+
+.acessos-lista__summary {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.acessos-lista__error,
+.acessos-lista__empty {
+  margin: 0;
+  font-size: 13px;
+}
+
+.acessos-lista__table-wrap {
+  width: 100%;
+  overflow: auto;
+  border-radius: 14px;
+}
+
+.acessos-lista__table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 920px;
+}
+
+.acessos-lista__table th,
+.acessos-lista__table td {
+  padding: 10px 12px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 12px;
+}
+
+.acessos-lista__table th {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.78;
+}
+
+.acessos-lista__meta {
+  margin-top: 4px;
+  font-size: 11px;
+  opacity: 0.72;
+}
+
+@media (max-width: 768px) {
+  .acessos-lista {
+    margin-top: 24px;
+  }
+
+  .acessos-lista__header {
+    align-items: stretch;
+  }
+
+  .acessos-lista__filter {
+    min-width: 100%;
+  }
+}

@@ -1,10 +1,11 @@
-﻿const DEFAULT_FUNCTIONS_REGION = "us-central1";
+const DEFAULT_FUNCTIONS_REGION = "us-central1";
 const LOCAL_STORAGE_PROJECT_KEY = "firebaseProjectTarget";
 const LOCAL_STORAGE_PROJECT_ALIASES_KEY = "firebaseProjectAliases";
 const LOCAL_QUERY_PARAM = "firebaseProject";
 const FIREBASE_ENV_PREFIX = "REACT_APP_FIREBASE_";
 const FIREBASE_PROJECT_KEYS_ENV = "REACT_APP_FIREBASE_PROJECT_KEYS";
 const FORCED_SHARED_STORAGE_BUCKET = "teste-aa015.appspot.com";
+const MANAGER_QUERY_CACHE_PREFIX = "firebaseManagerDomain:";
 const STATIC_PROJECT_ALIASES = {
   obaydon: "obeyon",
   obeydon: "obeyon",
@@ -27,6 +28,7 @@ const TESTE_AA015_CONFIG = {
   messagingSenderId: "99960275074",
   appId: "1:99960275074:web:e2923f7e34a0c0c18c749b",
 };
+
 
 function normalizeStorageBucket(value) {
   const normalized = String(value || "")
@@ -82,8 +84,6 @@ function normalizeAuthDomain(value, projectId) {
 
   if (!host) return fallback;
 
-  // Em deploy na Vercel, usar authDomain da Vercel quebra popup/redirect do Firebase Auth.
-  // Nesses casos sempre volta ao dominio padrao do projeto Firebase.
   if (host.endsWith(".vercel.app")) {
     return fallback || host;
   }
@@ -182,19 +182,6 @@ function coletarProjetosEnv() {
 
 function getHostProjectMap(projects) {
   const hostMap = {};
-
-  [
-    ["obeyon.vercel.app", "obeyon"],
-    ["obaydon.vercel.app", "obeyon"],
-    ["obeydon.vercel.app", "obeyon"],
-    ["obeydom.vercel.app", "obeyon"],
-    ["teste-aa015.web.app", "teste-aa015"],
-    ["teste-aa015.firebaseapp.com", "teste-aa015"],
-  ].forEach(([host, projectKey]) => {
-    getHostAliases(host).forEach((alias) => {
-      hostMap[alias] = projectKey;
-    });
-  });
 
   Object.values(projects).forEach((project) => {
     (project.domains || []).forEach((domainHost) => {
@@ -319,7 +306,136 @@ function safeWriteLocalProjectToStorage(projectKey) {
   }
 }
 
-function resolveRequestedProjectKey(projects, hostProjectMap) {
+function getManagerRuntimeConfig() {
+  const apiKey = sanitizeEnvScalar(process.env.REACT_APP_SYSTEM_MANAGER_API_KEY);
+  const projectId = sanitizeEnvScalar(process.env.REACT_APP_SYSTEM_MANAGER_PROJECT_ID);
+
+  if (!apiKey || !projectId) return null;
+  return { apiKey, projectId };
+}
+
+function decodeFirestoreValue(value = {}) {
+  if ("stringValue" in value) return String(value.stringValue || "");
+  if ("integerValue" in value) return Number(value.integerValue || 0);
+  if ("doubleValue" in value) return Number(value.doubleValue || 0);
+  if ("booleanValue" in value) return Boolean(value.booleanValue);
+  if ("nullValue" in value) return null;
+  if ("timestampValue" in value) return String(value.timestampValue || "");
+  if ("mapValue" in value) {
+    const fields = value.mapValue?.fields || {};
+    return Object.fromEntries(
+      Object.entries(fields).map(([key, fieldValue]) => [key, decodeFirestoreValue(fieldValue)])
+    );
+  }
+  if ("arrayValue" in value) {
+    const values = Array.isArray(value.arrayValue?.values) ? value.arrayValue.values : [];
+    return values.map((item) => decodeFirestoreValue(item));
+  }
+  return undefined;
+}
+
+function decodeFirestoreDocument(documentValue = {}) {
+  const fields = documentValue?.fields || {};
+  return Object.fromEntries(
+    Object.entries(fields).map(([key, fieldValue]) => [key, decodeFirestoreValue(fieldValue)])
+  );
+}
+
+function buildManagerDomainCacheKey(hostname) {
+  return `${MANAGER_QUERY_CACHE_PREFIX}${normalizeHost(hostname)}`;
+}
+
+function safeReadManagerDomainCache(hostname) {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(buildManagerDomainCacheKey(hostname));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function safeWriteManagerDomainCache(hostname, payload) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(buildManagerDomainCacheKey(hostname), JSON.stringify(payload));
+  } catch {
+    // Ignora indisponibilidade de storage.
+  }
+}
+
+async function queryManagerProjectByDomain(hostname) {
+  const normalizedHost = normalizeHost(hostname);
+  if (!normalizedHost) return null;
+
+  const cache = safeReadManagerDomainCache(normalizedHost);
+  if (cache?.hostname === normalizedHost && cache?.firebaseProjectId) {
+    return cache;
+  }
+
+  const managerRuntime = getManagerRuntimeConfig();
+  if (!managerRuntime) return null;
+
+  try {
+    const response = await fetch(
+      `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(
+        managerRuntime.projectId
+      )}/databases/(default)/documents:runQuery?key=${encodeURIComponent(managerRuntime.apiKey)}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          structuredQuery: {
+            from: [{ collectionId: "systems" }],
+            where: {
+              fieldFilter: {
+                field: { fieldPath: "domains" },
+                op: "ARRAY_CONTAINS",
+                value: { stringValue: normalizedHost },
+              },
+            },
+            limit: 1,
+          },
+        }),
+      }
+    );
+
+    if (!response.ok) return null;
+
+    const payload = await response.json();
+    const linhas = Array.isArray(payload) ? payload : [];
+    const document = linhas.find((item) => item?.document)?.document;
+    if (!document) return null;
+
+    const data = decodeFirestoreDocument(document);
+    const firebaseRuntimeConfig =
+      data?.firebaseRuntimeConfig && typeof data.firebaseRuntimeConfig === "object"
+        ? data.firebaseRuntimeConfig
+        : {};
+    const firebaseProjectId = String(
+      firebaseRuntimeConfig.projectId || data?.firebaseProjectId || ""
+    ).trim();
+    const systemKey = String(data?.systemKey || "").trim().toLowerCase();
+
+    if (!firebaseProjectId) return null;
+
+    const resultado = {
+      hostname: normalizedHost,
+      firebaseProjectId,
+      systemKey,
+    };
+    safeWriteManagerDomainCache(normalizedHost, resultado);
+    return resultado;
+  } catch {
+    return null;
+  }
+}
+
+function resolveRequestedProjectKeySync(projects, hostProjectMap) {
   const hostname =
     typeof window !== "undefined"
       ? (window.location.hostname || "").toLowerCase()
@@ -363,8 +479,6 @@ function resolveRequestedProjectKey(projects, hostProjectMap) {
         }
       }
 
-      // Fallback para oneowner: permite usar ?firebaseProject=<systemKey>
-      // mesmo quando o runtime real e compartilhado.
       const oneownerRuntimeKey = getOneownerRuntimeProjectKey(projects);
       if (oneownerRuntimeKey && isProbablySystemKey(queryTargetAlias)) {
         safeWriteProjectAliasToStorage(queryTargetAlias, oneownerRuntimeKey);
@@ -384,6 +498,8 @@ function resolveRequestedProjectKey(projects, hostProjectMap) {
         return storageByProjectId;
       }
     }
+
+    return "teste-aa015";
   }
 
   const hostTarget = hostProjectMap[hostname];
@@ -391,39 +507,20 @@ function resolveRequestedProjectKey(projects, hostProjectMap) {
     return hostTarget;
   }
 
-  if (!localHost) {
-    const slugHost = extrairSlugDeHostname(hostname);
-    const slugHostAlias = resolveStaticProjectAlias(slugHost);
-    if (slugHostAlias && projects[slugHostAlias]) {
-      return slugHostAlias;
-    }
-
-    const aliases = safeReadProjectAliasesFromStorage();
-    const aliasSlug = aliases[slugHostAlias] || aliases[String(slugHostAlias).toLowerCase()] || "";
-    const aliasSlugNormalizado = resolveStaticProjectAlias(aliasSlug);
-    if (aliasSlugNormalizado && projects[aliasSlugNormalizado]) {
-      return aliasSlugNormalizado;
-    }
-
-    // Fallback para oneowner em dominios sem mapeamento explicito:
-    // usa o runtime compartilhado e registra alias local pelo slug do host.
-    const oneownerRuntimeKey = getOneownerRuntimeProjectKey(projects);
-    if (oneownerRuntimeKey && isProbablySystemKey(slugHostAlias)) {
-      safeWriteProjectAliasToStorage(slugHostAlias, oneownerRuntimeKey);
-      return oneownerRuntimeKey;
-    }
-
-    // Fallback final para custom domains nao mapeados explicitamente:
-    // se houver runtime oneowner compartilhado configurado, qualquer hostname
-    // publico desconhecido passa a usar esse runtime. A configuracao especifica
-    // do projeto continua sendo resolvida depois pelo Gerenciador de Projetos
-    // via campo `domains`.
-    if (oneownerRuntimeKey) {
-      return oneownerRuntimeKey;
-    }
+  const slugHost = extrairSlugDeHostname(hostname);
+  const slugHostAlias = resolveStaticProjectAlias(slugHost);
+  if (slugHostAlias && projects[slugHostAlias]) {
+    return slugHostAlias;
   }
 
-  return "teste-aa015";
+  const aliases = safeReadProjectAliasesFromStorage();
+  const aliasSlug = aliases[slugHostAlias] || aliases[String(slugHostAlias).toLowerCase()] || "";
+  const aliasSlugNormalizado = resolveStaticProjectAlias(aliasSlug);
+  if (aliasSlugNormalizado && projects[aliasSlugNormalizado]) {
+    return aliasSlugNormalizado;
+  }
+
+  return "";
 }
 
 function buildProjectsMap() {
@@ -468,23 +565,7 @@ export function listConfiguredFirebaseProjects() {
   }));
 }
 
-export function resolveFirebaseProject() {
-  const projects = buildProjectsMap();
-
-  const hostProjectMap = getHostProjectMap(projects);
-  const selectedKey = resolveRequestedProjectKey(projects, hostProjectMap);
-  const selectedProject = projects[selectedKey] || projects["teste-aa015"];
-
-  if (typeof window !== "undefined") {
-    const hostname = (window.location.hostname || "").toLowerCase();
-    const hostTarget = hostProjectMap[hostname];
-    if (hostTarget && !projects[hostTarget]) {
-      console.warn(
-        `[firebase] Config do projeto '${hostTarget}' ausente para o dominio '${hostname}'.`
-      );
-    }
-  }
-
+function montarResultadoProjeto(selectedProject) {
   return {
     projectKey: selectedProject.key,
     firebaseConfig: selectedProject.config,
@@ -493,3 +574,52 @@ export function resolveFirebaseProject() {
   };
 }
 
+export function resolveFirebaseProject() {
+  const projects = buildProjectsMap();
+  const hostProjectMap = getHostProjectMap(projects);
+  const selectedKey = resolveRequestedProjectKeySync(projects, hostProjectMap);
+  const selectedProject =
+    projects[selectedKey] ||
+    projects[getOneownerRuntimeProjectKey(projects)] ||
+    projects["teste-aa015"];
+
+  return montarResultadoProjeto(selectedProject);
+}
+
+export async function resolveFirebaseProjectAsync() {
+  const projects = buildProjectsMap();
+  const hostProjectMap = getHostProjectMap(projects);
+  const hostname =
+    typeof window !== "undefined"
+      ? (window.location.hostname || "").toLowerCase()
+      : "";
+
+  const selectedKeySync = resolveRequestedProjectKeySync(projects, hostProjectMap);
+  if (selectedKeySync && projects[selectedKeySync]) {
+    return montarResultadoProjeto(projects[selectedKeySync]);
+  }
+
+  if (!isLocalHost(hostname)) {
+    const managerMatch = await queryManagerProjectByDomain(hostname);
+    if (managerMatch?.firebaseProjectId) {
+      const projectKeyById = resolveProjectKeyByProjectId(projects, managerMatch.firebaseProjectId);
+      if (projectKeyById && projects[projectKeyById]) {
+        const slugHost = extrairSlugDeHostname(hostname);
+        if (slugHost) {
+          safeWriteProjectAliasToStorage(slugHost, projectKeyById);
+        }
+        if (managerMatch.systemKey) {
+          safeWriteProjectAliasToStorage(managerMatch.systemKey, projectKeyById);
+        }
+        return montarResultadoProjeto(projects[projectKeyById]);
+      }
+    }
+  }
+
+  const oneownerRuntimeKey = getOneownerRuntimeProjectKey(projects);
+  if (oneownerRuntimeKey && projects[oneownerRuntimeKey]) {
+    return montarResultadoProjeto(projects[oneownerRuntimeKey]);
+  }
+
+  return montarResultadoProjeto(projects["teste-aa015"]);
+}

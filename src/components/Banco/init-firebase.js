@@ -13,27 +13,18 @@ import { getStorage } from "firebase/storage";
 import { getFunctions } from "firebase/functions";
 import { getAuth, GoogleAuthProvider, TwitterAuthProvider } from "firebase/auth";
 
-import { resolveFirebaseProject } from "../../config/firebaseProjects";
+import { resolveFirebaseProjectAsync } from "../../config/firebaseProjects";
 import {
   getProjectCollectionCandidates,
   getProjectDocCandidates,
 } from "./projectDataRefs";
 
-// ===============================
-// CONFIG
-// ===============================
-const { projectKey, firebaseConfig, functionsRegion, messagingVapidKey } =
-  resolveFirebaseProject();
-
-// ===============================
-// INIT
-// ===============================
-export const app = initializeApp(firebaseConfig);
-export const activeFirebaseProjectKey = projectKey;
-export const activeFirebaseProjectId = firebaseConfig.projectId;
-export const activeFirebaseStorageBucket = firebaseConfig.storageBucket || "";
-export const activeFirebaseConfig = firebaseConfig;
-export const activeFirebaseMessagingVapidKey = messagingVapidKey || "";
+export let app = null;
+export let activeFirebaseProjectKey = "";
+export let activeFirebaseProjectId = "";
+export let activeFirebaseStorageBucket = "";
+export let activeFirebaseConfig = null;
+export let activeFirebaseMessagingVapidKey = "";
 
 const FIRESTORE_COMPAT_SETTINGS = {
   experimentalAutoDetectLongPolling: true,
@@ -54,14 +45,54 @@ export function createFirestoreCompatInstance(firebaseApp) {
 // ===============================
 // SERVICES
 // ===============================
-export const db = createFirestoreCompatInstance(app);
-export const auth = getAuth(app);
-export const storage = activeFirebaseStorageBucket
-  ? getStorage(app, `gs://${activeFirebaseStorageBucket}`)
-  : getStorage(app);
-export const functions = getFunctions(app, functionsRegion);
-export const providerGoogle = new GoogleAuthProvider();
-export const providerTwitter = new TwitterAuthProvider();
+export let db = null;
+export let auth = null;
+export let storage = null;
+export let functions = null;
+export let providerGoogle = null;
+export let providerTwitter = null;
+let firebaseRuntimeInitPromise = null;
+
+export async function initializeFirebaseRuntime() {
+  if (firebaseRuntimeInitPromise) {
+    return firebaseRuntimeInitPromise;
+  }
+
+  firebaseRuntimeInitPromise = resolveFirebaseProjectAsync().then(
+    ({ projectKey, firebaseConfig, functionsRegion, messagingVapidKey }) => {
+      app = initializeApp(firebaseConfig);
+      activeFirebaseProjectKey = projectKey;
+      activeFirebaseProjectId = firebaseConfig.projectId;
+      activeFirebaseStorageBucket = firebaseConfig.storageBucket || "";
+      activeFirebaseConfig = firebaseConfig;
+      activeFirebaseMessagingVapidKey = messagingVapidKey || "";
+
+      db = createFirestoreCompatInstance(app);
+      auth = getAuth(app);
+      storage = activeFirebaseStorageBucket
+        ? getStorage(app, `gs://${activeFirebaseStorageBucket}`)
+        : getStorage(app);
+      functions = getFunctions(app, functionsRegion);
+      providerGoogle = new GoogleAuthProvider();
+      providerTwitter = new TwitterAuthProvider();
+
+      return {
+        app,
+        db,
+        auth,
+        storage,
+        functions,
+        activeFirebaseProjectKey,
+        activeFirebaseProjectId,
+        activeFirebaseStorageBucket,
+        activeFirebaseConfig,
+        activeFirebaseMessagingVapidKey,
+      };
+    }
+  );
+
+  return firebaseRuntimeInitPromise;
+}
 
 // ===============================
 // HELPERS

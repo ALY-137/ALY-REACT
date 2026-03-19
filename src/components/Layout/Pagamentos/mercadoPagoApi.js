@@ -22,11 +22,25 @@ import {
   getProjectDocCandidates,
 } from "../../Banco/projectDataRefs";
 
-const callSalvarCredenciais = httpsCallable(functions, "salvarMercadoPagoCredenciais");
-const callStatusCredenciais = httpsCallable(functions, "obterStatusMercadoPago");
-const callDesconectarCredenciais = httpsCallable(functions, "desconectarMercadoPago");
-const callCriarCheckout = httpsCallable(functions, "criarCheckoutBlocoMercadoPago");
-const callConfirmarPagamento = httpsCallable(functions, "confirmarPagamentoBlocoMercadoPago");
+function callSalvarCredenciais(data) {
+  return httpsCallable(functions, "salvarMercadoPagoCredenciais")(data);
+}
+
+function callStatusCredenciais(data) {
+  return httpsCallable(functions, "obterStatusMercadoPago")(data);
+}
+
+function callDesconectarCredenciais(data) {
+  return httpsCallable(functions, "desconectarMercadoPago")(data);
+}
+
+function callCriarCheckout(data) {
+  return httpsCallable(functions, "criarCheckoutBlocoMercadoPago")(data);
+}
+
+function callConfirmarPagamento(data) {
+  return httpsCallable(functions, "confirmarPagamentoBlocoMercadoPago")(data);
+}
 
 const MAX_PIX_QRS = 20;
 const MERCADO_PAGO_UNAVAILABLE_CODE = "mercado-pago/unavailable";

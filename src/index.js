@@ -5,11 +5,20 @@ import "./index.css";
 import { UserProvider } from "./context/UserContext";
 import { RoutesProvider } from "./context/RoutesContext";
 import RouterComponent from "./RouterComponent";
+import { initializeFirebaseRuntime } from "./components/Banco/init-firebase";
 
-createRoot(document.getElementById("root")).render(
-  <UserProvider>
-    <RoutesProvider>
-      <RouterComponent />
-    </RoutesProvider>
-  </UserProvider>
-);
+const root = createRoot(document.getElementById("root"));
+
+async function bootstrap() {
+  await initializeFirebaseRuntime();
+
+  root.render(
+    <UserProvider>
+      <RoutesProvider>
+        <RouterComponent />
+      </RoutesProvider>
+    </UserProvider>
+  );
+}
+
+bootstrap();

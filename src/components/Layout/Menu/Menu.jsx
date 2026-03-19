@@ -444,19 +444,23 @@ function Menu({ menuOpen }) {
     const atualizarTitulo = async () => {
       const path = location.pathname;
 
-      if (isManagerProject) {
-        if (path === `/menu/${menuTargetUser}`) {
-          setAtualTxt("MENU");
-          setBackText("VOLTAR");
-          setBackAction(() => closeMenu);
-        } else if (path.endsWith("/configuracoes-gerenciador")) {
-          setAtualTxt("CONFIGURACOES DO GERENCIADOR");
-          setBackText("MENU");
-          setBackAction(() => returnMenu);
-        } else if (path.endsWith("/gerenciar-layouts")) {
-          setAtualTxt("GERENCIAR LAYOUTS");
-          setBackText("MENU");
-          setBackAction(() => returnMenu);
+        if (isManagerProject) {
+          if (path === `/menu/${menuTargetUser}`) {
+            setAtualTxt("MENU");
+            setBackText("VOLTAR");
+            setBackAction(() => closeMenu);
+          } else if (path.endsWith("/configuracoes-gerenciador")) {
+            setAtualTxt("CONFIGURACOES DO GERENCIADOR");
+            setBackText("MENU");
+            setBackAction(() => returnMenu);
+          } else if (path.endsWith("/acessos")) {
+            setAtualTxt("ACESSOS");
+            setBackText("MENU");
+            setBackAction(() => returnMenu);
+          } else if (path.endsWith("/gerenciar-layouts")) {
+            setAtualTxt("GERENCIAR LAYOUTS");
+            setBackText("MENU");
+            setBackAction(() => returnMenu);
         } else if (path.endsWith("/gerenciador-icones")) {
           setAtualTxt("GERENCIADOR DE ICONES");
           setBackText("MENU");
@@ -699,6 +703,9 @@ function Menu({ menuOpen }) {
             <div onClick={abrirConfiguracoesGerenciador} className="gavetaOption">
               CONFIGURACOES DO GERENCIADOR
             </div>
+            <div onClick={abrirAcessos} className="gavetaOption">
+              ACESSOS
+            </div>
             <div onClick={abrirGerenciarLayouts} className="gavetaOption">
               GERENCIAR LAYOUTS
             </div>
@@ -712,7 +719,6 @@ function Menu({ menuOpen }) {
         ) : podeGerenciarUsuarios ? (
           <>
             <div onClick={abrirUsers} className="gavetaOption">USERS</div>
-            <div onClick={abrirAcessos} className="gavetaOption">ACESSOS</div>
           </>
         ) : null}
         {!isManagerProject ? (

@@ -36,6 +36,7 @@ import LoginGoogle from "./components/Layout/Geral/LoginGoogle.jsx";
 import LoginTwitter from "./components/Layout/Geral/LoginTwitter.jsx";
 import LoginCadastroEmail from "./components/Layout/Geral/LoginCadastroEmail.jsx";
 import FirebaseProjectBadge from "./components/Layout/Geral/FirebaseProjectBadge.jsx";
+import Acesso from "./components/Funcionalidades/Acessos/Acesso";
 import RitualLoaderSymbol from "./components/Projects/LoginTransitions/RitualLoaderSymbol";
 import RitualLoginTransition from "./components/Projects/LoginTransitions/RitualLoginTransition";
 import SpriteSheetLoginTransition from "./components/Projects/LoginTransitions/SpriteSheetLoginTransition";
@@ -737,6 +738,7 @@ const App = () => {
 
   return (
     <div>
+      <Acesso configSistema={configSistema} />
       {exibirBadgeProjetoFirebase ? <FirebaseProjectBadge /> : null}
       {mostrarSetupAdmin && !isPublicProfileRoute ? (
         <PropriedadesSistema

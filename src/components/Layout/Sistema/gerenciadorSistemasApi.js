@@ -27,10 +27,10 @@ const MANAGER_COLLECTIONS_DELETE = ["systems", "sistemas"];
 const FORCED_SHARED_STORAGE_BUCKET = "teste-aa015.appspot.com";
 
 let managerDbSingleton = null;
-const callLimparEnvsProjetoNoVercel = httpsCallable(
-  functionsProjetoAtivo,
-  "limparEnvsProjetoNoVercel"
-);
+
+function callLimparEnvsProjetoNoVercel(data) {
+  return httpsCallable(functionsProjetoAtivo, "limparEnvsProjetoNoVercel")(data);
+}
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -193,6 +193,10 @@ function getManagerDb() {
   const managerApp = initializeApp(managerConfig, MANAGER_APP_NAME);
   managerDbSingleton = createFirestoreCompatInstance(managerApp);
   return managerDbSingleton;
+}
+
+export function obterFirestoreDoGerenciador() {
+  return getManagerDb();
 }
 
 function extrairConfigSistemaDoDocumento(data = {}) {

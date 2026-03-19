@@ -23,7 +23,7 @@ import Chat from "./components/Layout/Menu/Formularios/Chat";
 import Users from "./components/Layout/Menu/Users/Users";
 import Estrutura from "./components/Layout/Espacos/Estrutura";
 import SkinsManager from "./components/Layout/Skins/SkinsManager";
-import ListaAcessos from "./components/Scripts/acesso/ListaAcessos";
+import ListaAcessos from "./components/Funcionalidades/Acessos/ListaAcessos";
 import Propriedades from "./components/Layout/Menu/Propriedades/Propriedades";
 import EspacoManager from "./components/Layout/Espacos/EspacoManager";
 import EspacoPage from "./components/Layout/Espacos/EspacoPage";
@@ -89,6 +89,7 @@ export default function RouterComponent() {
           path: "configuracoes-gerenciador",
           element: <PropriedadesSistema tituloSecao="CONFIGURACOES DO GERENCIADOR" />,
         },
+        { path: "acessos", element: <ListaAcessos /> },
         { path: "gerenciar-layouts", element: <GerenciarLayouts /> },
         { path: "gerenciador-icones", element: <GerenciadorIcones /> },
         { path: "gerenciador-projetos", element: <GerenciadorProjetos /> },
@@ -99,7 +100,6 @@ export default function RouterComponent() {
         { path: "contatos/:contactId/chat/:conversationId", element: <Chat /> },
         { path: "users", element: <Users /> },
         { path: "skins", element: <SkinsManager /> },
-        { path: "acessos", element: <ListaAcessos /> },
         { path: "propriedades", element: <Propriedades /> },
         { path: "solicitacoes", element: <SolicitacoesPixManual /> },
         { path: "pedidos", element: <Navigate to="../solicitacoes" replace /> },
