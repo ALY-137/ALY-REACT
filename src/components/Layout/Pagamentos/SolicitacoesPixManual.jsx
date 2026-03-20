@@ -141,7 +141,7 @@ async function resolverUrlArquivoPorPath(path = "") {
   const pathLimpo = String(path || "").trim();
   if (!pathLimpo) return "";
 
-  if (usandoBucketCompartilhadoCrossProject) {
+  if (usandoBucketCompartilhadoCrossProject()) {
     const userAtual = auth?.currentUser || null;
     if (!userAtual) return "";
     return String(

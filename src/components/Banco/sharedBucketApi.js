@@ -7,11 +7,13 @@ const SHARED_BUCKET_OWNER_PROJECT_ID = "teste-aa015";
 const SHARED_BUCKET_FUNCTIONS_BASE_URL =
   "https://us-central1-teste-aa015.cloudfunctions.net";
 
-export const usandoBucketCompartilhadoCrossProject = Boolean(
-  SHARED_BUCKET_OWNER_PROJECT_ID &&
-    activeFirebaseProjectId &&
-    SHARED_BUCKET_OWNER_PROJECT_ID !== activeFirebaseProjectId
-);
+export function usandoBucketCompartilhadoCrossProject() {
+  return Boolean(
+    SHARED_BUCKET_OWNER_PROJECT_ID &&
+      activeFirebaseProjectId &&
+      SHARED_BUCKET_OWNER_PROJECT_ID !== activeFirebaseProjectId
+  );
+}
 
 function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {

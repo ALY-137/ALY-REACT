@@ -74,7 +74,7 @@ async function subirImagemQr({ uid, qrId, arquivo }) {
   const nome = `${Date.now()}-${nomeArquivoSeguro(arquivo?.name || "qr.png")}`;
   const path = `users/${uid}/integracoes/pixManual/qrs/${qrId}/${nome}`;
 
-  if (usandoBucketCompartilhadoCrossProject) {
+  if (usandoBucketCompartilhadoCrossProject()) {
     const upload = await uploadArquivoNoBucketCompartilhado({
       user: auth.currentUser,
       path,

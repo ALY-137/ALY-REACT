@@ -1748,14 +1748,14 @@ export default function EspacoPage() {
   };
 
   const resolverUrlArquivo = async (path) => {
-    if (usandoBucketCompartilhadoCrossProject) {
+    if (usandoBucketCompartilhadoCrossProject()) {
       return obterUrlArquivoNoBucketCompartilhado({ user, path });
     }
     return getDownloadURL(ref(storage, path));
   };
 
   const subirArquivoStorage = async (path, arquivo) => {
-    if (usandoBucketCompartilhadoCrossProject) {
+    if (usandoBucketCompartilhadoCrossProject()) {
       return uploadArquivoNoBucketCompartilhado({ user, path, file: arquivo });
     }
 
@@ -1773,7 +1773,7 @@ export default function EspacoPage() {
   };
 
   const excluirArquivoStorage = async (path) => {
-    if (usandoBucketCompartilhadoCrossProject) {
+    if (usandoBucketCompartilhadoCrossProject()) {
       await excluirArquivoNoBucketCompartilhado({ user, path });
       return;
     }
@@ -2532,7 +2532,7 @@ export default function EspacoPage() {
             continue;
           }
           try {
-            const url = await getDownloadURL(ref(storage, path));
+            const url = await resolverUrlArquivo(path);
             resolved.push(url);
           } catch (err) {
             if (err?.code === "storage/unauthorized" || err?.code === "storage/object-not-found") {

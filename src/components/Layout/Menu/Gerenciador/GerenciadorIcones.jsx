@@ -29,7 +29,7 @@ async function subirIconeColecao({ file, collectionId, currentUser }) {
   const nome = `${Date.now()}-${nomeArquivoSeguro(file?.name || "icon.png")}`;
   const path = `users/${currentUid}/icon-collections/${collectionId}/${nome}`;
 
-  if (usandoBucketCompartilhadoCrossProject) {
+  if (usandoBucketCompartilhadoCrossProject()) {
     const upload = await uploadArquivoNoBucketCompartilhado({
       user: currentUser,
       path,

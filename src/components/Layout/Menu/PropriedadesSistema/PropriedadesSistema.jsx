@@ -111,7 +111,7 @@ async function subirImagemBranding({
   const uid = String(currentUid || "anon").trim() || "anon";
   const path = `users/${uid}/branding/${chaveProjeto}/${campo}/${nome}`;
 
-  if (usandoBucketCompartilhadoCrossProject) {
+  if (usandoBucketCompartilhadoCrossProject()) {
     const upload = await uploadArquivoNoBucketCompartilhado({
       user: currentUser,
       path,

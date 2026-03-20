@@ -90,7 +90,7 @@ const SkinsManager = () => {
       const path = `users/${user.uid}/skins/${skinId}/avatar/${nome}`;
       let url = "";
 
-      if (usandoBucketCompartilhadoCrossProject) {
+      if (usandoBucketCompartilhadoCrossProject()) {
         const upload = await uploadArquivoNoBucketCompartilhado({
           user,
           path,

@@ -375,7 +375,7 @@ export default function CriadorBloco({
   });
 
   const subirArquivoStorage = async (path, arquivo) => {
-    if (usandoBucketCompartilhadoCrossProject) {
+    if (usandoBucketCompartilhadoCrossProject()) {
       return uploadArquivoNoBucketCompartilhado({ user, path, file: arquivo });
     }
 
@@ -668,7 +668,7 @@ export default function CriadorBloco({
         const originalPath = `users/${ownerUserId}/espacos/${espacoId}/blocos/${blocoId}/original/${fileName}`;
         const previewPath = `users/${ownerUserId}/espacos/${espacoId}/blocos/${blocoId}/preview/${fileName}`;
 
-        if (usandoBucketCompartilhadoCrossProject) {
+        if (usandoBucketCompartilhadoCrossProject()) {
           const originalUpload = await uploadArquivoNoBucketCompartilhado({
             user,
             path: originalPath,
