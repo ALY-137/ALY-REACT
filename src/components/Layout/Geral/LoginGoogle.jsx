@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { getRedirectResult, signInWithPopup, signInWithRedirect } from "firebase/auth";
 import { auth, providerGoogle } from "../../Banco/init-firebase";
-import { bootstrapUser } from "../Menu/Users/bootstrapUser";
+import { bootstrapUser } from "../../Banco/bootstrapUser";
 import {
   DEFAULT_SISTEMA_CONFIG,
   obterConfigSistemaCacheLocal,

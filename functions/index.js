@@ -41,6 +41,7 @@ const SHARED_BUCKET_NAME =
   `${sanitizeString(process.env.GCLOUD_PROJECT) || "teste-aa015"}.appspot.com`;
 const SHARED_BUCKET_ALLOWED_AUTH_PROJECTS = [
   sanitizeString(process.env.GCLOUD_PROJECT) || "teste-aa015",
+  "teste-aa015",
   ...parseCsv(process.env.SHARED_BUCKET_AUTH_PROJECTS),
   "obeyon-project",
   "aly-onepages-runtime",
@@ -300,6 +301,14 @@ function getBearerToken(req) {
     return "";
   }
   return sanitizeString(authHeader.slice(7));
+}
+
+function normalizeHostValue(value = "") {
+  return sanitizeString(value)
+    .toLowerCase()
+    .replace(/^https?:\/\//i, "")
+    .split("/")[0]
+    .trim();
 }
 
 function canAccessSharedBucketPath(path = "", uid = "") {
@@ -1397,6 +1406,114 @@ exports.obterUrlArquivoBucketCompartilhado = onRequest(
         bucket: bucket.name,
         url: buildTokenizedStorageUrl(bucket.name, path, tokenDownload),
       });
+    } catch (error) {
+      sendHttpError(res, error);
+    }
+  }
+);
+
+exports.registrarAcessoPublico = onRequest(
+  HTTP_OPTIONS,
+  async (req, res) => {
+    try {
+      if (req.method !== "POST") {
+        res.status(405).json({ ok: false, error: "Metodo nao permitido." });
+        return;
+      }
+
+      const body = normalizeRequestBody(req);
+      const hostname = normalizeHostValue(body?.hostname);
+      const fullPath = sanitizeString(body?.fullPath || body?.path || "/").slice(0, 300);
+
+      await db.collection("acessos").add({
+        uid: sanitizeString(body?.uid) || null,
+        email: sanitizeString(body?.email) || null,
+        displayName: sanitizeString(body?.displayName) || null,
+        perfilAcesso: sanitizeString(body?.perfilAcesso) || "visitante",
+        autenticado: Boolean(body?.autenticado),
+        hash: sanitizeString(body?.hash) || null,
+
+        projectSystemKey: sanitizeString(body?.projectSystemKey) || null,
+        projectNome: sanitizeString(body?.projectNome) || null,
+        runtimeProjectKey: sanitizeString(body?.runtimeProjectKey) || null,
+        runtimeProjectId: sanitizeString(body?.runtimeProjectId) || null,
+        tipoExperiencia: sanitizeString(body?.tipoExperiencia) || null,
+        modoAcessoProjeto: sanitizeString(body?.modoAcessoProjeto) || null,
+
+        hostname: hostname || null,
+        path: sanitizeString(body?.path) || "/",
+        search: sanitizeString(body?.search) || "",
+        fullPath,
+        userAgent: sanitizeString(body?.userAgent) || null,
+
+        ip: sanitizeString(body?.ip) || null,
+        country: sanitizeString(body?.country) || null,
+        region: sanitizeString(body?.region) || null,
+        city: sanitizeString(body?.city) || null,
+        org: sanitizeString(body?.org) || null,
+        cep: sanitizeString(body?.cep) || null,
+        logradouro: sanitizeString(body?.logradouro) || null,
+        bairro: sanitizeString(body?.bairro) || null,
+        cidade: sanitizeString(body?.cidade) || null,
+        uf: sanitizeString(body?.uf) || null,
+
+        visto: false,
+        origem: "cliente-web",
+        data: serverTimestamp(),
+        criadoEm: serverTimestamp(),
+      });
+
+      res.json({ ok: true });
+    } catch (error) {
+      sendHttpError(res, error);
+    }
+  }
+);
+
+exports.espelharUsuarioProjeto = onRequest(
+  HTTP_OPTIONS,
+  async (req, res) => {
+    try {
+      if (req.method !== "POST") {
+        res.status(405).json({ ok: false, error: "Metodo nao permitido." });
+        return;
+      }
+
+      const body = normalizeRequestBody(req);
+      const token = getBearerToken(req);
+      const { decoded, projectId } = await verifySharedBucketIdToken(token);
+      const uid = ensureRequiredString(body?.uid, "uid");
+
+      if (decoded.uid !== uid) {
+        throw new HttpsError("permission-denied", "UID invalido para espelhamento.");
+      }
+
+      const projectSystemKey =
+        sanitizeString(body?.projectSystemKey).toLowerCase() ||
+        sanitizeString(body?.runtimeProjectKey).toLowerCase() ||
+        sanitizeString(projectId).toLowerCase();
+      const docId = `${projectSystemKey}__${uid}`.slice(0, 180);
+      const ref = db.collection("usuarios_projetos").doc(docId);
+      const snap = await ref.get();
+      const payload = {
+        uid,
+        nomeGoogle: sanitizeString(body?.nomeGoogle) || "",
+        nomeCompletoGoogle: sanitizeString(body?.nomeCompletoGoogle) || "",
+        emailGoogle: sanitizeString(body?.emailGoogle) || "",
+        picGoogle: sanitizeString(body?.picGoogle) || "",
+        projectSystemKey,
+        runtimeProjectKey: sanitizeString(body?.runtimeProjectKey) || null,
+        sourceAuthProjectId: sanitizeString(projectId) || null,
+        lastLoginAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+
+      if (!snap.exists) {
+        payload.createdAt = serverTimestamp();
+      }
+
+      await ref.set(payload, { merge: true });
+      res.json({ ok: true, id: docId });
     } catch (error) {
       sendHttpError(res, error);
     }

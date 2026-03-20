@@ -465,6 +465,18 @@ service cloud.firestore {
         );
     }
 
+    match /acessos/{acessoId} {
+      allow get, list: if isAdmin();
+      allow create: if false;
+      allow update, delete: if isAdmin();
+    }
+
+    match /usuarios_projetos/{usuarioProjetoId} {
+      allow get, list: if isAdmin();
+      allow create: if false;
+      allow update, delete: if isAdmin();
+    }
+
     match /users/{userId} {
       allow read: if isAdmin() || isOwner(userId);
       allow create: if isAdmin() || isOwner(userId);
@@ -953,6 +965,4 @@ service cloud.firestore {
     }
   }
 }
-
-
 

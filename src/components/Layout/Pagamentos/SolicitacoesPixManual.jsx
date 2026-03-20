@@ -10,7 +10,7 @@ import { auth, db, storage } from "../../Banco/init-firebase";
 import {
   obterUrlArquivoNoBucketCompartilhado,
   usandoBucketCompartilhadoCrossProject,
-} from "../Storage/sharedBucketApi";
+} from "../../Banco/sharedBucketApi";
 import {
   DEFAULT_SISTEMA_CONFIG,
   isOneOwnerComEntradaPublica,

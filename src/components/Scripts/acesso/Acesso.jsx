@@ -1,1 +1,1 @@
-export { default } from "../../Funcionalidades/Acessos/Acesso";
+export { default } from "../../Layout/Menu/Gerenciador/Acessos/Acesso";

@@ -1,4 +1,4 @@
-import { activeFirebaseProjectId } from "../../Banco/init-firebase";
+import { activeFirebaseProjectId } from "./init-firebase";
 
 const normalize = (value) => String(value || "").trim();
 

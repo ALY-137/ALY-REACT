@@ -57,7 +57,7 @@ import {
   obterUrlArquivoNoBucketCompartilhado,
   uploadArquivoNoBucketCompartilhado,
   usandoBucketCompartilhadoCrossProject,
-} from "../Storage/sharedBucketApi";
+} from "../../Banco/sharedBucketApi";
 import {
   DEFAULT_SISTEMA_CONFIG,
   isOneOwnerComEntradaPublica,

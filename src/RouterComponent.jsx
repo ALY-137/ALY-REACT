@@ -20,10 +20,10 @@ import Menu from "./components/Layout/Menu/Menu";
 import ListaContatos from "./components/Layout/Menu/Formularios/ListaContatos";
 import ListaConversas from "./components/Layout/Menu/Formularios/ListaConversas";
 import Chat from "./components/Layout/Menu/Formularios/Chat";
-import Users from "./components/Layout/Menu/Users/Users";
+import Users from "./components/Layout/Menu/Gerenciador/Users/Users";
 import Estrutura from "./components/Layout/Espacos/Estrutura";
 import SkinsManager from "./components/Layout/Skins/SkinsManager";
-import ListaAcessos from "./components/Funcionalidades/Acessos/ListaAcessos";
+import ListaAcessos from "./components/Layout/Menu/Gerenciador/Acessos/ListaAcessos";
 import Propriedades from "./components/Layout/Menu/Propriedades/Propriedades";
 import EspacoManager from "./components/Layout/Espacos/EspacoManager";
 import EspacoPage from "./components/Layout/Espacos/EspacoPage";
@@ -89,6 +89,7 @@ export default function RouterComponent() {
           path: "configuracoes-gerenciador",
           element: <PropriedadesSistema tituloSecao="CONFIGURACOES DO GERENCIADOR" />,
         },
+        { path: "users", element: <Users /> },
         { path: "acessos", element: <ListaAcessos /> },
         { path: "gerenciar-layouts", element: <GerenciarLayouts /> },
         { path: "gerenciador-icones", element: <GerenciadorIcones /> },
@@ -98,7 +99,6 @@ export default function RouterComponent() {
         { path: "contatos", element: <ListaContatos /> },
         { path: "contatos/:contactId", element: <ListaConversas /> },
         { path: "contatos/:contactId/chat/:conversationId", element: <Chat /> },
-        { path: "users", element: <Users /> },
         { path: "skins", element: <SkinsManager /> },
         { path: "propriedades", element: <Propriedades /> },
         { path: "solicitacoes", element: <SolicitacoesPixManual /> },

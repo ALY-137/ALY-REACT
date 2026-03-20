@@ -4,7 +4,7 @@ import { auth, storage } from "../../../../Banco/init-firebase";
 import {
   uploadArquivoNoBucketCompartilhado,
   usandoBucketCompartilhadoCrossProject,
-} from "../../../Storage/sharedBucketApi";
+} from "../../../../Banco/sharedBucketApi";
 import {
   obterStatusPixManual,
   salvarPixManualConfig,

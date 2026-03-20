@@ -12,7 +12,7 @@ import {
 import {
   uploadArquivoNoBucketCompartilhado,
   usandoBucketCompartilhadoCrossProject,
-} from "../../Storage/sharedBucketApi";
+} from "../../../Banco/sharedBucketApi";
 
 function nomeArquivoSeguro(nome = "icon.png") {
   return String(nome || "icon.png")

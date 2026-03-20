@@ -14,7 +14,7 @@ import {
 import {
   uploadArquivoNoBucketCompartilhado,
   usandoBucketCompartilhadoCrossProject,
-} from "../Storage/sharedBucketApi";
+} from "../../Banco/sharedBucketApi";
 import { obterStatusMercadoPago, obterStatusPixManual } from "../Pagamentos/mercadoPagoApi";
 import {
   DEFAULT_SISTEMA_CONFIG,

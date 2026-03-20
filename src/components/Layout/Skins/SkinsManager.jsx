@@ -28,7 +28,7 @@ import {
 import {
   uploadArquivoNoBucketCompartilhado,
   usandoBucketCompartilhadoCrossProject,
-} from "../Storage/sharedBucketApi";
+} from "../../Banco/sharedBucketApi";
 import {
   getProjectCollectionCandidates,
   getProjectDocCandidates,

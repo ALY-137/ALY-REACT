@@ -6,7 +6,7 @@ import {
   signInWithEmailAndPassword,
 } from "firebase/auth";
 import { auth } from "../../Banco/init-firebase";
-import { bootstrapUser } from "../Menu/Users/bootstrapUser";
+import { bootstrapUser } from "../../Banco/bootstrapUser";
 import {
   DEFAULT_SISTEMA_CONFIG,
   obterConfigSistemaCacheLocal,

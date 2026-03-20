@@ -24,7 +24,7 @@ import {
   obterConfigSistema,
 } from "./components/Layout/Sistema/configSistema";
 import PropriedadesSistema from "./components/Layout/Menu/PropriedadesSistema/PropriedadesSistema";
-import { bootstrapUser } from "./components/Layout/Menu/Users/bootstrapUser";
+import { bootstrapUser } from "./components/Banco/bootstrapUser";
 import {
   exibirNotificacaoAdminLocal,
   registrarTokenPushAdmin,
@@ -36,7 +36,7 @@ import LoginGoogle from "./components/Layout/Geral/LoginGoogle.jsx";
 import LoginTwitter from "./components/Layout/Geral/LoginTwitter.jsx";
 import LoginCadastroEmail from "./components/Layout/Geral/LoginCadastroEmail.jsx";
 import FirebaseProjectBadge from "./components/Layout/Geral/FirebaseProjectBadge.jsx";
-import Acesso from "./components/Funcionalidades/Acessos/Acesso";
+import Acesso from "./components/Layout/Menu/Gerenciador/Acessos/Acesso";
 import RitualLoaderSymbol from "./components/Projects/LoginTransitions/RitualLoaderSymbol";
 import RitualLoginTransition from "./components/Projects/LoginTransitions/RitualLoginTransition";
 import SpriteSheetLoginTransition from "./components/Projects/LoginTransitions/SpriteSheetLoginTransition";
@@ -738,7 +738,7 @@ const App = () => {
 
   return (
     <div>
-      <Acesso configSistema={configSistema} />
+      <Acesso configSistema={configSistema} user={user} />
       {exibirBadgeProjetoFirebase ? <FirebaseProjectBadge /> : null}
       {mostrarSetupAdmin && !isPublicProfileRoute ? (
         <PropriedadesSistema

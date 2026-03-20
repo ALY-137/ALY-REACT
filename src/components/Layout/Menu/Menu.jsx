@@ -449,6 +449,10 @@ function Menu({ menuOpen }) {
             setAtualTxt("MENU");
             setBackText("VOLTAR");
             setBackAction(() => closeMenu);
+          } else if (path.endsWith("/users")) {
+            setAtualTxt("USERS");
+            setBackText("MENU");
+            setBackAction(() => returnMenu);
           } else if (path.endsWith("/configuracoes-gerenciador")) {
             setAtualTxt("CONFIGURACOES DO GERENCIADOR");
             setBackText("MENU");
@@ -479,14 +483,6 @@ function Menu({ menuOpen }) {
         setBackAction(() => closeMenu);
       } else if (path.endsWith("/skins")) {
         setAtualTxt(nomeSkinMenuUpper);
-        setBackText("MENU");
-        setBackAction(() => returnMenu);
-      } else if (path.endsWith("/users")) {
-        setAtualTxt("USERS");
-        setBackText("MENU");
-        setBackAction(() => returnMenu);
-      } else if (path.endsWith("/acessos")) {
-        setAtualTxt("ACESSOS");
         setBackText("MENU");
         setBackAction(() => returnMenu);
       } else if (path.endsWith("/espacos")) {
@@ -700,6 +696,9 @@ function Menu({ menuOpen }) {
       >
         {isManagerProject ? (
           <>
+            <div onClick={abrirUsers} className="gavetaOption">
+              USERS
+            </div>
             <div onClick={abrirConfiguracoesGerenciador} className="gavetaOption">
               CONFIGURACOES DO GERENCIADOR
             </div>
@@ -715,10 +714,6 @@ function Menu({ menuOpen }) {
             <div onClick={abrirGerenciadoProjetos} className="gavetaOption">
               GERENCIADO DE PROJETOS
             </div>
-          </>
-        ) : podeGerenciarUsuarios ? (
-          <>
-            <div onClick={abrirUsers} className="gavetaOption">USERS</div>
           </>
         ) : null}
         {!isManagerProject ? (

@@ -6,8 +6,12 @@ import {
   setDoc,
 } from "firebase/firestore";
 
-import { activeFirebaseProjectKey, db } from "../../../Banco/init-firebase";
-import { buildProjectDataPathCandidates } from "../../../Banco/projectDataNamespace";
+import { activeFirebaseProjectKey, db } from "./init-firebase";
+import { buildProjectDataPathCandidates } from "./projectDataNamespace";
+
+function normalizeText(value) {
+  return String(value || "").trim();
+}
 
 function buildUserDocRefs(uid = "") {
   const caminhos = buildProjectDataPathCandidates(["users", uid], {
@@ -53,6 +57,55 @@ async function appendLoginMirror(userRefs = []) {
   }
 }
 
+function getManagerFunctionsBaseUrl() {
+  const projectId = normalizeText(process.env.REACT_APP_SYSTEM_MANAGER_PROJECT_ID);
+  const region =
+    normalizeText(process.env.REACT_APP_SYSTEM_MANAGER_FUNCTIONS_REGION) || "us-central1";
+  if (!projectId) return "";
+  return `https://${region}-${projectId}.cloudfunctions.net`;
+}
+
+function getProjectSystemKeyForMirror() {
+  try {
+    const fromContext = normalizeText(localStorage.getItem("systemProjectContextKey")).toLowerCase();
+    if (fromContext) return fromContext;
+  } catch {
+    // Ignora indisponibilidade de storage.
+  }
+  return normalizeText(activeFirebaseProjectKey).toLowerCase();
+}
+
+async function espelharUsuarioNoGerenciador(user) {
+  if (!user?.uid || typeof user?.getIdToken !== "function") return;
+
+  const baseUrl = getManagerFunctionsBaseUrl();
+  if (!baseUrl) return;
+
+  const token = await user.getIdToken();
+  const projectSystemKey = getProjectSystemKeyForMirror();
+
+  await fetch(`${baseUrl}/espelharUsuarioProjeto`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      uid: normalizeText(user.uid),
+      nomeGoogle: normalizeText(user.displayName?.split(" ")[0] || ""),
+      nomeCompletoGoogle: normalizeText(user.displayName),
+      emailGoogle: normalizeText(user.email),
+      picGoogle: normalizeText(user.photoURL),
+      runtimeProjectKey: normalizeText(activeFirebaseProjectKey),
+      projectSystemKey,
+    }),
+  }).then(async (response) => {
+    if (response.ok) return;
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body?.error || "Falha ao espelhar usuario no gerenciador.");
+  });
+}
+
 export const bootstrapUser = async (user) => {
   if (!user?.uid) return;
   if (typeof user.getIdToken === "function") {
@@ -80,6 +133,11 @@ export const bootstrapUser = async (user) => {
     });
 
     await appendLoginMirror(userRefs);
+    try {
+      await espelharUsuarioNoGerenciador(user);
+    } catch (error) {
+      console.warn("Falha ao espelhar usuario no gerenciador:", error);
+    }
     return { isNew: true };
   }
 
@@ -93,5 +151,10 @@ export const bootstrapUser = async (user) => {
   });
 
   await appendLoginMirror(userRefs);
+  try {
+    await espelharUsuarioNoGerenciador(user);
+  } catch (error) {
+    console.warn("Falha ao espelhar usuario no gerenciador:", error);
+  }
   return { isNew: false };
 };

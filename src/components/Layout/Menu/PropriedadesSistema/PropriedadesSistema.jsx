@@ -27,7 +27,7 @@ import {
 import {
   uploadArquivoNoBucketCompartilhado,
   usandoBucketCompartilhadoCrossProject,
-} from "../../Storage/sharedBucketApi";
+} from "../../../Banco/sharedBucketApi";
 
 function nomeArquivoSeguro(nome = "branding.png") {
   return String(nome || "branding.png")
