@@ -5,7 +5,7 @@ const LOCAL_QUERY_PARAM = "firebaseProject";
 const FIREBASE_ENV_PREFIX = "REACT_APP_FIREBASE_";
 const FIREBASE_PROJECT_KEYS_ENV = "REACT_APP_FIREBASE_PROJECT_KEYS";
 const FORCED_SHARED_STORAGE_BUCKET = "teste-aa015.appspot.com";
-const MANAGER_QUERY_CACHE_PREFIX = "firebaseManagerDomain:";
+const MANAGER_QUERY_CACHE_PREFIX = "firebaseManagerDomain:v2:";
 const STATIC_PROJECT_ALIASES = {
   obaydon: "obeyon",
   obeydon: "obeyon",
@@ -28,6 +28,56 @@ const TESTE_AA015_CONFIG = {
   messagingSenderId: "99960275074",
   appId: "1:99960275074:web:e2923f7e34a0c0c18c749b",
 };
+
+function buildManagerProjectFromEnv() {
+  const apiKey = sanitizeEnvScalar(process.env.REACT_APP_SYSTEM_MANAGER_API_KEY);
+  const projectId = sanitizeEnvScalar(process.env.REACT_APP_SYSTEM_MANAGER_PROJECT_ID);
+  const authDomain = normalizeAuthDomain(
+    sanitizeEnvScalar(process.env.REACT_APP_SYSTEM_MANAGER_AUTH_DOMAIN),
+    projectId
+  );
+  const databaseURL = sanitizeEnvScalar(process.env.REACT_APP_SYSTEM_MANAGER_DATABASE_URL);
+  const storageBucket = normalizeStorageBucket(
+    sanitizeEnvScalar(process.env.REACT_APP_SYSTEM_MANAGER_STORAGE_BUCKET)
+  );
+  const messagingSenderId = sanitizeEnvScalar(
+    process.env.REACT_APP_SYSTEM_MANAGER_MESSAGING_SENDER_ID
+  );
+  const appId = sanitizeEnvScalar(process.env.REACT_APP_SYSTEM_MANAGER_APP_ID);
+  const messagingVapidKey = sanitizeEnvScalar(process.env.REACT_APP_FIREBASE_VAPID_KEY);
+  const functionsRegion =
+    sanitizeEnvScalar(process.env.REACT_APP_SYSTEM_MANAGER_FUNCTIONS_REGION) ||
+    DEFAULT_FUNCTIONS_REGION;
+  const domains = parseDomains(process.env.REACT_APP_SYSTEM_MANAGER_DOMAINS);
+
+  const hasRequired =
+    !!apiKey &&
+    !!authDomain &&
+    !!projectId &&
+    !!storageBucket &&
+    !!messagingSenderId &&
+    !!appId;
+
+  if (!hasRequired) {
+    return null;
+  }
+
+  return {
+    key: projectId,
+    config: {
+      apiKey,
+      authDomain,
+      databaseURL,
+      projectId,
+      storageBucket,
+      messagingSenderId,
+      appId,
+    },
+    functionsRegion,
+    domains,
+    messagingVapidKey,
+  };
+}
 
 
 function normalizeStorageBucket(value) {
@@ -379,6 +429,37 @@ async function queryManagerProjectByDomain(hostname) {
   if (!managerRuntime) return null;
 
   try {
+    const functionRegion =
+      sanitizeEnvScalar(process.env.REACT_APP_SYSTEM_MANAGER_FUNCTIONS_REGION) ||
+      DEFAULT_FUNCTIONS_REGION;
+    const response = await fetch(
+      `https://${functionRegion}-${encodeURIComponent(
+        managerRuntime.projectId
+      )}.cloudfunctions.net/resolverProjetoPorDominioPublico?hostname=${encodeURIComponent(
+        normalizedHost
+      )}`
+    );
+
+    if (response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      const firebaseProjectId = String(payload?.firebaseProjectId || "").trim();
+      const systemKey = String(payload?.systemKey || "").trim().toLowerCase();
+
+      if (firebaseProjectId) {
+        const resultado = {
+          hostname: normalizedHost,
+          firebaseProjectId,
+          systemKey,
+        };
+        safeWriteManagerDomainCache(normalizedHost, resultado);
+        return resultado;
+      }
+    }
+  } catch {
+    // Segue fallback REST para compatibilidade enquanto a function nao estiver deployada.
+  }
+
+  try {
     const response = await fetch(
       `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(
         managerRuntime.projectId
@@ -507,25 +588,13 @@ function resolveRequestedProjectKeySync(projects, hostProjectMap) {
     return hostTarget;
   }
 
-  const slugHost = extrairSlugDeHostname(hostname);
-  const slugHostAlias = resolveStaticProjectAlias(slugHost);
-  if (slugHostAlias && projects[slugHostAlias]) {
-    return slugHostAlias;
-  }
-
-  const aliases = safeReadProjectAliasesFromStorage();
-  const aliasSlug = aliases[slugHostAlias] || aliases[String(slugHostAlias).toLowerCase()] || "";
-  const aliasSlugNormalizado = resolveStaticProjectAlias(aliasSlug);
-  if (aliasSlugNormalizado && projects[aliasSlugNormalizado]) {
-    return aliasSlugNormalizado;
-  }
-
   return "";
 }
 
 function buildProjectsMap() {
   const testeConfig = applySharedStorageBucket(TESTE_AA015_CONFIG);
   const defaultMessagingVapidKey = sanitizeEnvScalar(process.env.REACT_APP_FIREBASE_VAPID_KEY);
+  const managerProject = buildManagerProjectFromEnv();
 
   const projects = {
     "teste-aa015": {
@@ -536,6 +605,16 @@ function buildProjectsMap() {
       messagingVapidKey: defaultMessagingVapidKey,
     },
   };
+
+  if (managerProject) {
+    projects[managerProject.key] = {
+      key: managerProject.key,
+      config: managerProject.config,
+      functionsRegion: managerProject.functionsRegion || DEFAULT_FUNCTIONS_REGION,
+      domains: managerProject.domains || [],
+      messagingVapidKey: managerProject.messagingVapidKey || defaultMessagingVapidKey,
+    };
+  }
 
   coletarProjetosEnv().forEach((project) => {
     projects[project.key] = {

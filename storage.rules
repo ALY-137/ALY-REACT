@@ -54,6 +54,12 @@ service firebase.storage {
       allow write: if isAdmin() || isOwner(userId);
     }
 
+    // Live banner e demais ativos publicos da live.
+    match /users/{userId}/espacos/{espacoId}/blocos/{blocoId}/live/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin() || isOwner(userId);
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }

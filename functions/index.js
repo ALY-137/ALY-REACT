@@ -311,6 +311,26 @@ function normalizeHostValue(value = "") {
     .trim();
 }
 
+function buildCurrentProjectPublicHosts() {
+  const hosts = [
+    `${CURRENT_PROJECT_ID}.vercel.app`,
+    `www.${CURRENT_PROJECT_ID}.vercel.app`,
+    `${CURRENT_PROJECT_ID}.web.app`,
+    `${CURRENT_PROJECT_ID}.firebaseapp.com`,
+    ...parseCsv(process.env.SYSTEM_MANAGER_PUBLIC_HOSTS).map((item) =>
+      normalizeHostValue(item)
+    ),
+  ].filter(Boolean);
+
+  return [...new Set(hosts)];
+}
+
+function isCurrentProjectPublicHost(hostname = "") {
+  const normalizedHost = normalizeHostValue(hostname);
+  if (!normalizedHost) return false;
+  return buildCurrentProjectPublicHosts().includes(normalizedHost);
+}
+
 function canAccessSharedBucketPath(path = "", uid = "") {
   const normalizedPath = sanitizeString(path);
   const normalizedUid = sanitizeString(uid);
@@ -1464,6 +1484,68 @@ exports.registrarAcessoPublico = onRequest(
       });
 
       res.json({ ok: true });
+    } catch (error) {
+      sendHttpError(res, error);
+    }
+  }
+);
+
+exports.resolverProjetoPorDominioPublico = onRequest(
+  HTTP_OPTIONS,
+  async (req, res) => {
+    try {
+      const hostname =
+        normalizeHostValue(req.query?.hostname) ||
+        normalizeHostValue(req.query?.host) ||
+        normalizeHostValue(normalizeRequestBody(req)?.hostname) ||
+        normalizeHostValue(normalizeRequestBody(req)?.host);
+
+      if (!hostname) {
+        throw new HttpsError("invalid-argument", "Hostname obrigatorio.");
+      }
+
+      const systemsSnap = await db
+        .collection("systems")
+        .where("domains", "array-contains", hostname)
+        .limit(1)
+        .get();
+
+      if (!systemsSnap.empty) {
+        const docSnap = systemsSnap.docs[0];
+        const data = docSnap.data() || {};
+        const runtimeConfig =
+          data?.firebaseRuntimeConfig && typeof data.firebaseRuntimeConfig === "object"
+            ? data.firebaseRuntimeConfig
+            : {};
+        const firebaseProjectId =
+          sanitizeString(runtimeConfig.projectId) || sanitizeString(data.firebaseProjectId);
+
+        if (firebaseProjectId) {
+          res.json({
+            ok: true,
+            hostname,
+            firebaseProjectId,
+            systemKey: sanitizeString(data.systemKey || docSnap.id).toLowerCase(),
+          });
+          return;
+        }
+      }
+
+      if (isCurrentProjectPublicHost(hostname)) {
+        res.json({
+          ok: true,
+          hostname,
+          firebaseProjectId: CURRENT_PROJECT_ID,
+          systemKey: CURRENT_PROJECT_ID,
+        });
+        return;
+      }
+
+      res.status(404).json({
+        ok: false,
+        code: "not-found",
+        error: "Dominio nao vinculado a nenhum projeto.",
+      });
     } catch (error) {
       sendHttpError(res, error);
     }
