@@ -884,6 +884,19 @@ export default function EspacoPage() {
       return;
     }
 
+    const streamAtual = liveCameraStreamRef.current;
+    if (streamAtual) {
+      pararStreamLocalLive(streamAtual);
+      liveCameraStreamRef.current = null;
+      if (liveCameraVideoRef.current) {
+        try {
+          liveCameraVideoRef.current.srcObject = null;
+        } catch {
+          // no-op
+        }
+      }
+    }
+
     try {
       const stream = await solicitarStreamCameraLive(proximoFacingMode, {
         genericFallback: false,
@@ -899,6 +912,28 @@ export default function EspacoPage() {
         rotationDeg: liveCameraRotacaoGraus,
       });
     } catch {
+      let streamRecuperado = null;
+
+      try {
+        streamRecuperado = await solicitarStreamCameraLive(liveCameraFacingMode, {
+          genericFallback: true,
+        });
+      } catch {
+        streamRecuperado = null;
+      }
+
+      if (streamRecuperado) {
+        await aplicarStreamLocalLive(streamRecuperado, {
+          facingMode: liveCameraFacingMode,
+        });
+        void atualizarStatusCameraLive(true, {
+          facingMode: liveCameraFacingMode,
+          rotationDeg: liveCameraRotacaoGraus,
+        });
+      } else {
+        setLiveCameraAtiva(false);
+      }
+
       setLiveCameraErro(
         proximoFacingMode === "environment"
           ? "Nao foi possivel acessar a camera traseira neste dispositivo."

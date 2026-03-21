@@ -95,15 +95,36 @@ function Acesso({ configSistema = {}, user = null }) {
       // Continua mesmo sem sessionStorage.
     }
 
-    fetch(`${managerBaseUrl}/registrarAcessoPublico`, {
+    const url = `${managerBaseUrl}/registrarAcessoPublico`;
+    const body = JSON.stringify(payload);
+    const reportarErro = (error) => {
+      if (typeof window !== "undefined" && window.location.hostname === "localhost") {
+        console.warn("Falha ao registrar acesso no gerenciador:", error);
+      }
+    };
+
+    try {
+      if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
+        const beaconEnviado = navigator.sendBeacon(
+          url,
+          new Blob([body], { type: "application/json" })
+        );
+        if (beaconEnviado) {
+          return;
+        }
+      }
+    } catch {
+      // segue para fetch.
+    }
+
+    fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(payload),
-    }).catch((error) => {
-      console.warn("Falha ao registrar acesso no gerenciador:", error);
-    });
+      body,
+      keepalive: true,
+    }).catch(reportarErro);
   }, [managerBaseUrl, user?.uid, user?.email, user?.displayName, location, configSistema]);
 
   return null;

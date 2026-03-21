@@ -123,6 +123,7 @@ function Menu({ menuOpen }) {
   const chatHabilitado = configSistema.chatHabilitado !== false;
   const mercadoPagoHabilitado = configSistema.mercadoPagoHabilitado !== false;
   const pixManualHabilitado = configSistema.pixManualHabilitado !== false;
+  const exibirBadgeProjetoFirebase = configSistema.exibirBadgeProjetoFirebase !== false;
   const pagamentosCompradorHabilitados = mercadoPagoHabilitado || pixManualHabilitado;
   const rotaLoginProjeto = oneOwnerPublicaAtiva ? "/login" : "/";
   const rotaLoginOwnerProjeto = oneOwnerPublicaAtiva ? "/loginowner" : rotaLoginProjeto;
@@ -659,7 +660,7 @@ function Menu({ menuOpen }) {
             Trocar conta
           </button>
         </div>
-        <FirebaseProjectBadge />
+        <FirebaseProjectBadge visible={exibirBadgeProjetoFirebase} />
       </div>
     );
   }
@@ -764,7 +765,7 @@ function Menu({ menuOpen }) {
 
         <Outlet />
       </div>
-      <FirebaseProjectBadge />
+      <FirebaseProjectBadge visible={exibirBadgeProjetoFirebase} />
      
     </div>
   );

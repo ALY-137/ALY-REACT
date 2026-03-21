@@ -565,7 +565,7 @@ function PropriedadesSistema({
               });
             }
           }}
-          placeholder="Ex: Obeyon"
+          placeholder="Ex: NovoSistema"
           style={{ width: "100%", marginTop: 8 }}
         />
 

@@ -183,13 +183,6 @@ export default function LiveModal({
           className="live-modal__close"
           type="button"
           onClick={onClose}
-          style={{
-            position: "absolute",
-            top: 12,
-            right: 12,
-            zIndex: 3,
-            cursor: "pointer",
-          }}
         >
           Fechar live
         </button>
@@ -207,19 +200,13 @@ export default function LiveModal({
         ) : null}
 
         <div
-          className="live-modal__chat"
-          style={{
-            position: "absolute",
-            right: 12,
-            top: isMobile ? "auto" : 12,
-            bottom: 12,
-            width: isMobile ? "calc(100% - 24px)" : "min(360px, 34vw)",
-            height: isMobile ? "45dvh" : "calc(100% - 24px)",
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-            zIndex: 2,
-          }}
+          className={[
+            "live-modal__chat",
+            isMobile ? "live-modal__chat--mobile" : "",
+            cameraTelaCheia ? "live-modal__chat--camera-full" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
         >
           <div className="live-modal__header">
             <strong className="live-modal__title">Chat da live</strong>

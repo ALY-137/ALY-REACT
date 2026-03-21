@@ -1225,6 +1225,8 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
 
   if (loading || isLoading || !theme) return loaderVisualJSX;
 
+  const exibirBadgeProjetoFirebase = configSistemaAtual?.exibirBadgeProjetoFirebase !== false;
+
   return (
     <>
       {!layoutThemeReady ? loaderVisualJSX : null}
@@ -1238,7 +1240,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
           cardProfileDimensionsOverride={cardProfileDimensions}
           onThemeReadyChange={setLayoutThemeReady}
         />
-        <FirebaseProjectBadge />
+        <FirebaseProjectBadge visible={exibirBadgeProjetoFirebase} />
       </div>
     </>
   );

@@ -732,7 +732,7 @@ function GerenciadorProjetos() {
             type="text"
             value={form.domains}
             onChange={(event) => atualizarCampo("domains", event.target.value)}
-            placeholder="ex: obeyon.vercel.app, passy.vercel.app"
+            placeholder="ex: meusite.com , meusite.com.br"
             style={{ width: "100%", marginTop: 6 }}
           />
 
@@ -945,7 +945,7 @@ function GerenciadorProjetos() {
               type="text"
               value={domainsProjetoEdicao}
               onChange={(event) => setDomainsProjetoEdicao(event.target.value)}
-              placeholder="ex: passyrela.vercel.app, novodominio.com"
+              placeholder="ex: nome.vercel.app, novodominio.com"
               style={{ width: "100%", marginBottom: 10 }}
             />
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>

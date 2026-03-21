@@ -11,6 +11,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import {
+  activeFirebaseProjectId,
   activeFirebaseProjectKey,
   auth,
   db,
@@ -23,27 +24,50 @@ import {
 } from "../../Banco/projectDataRefs";
 
 function callSalvarCredenciais(data) {
+  if (usarBackendMercadoPagoCompartilhado()) {
+    return postMercadoPagoCompartilhado("mercadoPagoSalvarCredenciaisHttp", data);
+  }
   return httpsCallable(functions, "salvarMercadoPagoCredenciais")(data);
 }
 
 function callStatusCredenciais(data) {
+  if (usarBackendMercadoPagoCompartilhado()) {
+    return postMercadoPagoCompartilhado("mercadoPagoObterStatusHttp", data);
+  }
   return httpsCallable(functions, "obterStatusMercadoPago")(data);
 }
 
 function callDesconectarCredenciais(data) {
+  if (usarBackendMercadoPagoCompartilhado()) {
+    return postMercadoPagoCompartilhado("mercadoPagoDesconectarHttp", data);
+  }
   return httpsCallable(functions, "desconectarMercadoPago")(data);
 }
 
 function callCriarCheckout(data) {
+  if (usarBackendMercadoPagoCompartilhado()) {
+    return postMercadoPagoCompartilhado("mercadoPagoCriarCheckoutHttp", data);
+  }
   return httpsCallable(functions, "criarCheckoutBlocoMercadoPago")(data);
 }
 
 function callConfirmarPagamento(data) {
+  if (usarBackendMercadoPagoCompartilhado()) {
+    return postMercadoPagoCompartilhado("mercadoPagoConfirmarPagamentoHttp", data);
+  }
   return httpsCallable(functions, "confirmarPagamentoBlocoMercadoPago")(data);
 }
 
 const MAX_PIX_QRS = 20;
 const MERCADO_PAGO_UNAVAILABLE_CODE = "mercado-pago/unavailable";
+const SHARED_FUNCTIONS_OWNER_PROJECT_ID = sanitizeString(
+  process.env.REACT_APP_SHARED_FUNCTIONS_PROJECT_ID || "teste-aa015"
+);
+const SHARED_FUNCTIONS_REGION =
+  sanitizeString(process.env.REACT_APP_SHARED_FUNCTIONS_REGION) || "us-central1";
+const SHARED_FUNCTIONS_BASE_URL = SHARED_FUNCTIONS_OWNER_PROJECT_ID
+  ? `https://${SHARED_FUNCTIONS_REGION}-${SHARED_FUNCTIONS_OWNER_PROJECT_ID}.cloudfunctions.net`
+  : "";
 const PROJETOS_SEM_FUNCTIONS_MERCADO_PAGO = new Set(
   String(process.env.REACT_APP_MERCADO_PAGO_DISABLE_PROJECTS || "")
     .split(",")
@@ -95,6 +119,42 @@ function getProjetoAtivoMercadoPago() {
   return sanitizeString(activeFirebaseProjectKey);
 }
 
+function usarBackendMercadoPagoCompartilhado() {
+  return Boolean(SHARED_FUNCTIONS_BASE_URL);
+}
+
+async function postMercadoPagoCompartilhado(endpoint, payload = {}) {
+  const user = auth?.currentUser;
+  if (!user?.getIdToken) {
+    const error = new Error("Usuario nao autenticado para operacao Mercado Pago.");
+    error.code = "auth/unauthenticated";
+    throw error;
+  }
+
+  const idToken = await user.getIdToken();
+  const response = await fetch(`${SHARED_FUNCTIONS_BASE_URL}/${endpoint}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify({
+      ...(payload || {}),
+      targetProjectId: sanitizeString(activeFirebaseProjectId) || null,
+    }),
+  });
+
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || body?.ok === false) {
+    const error = new Error(body?.error || `Falha em ${endpoint}.`);
+    error.code = body?.code || `http-${response.status}`;
+    error.details = body?.details || "";
+    throw error;
+  }
+
+  return { data: body };
+}
+
 carregarProjetosMercadoPagoIndisponiveisStorage();
 
 function mercadoPagoDisponivelNesteProjeto() {
@@ -128,6 +188,10 @@ function isMercadoPagoFunctionsIndisponivel(err) {
   const texto = `${message} ${details}`.trim();
 
   if (code === "functions/not-found" || code === "functions/unavailable") {
+    return true;
+  }
+
+  if (code === "http-404" || code === "http-500" || code === "http-502" || code === "http-503") {
     return true;
   }
 

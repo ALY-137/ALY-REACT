@@ -49,6 +49,7 @@ const SHARED_BUCKET_ALLOWED_AUTH_PROJECTS = [
 ].filter(Boolean);
 const UNIQUE_SHARED_BUCKET_AUTH_PROJECTS = [...new Set(SHARED_BUCKET_ALLOWED_AUTH_PROJECTS)];
 const sharedVerifierApps = new Map();
+const sharedProjectRuntimeApps = new Map();
 const CURRENT_PROJECT_ID = sanitizeString(process.env.GCLOUD_PROJECT) || "teste-aa015";
 const ADMIN_ONLY_AUTH_PROJECTS = [
   ...parseCsv(process.env.ADMIN_ONLY_AUTH_PROJECTS),
@@ -360,6 +361,47 @@ function getSharedVerifierAuth(projectId) {
   return admin.auth(sharedVerifierApps.get(appName));
 }
 
+function getSharedProjectRuntimeApp(projectId) {
+  const normalizedProjectId = sanitizeString(projectId) || CURRENT_PROJECT_ID;
+  if (normalizedProjectId === CURRENT_PROJECT_ID) {
+    return admin.app();
+  }
+
+  const appName = `shared-runtime-${normalizedProjectId}`;
+  if (!sharedProjectRuntimeApps.has(appName)) {
+    const existingApp = admin.apps.find((app) => app.name === appName);
+    const app = existingApp || admin.initializeApp({ projectId: normalizedProjectId }, appName);
+    sharedProjectRuntimeApps.set(appName, app);
+  }
+
+  return sharedProjectRuntimeApps.get(appName);
+}
+
+function ensureAllowedTargetProjectId(targetProjectId = "", fallbackProjectId = "") {
+  const normalizedProjectId =
+    sanitizeString(targetProjectId) || sanitizeString(fallbackProjectId) || CURRENT_PROJECT_ID;
+
+  if (
+    normalizedProjectId !== CURRENT_PROJECT_ID &&
+    !UNIQUE_SHARED_BUCKET_AUTH_PROJECTS.includes(normalizedProjectId)
+  ) {
+    throw new HttpsError(
+      "permission-denied",
+      `Projeto alvo nao permitido para backend compartilhado: ${normalizedProjectId}.`
+    );
+  }
+
+  return normalizedProjectId;
+}
+
+function getProjectDb(targetProjectId = "", fallbackProjectId = "") {
+  const normalizedProjectId = ensureAllowedTargetProjectId(targetProjectId, fallbackProjectId);
+  if (normalizedProjectId === CURRENT_PROJECT_ID) {
+    return db;
+  }
+  return admin.firestore(getSharedProjectRuntimeApp(normalizedProjectId));
+}
+
 async function verifySharedBucketIdToken(idToken) {
   const token = sanitizeString(idToken);
   if (!token) {
@@ -495,20 +537,20 @@ function parseExternalReference(reference) {
   };
 }
 
-function getBlockDocRef(ownerUserId, espacoId, blocoId) {
-  return db.doc(`users/${ownerUserId}/espacos/${espacoId}/blocos/${blocoId}`);
+function getBlockDocRef(ownerUserId, espacoId, blocoId, firestoreDb = db) {
+  return firestoreDb.doc(`users/${ownerUserId}/espacos/${espacoId}/blocos/${blocoId}`);
 }
 
-function getOwnerIntegrationRef(ownerUserId) {
-  return db.doc(`users/${ownerUserId}/integracoes/mercadoPago`);
+function getOwnerIntegrationRef(ownerUserId, firestoreDb = db) {
+  return firestoreDb.doc(`users/${ownerUserId}/integracoes/mercadoPago`);
 }
 
-function getOwnerPixManualRef(ownerUserId) {
-  return db.doc(`users/${ownerUserId}/integracoes/pixManual`);
+function getOwnerPixManualRef(ownerUserId, firestoreDb = db) {
+  return firestoreDb.doc(`users/${ownerUserId}/integracoes/pixManual`);
 }
 
-async function getOwnerMercadoPagoAccessToken(ownerUserId) {
-  const integrationSnap = await getOwnerIntegrationRef(ownerUserId).get();
+async function getOwnerMercadoPagoAccessToken(ownerUserId, firestoreDb = db) {
+  const integrationSnap = await getOwnerIntegrationRef(ownerUserId, firestoreDb).get();
   const integrationData = integrationSnap.exists ? integrationSnap.data() : null;
   const accessToken = sanitizeString(integrationData?.accessToken);
 
@@ -522,8 +564,8 @@ async function getOwnerMercadoPagoAccessToken(ownerUserId) {
   return { accessToken, integrationData };
 }
 
-async function getBuyerContext(compradorUid) {
-  const buyerSnap = await db.doc(`users/${compradorUid}`).get();
+async function getBuyerContext(compradorUid, firestoreDb = db) {
+  const buyerSnap = await firestoreDb.doc(`users/${compradorUid}`).get();
   const buyerData = buyerSnap.exists ? buyerSnap.data() : null;
   const activeSkinId =
     typeof buyerData?.skinAtivaId === "string" && buyerData.skinAtivaId
@@ -536,13 +578,20 @@ async function getBuyerContext(compradorUid) {
   };
 }
 
-async function buyerAlreadyHasAccess({ ownerUserId, espacoId, blocoId, compradorUid, activeSkinId }) {
+async function buyerAlreadyHasAccess({
+  ownerUserId,
+  espacoId,
+  blocoId,
+  compradorUid,
+  activeSkinId,
+  firestoreDb = db,
+}) {
   const basePath = `users/${ownerUserId}/espacos/${espacoId}/blocos/${blocoId}/compradores`;
-  const buyerDoc = await db.doc(`${basePath}/${compradorUid}`).get();
+  const buyerDoc = await firestoreDb.doc(`${basePath}/${compradorUid}`).get();
   if (buyerDoc.exists) return true;
 
   if (activeSkinId) {
-    const skinDoc = await db.doc(`${basePath}/${activeSkinId}`).get();
+    const skinDoc = await firestoreDb.doc(`${basePath}/${activeSkinId}`).get();
     if (skinDoc.exists) return true;
   }
 
@@ -604,35 +653,25 @@ async function fetchMercadoPago(endpoint, accessToken, options = {}) {
   return body;
 }
 
-exports.bloquearCriacaoUsuarioNaoAdmin = beforeUserCreated(
-  IDENTITY_OPTIONS,
-  async (event) => {
-    await assertAdminOnlyAuthAllowed(event);
-  }
-);
+async function salvarMercadoPagoCredenciaisCore({
+  firestoreDb = db,
+  uid,
+  accessToken,
+  publicKey = "",
+}) {
+  const accessTokenNormalizado = ensureRequiredString(accessToken, "accessToken");
+  const publicKeyNormalizada = sanitizeString(publicKey);
 
-exports.bloquearLoginUsuarioNaoAdmin = beforeUserSignedIn(
-  IDENTITY_OPTIONS,
-  async (event) => {
-    await assertAdminOnlyAuthAllowed(event);
-  }
-);
-
-exports.salvarMercadoPagoCredenciais = onCall(CALLABLE_OPTIONS, async (request) => {
-  const uid = ensureAuth(request);
-  const accessToken = ensureRequiredString(request.data?.accessToken, "accessToken");
-  const publicKey = sanitizeString(request.data?.publicKey);
-
-  if (accessToken.length < 20) {
+  if (accessTokenNormalizado.length < 20) {
     throw new HttpsError("invalid-argument", "Access Token invalido.");
   }
 
-  const me = await fetchMercadoPago("/users/me", accessToken, { method: "GET" });
+  const me = await fetchMercadoPago("/users/me", accessTokenNormalizado, { method: "GET" });
 
-  await getOwnerIntegrationRef(uid).set(
+  await getOwnerIntegrationRef(uid, firestoreDb).set(
     {
-      accessToken,
-      publicKey: publicKey || null,
+      accessToken: accessTokenNormalizado,
+      publicKey: publicKeyNormalizada || null,
       mpUserId: me?.id || null,
       mpEmail: sanitizeString(me?.email) || null,
       connectedAt: serverTimestamp(),
@@ -647,11 +686,10 @@ exports.salvarMercadoPagoCredenciais = onCall(CALLABLE_OPTIONS, async (request) 
     mpUserId: me?.id || null,
     mpEmail: sanitizeString(me?.email) || null,
   };
-});
+}
 
-exports.obterStatusMercadoPago = onCall(CALLABLE_OPTIONS, async (request) => {
-  const uid = ensureAuth(request);
-  const integrationSnap = await getOwnerIntegrationRef(uid).get();
+async function obterStatusMercadoPagoCore({ firestoreDb = db, uid }) {
+  const integrationSnap = await getOwnerIntegrationRef(uid, firestoreDb).get();
   const integrationData = integrationSnap.exists ? integrationSnap.data() : {};
 
   return {
@@ -660,11 +698,10 @@ exports.obterStatusMercadoPago = onCall(CALLABLE_OPTIONS, async (request) => {
     mpEmail: integrationData?.mpEmail || null,
     hasPublicKey: Boolean(sanitizeString(integrationData?.publicKey)),
   };
-});
+}
 
-exports.desconectarMercadoPago = onCall(CALLABLE_OPTIONS, async (request) => {
-  const uid = ensureAuth(request);
-  const integrationRef = getOwnerIntegrationRef(uid);
+async function desconectarMercadoPagoCore({ firestoreDb = db, uid }) {
+  const integrationRef = getOwnerIntegrationRef(uid, firestoreDb);
 
   await integrationRef.set(
     {
@@ -682,6 +719,365 @@ exports.desconectarMercadoPago = onCall(CALLABLE_OPTIONS, async (request) => {
     ok: true,
     conectado: false,
   };
+}
+
+async function criarCheckoutBlocoMercadoPagoCore({
+  firestoreDb = db,
+  targetProjectId = CURRENT_PROJECT_ID,
+  compradorUid,
+  authEmail = "",
+  ownerUserId,
+  espacoId,
+  blocoId,
+  skinUsername,
+  baseUrlInput,
+  returnTo = "",
+}) {
+  const ownerUserIdNormalizado = ensureRequiredString(ownerUserId, "ownerUserId");
+  const espacoIdNormalizado = ensureRequiredString(espacoId, "espacoId");
+  const blocoIdNormalizado = ensureRequiredString(blocoId, "blocoId");
+  const skinUsernameNormalizado = ensureRequiredString(skinUsername, "skinUsername");
+  const normalizedBaseUrl = normalizeBaseUrl(baseUrlInput);
+  const fallbackBaseUrl = sanitizeString(process.env.MERCADO_PAGO_BACK_URL_BASE);
+  const defaultHostedBaseUrl = `https://${sanitizeString(targetProjectId) || CURRENT_PROJECT_ID}.web.app`;
+  const baseUrl =
+    isLocalhostUrl(normalizedBaseUrl)
+      ? normalizeBaseUrl(fallbackBaseUrl || defaultHostedBaseUrl)
+      : normalizedBaseUrl;
+
+  if (ownerUserIdNormalizado === compradorUid) {
+    throw new HttpsError(
+      "failed-precondition",
+      "O criador nao pode comprar o proprio bloco."
+    );
+  }
+
+  const blocoRef = getBlockDocRef(
+    ownerUserIdNormalizado,
+    espacoIdNormalizado,
+    blocoIdNormalizado,
+    firestoreDb
+  );
+  const blocoSnap = await blocoRef.get();
+  if (!blocoSnap.exists) {
+    throw new HttpsError("not-found", "Bloco nao encontrado.");
+  }
+
+  const blocoData = blocoSnap.data() || {};
+  const { precoCentavos, moeda } = ensureValidBlockForPurchase(blocoData);
+  const buyerContext = await getBuyerContext(compradorUid, firestoreDb);
+
+  const alreadyPurchased = await buyerAlreadyHasAccess({
+    ownerUserId: ownerUserIdNormalizado,
+    espacoId: espacoIdNormalizado,
+    blocoId: blocoIdNormalizado,
+    compradorUid,
+    activeSkinId: buyerContext.activeSkinId,
+    firestoreDb,
+  });
+  if (alreadyPurchased) {
+    return {
+      ok: true,
+      alreadyPurchased: true,
+      message: "Esse bloco ja esta liberado para este comprador.",
+    };
+  }
+
+  const { accessToken } = await getOwnerMercadoPagoAccessToken(
+    ownerUserIdNormalizado,
+    firestoreDb
+  );
+  const isTestAccessToken = /^TEST-/i.test(accessToken);
+
+  const successUrl = buildMenuUrl({
+    baseUrl,
+    skinUsername: skinUsernameNormalizado,
+    ownerUserId: ownerUserIdNormalizado,
+    espacoId: espacoIdNormalizado,
+    blocoId: blocoIdNormalizado,
+    returnTo,
+    mpStatus: "success",
+  });
+  const pendingUrl = buildMenuUrl({
+    baseUrl,
+    skinUsername: skinUsernameNormalizado,
+    ownerUserId: ownerUserIdNormalizado,
+    espacoId: espacoIdNormalizado,
+    blocoId: blocoIdNormalizado,
+    returnTo,
+    mpStatus: "pending",
+  });
+  const failureUrl = buildMenuUrl({
+    baseUrl,
+    skinUsername: skinUsernameNormalizado,
+    ownerUserId: ownerUserIdNormalizado,
+    espacoId: espacoIdNormalizado,
+    blocoId: blocoIdNormalizado,
+    returnTo,
+    mpStatus: "failure",
+  });
+
+  const externalReference = `bloco|${ownerUserIdNormalizado}|${espacoIdNormalizado}|${blocoIdNormalizado}|${compradorUid}`;
+
+  const payload = {
+    items: [
+      {
+        id: blocoIdNormalizado,
+        title: `Acesso ao bloco ${blocoIdNormalizado}`,
+        quantity: 1,
+        unit_price: Number((precoCentavos / 100).toFixed(2)),
+        currency_id: moeda || "BRL",
+      },
+    ],
+    back_urls: {
+      success: successUrl,
+      pending: pendingUrl,
+      failure: failureUrl,
+    },
+    external_reference: externalReference,
+    metadata: {
+      ownerUserId: ownerUserIdNormalizado,
+      espacoId: espacoIdNormalizado,
+      blocoId: blocoIdNormalizado,
+      compradorUid,
+      compradorSkinId: buyerContext.activeSkinId || null,
+      targetProjectId: sanitizeString(targetProjectId) || CURRENT_PROJECT_ID,
+    },
+  };
+
+  if (/^https:\/\//i.test(successUrl) && !isLocalhostUrl(successUrl)) {
+    payload.auto_return = "approved";
+  }
+
+  const buyerEmail = sanitizeString(authEmail) || buyerContext.email;
+  if (buyerEmail) {
+    payload.payer = { email: buyerEmail };
+  }
+
+  const preference = await fetchMercadoPago("/checkout/preferences", accessToken, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+  const checkoutUrl =
+    isTestAccessToken && sanitizeString(preference?.sandbox_init_point)
+      ? preference.sandbox_init_point
+      : preference?.init_point;
+
+  if (!preference?.id || !checkoutUrl) {
+    throw new HttpsError(
+      "internal",
+      "Checkout do Mercado Pago nao retornou URL de pagamento."
+    );
+  }
+
+  await blocoRef.collection("pagamentos").doc(preference.id).set(
+    {
+      tipo: "mercado_pago_checkout_preference",
+      status: "created",
+      preferenceId: preference.id,
+      initPoint: preference.init_point,
+      sandboxInitPoint: preference.sandbox_init_point || null,
+      checkoutUrl,
+      isSandbox: isTestAccessToken,
+      targetProjectId: sanitizeString(targetProjectId) || CURRENT_PROJECT_ID,
+      ownerUserId: ownerUserIdNormalizado,
+      espacoId: espacoIdNormalizado,
+      blocoId: blocoIdNormalizado,
+      compradorUid,
+      compradorSkinId: buyerContext.activeSkinId || null,
+      precoCentavos,
+      moeda,
+      criadoEm: serverTimestamp(),
+      atualizadoEm: serverTimestamp(),
+    },
+    { merge: true }
+  );
+
+  return {
+    ok: true,
+    alreadyPurchased: false,
+    preferenceId: preference.id,
+    initPoint: preference.init_point,
+    sandboxInitPoint: preference.sandbox_init_point || null,
+    checkoutUrl,
+    isSandbox: isTestAccessToken,
+  };
+}
+
+async function confirmarPagamentoBlocoMercadoPagoCore({
+  firestoreDb = db,
+  targetProjectId = CURRENT_PROJECT_ID,
+  compradorUid,
+  ownerUserId,
+  espacoId,
+  blocoId,
+  paymentId,
+}) {
+  const ownerUserIdNormalizado = ensureRequiredString(ownerUserId, "ownerUserId");
+  const espacoIdNormalizado = ensureRequiredString(espacoId, "espacoId");
+  const blocoIdNormalizado = ensureRequiredString(blocoId, "blocoId");
+  const paymentIdNormalizado = ensureRequiredString(paymentId, "paymentId");
+
+  const blocoRef = getBlockDocRef(
+    ownerUserIdNormalizado,
+    espacoIdNormalizado,
+    blocoIdNormalizado,
+    firestoreDb
+  );
+  const blocoSnap = await blocoRef.get();
+  if (!blocoSnap.exists) {
+    throw new HttpsError("not-found", "Bloco nao encontrado.");
+  }
+  const blocoData = blocoSnap.data() || {};
+  const { moeda } = ensureValidBlockForPurchase(blocoData);
+
+  const { accessToken } = await getOwnerMercadoPagoAccessToken(
+    ownerUserIdNormalizado,
+    firestoreDb
+  );
+  const payment = await fetchMercadoPago(
+    `/v1/payments/${encodeURIComponent(paymentIdNormalizado)}`,
+    accessToken,
+    {
+      method: "GET",
+    }
+  );
+
+  const referenceData = parseExternalReference(payment?.external_reference);
+  const metadata = payment?.metadata || {};
+  const ownerFromMetadata = sanitizeString(metadata.ownerUserId);
+  const espacoFromMetadata = sanitizeString(metadata.espacoId);
+  const blocoFromMetadata = sanitizeString(metadata.blocoId);
+  const compradorFromMetadata = sanitizeString(metadata.compradorUid);
+
+  const metadataMatches =
+    ownerFromMetadata === ownerUserIdNormalizado &&
+    espacoFromMetadata === espacoIdNormalizado &&
+    blocoFromMetadata === blocoIdNormalizado;
+  const externalMatches =
+    referenceData &&
+    referenceData.ownerUserId === ownerUserIdNormalizado &&
+    referenceData.espacoId === espacoIdNormalizado &&
+    referenceData.blocoId === blocoIdNormalizado;
+  const compradorMatchesAuth =
+    (metadataMatches && (!compradorFromMetadata || compradorFromMetadata === compradorUid)) ||
+    (externalMatches && (!referenceData.compradorUid || referenceData.compradorUid === compradorUid));
+
+  if (!(metadataMatches || externalMatches) || !compradorMatchesAuth) {
+    throw new HttpsError(
+      "permission-denied",
+      "Pagamento nao corresponde ao bloco/usuario informado."
+    );
+  }
+
+  const paymentStatus = sanitizeString(payment?.status);
+  const statusDetail = sanitizeString(payment?.status_detail);
+  const transactionAmount = Number(payment?.transaction_amount);
+  const amountCentavos = Number.isFinite(transactionAmount)
+    ? Math.round(transactionAmount * 100)
+    : Number(blocoData?.precoCentavos) || null;
+
+  const buyerContext = await getBuyerContext(compradorUid, firestoreDb);
+  const compradoresRef = blocoRef.collection("compradores");
+  const pagamentoRef = blocoRef.collection("pagamentos").doc(String(paymentIdNormalizado));
+
+  await pagamentoRef.set(
+    {
+      tipo: "mercado_pago_payment",
+      paymentId: String(paymentIdNormalizado),
+      status: paymentStatus || "unknown",
+      statusDetail: statusDetail || null,
+      targetProjectId: sanitizeString(targetProjectId) || CURRENT_PROJECT_ID,
+      ownerUserId: ownerUserIdNormalizado,
+      espacoId: espacoIdNormalizado,
+      blocoId: blocoIdNormalizado,
+      compradorUid,
+      compradorSkinId: buyerContext.activeSkinId || null,
+      amountCentavos: amountCentavos || null,
+      moeda: sanitizeString(payment?.currency_id) || moeda,
+      raw: payment || null,
+      atualizadoEm: serverTimestamp(),
+    },
+    { merge: true }
+  );
+
+  const approved = paymentStatus === "approved";
+  if (approved) {
+    const basePayload = {
+      origem: "mercado_pago",
+      paymentId: String(paymentIdNormalizado),
+      status: paymentStatus,
+      statusDetail: statusDetail || null,
+      amountCentavos: amountCentavos || null,
+      moeda: sanitizeString(payment?.currency_id) || moeda,
+      compradorUid,
+      compradorSkinId: buyerContext.activeSkinId || null,
+      aprovadoEm: payment?.date_approved || null,
+      atualizadoEm: serverTimestamp(),
+      criadoEm: serverTimestamp(),
+    };
+
+    await compradoresRef.doc(compradorUid).set(
+      {
+        ...basePayload,
+        compradorId: compradorUid,
+      },
+      { merge: true }
+    );
+
+    if (buyerContext.activeSkinId && buyerContext.activeSkinId !== compradorUid) {
+      await compradoresRef.doc(buyerContext.activeSkinId).set(
+        {
+          ...basePayload,
+          compradorId: buyerContext.activeSkinId,
+        },
+        { merge: true }
+      );
+    }
+  }
+
+  return {
+    ok: true,
+    approved,
+    status: paymentStatus || "unknown",
+    statusDetail: statusDetail || null,
+    paymentId: String(paymentIdNormalizado),
+  };
+}
+
+exports.bloquearCriacaoUsuarioNaoAdmin = beforeUserCreated(
+  IDENTITY_OPTIONS,
+  async (event) => {
+    await assertAdminOnlyAuthAllowed(event);
+  }
+);
+
+exports.bloquearLoginUsuarioNaoAdmin = beforeUserSignedIn(
+  IDENTITY_OPTIONS,
+  async (event) => {
+    await assertAdminOnlyAuthAllowed(event);
+  }
+);
+
+exports.salvarMercadoPagoCredenciais = onCall(CALLABLE_OPTIONS, async (request) => {
+  const uid = ensureAuth(request);
+  return salvarMercadoPagoCredenciaisCore({
+    firestoreDb: db,
+    uid,
+    accessToken: request.data?.accessToken,
+    publicKey: request.data?.publicKey,
+  });
+});
+
+exports.obterStatusMercadoPago = onCall(CALLABLE_OPTIONS, async (request) => {
+  const uid = ensureAuth(request);
+  return obterStatusMercadoPagoCore({ firestoreDb: db, uid });
+});
+
+exports.desconectarMercadoPago = onCall(CALLABLE_OPTIONS, async (request) => {
+  const uid = ensureAuth(request);
+  return desconectarMercadoPagoCore({ firestoreDb: db, uid });
 });
 
 exports.salvarPixManualConfig = onCall(CALLABLE_OPTIONS, async (request) => {
@@ -1038,291 +1434,151 @@ exports.limparEnvsProjetoNoVercel = onCall(CALLABLE_OPTIONS, async (request) => 
 
 exports.criarCheckoutBlocoMercadoPago = onCall(CALLABLE_OPTIONS, async (request) => {
   const compradorUid = ensureAuth(request);
-  const ownerUserId = ensureRequiredString(request.data?.ownerUserId, "ownerUserId");
-  const espacoId = ensureRequiredString(request.data?.espacoId, "espacoId");
-  const blocoId = ensureRequiredString(request.data?.blocoId, "blocoId");
-  const skinUsername = ensureRequiredString(request.data?.skinUsername, "skinUsername");
-  const baseUrlInput = ensureRequiredString(request.data?.baseUrl, "baseUrl");
-  const returnTo = sanitizeString(request.data?.returnTo);
-
-  const normalizedBaseUrl = normalizeBaseUrl(baseUrlInput);
-  const fallbackBaseUrl = sanitizeString(process.env.MERCADO_PAGO_BACK_URL_BASE);
-  const projectId = sanitizeString(process.env.GCLOUD_PROJECT) || "teste-aa015";
-  const defaultHostedBaseUrl = `https://${projectId}.web.app`;
-  const baseUrl =
-    isLocalhostUrl(normalizedBaseUrl)
-      ? normalizeBaseUrl(fallbackBaseUrl || defaultHostedBaseUrl)
-      : normalizedBaseUrl;
-
-  if (ownerUserId === compradorUid) {
-    throw new HttpsError(
-      "failed-precondition",
-      "O criador nao pode comprar o proprio bloco."
-    );
-  }
-
-  const blocoRef = getBlockDocRef(ownerUserId, espacoId, blocoId);
-  const blocoSnap = await blocoRef.get();
-  if (!blocoSnap.exists) {
-    throw new HttpsError("not-found", "Bloco nao encontrado.");
-  }
-
-  const blocoData = blocoSnap.data() || {};
-  const { precoCentavos, moeda } = ensureValidBlockForPurchase(blocoData);
-  const buyerContext = await getBuyerContext(compradorUid);
-
-  const alreadyPurchased = await buyerAlreadyHasAccess({
-    ownerUserId,
-    espacoId,
-    blocoId,
+  return criarCheckoutBlocoMercadoPagoCore({
+    firestoreDb: db,
+    targetProjectId: CURRENT_PROJECT_ID,
     compradorUid,
-    activeSkinId: buyerContext.activeSkinId,
+    authEmail: request?.auth?.token?.email,
+    ownerUserId: request.data?.ownerUserId,
+    espacoId: request.data?.espacoId,
+    blocoId: request.data?.blocoId,
+    skinUsername: request.data?.skinUsername,
+    baseUrlInput: request.data?.baseUrl,
+    returnTo: request.data?.returnTo,
   });
-  if (alreadyPurchased) {
-    return {
-      ok: true,
-      alreadyPurchased: true,
-      message: "Esse bloco ja esta liberado para este comprador.",
-    };
-  }
-
-  const { accessToken } = await getOwnerMercadoPagoAccessToken(ownerUserId);
-  const isTestAccessToken = /^TEST-/i.test(accessToken);
-
-  const successUrl = buildMenuUrl({
-    baseUrl,
-    skinUsername,
-    ownerUserId,
-    espacoId,
-    blocoId,
-    returnTo,
-    mpStatus: "success",
-  });
-  const pendingUrl = buildMenuUrl({
-    baseUrl,
-    skinUsername,
-    ownerUserId,
-    espacoId,
-    blocoId,
-    returnTo,
-    mpStatus: "pending",
-  });
-  const failureUrl = buildMenuUrl({
-    baseUrl,
-    skinUsername,
-    ownerUserId,
-    espacoId,
-    blocoId,
-    returnTo,
-    mpStatus: "failure",
-  });
-
-  const externalReference = `bloco|${ownerUserId}|${espacoId}|${blocoId}|${compradorUid}`;
-
-  const payload = {
-    items: [
-      {
-        id: blocoId,
-        title: `Acesso ao bloco ${blocoId}`,
-        quantity: 1,
-        unit_price: Number((precoCentavos / 100).toFixed(2)),
-        currency_id: moeda || "BRL",
-      },
-    ],
-    back_urls: {
-      success: successUrl,
-      pending: pendingUrl,
-      failure: failureUrl,
-    },
-    external_reference: externalReference,
-    metadata: {
-      ownerUserId,
-      espacoId,
-      blocoId,
-      compradorUid,
-      compradorSkinId: buyerContext.activeSkinId || null,
-    },
-  };
-
-  if (/^https:\/\//i.test(successUrl) && !isLocalhostUrl(successUrl)) {
-    payload.auto_return = "approved";
-  }
-
-  const buyerEmail = sanitizeString(request?.auth?.token?.email) || buyerContext.email;
-  if (buyerEmail) {
-    payload.payer = { email: buyerEmail };
-  }
-
-  const preference = await fetchMercadoPago("/checkout/preferences", accessToken, {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-
-  const checkoutUrl =
-    isTestAccessToken && sanitizeString(preference?.sandbox_init_point)
-      ? preference.sandbox_init_point
-      : preference?.init_point;
-
-  if (!preference?.id || !checkoutUrl) {
-    throw new HttpsError(
-      "internal",
-      "Checkout do Mercado Pago nao retornou URL de pagamento."
-    );
-  }
-
-  await blocoRef.collection("pagamentos").doc(preference.id).set(
-    {
-      tipo: "mercado_pago_checkout_preference",
-      status: "created",
-      preferenceId: preference.id,
-      initPoint: preference.init_point,
-      sandboxInitPoint: preference.sandbox_init_point || null,
-      checkoutUrl,
-      isSandbox: isTestAccessToken,
-      ownerUserId,
-      espacoId,
-      blocoId,
-      compradorUid,
-      compradorSkinId: buyerContext.activeSkinId || null,
-      precoCentavos,
-      moeda,
-      criadoEm: serverTimestamp(),
-      atualizadoEm: serverTimestamp(),
-    },
-    { merge: true }
-  );
-
-  return {
-    ok: true,
-    alreadyPurchased: false,
-    preferenceId: preference.id,
-    initPoint: preference.init_point,
-    sandboxInitPoint: preference.sandbox_init_point || null,
-    checkoutUrl,
-    isSandbox: isTestAccessToken,
-  };
 });
 
 exports.confirmarPagamentoBlocoMercadoPago = onCall(CALLABLE_OPTIONS, async (request) => {
   const compradorUid = ensureAuth(request);
-  const ownerUserId = ensureRequiredString(request.data?.ownerUserId, "ownerUserId");
-  const espacoId = ensureRequiredString(request.data?.espacoId, "espacoId");
-  const blocoId = ensureRequiredString(request.data?.blocoId, "blocoId");
-  const paymentId = ensureRequiredString(request.data?.paymentId, "paymentId");
-
-  const blocoRef = getBlockDocRef(ownerUserId, espacoId, blocoId);
-  const blocoSnap = await blocoRef.get();
-  if (!blocoSnap.exists) {
-    throw new HttpsError("not-found", "Bloco nao encontrado.");
-  }
-  const blocoData = blocoSnap.data() || {};
-  const { moeda } = ensureValidBlockForPurchase(blocoData);
-
-  const { accessToken } = await getOwnerMercadoPagoAccessToken(ownerUserId);
-  const payment = await fetchMercadoPago(`/v1/payments/${encodeURIComponent(paymentId)}`, accessToken, {
-    method: "GET",
+  return confirmarPagamentoBlocoMercadoPagoCore({
+    firestoreDb: db,
+    targetProjectId: CURRENT_PROJECT_ID,
+    compradorUid,
+    ownerUserId: request.data?.ownerUserId,
+    espacoId: request.data?.espacoId,
+    blocoId: request.data?.blocoId,
+    paymentId: request.data?.paymentId,
   });
+});
 
-  const referenceData = parseExternalReference(payment?.external_reference);
-  const metadata = payment?.metadata || {};
-  const ownerFromMetadata = sanitizeString(metadata.ownerUserId);
-  const espacoFromMetadata = sanitizeString(metadata.espacoId);
-  const blocoFromMetadata = sanitizeString(metadata.blocoId);
-  const compradorFromMetadata = sanitizeString(metadata.compradorUid);
-
-  const metadataMatches =
-    ownerFromMetadata === ownerUserId &&
-    espacoFromMetadata === espacoId &&
-    blocoFromMetadata === blocoId;
-  const externalMatches =
-    referenceData &&
-    referenceData.ownerUserId === ownerUserId &&
-    referenceData.espacoId === espacoId &&
-    referenceData.blocoId === blocoId;
-  const compradorMatchesAuth =
-    (metadataMatches && (!compradorFromMetadata || compradorFromMetadata === compradorUid)) ||
-    (externalMatches && (!referenceData.compradorUid || referenceData.compradorUid === compradorUid));
-
-  if (!(metadataMatches || externalMatches) || !compradorMatchesAuth) {
-    throw new HttpsError(
-      "permission-denied",
-      "Pagamento nao corresponde ao bloco/usuario informado."
-    );
+async function getUnifiedMercadoPagoHttpContext(req) {
+  if (req.method !== "POST") {
+    throw new HttpsError("failed-precondition", "Metodo nao permitido.");
   }
 
-  const paymentStatus = sanitizeString(payment?.status);
-  const statusDetail = sanitizeString(payment?.status_detail);
-  const transactionAmount = Number(payment?.transaction_amount);
-  const amountCentavos = Number.isFinite(transactionAmount)
-    ? Math.round(transactionAmount * 100)
-    : Number(blocoData?.precoCentavos) || null;
-
-  const buyerContext = await getBuyerContext(compradorUid);
-  const compradoresRef = blocoRef.collection("compradores");
-  const pagamentoRef = blocoRef.collection("pagamentos").doc(String(paymentId));
-
-  await pagamentoRef.set(
-    {
-      tipo: "mercado_pago_payment",
-      paymentId: String(paymentId),
-      status: paymentStatus || "unknown",
-      statusDetail: statusDetail || null,
-      ownerUserId,
-      espacoId,
-      blocoId,
-      compradorUid,
-      compradorSkinId: buyerContext.activeSkinId || null,
-      amountCentavos: amountCentavos || null,
-      moeda: sanitizeString(payment?.currency_id) || moeda,
-      raw: payment || null,
-      atualizadoEm: serverTimestamp(),
-    },
-    { merge: true }
+  const body = normalizeRequestBody(req);
+  const token = getBearerToken(req);
+  const { decoded, projectId: sourceAuthProjectId } = await verifySharedBucketIdToken(token);
+  const targetProjectId = ensureAllowedTargetProjectId(
+    body?.targetProjectId,
+    sourceAuthProjectId
   );
 
-  const approved = paymentStatus === "approved";
-  if (approved) {
-    const basePayload = {
-      origem: "mercado_pago",
-      paymentId: String(paymentId),
-      status: paymentStatus,
-      statusDetail: statusDetail || null,
-      amountCentavos: amountCentavos || null,
-      moeda: sanitizeString(payment?.currency_id) || moeda,
-      compradorUid,
-      compradorSkinId: buyerContext.activeSkinId || null,
-      aprovadoEm: payment?.date_approved || null,
-      atualizadoEm: serverTimestamp(),
-      criadoEm: serverTimestamp(),
-    };
+  return {
+    body,
+    decoded,
+    sourceAuthProjectId,
+    targetProjectId,
+    firestoreDb: getProjectDb(targetProjectId, sourceAuthProjectId),
+  };
+}
 
-    await compradoresRef.doc(compradorUid).set(
-      {
-        ...basePayload,
-        compradorId: compradorUid,
-      },
-      { merge: true }
-    );
-
-    if (buyerContext.activeSkinId && buyerContext.activeSkinId !== compradorUid) {
-      await compradoresRef.doc(buyerContext.activeSkinId).set(
-        {
-          ...basePayload,
-          compradorId: buyerContext.activeSkinId,
-        },
-        { merge: true }
-      );
+exports.mercadoPagoSalvarCredenciaisHttp = onRequest(
+  HTTP_OPTIONS,
+  async (req, res) => {
+    try {
+      const { body, decoded, firestoreDb } = await getUnifiedMercadoPagoHttpContext(req);
+      const result = await salvarMercadoPagoCredenciaisCore({
+        firestoreDb,
+        uid: decoded.uid,
+        accessToken: body?.accessToken,
+        publicKey: body?.publicKey,
+      });
+      res.json(result);
+    } catch (error) {
+      sendHttpError(res, error);
     }
   }
+);
 
-  return {
-    ok: true,
-    approved,
-    status: paymentStatus || "unknown",
-    statusDetail: statusDetail || null,
-    paymentId: String(paymentId),
-  };
-});
+exports.mercadoPagoObterStatusHttp = onRequest(
+  HTTP_OPTIONS,
+  async (req, res) => {
+    try {
+      const { decoded, firestoreDb } = await getUnifiedMercadoPagoHttpContext(req);
+      const result = await obterStatusMercadoPagoCore({
+        firestoreDb,
+        uid: decoded.uid,
+      });
+      res.json(result);
+    } catch (error) {
+      sendHttpError(res, error);
+    }
+  }
+);
+
+exports.mercadoPagoDesconectarHttp = onRequest(
+  HTTP_OPTIONS,
+  async (req, res) => {
+    try {
+      const { decoded, firestoreDb } = await getUnifiedMercadoPagoHttpContext(req);
+      const result = await desconectarMercadoPagoCore({
+        firestoreDb,
+        uid: decoded.uid,
+      });
+      res.json(result);
+    } catch (error) {
+      sendHttpError(res, error);
+    }
+  }
+);
+
+exports.mercadoPagoCriarCheckoutHttp = onRequest(
+  HTTP_OPTIONS,
+  async (req, res) => {
+    try {
+      const { body, decoded, targetProjectId, firestoreDb } =
+        await getUnifiedMercadoPagoHttpContext(req);
+      const result = await criarCheckoutBlocoMercadoPagoCore({
+        firestoreDb,
+        targetProjectId,
+        compradorUid: decoded.uid,
+        authEmail: decoded.email,
+        ownerUserId: body?.ownerUserId,
+        espacoId: body?.espacoId,
+        blocoId: body?.blocoId,
+        skinUsername: body?.skinUsername,
+        baseUrlInput: body?.baseUrl,
+        returnTo: body?.returnTo,
+      });
+      res.json(result);
+    } catch (error) {
+      sendHttpError(res, error);
+    }
+  }
+);
+
+exports.mercadoPagoConfirmarPagamentoHttp = onRequest(
+  HTTP_OPTIONS,
+  async (req, res) => {
+    try {
+      const { body, decoded, targetProjectId, firestoreDb } =
+        await getUnifiedMercadoPagoHttpContext(req);
+      const result = await confirmarPagamentoBlocoMercadoPagoCore({
+        firestoreDb,
+        targetProjectId,
+        compradorUid: decoded.uid,
+        ownerUserId: body?.ownerUserId,
+        espacoId: body?.espacoId,
+        blocoId: body?.blocoId,
+        paymentId: body?.paymentId,
+      });
+      res.json(result);
+    } catch (error) {
+      sendHttpError(res, error);
+    }
+  }
+);
 
 exports.uploadArquivoBucketCompartilhado = onRequest(
   HTTP_OPTIONS,
