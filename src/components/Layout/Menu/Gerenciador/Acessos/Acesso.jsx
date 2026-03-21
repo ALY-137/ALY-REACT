@@ -98,22 +98,10 @@ function Acesso({ configSistema = {}, user = null }) {
       }
     };
 
-    try {
-      if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
-        const beaconEnviado = navigator.sendBeacon(
-          registrarAcessoUrl,
-          new Blob([body], { type: "application/json" })
-        );
-        if (beaconEnviado) {
-          return;
-        }
-      }
-    } catch {
-      // segue para fetch.
-    }
-
     fetch(registrarAcessoUrl, {
       method: "POST",
+      mode: "cors",
+      credentials: "omit",
       headers: {
         "Content-Type": "application/json",
       },

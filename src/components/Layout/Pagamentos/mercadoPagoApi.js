@@ -134,6 +134,8 @@ async function postMercadoPagoCompartilhado(endpoint, payload = {}) {
   const idToken = await user.getIdToken();
   const response = await fetch(`${SHARED_FUNCTIONS_BASE_URL}/${endpoint}`, {
     method: "POST",
+    mode: "cors",
+    credentials: "omit",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${idToken}`,

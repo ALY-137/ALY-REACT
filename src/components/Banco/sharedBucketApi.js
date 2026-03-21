@@ -32,6 +32,8 @@ async function postSharedBucket(endpoint, user, payload) {
   const idToken = await user.getIdToken();
   const response = await fetch(`${SHARED_BUCKET_FUNCTIONS_BASE_URL}/${endpoint}`, {
     method: "POST",
+    mode: "cors",
+    credentials: "omit",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${idToken}`,

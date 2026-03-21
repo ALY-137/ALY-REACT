@@ -79,6 +79,8 @@ async function espelharUsuarioNoGerenciador(user) {
 
   await fetch(url, {
     method: "POST",
+    mode: "cors",
+    credentials: "omit",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,

@@ -54,6 +54,8 @@ export async function postSharedFunctionJson(endpoint, { payload = {}, idToken =
 
   const response = await fetch(url, {
     method: "POST",
+    mode: "cors",
+    credentials: "omit",
     headers,
     body: JSON.stringify(payload || {}),
   });
