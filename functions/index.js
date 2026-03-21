@@ -39,21 +39,23 @@ if (runtimeServiceAccount) {
 const SHARED_BUCKET_NAME =
   sanitizeString(process.env.SHARED_STORAGE_BUCKET) ||
   `${sanitizeString(process.env.GCLOUD_PROJECT) || "teste-aa015"}.appspot.com`;
+const CURRENT_PROJECT_ID = sanitizeString(process.env.GCLOUD_PROJECT) || "teste-aa015";
+const SYSTEM_MANAGER_PROJECT_ID =
+  sanitizeString(process.env.SYSTEM_MANAGER_PROJECT_ID) || "gerenciador-aly";
 const SHARED_BUCKET_ALLOWED_AUTH_PROJECTS = [
-  sanitizeString(process.env.GCLOUD_PROJECT) || "teste-aa015",
+  CURRENT_PROJECT_ID,
   "teste-aa015",
   ...parseCsv(process.env.SHARED_BUCKET_AUTH_PROJECTS),
   "obeyon-project",
   "aly-onepages-runtime",
-  "gerenciador-aly",
+  SYSTEM_MANAGER_PROJECT_ID,
 ].filter(Boolean);
 const UNIQUE_SHARED_BUCKET_AUTH_PROJECTS = [...new Set(SHARED_BUCKET_ALLOWED_AUTH_PROJECTS)];
 const sharedVerifierApps = new Map();
 const sharedProjectRuntimeApps = new Map();
-const CURRENT_PROJECT_ID = sanitizeString(process.env.GCLOUD_PROJECT) || "teste-aa015";
 const ADMIN_ONLY_AUTH_PROJECTS = [
   ...parseCsv(process.env.ADMIN_ONLY_AUTH_PROJECTS),
-  "gerenciador-aly",
+  SYSTEM_MANAGER_PROJECT_ID,
 ].filter(Boolean);
 const ADMIN_ONLY_ALLOWED_UIDS = new Set(
   [

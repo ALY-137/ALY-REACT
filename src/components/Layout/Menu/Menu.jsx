@@ -21,6 +21,7 @@ import {
   DEFAULT_SISTEMA_CONFIG,
   aplicarBrandingNoDocumento,
   aplicarTemaNoBody,
+  isManagerProjectRuntime,
   isOneOwnerComEntradaPublica,
   obterOwnerEmailConfigurado,
   obterOwnerUidConfigurado,
@@ -70,7 +71,7 @@ function Menu({ menuOpen }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { userId: menuUserId, contactId } = useParams();
-  const isManagerProject = activeFirebaseProjectKey === "gerenciador-aly";
+  const isManagerProject = isManagerProjectRuntime(configSistema);
 
   const menuUserIdParam = String(menuUserId || "").trim();
   const menuUserIdNormalizado = ehSegmentoReservadoMenu(menuUserIdParam)

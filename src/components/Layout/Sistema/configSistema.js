@@ -28,7 +28,7 @@ const LEGACY_MAP_TEMA_SKIN_TO_SISTEMA = {
   SUNSHINE: "LOJA_DE_ROUPAS",
 };
 const LIMITE_SKINS_VALIDOS = ["1", "ilimitado"];
-const TIPOS_EXPERIENCIA_VALIDOS = ["multiowner", "oneowner"];
+const TIPOS_EXPERIENCIA_VALIDOS = ["multiowner", "oneowner", "manager"];
 const MODOS_ACESSO_PROJETO_VALIDOS = [
   "privado_com_login",
   "publico_com_area_restrita",
@@ -38,6 +38,11 @@ const DESTINOS_POS_LOGIN_VALIDOS = [
   "home_central_projeto",
   "home_skin_usuario",
 ];
+const SYSTEM_MANAGER_PROJECT_ID = String(
+  process.env.REACT_APP_SYSTEM_MANAGER_PROJECT_ID || "gerenciador-aly"
+)
+  .trim()
+  .toLowerCase();
 const METODOS_LOGIN_PADRAO = {
   google: true,
   twitter: true,
@@ -175,6 +180,31 @@ export function isOnePageComEntradaPublica(configSistema = DEFAULT_SISTEMA_CONFI
   return isOneOwnerComEntradaPublica(configSistema);
 }
 
+export function obterManagerProjectIdConfigurado() {
+  return SYSTEM_MANAGER_PROJECT_ID;
+}
+
+export function obterManagerProjectLabel() {
+  return SYSTEM_MANAGER_PROJECT_ID || "manager";
+}
+
+export function isManagerExperienceType(configSistema = null) {
+  return String(configSistema?.tipoExperiencia || "")
+    .trim()
+    .toLowerCase() === "manager";
+}
+
+export function isManagerProjectRuntime(configSistema = null) {
+  const projectKey = String(activeFirebaseProjectKey || "").trim().toLowerCase();
+  const projectId = String(activeFirebaseProjectId || "").trim().toLowerCase();
+  const managerProjectId = obterManagerProjectIdConfigurado();
+
+  return Boolean(
+    (managerProjectId && (projectKey === managerProjectId || projectId === managerProjectId)) ||
+      isManagerExperienceType(configSistema)
+  );
+}
+
 function normalizarDestinoPosLogin(value) {
   const normalizado = String(value || "").trim().toLowerCase();
   if (DESTINOS_POS_LOGIN_VALIDOS.includes(normalizado)) {
@@ -195,11 +225,13 @@ export function resolverDestinoPosLoginPadrao(configSistema = DEFAULT_SISTEMA_CO
 }
 
 function obterDefaultConfigSistemaProjeto() {
-  if (activeFirebaseProjectKey === "gerenciador-aly") {
+  if (isManagerProjectRuntime()) {
     return {
       ...DEFAULT_SISTEMA_CONFIG,
       temaPadraoSistema: "ALY_137",
       tituloSistema: "GERENCIADO DE PROJETOS",
+      tipoExperiencia: "manager",
+      modoAcessoProjeto: "privado_com_login",
     };
   }
   return { ...DEFAULT_SISTEMA_CONFIG };
@@ -209,12 +241,15 @@ function aplicarDefaultsPorProjeto(configSistema = DEFAULT_SISTEMA_CONFIG) {
   const config = {
     ...configSistema,
   };
-  if (activeFirebaseProjectKey === "gerenciador-aly") {
+  if (isManagerProjectRuntime(config)) {
     if (!config.temaPadraoSistema || config.temaPadraoSistema === "PADRAO_INICIAL") {
       config.temaPadraoSistema = "ALY_137";
     }
     if (!config.tituloSistema) {
       config.tituloSistema = "GERENCIADO DE PROJETOS";
+    }
+    if (!config.tipoExperiencia || config.tipoExperiencia === "multiowner") {
+      config.tipoExperiencia = "manager";
     }
   }
   return config;
@@ -324,7 +359,7 @@ function salvarConfigSistemaCacheLocal(configNormalizada = DEFAULT_SISTEMA_CONFI
 }
 
 async function sincronizarConfigSistemaRuntime(configNormalizada = DEFAULT_SISTEMA_CONFIG) {
-  if (activeFirebaseProjectKey === "gerenciador-aly") return;
+  if (isManagerProjectRuntime(configNormalizada)) return;
   if (!auth.currentUser?.uid) return;
 
   const refsConfig = obterSistemaConfigRefsComFallback();
@@ -428,6 +463,8 @@ function normalizarTipoExperiencia(value) {
   let normalizado = String(value || "").trim().toLowerCase();
   if (normalizado === "onepage") normalizado = "oneowner";
   if (normalizado === "multipage") normalizado = "multiowner";
+  if (normalizado === "menager") normalizado = "manager";
+  if (normalizado === "gerenciador") normalizado = "manager";
   if (TIPOS_EXPERIENCIA_VALIDOS.includes(normalizado)) {
     return normalizado;
   }

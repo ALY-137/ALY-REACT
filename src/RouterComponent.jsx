@@ -6,9 +6,9 @@ import {
   useParams,
 } from "react-router-dom";
 import { useRoutesContext } from "./context/RoutesContext";
-import { activeFirebaseProjectKey } from "./components/Banco/init-firebase";
 import {
   DEFAULT_SISTEMA_CONFIG,
+  isManagerProjectRuntime,
   isOneOwnerComEntradaPublica,
   obterConfigSistema,
   obterConfigSistemaCacheLocal,
@@ -39,7 +39,6 @@ function RedirectOneOwnerLegacyPath() {
 
 export default function RouterComponent() {
   const { routes } = useRoutesContext();
-  const isManagerProject = activeFirebaseProjectKey === "gerenciador-aly";
   const configCacheInicial = obterConfigSistemaCacheLocal();
   const [configSistemaCache, setConfigSistemaCache] = useState(
     () => configCacheInicial || DEFAULT_SISTEMA_CONFIG
@@ -47,6 +46,7 @@ export default function RouterComponent() {
   const [configSistemaHidratada, setConfigSistemaHidratada] = useState(
     () => Boolean(configCacheInicial)
   );
+  const isManagerProject = isManagerProjectRuntime(configSistemaCache);
 
   useEffect(() => {
     let ativo = true;

@@ -9,6 +9,7 @@ import {
   removerProjetoNoGerenciador,
   salvarConfigProjetoNoGerenciador,
 } from "../../Sistema/gerenciadorProjetosApi";
+import { obterManagerProjectLabel } from "../../Sistema/configSistema";
 import { listConfiguredFirebaseProjects } from "../../../../config/firebaseProjects";
 import PropriedadesSistema from "./PropriedadesSistema/PropriedadesSistema";
 
@@ -105,9 +106,18 @@ function normalizeHost(value) {
 
 function normalizeTipoProjeto(value) {
   const raw = normalizeText(value).toLowerCase();
+  if (raw === "manager" || raw === "menager" || raw === "gerenciador") return "manager";
   if (raw === "onepage") return "oneowner";
   if (raw === "multipage") return "multiowner";
-  return raw === "oneowner" ? "oneowner" : "multiowner";
+  if (raw === "oneowner") return "oneowner";
+  return raw === "manager" ? "manager" : "multiowner";
+}
+
+function rotuloTipoProjeto(tipoProjeto = "") {
+  const normalizado = normalizeTipoProjeto(tipoProjeto);
+  if (normalizado === "oneowner") return "Oneowner";
+  if (normalizado === "manager") return "Manager";
+  return "Multiowner";
 }
 
 function resolveTipoProjetoProjeto(projeto = {}) {
@@ -287,6 +297,7 @@ function mesclarProjetosGerenciadorComEnv(listaGerenciador = []) {
 
 function GerenciadorProjetos() {
   const { user, loading } = useAuth();
+  const managerProjectLabel = obterManagerProjectLabel();
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
@@ -701,7 +712,7 @@ function GerenciadorProjetos() {
             type="text"
             value={form.systemKey}
             onChange={(event) => atualizarCampo("systemKey", event.target.value)}
-            placeholder="ex: gerenciador-aly"
+            placeholder={`ex: ${managerProjectLabel}`}
             style={{ width: "100%", marginTop: 6 }}
           />
 
@@ -864,7 +875,7 @@ function GerenciadorProjetos() {
               </p>
               <p style={{ margin: "6px 0 0 0" }}>Key: {projeto.systemKey}</p>
               <p style={{ margin: "2px 0 0 0" }}>
-                Tipo: {normalizeTipoProjeto(projeto.tipoProjeto) === "oneowner" ? "Oneowner" : "Multiowner"}
+                Tipo: {rotuloTipoProjeto(projeto.tipoProjeto)}
               </p>
               <p style={{ margin: "2px 0 0 0" }}>
                 Firebase Project: {projeto.firebaseProjectId || "-"}

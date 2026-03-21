@@ -124,6 +124,7 @@ function Users() {
               <option value="">Todos</option>
               <option value="multiowner">multiowner</option>
               <option value="oneowner">oneowner</option>
+              <option value="manager">manager</option>
             </select>
           </label>
 

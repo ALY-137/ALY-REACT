@@ -11,7 +11,10 @@ import {
   DEFAULT_SISTEMA_CONFIG,
   aplicarBrandingNoDocumento,
   aplicarTemaNoBody,
+  isManagerProjectRuntime,
   normalizarConfigSistema,
+  obterManagerProjectIdConfigurado,
+  obterManagerProjectLabel,
   obterConfigSistema,
   salvarConfigSistemaAdmin,
 } from "../../Sistema/configSistema";
@@ -170,7 +173,8 @@ function PropriedadesSistema({
   projetoGerenciado = null,
 }) {
   const { user, loading } = useAuth();
-  const isManagerProject = activeFirebaseProjectKey === "gerenciador-aly";
+  const managerProjectId = obterManagerProjectIdConfigurado();
+  const managerProjectLabel = obterManagerProjectLabel();
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [mensagem, setMensagem] = useState("");
@@ -180,6 +184,7 @@ function PropriedadesSistema({
   const [uploadCampoAtivo, setUploadCampoAtivo] = useState("");
   const [arquivosBrandingSelecionados, setArquivosBrandingSelecionados] = useState({});
   const [iconCollectionsDisponiveis, setIconCollectionsDisponiveis] = useState([]);
+  const isManagerProject = isManagerProjectRuntime(config);
   const loginGoogleHabilitado = config?.metodosLoginHabilitados?.google !== false;
   const loginTwitterHabilitado = config?.metodosLoginHabilitados?.twitter !== false;
   const loginEmailSenhaHabilitado =
@@ -207,7 +212,7 @@ function PropriedadesSistema({
   ]);
   const projetoGerenciadoKey = String(projetoGerenciado?.systemKey || "").trim().toLowerCase();
   const editandoProjetoExterno =
-    !!projetoGerenciadoKey && projetoGerenciadoKey !== "gerenciador-aly";
+    !!projetoGerenciadoKey && projetoGerenciadoKey !== managerProjectId;
   const exibindoConfiguracoesProjeto = !isManagerProject || editandoProjetoExterno;
   const tipoExperienciaAtual = String(config?.tipoExperiencia || "multiowner")
     .trim()
@@ -520,7 +525,7 @@ function PropriedadesSistema({
         <h2>{tituloSecao}</h2>
         <p>
           Configuracoes centralizadas no Gerenciador de Projetos. Abra o projeto
-          <code> gerenciador-aly </code> para editar.
+          <code>{` ${managerProjectLabel} `}</code> para editar.
         </p>
       </div>
     );
@@ -1790,7 +1795,7 @@ function PropriedadesSistema({
           ) : (
             <p style={{ marginTop: 10, opacity: 0.8 }}>
               Em <code>multiowner</code>, o owner operacional e o projeto{" "}
-              <code>gerenciador-aly</code>; nao e necessario configurar UID/email de owner aqui.
+              <code>{managerProjectLabel}</code>; nao e necessario configurar UID/email de owner aqui.
             </p>
           )}
         </div>

@@ -4,7 +4,6 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 import { collection, doc, getDocs, onSnapshot, query, where } from "firebase/firestore";
 
 import {
-  activeFirebaseProjectKey,
   auth,
   db,
 } from "./components/Banco/init-firebase";
@@ -17,6 +16,7 @@ import {
   aplicarBrandingNoDocumento,
   aplicarTemaNoBody,
   estaConfigSistemaInicializada,
+  isManagerProjectRuntime,
   isOneOwnerComEntradaPublica,
   obterOwnerEmailConfigurado,
   obterOwnerUidConfigurado,
@@ -59,7 +59,6 @@ const LOGIN_REVEAL_DELAY_RITUAL_MS = 6200;
 const LOGIN_REVEAL_DELAY_SPRITE_MS = 1200;
 
 const App = () => {
-  const isManagerProject = activeFirebaseProjectKey === "gerenciador-aly";
   const [user, setUser] = useState(null);
   const [skins, setSkins] = useState([]);
   const [username, setUsername] = useState("");
@@ -83,6 +82,7 @@ const App = () => {
   const solicitacoesVistasRef = useRef(new Set());
 
   const location = useLocation();
+  const isManagerProject = isManagerProjectRuntime(configSistema);
 
 
   const aplicarConfigSistemaLocal = (config) => {

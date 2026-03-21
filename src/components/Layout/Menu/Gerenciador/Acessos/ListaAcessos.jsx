@@ -5,6 +5,7 @@ import {
   listarProjetosNoGerenciador,
   obterFirestoreDoGerenciador,
 } from "../../../Sistema/gerenciadorSistemasApi";
+import { obterManagerProjectLabel } from "../../../Sistema/configSistema";
 import "./acessos.css";
 
 function normalizeText(value) {
@@ -23,6 +24,7 @@ function formatarData(value) {
 }
 
 function ListaAcessos() {
+  const managerProjectLabel = obterManagerProjectLabel();
   const [acessos, setAcessos] = useState([]);
   const [projetos, setProjetos] = useState([]);
   const [filtroProjeto, setFiltroProjeto] = useState("");
@@ -107,7 +109,7 @@ function ListaAcessos() {
         <div>
           <h1 className="gerenciador-acessos__title">ACESSOS</h1>
           <p className="gerenciador-acessos__subtitle">
-            Eventos de acesso centralizados no projeto gerenciador-aly.
+            {`Eventos de acesso centralizados no projeto ${managerProjectLabel}.`}
           </p>
         </div>
 

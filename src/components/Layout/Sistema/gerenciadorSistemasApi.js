@@ -64,6 +64,7 @@ function normalizeThemeIds(value) {
 
 function normalizeProjectType(value) {
   const raw = normalizeText(value).toLowerCase();
+  if (raw === "manager" || raw === "menager" || raw === "gerenciador") return "manager";
   if (raw === "oneowner") return "oneowner";
   if (raw === "multipage") return "multiowner";
   if (raw === "onepage") return "oneowner";
@@ -653,6 +654,13 @@ export async function criarSistemaNoGerenciador({
     destinoPosLogin: "home_skin_usuario",
     exibirTituloSistemaNoLogin: true,
     textoLogin: "EMBARQUE COM O GOOGLE",
+    ...(tipoProjetoNormalizado === "manager"
+      ? {
+          tipoExperiencia: "manager",
+          modoAcessoProjeto: "privado_com_login",
+          destinoPosLogin: "home_central_projeto",
+        }
+      : {}),
     ...(tipoProjetoNormalizado === "oneowner"
       ? {
           tipoExperiencia: "oneowner",
