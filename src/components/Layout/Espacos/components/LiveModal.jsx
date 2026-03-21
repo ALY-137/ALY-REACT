@@ -10,13 +10,18 @@ export default function LiveModal({
   embedUrl = "",
   usuarioPodeControlarCameraLive = false,
   alternarCameraLive,
+  alternarFonteCameraLive,
+  girarCameraLive,
   liveCameraAtiva = false,
+  liveCameraFacingMode = "user",
+  liveCameraRotacaoGraus = 0,
   liveCameraErro = "",
   liveCameraVideoRef,
   liveCameraStream = null,
   currentUidAutenticado = "",
   liveCameraRemotaStatus = "",
   liveCameraRemotaAtiva = false,
+  liveCameraRemotaRotacaoGraus = 0,
   liveCameraRemotaVideoRef,
   liveCameraRemotaStream = null,
   liveCriadorCameraAtiva = false,
@@ -36,6 +41,8 @@ export default function LiveModal({
     !usuarioPodeControlarCameraLive && currentUidAutenticado && liveCameraRemotaAtiva
   );
   const cameraDisponivel = cameraLocalDisponivel || cameraRemotaDisponivel;
+  const rotacaoLocal = Number(liveCameraRotacaoGraus) || 0;
+  const rotacaoRemota = Number(liveCameraRemotaRotacaoGraus) || 0;
 
   const cameraStage = useMemo(() => {
     if (cameraLocalDisponivel) {
@@ -99,11 +106,15 @@ export default function LiveModal({
     refExterno,
     stream = null,
     muted = false,
+    rotationDeg = 0,
   }) => (
     <video
       className={className}
       ref={(node) => {
         aplicarRefVideo(refExterno, node, stream, { muted });
+      }}
+      style={{
+        transform: `rotate(${Number(rotationDeg) || 0}deg)`,
       }}
       autoPlay
       muted={Boolean(muted)}
@@ -190,6 +201,7 @@ export default function LiveModal({
               refExterno: cameraStage.ref,
               stream: cameraStage.stream,
               muted: cameraStage.muted,
+              rotationDeg: cameraLocalDisponivel ? rotacaoLocal : rotacaoRemota,
             })}
           </div>
         ) : null}
@@ -217,6 +229,22 @@ export default function LiveModal({
             <div className="live-modal__toolbar">
               <span className="live-modal__toolbar-label">Camera do criador</span>
               <div className="live-modal__toolbar-actions">
+                <button
+                  type="button"
+                  className="live-modal__camera-toggle"
+                  onClick={alternarFonteCameraLive}
+                >
+                  {String(liveCameraFacingMode || "").trim().toLowerCase() === "environment"
+                    ? "Usar frontal"
+                    : "Usar traseira"}
+                </button>
+                <button
+                  type="button"
+                  className="live-modal__camera-toggle"
+                  onClick={girarCameraLive}
+                >
+                  Girar camera
+                </button>
                 {cameraLocalDisponivel ? (
                   <button
                     type="button"
@@ -244,6 +272,7 @@ export default function LiveModal({
                     refExterno: liveCameraVideoRef,
                     stream: liveCameraStream,
                     muted: true,
+                    rotationDeg: rotacaoLocal,
                   })
                 : (
                   <div className="live-modal__camera-placeholder live-modal__camera-placeholder--compact">
@@ -279,6 +308,7 @@ export default function LiveModal({
                       refExterno: liveCameraRemotaVideoRef,
                       stream: liveCameraRemotaStream,
                       muted: false,
+                      rotationDeg: rotacaoRemota,
                     })
                   : (
                     <div className="live-modal__camera-placeholder live-modal__camera-placeholder--compact">

@@ -437,9 +437,12 @@ export default function EspacoPage() {
   const [liveChatErro, setLiveChatErro] = useState("");
   const [liveCameraAtiva, setLiveCameraAtiva] = useState(false);
   const [liveCameraErro, setLiveCameraErro] = useState("");
+  const [liveCameraFacingMode, setLiveCameraFacingMode] = useState("user");
+  const [liveCameraRotacaoGraus, setLiveCameraRotacaoGraus] = useState(0);
   const [liveCameraRemotaAtiva, setLiveCameraRemotaAtiva] = useState(false);
   const [liveCameraRemotaErro, setLiveCameraRemotaErro] = useState("");
   const [liveCameraRemotaStatus, setLiveCameraRemotaStatus] = useState("");
+  const [liveCameraRemotaRotacaoGraus, setLiveCameraRemotaRotacaoGraus] = useState(0);
   const [liveViewerTentativas, setLiveViewerTentativas] = useState(0);
   const [liveCriadorCameraAtiva, setLiveCriadorCameraAtiva] = useState(false);
   const liveModalEhVideoDireto = useMemo(
@@ -654,7 +657,20 @@ export default function EspacoPage() {
     liveRtcHostPeersRef.current.clear();
   };
 
-  const atualizarStatusCameraLive = async (cameraAtiva = false) => {
+  const normalizarRotacaoCameraLive = (valor) => {
+    const numero = Number(valor);
+    if (!Number.isFinite(numero)) return 0;
+    const normalizado = ((Math.round(numero / 90) * 90) % 360 + 360) % 360;
+    return normalizado;
+  };
+
+  const atualizarStatusCameraLive = async (
+    cameraAtiva = false,
+    {
+      facingMode = liveCameraFacingMode,
+      rotationDeg = liveCameraRotacaoGraus,
+    } = {}
+  ) => {
     const contactId = String(liveModal.contactId || "").trim();
     const conversationId = String(liveModal.conversationId || "principal").trim();
     if (!usuarioPodeControlarCameraLive || !contactId || !conversationId) return;
@@ -662,6 +678,9 @@ export default function EspacoPage() {
     const ownerUidLive = String(
       currentUidAutenticado || liveModal.ownerUserId || ownerUserIdLiveFallback || ""
     ).trim();
+    const facingModeNormalizado =
+      String(facingMode || "").trim().toLowerCase() === "environment" ? "environment" : "user";
+    const rotationDegNormalizada = normalizarRotacaoCameraLive(rotationDeg);
     try {
       for (const conversaRef of getConversaDocRefs(db, contactId, conversationId)) {
         await setDoc(
@@ -669,6 +688,8 @@ export default function EspacoPage() {
           {
             liveCameraAtiva: Boolean(cameraAtiva),
             liveCameraOwnerUid: ownerUidLive || null,
+            liveCameraFacingMode: facingModeNormalizado,
+            liveCameraRotationDeg: rotationDegNormalizada,
             liveCameraAtualizadoEm: serverTimestamp(),
           },
           { merge: true }
@@ -679,11 +700,9 @@ export default function EspacoPage() {
     }
   };
 
-  const desligarCameraLive = (limparErro = false) => {
-    encerrarHostRtcLive();
-    const streamAtual = liveCameraStreamRef.current;
-    if (streamAtual?.getTracks) {
-      streamAtual.getTracks().forEach((track) => {
+  const pararStreamLocalLive = (stream = liveCameraStreamRef.current) => {
+    if (stream?.getTracks) {
+      stream.getTracks().forEach((track) => {
         try {
           track.stop();
         } catch {
@@ -691,6 +710,110 @@ export default function EspacoPage() {
         }
       });
     }
+  };
+
+  const substituirTrackCameraNosPeersHost = async (streamLocal) => {
+    const novaTrack = streamLocal?.getVideoTracks?.()?.[0] || null;
+    if (!novaTrack) return;
+
+    const promessas = [];
+    for (const peerContexto of liveRtcHostPeersRef.current.values()) {
+      const peer = peerContexto?.pc;
+      if (!peer?.getSenders) continue;
+      const senderVideo = peer
+        .getSenders()
+        .find((sender) => String(sender?.track?.kind || "").trim().toLowerCase() === "video");
+      if (!senderVideo?.replaceTrack) continue;
+      promessas.push(
+        senderVideo.replaceTrack(novaTrack).catch(() => {})
+      );
+    }
+
+    if (promessas.length) {
+      await Promise.all(promessas);
+    }
+  };
+
+  const solicitarStreamCameraLive = async (
+    facingModeDesejado = liveCameraFacingMode,
+    { genericFallback = true } = {}
+  ) => {
+    const facingModeNormalizado =
+      String(facingModeDesejado || "").trim().toLowerCase() === "environment"
+        ? "environment"
+        : "user";
+    const tentativas = [
+      {
+        video: {
+          facingMode: { exact: facingModeNormalizado },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: false,
+      },
+      {
+        video: {
+          facingMode: { ideal: facingModeNormalizado },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: false,
+      },
+    ];
+
+    if (genericFallback) {
+      tentativas.push({
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: false,
+      });
+    }
+
+    let ultimoErro = null;
+    for (const constraints of tentativas) {
+      try {
+        return await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (erroCamera) {
+        ultimoErro = erroCamera;
+      }
+    }
+
+    throw ultimoErro || new Error("Nao foi possivel acessar a camera.");
+  };
+
+  const aplicarStreamLocalLive = async (
+    stream,
+    { facingMode = liveCameraFacingMode } = {}
+  ) => {
+    const streamAnterior = liveCameraStreamRef.current;
+    liveCameraStreamRef.current = stream;
+
+    if (liveCameraVideoRef.current) {
+      liveCameraVideoRef.current.srcObject = stream;
+      liveCameraVideoRef.current.setAttribute("playsinline", "true");
+      liveCameraVideoRef.current.setAttribute("autoplay", "true");
+      liveCameraVideoRef.current.muted = true;
+      await liveCameraVideoRef.current.play().catch(() => {});
+    }
+
+    await substituirTrackCameraNosPeersHost(stream);
+    if (streamAnterior && streamAnterior !== stream) {
+      pararStreamLocalLive(streamAnterior);
+    }
+
+    setLiveCameraFacingMode(
+      String(facingMode || "").trim().toLowerCase() === "environment" ? "environment" : "user"
+    );
+    setLiveCameraAtiva(true);
+    setLiveCameraErro("");
+  };
+
+  const desligarCameraLive = (limparErro = false) => {
+    encerrarHostRtcLive();
+    const streamAtual = liveCameraStreamRef.current;
+    pararStreamLocalLive(streamAtual);
     liveCameraStreamRef.current = null;
 
     if (liveCameraVideoRef.current) {
@@ -728,30 +851,72 @@ export default function EspacoPage() {
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: false,
+      const stream = await solicitarStreamCameraLive(liveCameraFacingMode, {
+        genericFallback: true,
       });
       const tracksVideo = stream?.getVideoTracks?.() || [];
       if (!tracksVideo.length) {
         throw new Error("Nenhuma trilha de video foi disponibilizada.");
       }
 
-      desligarCameraLive();
-      liveCameraStreamRef.current = stream;
-      if (liveCameraVideoRef.current) {
-        liveCameraVideoRef.current.srcObject = stream;
-        liveCameraVideoRef.current.setAttribute("playsinline", "true");
-        liveCameraVideoRef.current.setAttribute("autoplay", "true");
-        liveCameraVideoRef.current.muted = true;
-        await liveCameraVideoRef.current.play().catch(() => {});
-      }
-      setLiveCameraAtiva(true);
-      setLiveCameraErro("");
-      void atualizarStatusCameraLive(true);
+      await aplicarStreamLocalLive(stream, { facingMode: liveCameraFacingMode });
+      void atualizarStatusCameraLive(true, {
+        facingMode: liveCameraFacingMode,
+        rotationDeg: liveCameraRotacaoGraus,
+      });
     } catch (erroCamera) {
       setLiveCameraAtiva(false);
       setLiveCameraErro("Nao foi possivel acessar a camera.");
+    }
+  };
+
+  const alternarFonteCameraLive = async () => {
+    if (!usuarioPodeControlarCameraLive) return;
+
+    const proximoFacingMode =
+      String(liveCameraFacingMode || "").trim().toLowerCase() === "environment"
+        ? "user"
+        : "environment";
+
+    if (!liveCameraAtiva) {
+      setLiveCameraFacingMode(proximoFacingMode);
+      setLiveCameraErro("");
+      return;
+    }
+
+    try {
+      const stream = await solicitarStreamCameraLive(proximoFacingMode, {
+        genericFallback: false,
+      });
+      const tracksVideo = stream?.getVideoTracks?.() || [];
+      if (!tracksVideo.length) {
+        throw new Error("Nenhuma trilha de video foi disponibilizada.");
+      }
+
+      await aplicarStreamLocalLive(stream, { facingMode: proximoFacingMode });
+      void atualizarStatusCameraLive(true, {
+        facingMode: proximoFacingMode,
+        rotationDeg: liveCameraRotacaoGraus,
+      });
+    } catch {
+      setLiveCameraErro(
+        proximoFacingMode === "environment"
+          ? "Nao foi possivel acessar a camera traseira neste dispositivo."
+          : "Nao foi possivel acessar a camera frontal neste dispositivo."
+      );
+    }
+  };
+
+  const girarCameraLive = () => {
+    if (!usuarioPodeControlarCameraLive) return;
+
+    const proximaRotacao = normalizarRotacaoCameraLive(liveCameraRotacaoGraus + 90);
+    setLiveCameraRotacaoGraus(proximaRotacao);
+    if (liveCameraAtiva) {
+      void atualizarStatusCameraLive(true, {
+        facingMode: liveCameraFacingMode,
+        rotationDeg: proximaRotacao,
+      });
     }
   };
 
@@ -939,13 +1104,12 @@ export default function EspacoPage() {
     const ownerUidLiveHost = String(
       liveModal.ownerUserId || ownerUserIdLiveFallback || ownerUidAtual || ""
     ).trim();
-    const streamLocal = liveCameraStreamRef.current;
     const sessaoRtcRef = getFirstRef(
       getLiveRtcSessionCollectionRefs(db, contactId, conversationId)
     );
 
     if (typeof RTCPeerConnection !== "function") return undefined;
-    if (!sessaoRtcRef || !streamLocal) return undefined;
+    if (!sessaoRtcRef || !liveCameraStreamRef.current) return undefined;
 
     void garantirContatoConversaLive({
       db,
@@ -1163,8 +1327,12 @@ export default function EspacoPage() {
 
               if (!hostTracksAdicionadas) {
                 try {
-                  streamLocal.getTracks().forEach((track) => {
-                    peer.addTrack(track, streamLocal);
+                  const streamAtualHost = liveCameraStreamRef.current;
+                  if (!streamAtualHost) {
+                    throw new Error("Stream local indisponivel para responder a live.");
+                  }
+                  streamAtualHost.getTracks().forEach((track) => {
+                    peer.addTrack(track, streamAtualHost);
                   });
                 } catch (erroStage) {
                   erroStage.__hostRtcCode = "add-local-tracks";
@@ -1286,6 +1454,7 @@ export default function EspacoPage() {
   useEffect(() => {
     if (!liveModal.aberto || !liveModal.contactId || !liveModal.conversationId) {
       setLiveCriadorCameraAtiva(false);
+      setLiveCameraRemotaRotacaoGraus(0);
       return undefined;
     }
 
@@ -1302,6 +1471,9 @@ export default function EspacoPage() {
       (snap) => {
         const data = snap.data() || {};
         setLiveCriadorCameraAtiva(Boolean(data.liveCameraAtiva));
+        setLiveCameraRemotaRotacaoGraus(
+          normalizarRotacaoCameraLive(data.liveCameraRotationDeg)
+        );
       },
       () => {}
     );
@@ -3508,13 +3680,18 @@ export default function EspacoPage() {
         embedUrl={liveModal.embedUrl}
         usuarioPodeControlarCameraLive={usuarioPodeControlarCameraLive}
         alternarCameraLive={alternarCameraLive}
+        alternarFonteCameraLive={alternarFonteCameraLive}
+        girarCameraLive={girarCameraLive}
         liveCameraAtiva={liveCameraAtiva}
+        liveCameraFacingMode={liveCameraFacingMode}
+        liveCameraRotacaoGraus={liveCameraRotacaoGraus}
         liveCameraErro={liveCameraErro}
         liveCameraVideoRef={liveCameraVideoRef}
         liveCameraStream={liveCameraStreamRef.current}
         currentUidAutenticado={currentUidAutenticado}
         liveCameraRemotaStatus={liveCameraRemotaStatus}
         liveCameraRemotaAtiva={liveCameraRemotaAtiva}
+        liveCameraRemotaRotacaoGraus={liveCameraRemotaRotacaoGraus}
         liveCameraRemotaVideoRef={liveCameraRemotaVideoRef}
         liveCameraRemotaStream={liveCameraRemotaStreamRef.current}
         liveCriadorCameraAtiva={liveCriadorCameraAtiva}

@@ -110,6 +110,15 @@ function normalizeTipoProjeto(value) {
   return raw === "oneowner" ? "oneowner" : "multiowner";
 }
 
+function resolveTipoProjetoProjeto(projeto = {}) {
+  const configTipoExperiencia = normalizeText(projeto?.configSistema?.tipoExperiencia);
+  if (configTipoExperiencia) {
+    return normalizeTipoProjeto(configTipoExperiencia);
+  }
+
+  return normalizeTipoProjeto(projeto?.tipoProjeto || "multiowner");
+}
+
 function isNonConfigurableManagerProject(item = {}) {
   const systemKey = normalizeText(item?.systemKey || item?.key || item?.id).toLowerCase();
   return NON_CONFIGURABLE_MANAGER_SYSTEM_KEYS.has(systemKey);
@@ -194,10 +203,7 @@ function validarFormularioCriacao(form, oneownerRuntimeProjectId) {
 function projetoComCamposPadrao(projeto = {}) {
   const keyNormalizada = normalizeText(projeto.systemKey || projeto.key || projeto.id).toLowerCase();
   const nomeProjeto = normalizeText(projeto.nomeProjeto || nomeProjetoFallback(keyNormalizada));
-  const tipoProjeto = normalizeText(
-    projeto.tipoProjeto ||
-      (projeto.configSistema?.tipoExperiencia === "oneowner" ? "oneowner" : "multiowner")
-  );
+  const tipoProjeto = resolveTipoProjetoProjeto(projeto);
   const domainsNormalizados = Array.isArray(projeto.domains)
     ? projeto.domains.map((domain) => normalizeHost(domain)).filter(Boolean)
     : [];
@@ -207,7 +213,7 @@ function projetoComCamposPadrao(projeto = {}) {
     sourceCollection: projeto.sourceCollection || "systems",
     systemKey: keyNormalizada,
     nomeProjeto,
-    tipoProjeto: normalizeTipoProjeto(tipoProjeto),
+    tipoProjeto,
     firebaseProjectId: normalizeText(projeto.firebaseProjectId || projeto.projectId),
     domains: domainsNormalizados,
     firebaseRuntimeConfig:

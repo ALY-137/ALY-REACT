@@ -66,7 +66,16 @@ function normalizeProjectType(value) {
   const raw = normalizeText(value).toLowerCase();
   if (raw === "oneowner") return "oneowner";
   if (raw === "multipage") return "multiowner";
+  if (raw === "onepage") return "oneowner";
   return raw === "oneowner" ? "oneowner" : "multiowner";
+}
+
+function resolveProjectTypeFromData(data = {}) {
+  const configTipoExperiencia = normalizeText(data?.configSistema?.tipoExperiencia);
+  if (configTipoExperiencia) {
+    return normalizeProjectType(configTipoExperiencia);
+  }
+  return normalizeProjectType(data?.tipoProjeto || "multiowner");
 }
 
 function normalizeIconItems(value) {
@@ -497,11 +506,16 @@ export async function salvarConfigSistemaNoGerenciador({
       : (dataAtual?.configSistema && typeof dataAtual.configSistema === "object"
           ? dataAtual.configSistema
           : {});
+  const tipoProjetoFinal = resolveProjectTypeFromData({
+    ...dataAtual,
+    configSistema: configSistemaFinal,
+  });
 
   await setDoc(
     docRef,
     {
       systemKey: keyNormalizada,
+      tipoProjeto: tipoProjetoFinal,
       firebaseProjectId: normalizeText(projectId),
       domains: Array.from(domainsSet),
       configSistema: configSistemaFinal,
@@ -530,7 +544,7 @@ export async function listarSistemasNoGerenciador() {
           sourceCollection: collectionName,
           systemKey: normalizeText(data.systemKey || docItem.id),
           nomeProjeto: normalizeText(data.nomeProjeto || data.systemName || docItem.id),
-          tipoProjeto: normalizeProjectType(data.tipoProjeto || "multiowner"),
+          tipoProjeto: resolveProjectTypeFromData(data),
           firebaseProjectId: normalizeText(data.firebaseProjectId),
           domains: Array.isArray(data.domains)
             ? data.domains.map((d) => normalizeHost(d)).filter(Boolean)
