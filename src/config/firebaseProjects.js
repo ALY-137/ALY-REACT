@@ -1,3 +1,5 @@
+import { buildSharedFunctionsUrl } from "../components/Banco/sharedFunctionsApi";
+
 const DEFAULT_FUNCTIONS_REGION = "us-central1";
 const LOCAL_STORAGE_PROJECT_KEY = "firebaseProjectTarget";
 const LOCAL_STORAGE_PROJECT_ALIASES_KEY = "firebaseProjectAliases";
@@ -425,22 +427,13 @@ async function queryManagerProjectByDomain(hostname) {
     return cache;
   }
 
-  const managerRuntime = getManagerRuntimeConfig();
-  if (!managerRuntime) return null;
-
   try {
-    const functionRegion =
-      sanitizeEnvScalar(process.env.REACT_APP_SYSTEM_MANAGER_FUNCTIONS_REGION) ||
-      DEFAULT_FUNCTIONS_REGION;
-    const response = await fetch(
-      `https://${functionRegion}-${encodeURIComponent(
-        managerRuntime.projectId
-      )}.cloudfunctions.net/resolverProjetoPorDominioPublico?hostname=${encodeURIComponent(
-        normalizedHost
-      )}`
-    );
+    const resolverUrl = buildSharedFunctionsUrl("resolverProjetoPorDominioPublico", {
+      hostname: normalizedHost,
+    });
+    const response = resolverUrl ? await fetch(resolverUrl) : null;
 
-    if (response.ok) {
+    if (response?.ok) {
       const payload = await response.json().catch(() => ({}));
       const firebaseProjectId = String(payload?.firebaseProjectId || "").trim();
       const systemKey = String(payload?.systemKey || "").trim().toLowerCase();
@@ -458,6 +451,9 @@ async function queryManagerProjectByDomain(hostname) {
   } catch {
     // Segue fallback REST para compatibilidade enquanto a function nao estiver deployada.
   }
+
+  const managerRuntime = getManagerRuntimeConfig();
+  if (!managerRuntime) return null;
 
   try {
     const response = await fetch(

@@ -1,5 +1,4 @@
 ﻿import { initializeApp } from "firebase/app";
-import { httpsCallable } from "firebase/functions";
 import {
   collection,
   deleteDoc,
@@ -14,10 +13,11 @@ import {
 } from "firebase/firestore";
 import {
   activeFirebaseProjectId,
+  auth,
   createFirestoreCompatInstance,
   db as dbProjetoAtivo,
-  functions as functionsProjetoAtivo,
 } from "../../Banco/init-firebase";
+import { postSharedFunctionJson } from "../../Banco/sharedFunctionsApi";
 
 const MANAGER_APP_NAME = "system-manager-app";
 const MANAGER_COLLECTION = "systems";
@@ -29,8 +29,16 @@ const NON_CONFIGURABLE_MANAGER_SYSTEM_KEYS = new Set(["aly-onepages-runtime"]);
 
 let managerDbSingleton = null;
 
-function callLimparEnvsProjetoNoVercel(data) {
-  return httpsCallable(functionsProjetoAtivo, "limparEnvsProjetoNoVercel")(data);
+async function callLimparEnvsProjetoNoVercel(data) {
+  const user = auth?.currentUser;
+  if (!user?.getIdToken) {
+    throw new Error("Usuario autenticado obrigatorio para limpar ENV no Vercel.");
+  }
+
+  return postSharedFunctionJson("limparEnvsProjetoNoVercelHttp", {
+    payload: data,
+    idToken: await user.getIdToken(),
+  });
 }
 
 function normalizeText(value) {
@@ -722,7 +730,7 @@ export async function limparEnvsProjetoNoVercel({ systemKey = "" } = {}) {
   const response = await callLimparEnvsProjetoNoVercel({
     systemKey: keyNormalizada,
   });
-  return response?.data || { ok: false };
+  return response || { ok: false };
 }
 
 export async function removerProjetoNoGerenciador({

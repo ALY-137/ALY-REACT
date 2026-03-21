@@ -8,6 +8,7 @@ import {
 
 import { activeFirebaseProjectKey, db } from "./init-firebase";
 import { buildProjectDataPathCandidates } from "./projectDataNamespace";
+import { buildSharedFunctionsUrl } from "./sharedFunctionsApi";
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -57,14 +58,6 @@ async function appendLoginMirror(userRefs = []) {
   }
 }
 
-function getManagerFunctionsBaseUrl() {
-  const projectId = normalizeText(process.env.REACT_APP_SYSTEM_MANAGER_PROJECT_ID);
-  const region =
-    normalizeText(process.env.REACT_APP_SYSTEM_MANAGER_FUNCTIONS_REGION) || "us-central1";
-  if (!projectId) return "";
-  return `https://${region}-${projectId}.cloudfunctions.net`;
-}
-
 function getProjectSystemKeyForMirror() {
   try {
     const fromContext = normalizeText(localStorage.getItem("systemProjectContextKey")).toLowerCase();
@@ -78,13 +71,13 @@ function getProjectSystemKeyForMirror() {
 async function espelharUsuarioNoGerenciador(user) {
   if (!user?.uid || typeof user?.getIdToken !== "function") return;
 
-  const baseUrl = getManagerFunctionsBaseUrl();
-  if (!baseUrl) return;
+  const url = buildSharedFunctionsUrl("espelharUsuarioProjeto");
+  if (!url) return;
 
   const token = await user.getIdToken();
   const projectSystemKey = getProjectSystemKeyForMirror();
 
-  await fetch(`${baseUrl}/espelharUsuarioProjeto`, {
+  await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

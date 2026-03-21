@@ -2,6 +2,7 @@ import { useEffect, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 
 import { activeFirebaseProjectId, activeFirebaseProjectKey } from "../../../../Banco/init-firebase";
+import { buildSharedFunctionsUrl } from "../../../../Banco/sharedFunctionsApi";
 import {
   obterOwnerEmailConfigurado,
   obterOwnerUidConfigurado,
@@ -10,14 +11,6 @@ import { seforAdm } from "../../../../Scripts/verificacoes/verificaAdm";
 
 function normalizeText(value) {
   return String(value || "").trim();
-}
-
-function getManagerFunctionsBaseUrl() {
-  const projectId = normalizeText(process.env.REACT_APP_SYSTEM_MANAGER_PROJECT_ID);
-  const region =
-    normalizeText(process.env.REACT_APP_SYSTEM_MANAGER_FUNCTIONS_REGION) || "us-central1";
-  if (!projectId) return "";
-  return `https://${region}-${projectId}.cloudfunctions.net`;
 }
 
 function resolvePerfilAcesso({ user, configSistema }) {
@@ -74,10 +67,13 @@ function buildAcessoPayload({ user, configSistema, location }) {
 
 function Acesso({ configSistema = {}, user = null }) {
   const location = useLocation();
-  const managerBaseUrl = useMemo(() => getManagerFunctionsBaseUrl(), []);
+  const registrarAcessoUrl = useMemo(
+    () => buildSharedFunctionsUrl("registrarAcessoPublico"),
+    []
+  );
 
   useEffect(() => {
-    if (!managerBaseUrl) return;
+    if (!registrarAcessoUrl) return;
 
     const payload = buildAcessoPayload({ user, configSistema, location });
     const dedupeKey = [
@@ -95,7 +91,6 @@ function Acesso({ configSistema = {}, user = null }) {
       // Continua mesmo sem sessionStorage.
     }
 
-    const url = `${managerBaseUrl}/registrarAcessoPublico`;
     const body = JSON.stringify(payload);
     const reportarErro = (error) => {
       if (typeof window !== "undefined" && window.location.hostname === "localhost") {
@@ -106,7 +101,7 @@ function Acesso({ configSistema = {}, user = null }) {
     try {
       if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
         const beaconEnviado = navigator.sendBeacon(
-          url,
+          registrarAcessoUrl,
           new Blob([body], { type: "application/json" })
         );
         if (beaconEnviado) {
@@ -117,7 +112,7 @@ function Acesso({ configSistema = {}, user = null }) {
       // segue para fetch.
     }
 
-    fetch(url, {
+    fetch(registrarAcessoUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -125,7 +120,7 @@ function Acesso({ configSistema = {}, user = null }) {
       body,
       keepalive: true,
     }).catch(reportarErro);
-  }, [managerBaseUrl, user?.uid, user?.email, user?.displayName, location, configSistema]);
+  }, [registrarAcessoUrl, user?.uid, user?.email, user?.displayName, location, configSistema]);
 
   return null;
 }

@@ -76,6 +76,44 @@ const ADMIN_ONLY_ALLOWED_EMAILS = new Set(
     .filter(Boolean)
 );
 
+async function assertSystemManagerAdminIdentity({ uid = "", email = "" } = {}) {
+  const normalizedUid = sanitizeString(uid);
+  const normalizedEmail = sanitizeString(email).toLowerCase();
+  const dynamicAdminUid = await getDynamicAdminUidFromConfig();
+  const hasAnyAdminConfigured =
+    ADMIN_ONLY_ALLOWED_UIDS.size > 0 ||
+    ADMIN_ONLY_ALLOWED_EMAILS.size > 0 ||
+    Boolean(dynamicAdminUid);
+
+  if (!hasAnyAdminConfigured) {
+    if (shouldEnforceAdminOnlyAuth()) {
+      return normalizedUid;
+    }
+
+    throw new HttpsError(
+      "permission-denied",
+      "Admin do gerenciador nao configurado para executar esta acao."
+    );
+  }
+
+  if (ADMIN_ONLY_ALLOWED_UIDS.has(normalizedUid)) {
+    return normalizedUid;
+  }
+
+  if (normalizedEmail && ADMIN_ONLY_ALLOWED_EMAILS.has(normalizedEmail)) {
+    return normalizedUid;
+  }
+
+  if (dynamicAdminUid && dynamicAdminUid === normalizedUid) {
+    return normalizedUid;
+  }
+
+  throw new HttpsError(
+    "permission-denied",
+    "Apenas owner pode executar esta acao."
+  );
+}
+
 function sanitizeString(value) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -177,39 +215,7 @@ async function callVercelApi({
 async function assertSystemManagerAdminPermission(request) {
   const uid = ensureAuth(request);
   const email = sanitizeString(request?.auth?.token?.email).toLowerCase();
-  const dynamicAdminUid = await getDynamicAdminUidFromConfig();
-  const hasAnyAdminConfigured =
-    ADMIN_ONLY_ALLOWED_UIDS.size > 0 ||
-    ADMIN_ONLY_ALLOWED_EMAILS.size > 0 ||
-    Boolean(dynamicAdminUid);
-
-  if (!hasAnyAdminConfigured) {
-    if (shouldEnforceAdminOnlyAuth()) {
-      return uid;
-    }
-
-    throw new HttpsError(
-      "permission-denied",
-      "Admin do gerenciador nao configurado para executar esta acao."
-    );
-  }
-
-  if (ADMIN_ONLY_ALLOWED_UIDS.has(uid)) {
-    return uid;
-  }
-
-  if (email && ADMIN_ONLY_ALLOWED_EMAILS.has(email)) {
-    return uid;
-  }
-
-  if (dynamicAdminUid && dynamicAdminUid === uid) {
-    return uid;
-  }
-
-  throw new HttpsError(
-    "permission-denied",
-    "Apenas owner pode executar esta acao."
-  );
+  return assertSystemManagerAdminIdentity({ uid, email });
 }
 
 function shouldEnforceAdminOnlyAuth() {
@@ -218,7 +224,8 @@ function shouldEnforceAdminOnlyAuth() {
 
 async function getDynamicAdminUidFromConfig() {
   try {
-    const configSnap = await db.doc("add_ons/sistema_config").get();
+    const configDb = getSystemManagerDb();
+    const configSnap = await configDb.doc("add_ons/sistema_config").get();
     if (!configSnap.exists) return "";
     return (
       sanitizeString(configSnap.data()?.ownerUid) ||
@@ -334,6 +341,26 @@ function isCurrentProjectPublicHost(hostname = "") {
   return buildCurrentProjectPublicHosts().includes(normalizedHost);
 }
 
+function buildSystemManagerPublicHosts() {
+  const hosts = [
+    `${SYSTEM_MANAGER_PROJECT_ID}.vercel.app`,
+    `www.${SYSTEM_MANAGER_PROJECT_ID}.vercel.app`,
+    `${SYSTEM_MANAGER_PROJECT_ID}.web.app`,
+    `${SYSTEM_MANAGER_PROJECT_ID}.firebaseapp.com`,
+    ...parseCsv(process.env.SYSTEM_MANAGER_PUBLIC_HOSTS).map((item) =>
+      normalizeHostValue(item)
+    ),
+  ].filter(Boolean);
+
+  return [...new Set(hosts)];
+}
+
+function isSystemManagerPublicHost(hostname = "") {
+  const normalizedHost = normalizeHostValue(hostname);
+  if (!normalizedHost) return false;
+  return buildSystemManagerPublicHosts().includes(normalizedHost);
+}
+
 function canAccessSharedBucketPath(path = "", uid = "") {
   const normalizedPath = sanitizeString(path);
   const normalizedUid = sanitizeString(uid);
@@ -402,6 +429,10 @@ function getProjectDb(targetProjectId = "", fallbackProjectId = "") {
     return db;
   }
   return admin.firestore(getSharedProjectRuntimeApp(normalizedProjectId));
+}
+
+function getSystemManagerDb() {
+  return getProjectDb(SYSTEM_MANAGER_PROJECT_ID, CURRENT_PROJECT_ID);
 }
 
 async function verifySharedBucketIdToken(idToken) {
@@ -1319,11 +1350,10 @@ exports.notificarAdminNovaSolicitacaoPix = onDocumentCreated(
   }
 );
 
-exports.limparEnvsProjetoNoVercel = onCall(CALLABLE_OPTIONS, async (request) => {
-  await assertSystemManagerAdminPermission(request);
-
-  const systemKey = ensureRequiredString(request.data?.systemKey, "systemKey");
-  const envPrefixSuffix = normalizeSystemKeyToEnvPrefix(systemKey);
+async function limparEnvsProjetoNoVercelCore({ systemKey = "" } = {}) {
+  const systemKeyNormalizado = ensureRequiredString(systemKey, "systemKey");
+  const systemKeyOriginal = sanitizeString(systemKey);
+  const envPrefixSuffix = normalizeSystemKeyToEnvPrefix(systemKeyNormalizado);
   if (!envPrefixSuffix) {
     throw new HttpsError("invalid-argument", "systemKey invalida.");
   }
@@ -1425,14 +1455,47 @@ exports.limparEnvsProjetoNoVercel = onCall(CALLABLE_OPTIONS, async (request) => 
 
   return {
     ok: true,
-    systemKey: sanitizeString(systemKey).toLowerCase(),
+    systemKey: sanitizeString(systemKeyOriginal || systemKeyNormalizado).toLowerCase(),
     envPrefix,
     removedCount: prefixedEnvs.length,
     removedKeys: Array.from(removedKeys.values()),
     updatedProjectKeysCount,
     skippedProjectKeysCount,
   };
+}
+
+exports.limparEnvsProjetoNoVercel = onCall(CALLABLE_OPTIONS, async (request) => {
+  await assertSystemManagerAdminPermission(request);
+  return limparEnvsProjetoNoVercelCore({
+    systemKey: request.data?.systemKey,
+  });
 });
+
+exports.limparEnvsProjetoNoVercelHttp = onRequest(
+  HTTP_OPTIONS,
+  async (req, res) => {
+    try {
+      if (req.method !== "POST") {
+        throw new HttpsError("failed-precondition", "Metodo nao permitido.");
+      }
+
+      const body = normalizeRequestBody(req);
+      const token = getBearerToken(req);
+      const { decoded } = await verifySharedBucketIdToken(token);
+      await assertSystemManagerAdminIdentity({
+        uid: decoded?.uid,
+        email: decoded?.email,
+      });
+
+      const result = await limparEnvsProjetoNoVercelCore({
+        systemKey: body?.systemKey,
+      });
+      res.json(result);
+    } catch (error) {
+      sendHttpError(res, error);
+    }
+  }
+);
 
 exports.criarCheckoutBlocoMercadoPago = onCall(CALLABLE_OPTIONS, async (request) => {
   const compradorUid = ensureAuth(request);
@@ -1702,8 +1765,9 @@ exports.registrarAcessoPublico = onRequest(
       const body = normalizeRequestBody(req);
       const hostname = normalizeHostValue(body?.hostname);
       const fullPath = sanitizeString(body?.fullPath || body?.path || "/").slice(0, 300);
+      const managerDb = getSystemManagerDb();
 
-      await db.collection("acessos").add({
+      await managerDb.collection("acessos").add({
         uid: sanitizeString(body?.uid) || null,
         email: sanitizeString(body?.email) || null,
         displayName: sanitizeString(body?.displayName) || null,
@@ -1762,7 +1826,8 @@ exports.resolverProjetoPorDominioPublico = onRequest(
         throw new HttpsError("invalid-argument", "Hostname obrigatorio.");
       }
 
-      const systemsSnap = await db
+      const managerDb = getSystemManagerDb();
+      const systemsSnap = await managerDb
         .collection("systems")
         .where("domains", "array-contains", hostname)
         .limit(1)
@@ -1787,6 +1852,16 @@ exports.resolverProjetoPorDominioPublico = onRequest(
           });
           return;
         }
+      }
+
+      if (isSystemManagerPublicHost(hostname)) {
+        res.json({
+          ok: true,
+          hostname,
+          firebaseProjectId: SYSTEM_MANAGER_PROJECT_ID,
+          systemKey: SYSTEM_MANAGER_PROJECT_ID,
+        });
+        return;
       }
 
       if (isCurrentProjectPublicHost(hostname)) {
@@ -1833,7 +1908,8 @@ exports.espelharUsuarioProjeto = onRequest(
         sanitizeString(body?.runtimeProjectKey).toLowerCase() ||
         sanitizeString(projectId).toLowerCase();
       const docId = `${projectSystemKey}__${uid}`.slice(0, 180);
-      const ref = db.collection("usuarios_projetos").doc(docId);
+      const managerDb = getSystemManagerDb();
+      const ref = managerDb.collection("usuarios_projetos").doc(docId);
       const snap = await ref.get();
       const payload = {
         uid,
