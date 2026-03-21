@@ -10,7 +10,7 @@ import {
   salvarConfigProjetoNoGerenciador,
 } from "../../Sistema/gerenciadorProjetosApi";
 import { listConfiguredFirebaseProjects } from "../../../../config/firebaseProjects";
-import PropriedadesSistema from "../PropriedadesSistema/PropriedadesSistema";
+import PropriedadesSistema from "./PropriedadesSistema/PropriedadesSistema";
 
 const VERCEL_ENV_AUTOMATION_ENABLED =
   String(process.env.REACT_APP_VERCEL_ENV_AUTOMATION || "").toLowerCase() === "true";

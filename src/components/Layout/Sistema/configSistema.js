@@ -116,6 +116,7 @@ export const DEFAULT_SISTEMA_CONFIG = {
   metodosLoginHabilitados: { ...METODOS_LOGIN_PADRAO },
   chatHabilitado: true,
   livesHabilitadas: false,
+  cardcaptorHabilitado: false,
   mercadoPagoHabilitado: true,
   pixManualHabilitado: true,
   blocoCardsHabilitado: false,
@@ -895,6 +896,10 @@ export function normalizarConfigSistema(data = {}) {
     livesHabilitadas: normalizarBoolean(
       data.livesHabilitadas,
       DEFAULT_SISTEMA_CONFIG.livesHabilitadas
+    ),
+    cardcaptorHabilitado: normalizarBoolean(
+      data.cardcaptorHabilitado,
+      DEFAULT_SISTEMA_CONFIG.cardcaptorHabilitado
     ),
     mercadoPagoHabilitado: normalizarBoolean(
       data.mercadoPagoHabilitado,

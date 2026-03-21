@@ -41,7 +41,6 @@ const SEGMENTOS_RESERVADOS_MENU = new Set([
   "propriedades-sistema",
   "espacos",
   "configuracoes-gerenciador",
-  "gerenciar-layouts",
   "gerenciador-icones",
   "gerenciador-projetos",
 ]);
@@ -282,10 +281,6 @@ function Menu({ menuOpen }) {
     navigateIfChanged(`/menu/${menuTargetUser}/configuracoes-gerenciador`);
   }
 
-  function abrirGerenciarLayouts() {
-    navigateIfChanged(`/menu/${menuTargetUser}/gerenciar-layouts`);
-  }
-
   function abrirGerenciadorIcones() {
     navigateIfChanged(`/menu/${menuTargetUser}/gerenciador-icones`);
   }
@@ -461,11 +456,7 @@ function Menu({ menuOpen }) {
             setAtualTxt("ACESSOS");
             setBackText("MENU");
             setBackAction(() => returnMenu);
-          } else if (path.endsWith("/gerenciar-layouts")) {
-            setAtualTxt("GERENCIAR LAYOUTS");
-            setBackText("MENU");
-            setBackAction(() => returnMenu);
-        } else if (path.endsWith("/gerenciador-icones")) {
+          } else if (path.endsWith("/gerenciador-icones")) {
           setAtualTxt("GERENCIADOR DE ICONES");
           setBackText("MENU");
           setBackAction(() => returnMenu);
@@ -704,9 +695,6 @@ function Menu({ menuOpen }) {
             </div>
             <div onClick={abrirAcessos} className="gavetaOption">
               ACESSOS
-            </div>
-            <div onClick={abrirGerenciarLayouts} className="gavetaOption">
-              GERENCIAR LAYOUTS
             </div>
             <div onClick={abrirGerenciadorIcones} className="gavetaOption">
               GERENCIADOR DE ICONES

@@ -29,6 +29,7 @@ import {
   uploadArquivoNoBucketCompartilhado,
   usandoBucketCompartilhadoCrossProject,
 } from "../../Banco/sharedBucketApi";
+import Cardcaptor from "../../Funcionalidades/Cardcaptor/Cardcaptor";
 import {
   getProjectCollectionCandidates,
   getProjectDocCandidates,
@@ -58,6 +59,7 @@ const SkinsManager = () => {
   const [feedback, setFeedback] = useState("");
   const [avatarUploadSkinId, setAvatarUploadSkinId] = useState("");
   const [avatarUploadMensagem, setAvatarUploadMensagem] = useState("");
+  const [cardcaptorSkin, setCardcaptorSkin] = useState(null);
 
   const iconSkinPadraoUrl = String(
     configSistema?.iconSkinPadraoUrl || DEFAULT_SISTEMA_CONFIG.iconSkinPadraoUrl || ""
@@ -185,6 +187,7 @@ const SkinsManager = () => {
     .trim()
     .toLowerCase();
   const projetoOneOwner = tipoExperienciaProjeto === "oneowner";
+  const cardcaptorHabilitado = configSistema?.cardcaptorHabilitado === true;
 
   const { singular, plural } = obterRotulosSkin(configSistema);
   const nomeSkinSingular = singular || "skin";
@@ -564,6 +567,11 @@ const SkinsManager = () => {
                 {permitirTemasSkinSecundarios ? (
                   <span> - {labelSkinAtual(skin.theme)}</span>
                 ) : null}
+                {cardcaptorHabilitado && String(skin.username || "").trim() ? (
+                  <button type="button" onClick={() => setCardcaptorSkin(skin)}>
+                    Cardcaptor
+                  </button>
+                ) : null}
                 {permitirTemasSkinSecundarios && (
                   <button
                     onClick={() => {
@@ -593,6 +601,12 @@ const SkinsManager = () => {
       {!!avatarUploadMensagem ? (
         <p style={{ marginTop: 8, opacity: 0.9 }}>{avatarUploadMensagem}</p>
       ) : null}
+      <Cardcaptor
+        aberto={!!cardcaptorSkin}
+        onClose={() => setCardcaptorSkin(null)}
+        skin={cardcaptorSkin}
+        configSistema={configSistema}
+      />
     </div>
   );
 };

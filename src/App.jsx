@@ -23,7 +23,7 @@ import {
   obterConfigSistemaCacheLocal,
   obterConfigSistema,
 } from "./components/Layout/Sistema/configSistema";
-import PropriedadesSistema from "./components/Layout/Menu/PropriedadesSistema/PropriedadesSistema";
+import PropriedadesSistema from "./components/Layout/Menu/Gerenciador/PropriedadesSistema/PropriedadesSistema";
 import { bootstrapUser } from "./components/Banco/bootstrapUser";
 import {
   exibirNotificacaoAdminLocal,

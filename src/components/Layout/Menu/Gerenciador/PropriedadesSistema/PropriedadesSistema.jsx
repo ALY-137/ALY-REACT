@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
-import { useAuth } from "../../../../hooks/auth/useAuth";
-import { seforAdm } from "../../../Scripts/verificacoes/verificaAdm";
+import { useAuth } from "../../../../../hooks/auth/useAuth";
+import { seforAdm } from "../../../../Scripts/verificacoes/verificaAdm";
 import {
   activeFirebaseProjectKey,
   storage,
-} from "../../../Banco/init-firebase";
-import { SYSTEM_THEMES } from "../../Temas/themesRegistry";
+} from "../../../../Banco/init-firebase";
+import { SYSTEM_THEMES } from "../../../Temas/themesRegistry";
 import {
   DEFAULT_SISTEMA_CONFIG,
   aplicarBrandingNoDocumento,
@@ -14,20 +14,20 @@ import {
   normalizarConfigSistema,
   obterConfigSistema,
   salvarConfigSistemaAdmin,
-} from "../../Sistema/configSistema";
+} from "../../../Sistema/configSistema";
 import {
   applyLoginPresetToConfig,
   getLoginPresetById,
-} from "../../Sistema/loginPresets";
+} from "../../../Sistema/loginPresets";
 import {
   listarIconCollectionsNoGerenciador,
   obterConfigProjetoDoGerenciador,
   salvarConfigProjetoNoGerenciador,
-} from "../../Sistema/gerenciadorProjetosApi";
+} from "../../../Sistema/gerenciadorProjetosApi";
 import {
   uploadArquivoNoBucketCompartilhado,
   usandoBucketCompartilhadoCrossProject,
-} from "../../../Banco/sharedBucketApi";
+} from "../../../../Banco/sharedBucketApi";
 
 function nomeArquivoSeguro(nome = "branding.png") {
   return String(nome || "branding.png")
@@ -1971,6 +1971,20 @@ function PropriedadesSistema({
               }
             />
             Habilitar blocos do tipo Live
+          </label>
+
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <input
+              type="checkbox"
+              checked={!!config.cardcaptorHabilitado}
+              onChange={(event) =>
+                setConfig((prev) => ({
+                  ...prev,
+                  cardcaptorHabilitado: event.target.checked,
+                }))
+              }
+            />
+            Habilitar gerador de cardcaptor no gerenciador de skins
           </label>
 
           <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
