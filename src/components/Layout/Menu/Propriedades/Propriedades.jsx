@@ -6,6 +6,7 @@ import {
   DEFAULT_SISTEMA_CONFIG,
   obterConfigSistema,
 } from "../../Sistema/configSistema";
+import ProjectLoadingFallback from "../../Geral/ProjectLoadingFallback";
 
 function Propriedades() {
   const [integracoesAbertas, setIntegracoesAbertas] = useState(true);
@@ -37,7 +38,7 @@ function Propriedades() {
   }, []);
 
   if (carregandoConfig) {
-    return <p>Carregando...</p>;
+    return <ProjectLoadingFallback text="Carregando..." />;
   }
 
   return (

@@ -8,6 +8,7 @@ import {
   findSkinByUsernameAcrossProject,
   getOwnerUidFromSkinDoc,
 } from "../Skins/skinLookup";
+import ProjectLoadingFallback from "../Geral/ProjectLoadingFallback";
 
 const SkinsEspaco = () => {
   const { skinsUsername, espacoId } = useParams();
@@ -70,7 +71,7 @@ const SkinsEspaco = () => {
   }, [skinsUsername, espacoId]);
 
   if (erro) return <p>{erro}</p>;
-  if (!espaco) return <p>Carregando...</p>;
+  if (!espaco) return <ProjectLoadingFallback text="Carregando..." />;
 
   return (
     <div>
@@ -81,4 +82,3 @@ const SkinsEspaco = () => {
 };
 
 export default SkinsEspaco;
-

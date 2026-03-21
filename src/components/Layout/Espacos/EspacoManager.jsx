@@ -18,6 +18,7 @@ import {
   getPrimaryProjectCollection,
   getPrimaryProjectDoc,
 } from "../../Banco/projectDataRefs";
+import ProjectLoadingFallback from "../Geral/ProjectLoadingFallback";
 import { obterStatusMercadoPago, obterStatusPixManual } from "../Pagamentos/mercadoPagoApi";
 import {
   DEFAULT_SISTEMA_CONFIG,
@@ -573,7 +574,7 @@ export default function EspacoManager() {
   };
 
   if (!contextoCarregado) {
-    return <p>Carregando...</p>;
+    return <ProjectLoadingFallback text="Carregando..." />;
   }
 
   if (!userId || !skinIdAtual) {
@@ -630,7 +631,7 @@ export default function EspacoManager() {
       <hr />
 
       <h3>{`${nomeEspacoPluralCapitalizado} Relacionados`}</h3>
-      {loading && <p>Carregando...</p>}
+      {loading ? <ProjectLoadingFallback text="Carregando..." inline /> : null}
 
       {!loading && espacosRelacionados.length === 0 && (
         <p>{`Nenhum ${nomeEspacoSingular} relacionado.`}</p>

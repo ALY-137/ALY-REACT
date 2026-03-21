@@ -15,6 +15,7 @@ import {
 } from "../../Sistema/configSistema";
 import { listConfiguredFirebaseProjects } from "../../../../config/firebaseProjects";
 import PropriedadesSistema from "./PropriedadesSistema/PropriedadesSistema";
+import ProjectLoadingFallback from "../../Geral/ProjectLoadingFallback";
 
 const VERCEL_ENV_AUTOMATION_ENABLED =
   String(process.env.REACT_APP_VERCEL_ENV_AUTOMATION || "").toLowerCase() === "true";
@@ -689,7 +690,7 @@ function GerenciadorProjetos() {
   };
 
   if (loading || carregando) {
-    return <p>Carregando projetos...</p>;
+    return <ProjectLoadingFallback text="Carregando projetos..." />;
   }
 
   if (!user || !seforAdm(user)) {

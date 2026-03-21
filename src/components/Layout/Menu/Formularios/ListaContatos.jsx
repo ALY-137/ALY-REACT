@@ -16,6 +16,7 @@ import {
   DEFAULT_SISTEMA_CONFIG,
   obterConfigSistema,
 } from "../../Sistema/configSistema";
+import ProjectLoadingFallback from "../../Geral/ProjectLoadingFallback";
 
 const getContatosRefs = () => getProjectCollectionCandidates(db, "contatos");
 const getConversasRefs = (contatoId) =>
@@ -371,7 +372,7 @@ function ListaContatos() {
   };
 
   if (carregandoConfig) {
-    return <p>Carregando...</p>;
+    return <ProjectLoadingFallback text="Carregando..." />;
   }
 
   if (!chatHabilitado) {
@@ -380,7 +381,12 @@ function ListaContatos() {
 
   return (
     <div>
-      {loading && <p>{isAdmin ? "Carregando contatos..." : "Carregando conversas..."}</p>}
+      {loading ? (
+        <ProjectLoadingFallback
+          text={isAdmin ? "Carregando contatos..." : "Carregando conversas..."}
+          inline
+        />
+      ) : null}
       {error && <p>{error}</p>}
       {!loading && !error && isAdmin && contatos.length === 0 && <p>Nao ha contatos.</p>}
       {!loading && !error && !isAdmin && conversas.length === 0 && <p>Nao ha conversas.</p>}

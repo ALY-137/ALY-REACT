@@ -13,6 +13,7 @@ import {
   uploadArquivoNoBucketCompartilhado,
   usandoBucketCompartilhadoCrossProject,
 } from "../../../Banco/sharedBucketApi";
+import ProjectLoadingFallback from "../../Geral/ProjectLoadingFallback";
 
 function nomeArquivoSeguro(nome = "icon.png") {
   return String(nome || "icon.png")
@@ -247,7 +248,7 @@ function GerenciadorIcones() {
   };
 
   if (loading || carregando) {
-    return <p>Carregando colecoes de icones...</p>;
+    return <ProjectLoadingFallback text="Carregando colecoes de icones..." />;
   }
 
   return (

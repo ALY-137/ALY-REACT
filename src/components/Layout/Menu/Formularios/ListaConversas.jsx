@@ -19,6 +19,7 @@ import {
   DEFAULT_SISTEMA_CONFIG,
   obterConfigSistema,
 } from "../../Sistema/configSistema";
+import ProjectLoadingFallback from "../../Geral/ProjectLoadingFallback";
 
 const getFirstRef = (refs = []) => (Array.isArray(refs) && refs.length ? refs[0] : null);
 const getConversaRefs = (contactId) =>
@@ -181,7 +182,7 @@ function ListaConversas() {
   };
 
   if (carregandoConfig) {
-    return <p>Carregando...</p>;
+    return <ProjectLoadingFallback text="Carregando..." />;
   }
 
   if (!chatHabilitado) {
@@ -190,7 +191,7 @@ function ListaConversas() {
 
   return (
     <div>
-      {loading && <p>Carregando conversas...</p>}
+      {loading ? <ProjectLoadingFallback text="Carregando conversas..." inline /> : null}
       {error && <p>{error}</p>}
       {!loading && !error && conversas.length === 0 && <p>Nao ha conversas.</p>}
 

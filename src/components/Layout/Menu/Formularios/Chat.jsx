@@ -24,6 +24,7 @@ import {
   DEFAULT_SISTEMA_CONFIG,
   obterConfigSistema,
 } from "../../Sistema/configSistema";
+import ProjectLoadingFallback from "../../Geral/ProjectLoadingFallback";
 import { findSkinByUsernameAcrossProject } from "../../Skins/skinLookup";
 
 const getFirstRef = (refs = []) => (Array.isArray(refs) && refs.length ? refs[0] : null);
@@ -458,7 +459,7 @@ function Chat() {
   };
 
   if (carregandoConfig) {
-    return <p>Carregando...</p>;
+    return <ProjectLoadingFallback text="Carregando..." />;
   }
 
   if (!chatHabilitado) {

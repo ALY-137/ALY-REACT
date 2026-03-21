@@ -22,6 +22,7 @@ import {
   applyLoginPresetToConfig,
   getLoginPresetById,
 } from "../../../Sistema/loginPresets";
+import ProjectLoadingFallback from "../../../Geral/ProjectLoadingFallback";
 import {
   listarIconCollectionsNoGerenciador,
   obterConfigProjetoDoGerenciador,
@@ -517,7 +518,7 @@ function PropriedadesSistema({
   };
 
   if (loading || carregando) {
-    return <p>Carregando...</p>;
+    return <ProjectLoadingFallback text="Carregando..." />;
   }
 
   if (!isManagerProject) {

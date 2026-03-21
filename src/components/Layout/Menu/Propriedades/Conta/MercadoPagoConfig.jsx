@@ -5,6 +5,22 @@ import {
   salvarMercadoPagoCredenciais,
 } from "../../../Pagamentos/mercadoPagoApi";
 
+const MERCADO_PAGO_STATUS_EVENT = "aly:mercado-pago-status-changed";
+
+function notificarMudancaStatusMercadoPago() {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(MERCADO_PAGO_STATUS_EVENT, String(Date.now()));
+  } catch {
+    // no-op
+  }
+  try {
+    window.dispatchEvent(new Event(MERCADO_PAGO_STATUS_EVENT));
+  } catch {
+    // no-op
+  }
+}
+
 function parseErroMercadoPago(err) {
   const code = err?.code || "";
   const details = err?.details || err?.customData?.details || "";
@@ -91,6 +107,7 @@ export default function MercadoPagoConfig() {
       });
       setAccessToken("");
       await carregarStatus();
+      notificarMudancaStatusMercadoPago();
       setMensagem("Credenciais salvas com sucesso.");
     } catch (err) {
       setMensagem(parseErroMercadoPago(err));
@@ -114,6 +131,7 @@ export default function MercadoPagoConfig() {
       setAccessToken("");
       setPublicKey("");
       await carregarStatus();
+      notificarMudancaStatusMercadoPago();
       setMensagem("Mercado Pago desconectado.");
     } catch (err) {
       setMensagem(parseErroMercadoPago(err));

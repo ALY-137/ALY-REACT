@@ -30,6 +30,7 @@ import {
   obterProjectKeyContextual,
 } from "../Sistema/configSistema";
 import FirebaseProjectBadge from "../Geral/FirebaseProjectBadge";
+import ProjectLoadingFallback from "../Geral/ProjectLoadingFallback";
 
 const SEGMENTOS_RESERVADOS_MENU = new Set([
   "contatos",
@@ -639,7 +640,7 @@ function Menu({ menuOpen }) {
   }, [exibirBadgeSolicitacoes, ownerSolicitacoesUid]);
 
   if (aguardandoAuthInicial) {
-    return <div className="loader">Carregando menu...</div>;
+    return <ProjectLoadingFallback text="Carregando menu..." />;
   }
 
   if (semPermissaoOwnerGerenciador) {
@@ -671,7 +672,7 @@ function Menu({ menuOpen }) {
   }
 
   if (!configSistemaPronta) {
-    return <div className="loader" aria-live="polite" />;
+    return <ProjectLoadingFallback />;
   }
 
    return (

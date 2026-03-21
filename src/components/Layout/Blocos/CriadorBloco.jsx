@@ -132,6 +132,7 @@ export default function CriadorBloco({
   podeCriarOverride = null,
 }) {
   const { user, loading } = useAuth();
+  const [statusPagamentoRefreshNonce, setStatusPagamentoRefreshNonce] = useState(0);
   const [files, setFiles] = useState([]);
   const [tipoConteudo, setTipoConteudo] = useState("imagem");
   const [cards, setCards] = useState([criarCardVazio()]);
@@ -180,6 +181,30 @@ export default function CriadorBloco({
   const podeCriarPadrao = isOwner || isCoCriador;
   const podeCriar =
     typeof podeCriarOverride === "boolean" ? podeCriarOverride : podeCriarPadrao;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const onMercadoPagoStatusChanged = () => {
+      setStatusPagamentoRefreshNonce((valorAtual) => valorAtual + 1);
+    };
+
+    const onStorage = (event) => {
+      if (String(event?.key || "") === "aly:mercado-pago-status-changed") {
+        onMercadoPagoStatusChanged();
+      }
+    };
+
+    window.addEventListener("aly:mercado-pago-status-changed", onMercadoPagoStatusChanged);
+    window.addEventListener("focus", onMercadoPagoStatusChanged);
+    window.addEventListener("storage", onStorage);
+
+    return () => {
+      window.removeEventListener("aly:mercado-pago-status-changed", onMercadoPagoStatusChanged);
+      window.removeEventListener("focus", onMercadoPagoStatusChanged);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelado = false;
@@ -275,10 +300,10 @@ export default function CriadorBloco({
     return () => {
       cancelado = true;
     };
-  }, [loading, user?.uid, espacoId, podeCriar]);
+  }, [loading, user?.uid, espacoId, podeCriar, statusPagamentoRefreshNonce]);
 
   const metodoPagamentoCompradorDisponivel =
-    (mercadoPagoSistemaHabilitado && mpConectado) ||
+    mpConectado ||
     (pixManualSistemaHabilitado && pixManualConectado);
 
   useEffect(() => {

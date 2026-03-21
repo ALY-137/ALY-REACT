@@ -462,7 +462,6 @@ export default function EspacoPage() {
   const liveRtcHostRoomUnsubRef = useRef(null);
   const liveRtcViewerPeerRef = useRef(null);
   const liveRtcViewerUnsubsRef = useRef([]);
-  const liveAutoOpenRef = useRef("");
   const nomeEspacoSingularCapitalizado = capitalizar(nomeEspacoSingular);
   const nomeBlocoSingularCapitalizado = capitalizar(nomeBlocoSingular);
   const loginLoadingMode = String(configSistemaCacheLocal?.loginLoadingMode || "")
@@ -1035,7 +1034,6 @@ export default function EspacoPage() {
 
     const onKeyDown = (event) => {
       if (event.key === "Escape") {
-        sincronizarQueryLive("");
         setLiveModal((prev) => ({ ...prev, aberto: false }));
       }
     };
@@ -2997,7 +2995,6 @@ export default function EspacoPage() {
     };
 
     setLiveModal(proximoLiveModal);
-    sincronizarQueryLive(String(bloco?.id || "").trim());
     setLiveChatMensagem("");
     setLiveChatErro(currentUidAutenticado ? "" : "Faca login para participar do chat da live.");
 
@@ -3023,33 +3020,6 @@ export default function EspacoPage() {
         return;
       }
     }
-  };
-
-  const sincronizarQueryLive = (blocoId = "") => {
-    const searchAtual =
-      typeof window !== "undefined" ? window.location.search || "" : location.search || "";
-    const blocoIdNormalizado = String(blocoId || "").trim();
-    const params = new URLSearchParams(searchAtual);
-    const atual = String(params.get("liveBloco") || "").trim();
-
-    if (blocoIdNormalizado) {
-      if (atual === blocoIdNormalizado) return;
-      params.set("liveBloco", blocoIdNormalizado);
-    } else {
-      if (!atual) return;
-      params.delete("liveBloco");
-    }
-
-    const search = params.toString();
-    if (typeof window !== "undefined" && window.history?.replaceState) {
-      const pathnameAtual = window.location.pathname || location.pathname;
-      const hashAtual = window.location.hash || location.hash || "";
-      const destino = `${pathnameAtual}${search ? `?${search}` : ""}${hashAtual}`;
-      window.history.replaceState(window.history.state, "", destino);
-      return;
-    }
-
-    navigate(`${location.pathname}${search ? `?${search}` : ""}`, { replace: true });
   };
 
   const enviarMensagemLive = async () => {
@@ -3086,32 +3056,6 @@ export default function EspacoPage() {
       setLiveChatErro("Falha ao enviar mensagem.");
     }
   };
-
-  useEffect(() => {
-    const liveBlocoId = String(
-      new URLSearchParams(location.search || "").get("liveBloco") || ""
-    ).trim();
-
-    if (!liveBlocoId) {
-      liveAutoOpenRef.current = "";
-      return;
-    }
-
-    if (liveModal.aberto || liveAutoOpenRef.current === liveBlocoId) {
-      return;
-    }
-
-    const blocoLive = blocos.find(
-      (item) =>
-        String(item?.id || "").trim() === liveBlocoId &&
-        String(item?.tipo || "").trim().toLowerCase() === "live"
-    );
-
-    if (!blocoLive) return;
-
-    liveAutoOpenRef.current = liveBlocoId;
-    void abrirLiveBloco(blocoLive);
-  }, [location.search, blocos, liveModal.aberto]);
 
   const adicionarBloco = (bloco) => {
     setBlocos((prev) => {
@@ -3779,7 +3723,6 @@ export default function EspacoPage() {
       <LiveModal
         aberto={liveModal.aberto}
         onClose={() => {
-          sincronizarQueryLive("");
           setLiveModal((prev) => ({ ...prev, aberto: false }));
         }}
         ehVideoDireto={liveModalEhVideoDireto}

@@ -27,6 +27,7 @@ import {
   obterConfigSistema,
   obterRotulosSkin,
 } from "../Sistema/configSistema";
+import ProjectLoadingFallback from "../Geral/ProjectLoadingFallback";
 import {
   uploadArquivoNoBucketCompartilhado,
   usandoBucketCompartilhadoCrossProject,
@@ -410,7 +411,9 @@ const SkinsManager = () => {
     return `Limite atual: ${nomeSkinPlural} ilimitadas por usuario.`;
   }, [configSistema.limiteSkinsPorUsuario, isAdmin, nomeSkinPlural, nomeSkinSingular]);
 
-  if (loading || isLoading || carregandoConfig) return <p>Carregando...</p>;
+  if (loading || isLoading || carregandoConfig) {
+    return <ProjectLoadingFallback text="Carregando..." />;
+  }
 
   if (skins.length === 0) {
     if (projetoOneOwner) {
