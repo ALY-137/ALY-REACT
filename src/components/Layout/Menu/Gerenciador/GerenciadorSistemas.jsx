@@ -16,6 +16,7 @@ const VERCEL_ENV_AUTOMATION_ENABLED =
   String(process.env.REACT_APP_VERCEL_ENV_AUTOMATION || "").toLowerCase() === "true";
 const SYSTEM_KEYS_OCULTAS_STORAGE_KEY = "gerenciadorProjetos.systemKeysOcultas";
 const FIREBASE_PROJECT_ALIASES_STORAGE_KEY = "firebaseProjectAliases";
+const NON_CONFIGURABLE_MANAGER_SYSTEM_KEYS = new Set(["aly-onepages-runtime"]);
 
 function prefixoEnvPorSystemKey(systemKey = "") {
   return String(systemKey || "").replace(/[^a-zA-Z0-9]+/g, "_").toUpperCase();
@@ -107,6 +108,11 @@ function normalizeTipoProjeto(value) {
   if (raw === "onepage") return "oneowner";
   if (raw === "multipage") return "multiowner";
   return raw === "oneowner" ? "oneowner" : "multiowner";
+}
+
+function isNonConfigurableManagerProject(item = {}) {
+  const systemKey = normalizeText(item?.systemKey || item?.key || item?.id).toLowerCase();
+  return NON_CONFIGURABLE_MANAGER_SYSTEM_KEYS.has(systemKey);
 }
 
 function carregarSystemKeysOcultasStorage() {
@@ -217,6 +223,7 @@ function mesclarProjetosGerenciadorComEnv(listaGerenciador = []) {
   const mapa = new Map();
 
   listaGerenciador.forEach((item) => {
+    if (isNonConfigurableManagerProject(item)) return;
     const projeto = projetoComCamposPadrao(item);
     if (!projeto.systemKey) return;
     mapa.set(projeto.systemKey, projeto);
@@ -224,7 +231,7 @@ function mesclarProjetosGerenciadorComEnv(listaGerenciador = []) {
 
   listConfiguredFirebaseProjects().forEach((projetoEnv) => {
     const key = normalizeText(projetoEnv.key).toLowerCase();
-    if (!key) return;
+    if (!key || NON_CONFIGURABLE_MANAGER_SYSTEM_KEYS.has(key)) return;
 
     const atual = mapa.get(key);
     const domainsMesclados = Array.from(

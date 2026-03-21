@@ -25,6 +25,7 @@ const ICON_COLLECTION = "iconCollections";
 const MANAGER_COLLECTIONS_READ = ["systems"];
 const MANAGER_COLLECTIONS_DELETE = ["systems", "sistemas"];
 const FORCED_SHARED_STORAGE_BUCKET = "teste-aa015.appspot.com";
+const NON_CONFIGURABLE_MANAGER_SYSTEM_KEYS = new Set(["aly-onepages-runtime"]);
 
 let managerDbSingleton = null;
 
@@ -89,6 +90,11 @@ function normalizeSystemKey(value) {
     .replace(/^-+|-+$/g, "")
     .slice(0, 60);
   return slug || "";
+}
+
+function isNonConfigurableManagerProject(item = {}) {
+  const systemKey = normalizeText(item?.systemKey || item?.id).toLowerCase();
+  return NON_CONFIGURABLE_MANAGER_SYSTEM_KEYS.has(systemKey);
 }
 
 function toEnvPrefix(systemKey) {
@@ -561,9 +567,9 @@ export async function listarSistemasNoGerenciador() {
     }
   });
 
-  return Array.from(dedup.values()).sort((a, b) =>
-    a.systemKey.localeCompare(b.systemKey)
-  );
+  return Array.from(dedup.values())
+    .filter((item) => !isNonConfigurableManagerProject(item))
+    .sort((a, b) => a.systemKey.localeCompare(b.systemKey));
 }
 
 export async function criarSistemaNoGerenciador({
