@@ -423,13 +423,10 @@ const App = () => {
   const tipoExperiencia = configSistema?.tipoExperiencia || DEFAULT_SISTEMA_CONFIG.tipoExperiencia;
   const oneOwnerPublicaAtiva =
     !isManagerProject &&
-    (
-      isOneOwnerComEntradaPublica({
-        tipoExperiencia,
-        modoAcessoProjeto,
-      }) ||
-      activeFirebaseProjectKey === "aly-onepages-runtime"
-    );
+    isOneOwnerComEntradaPublica({
+      tipoExperiencia,
+      modoAcessoProjeto,
+    });
   const exibirHomePublica = oneOwnerPublicaAtiva && !isLoginUiRoute;
   const rotaEntradaRaiz = location.pathname === "/";
   const precisaSplashEntradaPublica =

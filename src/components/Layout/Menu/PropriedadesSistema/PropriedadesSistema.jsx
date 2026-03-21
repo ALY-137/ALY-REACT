@@ -2034,5 +2034,4 @@ function PropriedadesSistema({
     </div>
   );
 }
-
 export default PropriedadesSistema;

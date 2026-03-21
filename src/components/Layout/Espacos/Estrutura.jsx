@@ -12,7 +12,7 @@ import {
 } from "firebase/firestore";
 
 import { useAuth } from "../../../hooks/auth/useAuth";
-import { activeFirebaseProjectKey, auth, db } from "../../Banco/init-firebase";
+import { auth, db } from "../../Banco/init-firebase";
 import {
   getPrimaryProjectCollection,
   getPrimaryProjectDoc,
@@ -304,7 +304,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
   const oneOwnerPublicaAtiva = isOneOwnerComEntradaPublica({
     tipoExperiencia,
     modoAcessoProjeto,
-  }) || activeFirebaseProjectKey === "aly-onepages-runtime";
+  });
   const ownerUidProjetoConfigurado = String(
     configSistemaAtual?.ownerUid ||
       configSistemaAtual?.adminUid ||
@@ -483,8 +483,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
         setConfigSistemaAtual(configSistemaProjeto);
 
         const oneOwnerPublicaProjeto =
-          isOneOwnerComEntradaPublica(configSistemaProjeto) ||
-          activeFirebaseProjectKey === "aly-onepages-runtime";
+          isOneOwnerComEntradaPublica(configSistemaProjeto);
         const ownerUidProjeto = String(
           configSistemaProjeto?.ownerUid ||
             configSistemaProjeto?.adminUid ||
@@ -613,7 +612,9 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
             }
           }
 
-          targetUsername = String(skinDocResolvido.data()?.username || "").trim();
+          targetUsername = skinDocResolvido
+            ? String(skinDocResolvido.data()?.username || "").trim()
+            : String(targetUsername || "").trim();
           if (!targetUsername) {
             if (oneOwnerPublicaProjeto) {
               await aplicarFallbackOneOwner(
@@ -907,9 +908,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
       } catch (err) {
         const configEmErro =
           obterConfigSistemaCacheLocal() || configSistemaProjeto || configSistemaAtual;
-        const oneOwnerProjetoAtual =
-          isOneOwnerComEntradaPublica(configEmErro) ||
-          activeFirebaseProjectKey === "aly-onepages-runtime";
+        const oneOwnerProjetoAtual = isOneOwnerComEntradaPublica(configEmErro);
 
         if (err?.code === "permission-denied" || err?.code === "failed-precondition") {
           if (oneOwnerProjetoAtual) {
@@ -974,6 +973,18 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
 
     fetchSkinData();
   }, [authUserAtual, loading, navigate, retryNonce, targetUsernameInicial, user]);
+
+  useEffect(() => {
+    const segmentos = String(location.pathname || "")
+      .split("/")
+      .filter(Boolean);
+    const rotaPareceOneOwnerPublica = segmentos.length === 1;
+
+    if (!oneOwnerPublicaAtiva && rotaPareceOneOwnerPublica && !loading && !user?.uid) {
+      navigate("/login", { replace: true });
+      return;
+    }
+  }, [loading, location.pathname, navigate, oneOwnerPublicaAtiva, user?.uid]);
 
   useEffect(() => {
     if (!espacos.length || hasNavigated) return;
@@ -1234,6 +1245,3 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
 }
 
 export default Estrutura;
-
-
-
