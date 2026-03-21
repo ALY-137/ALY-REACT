@@ -1185,7 +1185,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
     temaSistemaPadrao === "PASSY"
       ? { backgroundColor: "#eecadd" }
       : undefined;
-  const exibirLoaderSprite = loginLoadingMode === "sprite_sheet" && Boolean(loginLoadingSpriteUrl);
+  const exibirLoaderSprite = Boolean(loginLoadingSpriteUrl);
   const loaderVisualJSX = exibirLoaderSprite ? (
     <div
       id="login"

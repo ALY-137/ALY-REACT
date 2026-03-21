@@ -454,8 +454,7 @@ const App = () => {
     .trim()
     .toLowerCase();
   const loginLoadingSpriteUrl = String(configSistema?.loginLoadingSpriteUrl || "").trim();
-  const usarTransicaoSprite =
-    loginLoadingMode === "sprite_sheet" && Boolean(loginLoadingSpriteUrl);
+  const usarTransicaoSprite = Boolean(loginLoadingSpriteUrl);
   const usarTransicaoRitual =
     !usarTransicaoSprite &&
     (

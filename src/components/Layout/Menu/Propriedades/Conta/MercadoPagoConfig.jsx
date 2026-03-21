@@ -160,7 +160,6 @@ export default function MercadoPagoConfig() {
           value={accessToken}
           onChange={(event) => setAccessToken(event.target.value)}
           style={{ width: "100%", marginTop: 8 }}
-          disabled={indisponivelNoProjeto}
         />
         <input
           type="text"
@@ -168,11 +167,10 @@ export default function MercadoPagoConfig() {
           value={publicKey}
           onChange={(event) => setPublicKey(event.target.value)}
           style={{ width: "100%", marginTop: 8 }}
-          disabled={indisponivelNoProjeto}
         />
 
         <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-          <button type="submit" disabled={salvando || desconectando || indisponivelNoProjeto}>
+          <button type="submit" disabled={salvando || desconectando}>
             {salvando ? "Salvando..." : "Salvar credenciais"}
           </button>
           <button

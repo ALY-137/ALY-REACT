@@ -22,6 +22,8 @@ import {
 } from "../Temas/themesRegistry";
 import {
   DEFAULT_SISTEMA_CONFIG,
+  obterOwnerEmailConfigurado,
+  obterOwnerUidConfigurado,
   obterConfigSistema,
   obterRotulosSkin,
 } from "../Sistema/configSistema";
@@ -188,6 +190,20 @@ const SkinsManager = () => {
     .toLowerCase();
   const projetoOneOwner = tipoExperienciaProjeto === "oneowner";
   const cardcaptorHabilitado = configSistema?.cardcaptorHabilitado === true;
+  const ownerUidProjeto = String(obterOwnerUidConfigurado(configSistema) || "").trim();
+  const ownerEmailProjeto = String(obterOwnerEmailConfigurado(configSistema) || "")
+    .trim()
+    .toLowerCase();
+  const emailUsuarioAtual = String(user?.email || "").trim().toLowerCase();
+  const usuarioEhOwnerProjeto = Boolean(
+    user?.uid &&
+      (
+        (ownerUidProjeto && user.uid === ownerUidProjeto) ||
+        (ownerEmailProjeto && emailUsuarioAtual === ownerEmailProjeto) ||
+        (!ownerUidProjeto && !ownerEmailProjeto && isAdmin)
+      )
+  );
+  const podeUsarCardcaptor = cardcaptorHabilitado && (!projetoOneOwner || usuarioEhOwnerProjeto);
 
   const { singular, plural } = obterRotulosSkin(configSistema);
   const nomeSkinSingular = singular || "skin";
@@ -567,7 +583,7 @@ const SkinsManager = () => {
                 {permitirTemasSkinSecundarios ? (
                   <span> - {labelSkinAtual(skin.theme)}</span>
                 ) : null}
-                {cardcaptorHabilitado && String(skin.username || "").trim() ? (
+                {podeUsarCardcaptor && String(skin.username || "").trim() ? (
                   <button type="button" onClick={() => setCardcaptorSkin(skin)}>
                     Cardcaptor
                   </button>
@@ -602,7 +618,7 @@ const SkinsManager = () => {
         <p style={{ marginTop: 8, opacity: 0.9 }}>{avatarUploadMensagem}</p>
       ) : null}
       <Cardcaptor
-        aberto={!!cardcaptorSkin}
+        aberto={!!cardcaptorSkin && podeUsarCardcaptor}
         onClose={() => setCardcaptorSkin(null)}
         skin={cardcaptorSkin}
         configSistema={configSistema}

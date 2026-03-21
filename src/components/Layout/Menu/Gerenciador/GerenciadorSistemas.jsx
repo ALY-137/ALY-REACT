@@ -9,7 +9,10 @@ import {
   removerProjetoNoGerenciador,
   salvarConfigProjetoNoGerenciador,
 } from "../../Sistema/gerenciadorProjetosApi";
-import { obterManagerProjectLabel } from "../../Sistema/configSistema";
+import {
+  obterManagerProjectIdConfigurado,
+  obterManagerProjectLabel,
+} from "../../Sistema/configSistema";
 import { listConfiguredFirebaseProjects } from "../../../../config/firebaseProjects";
 import PropriedadesSistema from "./PropriedadesSistema/PropriedadesSistema";
 
@@ -116,11 +119,24 @@ function normalizeTipoProjeto(value) {
 function rotuloTipoProjeto(tipoProjeto = "") {
   const normalizado = normalizeTipoProjeto(tipoProjeto);
   if (normalizado === "oneowner") return "Oneowner";
-  if (normalizado === "manager") return "Manager";
+  if (normalizado === "manager") return "Menager";
   return "Multiowner";
 }
 
 function resolveTipoProjetoProjeto(projeto = {}) {
+  const managerProjectId = normalizeText(obterManagerProjectIdConfigurado()).toLowerCase();
+  const systemKeyProjeto = normalizeText(projeto?.systemKey || projeto?.key || projeto?.id).toLowerCase();
+  const firebaseProjectIdProjeto = normalizeText(
+    projeto?.firebaseProjectId || projeto?.projectId
+  ).toLowerCase();
+
+  if (
+    managerProjectId &&
+    (systemKeyProjeto === managerProjectId || firebaseProjectIdProjeto === managerProjectId)
+  ) {
+    return "manager";
+  }
+
   const configTipoExperiencia = normalizeText(projeto?.configSistema?.tipoExperiencia);
   if (configTipoExperiencia) {
     return normalizeTipoProjeto(configTipoExperiencia);
@@ -235,6 +251,14 @@ function projetoComCamposPadrao(projeto = {}) {
   };
 }
 
+function resolverIconeProjeto(projeto = {}) {
+  return normalizeText(
+    projeto?.configSistema?.faviconUrl ||
+      projeto?.configSistema?.logoLoginUrl ||
+      projeto?.configSistema?.cardProfileUrl
+  );
+}
+
 function mesclarProjetosGerenciadorComEnv(listaGerenciador = []) {
   const mapa = new Map();
 
@@ -308,6 +332,7 @@ function GerenciadorProjetos() {
   const [checklistRemocaoEnv, setChecklistRemocaoEnv] = useState("");
   const [mostrarCriacao, setMostrarCriacao] = useState(false);
   const [projetoEmGerenciamento, setProjetoEmGerenciamento] = useState(null);
+  const [filtroTipoProjeto, setFiltroTipoProjeto] = useState("todos");
   const [domainsProjetoEdicao, setDomainsProjetoEdicao] = useState("");
   const [salvandoDomainsProjeto, setSalvandoDomainsProjeto] = useState(false);
   const [limpandoEnvSystemKey, setLimpandoEnvSystemKey] = useState("");
@@ -323,6 +348,12 @@ function GerenciadorProjetos() {
     () => [...projetos].sort((a, b) => a.systemKey.localeCompare(b.systemKey)),
     [projetos]
   );
+  const projetosFiltrados = useMemo(() => {
+    if (filtroTipoProjeto === "todos") return projetosOrdenados;
+    return projetosOrdenados.filter(
+      (projeto) => resolveTipoProjetoProjeto(projeto) === filtroTipoProjeto
+    );
+  }, [filtroTipoProjeto, projetosOrdenados]);
 
   const carregarProjetos = async () => {
     setCarregando(true);
@@ -675,13 +706,29 @@ function GerenciadorProjetos() {
       <h2>GERENCIADO DE PROJETOS</h2>
       <p>Liste projetos ja criados, cadastre novos e gere as envs para deploy.</p>
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
         <button type="button" onClick={() => setMostrarCriacao((prev) => !prev)}>
           {mostrarCriacao ? "Fechar criacao" : "Criar projeto"}
         </button>
         <button type="button" onClick={carregarProjetos}>
           Atualizar lista
         </button>
+        <label
+          htmlFor="filtroTipoProjeto"
+          style={{ display: "inline-flex", alignItems: "center", gap: 8, marginLeft: "auto" }}
+        >
+          <span>Filtro:</span>
+          <select
+            id="filtroTipoProjeto"
+            value={filtroTipoProjeto}
+            onChange={(event) => setFiltroTipoProjeto(event.target.value)}
+          >
+            <option value="todos">Todos</option>
+            <option value="multiowner">Multiowners</option>
+            <option value="oneowner">Oneowners</option>
+            <option value="manager">Menager</option>
+          </select>
+        </label>
       </div>
 
       {mostrarCriacao ? (
@@ -855,70 +902,120 @@ function GerenciadorProjetos() {
 
       <div style={{ border: "1px solid #999", borderRadius: 8, padding: 12 }}>
         <h3 style={{ marginTop: 0 }}>
-          {`Projetos ja criados (${projetosOrdenados.length})`}
+          {`Projetos ja criados (${projetosFiltrados.length}/${projetosOrdenados.length})`}
         </h3>
-        {projetosOrdenados.length === 0 ? (
+        {projetosFiltrados.length === 0 ? (
           <p>Nenhum projeto encontrado no gerenciador.</p>
         ) : (
-          projetosOrdenados.map((projeto) => (
-            <div
-              key={projeto.id}
-              style={{
-                border: "1px solid #666",
-                borderRadius: 8,
-                padding: 10,
-                marginBottom: 8,
-              }}
-            >
-              <p style={{ margin: 0 }}>
-                <strong>{projeto.nomeProjeto || projeto.systemKey}</strong>
-              </p>
-              <p style={{ margin: "6px 0 0 0" }}>Key: {projeto.systemKey}</p>
-              <p style={{ margin: "2px 0 0 0" }}>
-                Tipo: {rotuloTipoProjeto(projeto.tipoProjeto)}
-              </p>
-              <p style={{ margin: "2px 0 0 0" }}>
-                Firebase Project: {projeto.firebaseProjectId || "-"}
-              </p>
-              <p style={{ margin: "2px 0 8px 0" }}>
-                Dominios: {(projeto.domains || []).join(", ") || "-"}
-              </p>
-              <p style={{ margin: "2px 0 8px 0", opacity: 0.75 }}>
-                Origem: {projeto.sourceCollection || "systems"}
-              </p>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button type="button" onClick={() => abrirLoginDoProjeto(projeto)}>
-                  Abrir login do projeto
-                </button>
-                <button type="button" onClick={() => abrirGerenciadorDoProjeto(projeto)}>
-                  Abrir gerenciador
-                </button>
-                <button type="button" onClick={() => gerarEnvParaProjetoExistente(projeto)}>
-                  Gerar ENV
-                </button>
-                <button
-                  type="button"
-                  onClick={() => limparEnvVercelDoProjeto(projeto)}
-                  disabled={Boolean(limpandoEnvSystemKey || removendoProjetoSystemKey)}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+              gap: 12,
+            }}
+          >
+            {projetosFiltrados.map((projeto) => {
+              const tipoProjetoResolvido = resolveTipoProjetoProjeto(projeto);
+              const iconeProjeto = resolverIconeProjeto(projeto);
+              const iniciaisProjeto = String(
+                projeto.nomeProjeto || projeto.systemKey || "?"
+              )
+                .trim()
+                .slice(0, 2)
+                .toUpperCase();
+
+              return (
+                <div
+                  key={projeto.id}
+                  style={{
+                    border: "1px solid #666",
+                    borderRadius: 14,
+                    padding: 14,
+                    display: "grid",
+                    gridTemplateColumns: "64px minmax(0, 1fr)",
+                    gap: 12,
+                    alignItems: "flex-start",
+                    textAlign: "left",
+                  }}
                 >
-                  {limpandoEnvSystemKey === projeto.systemKey
-                    ? "Limpando ENV..."
-                    : VERCEL_ENV_AUTOMATION_ENABLED
-                      ? "Limpar ENV no Vercel"
-                      : "Limpeza ENV (manual)"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => removerProjetoComEnvs(projeto)}
-                  disabled={Boolean(limpandoEnvSystemKey || removendoProjetoSystemKey)}
-                >
-                  {removendoProjetoSystemKey === projeto.systemKey
-                    ? "Removendo projeto..."
-                    : "Remover projeto"}
-                </button>
-              </div>
-            </div>
-          ))
+                  <div
+                    style={{
+                      width: 64,
+                      height: 64,
+                      borderRadius: 16,
+                      overflow: "hidden",
+                      border: "1px solid rgba(255,255,255,0.12)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: "rgba(255,255,255,0.06)",
+                      fontWeight: 700,
+                      fontSize: 18,
+                    }}
+                  >
+                    {iconeProjeto ? (
+                      <img
+                        src={iconeProjeto}
+                        alt={`Icone do projeto ${projeto.nomeProjeto || projeto.systemKey}`}
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      />
+                    ) : (
+                      <span>{iniciaisProjeto}</span>
+                    )}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ margin: 0 }}>
+                      <strong>{projeto.nomeProjeto || projeto.systemKey}</strong>
+                    </p>
+                    <p style={{ margin: "6px 0 0 0" }}>Key: {projeto.systemKey}</p>
+                    <p style={{ margin: "2px 0 0 0" }}>
+                      Tipo: {rotuloTipoProjeto(tipoProjetoResolvido)}
+                    </p>
+                    <p style={{ margin: "2px 0 0 0" }}>
+                      Firebase Project: {projeto.firebaseProjectId || "-"}
+                    </p>
+                    <p style={{ margin: "2px 0 0 0" }}>
+                      Dominios: {(projeto.domains || []).join(", ") || "-"}
+                    </p>
+                    <p style={{ margin: "2px 0 10px 0", opacity: 0.75 }}>
+                      Origem: {projeto.sourceCollection || "systems"}
+                    </p>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <button type="button" onClick={() => abrirLoginDoProjeto(projeto)}>
+                        Abrir login do projeto
+                      </button>
+                      <button type="button" onClick={() => abrirGerenciadorDoProjeto(projeto)}>
+                        Abrir gerenciador
+                      </button>
+                      <button type="button" onClick={() => gerarEnvParaProjetoExistente(projeto)}>
+                        Gerar ENV
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => limparEnvVercelDoProjeto(projeto)}
+                        disabled={Boolean(limpandoEnvSystemKey || removendoProjetoSystemKey)}
+                      >
+                        {limpandoEnvSystemKey === projeto.systemKey
+                          ? "Limpando ENV..."
+                          : VERCEL_ENV_AUTOMATION_ENABLED
+                            ? "Limpar ENV no Vercel"
+                            : "Limpeza ENV (manual)"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removerProjetoComEnvs(projeto)}
+                        disabled={Boolean(limpandoEnvSystemKey || removendoProjetoSystemKey)}
+                      >
+                        {removendoProjetoSystemKey === projeto.systemKey
+                          ? "Removendo projeto..."
+                          : "Remover projeto"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
 
@@ -982,9 +1079,24 @@ function GerenciadorProjetos() {
                         ...item,
                         configSistema: configSalva,
                         nomeProjeto: configSalva?.tituloSistema || item.nomeProjeto,
+                        tipoProjeto: normalizeTipoProjeto(
+                          configSalva?.tipoExperiencia || item.tipoProjeto
+                        ),
                       }
                     : item
                 )
+              );
+              setProjetoEmGerenciamento((atual) =>
+                atual
+                  ? {
+                      ...atual,
+                      configSistema: configSalva,
+                      nomeProjeto: configSalva?.tituloSistema || atual.nomeProjeto,
+                      tipoProjeto: normalizeTipoProjeto(
+                        configSalva?.tipoExperiencia || atual.tipoProjeto
+                      ),
+                    }
+                  : atual
               );
             }}
           />

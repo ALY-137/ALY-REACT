@@ -151,6 +151,16 @@ export const normalizarEmbedLiveUrl = (url = "") => {
     const parsed = new URL(origem);
     const host = String(parsed.hostname || "").toLowerCase();
     const path = String(parsed.pathname || "");
+    const segmentos = path.split("/").filter(Boolean);
+    const hostAtual =
+      typeof window !== "undefined"
+        ? String(window.location.hostname || "localhost").trim().toLowerCase()
+        : "localhost";
+    const parentTwitch = hostAtual || "localhost";
+
+    if (/\.(mp4|webm|ogg|m3u8)(\?|$)/i.test(origem)) {
+      return "";
+    }
 
     if (host.includes("youtu.be")) {
       const id = path.replace("/", "").trim();
@@ -167,6 +177,12 @@ export const normalizarEmbedLiveUrl = (url = "") => {
           return `https://www.youtube.com/embed/${idFromPath}?autoplay=1&rel=0`;
         }
       }
+      if (path.includes("/shorts/")) {
+        const idFromPath = path.split("/shorts/")[1]?.split("/")[0] || "";
+        if (idFromPath) {
+          return `https://www.youtube.com/embed/${idFromPath}?autoplay=1&rel=0`;
+        }
+      }
     }
 
     if (host.includes("vimeo.com")) {
@@ -174,12 +190,43 @@ export const normalizarEmbedLiveUrl = (url = "") => {
       if (id) return `https://player.vimeo.com/video/${id}?autoplay=1`;
     }
 
-    if (host.includes("twitch.tv") && path.includes("/videos/")) {
+    if (host.includes("player.twitch.tv")) {
       return parsed.toString();
     }
 
-    return parsed.toString();
+    if (host.includes("twitch.tv") && path.includes("/videos/")) {
+      const videoId = segmentos[1] || "";
+      if (videoId) {
+        return `https://player.twitch.tv/?video=v${videoId}&parent=${encodeURIComponent(
+          parentTwitch
+        )}&autoplay=true`;
+      }
+    }
+
+    if (host.includes("twitch.tv")) {
+      const reservados = new Set([
+        "videos",
+        "directory",
+        "downloads",
+        "jobs",
+        "p",
+        "settings",
+        "subscriptions",
+        "wallet",
+        "products",
+        "drops",
+        "search",
+      ]);
+      const canal = String(segmentos[0] || "").trim();
+      if (canal && !reservados.has(canal.toLowerCase())) {
+        return `https://player.twitch.tv/?channel=${encodeURIComponent(
+          canal
+        )}&parent=${encodeURIComponent(parentTwitch)}&autoplay=true`;
+      }
+    }
+
+    return "";
   } catch {
-    return origem;
+    return "";
   }
 };

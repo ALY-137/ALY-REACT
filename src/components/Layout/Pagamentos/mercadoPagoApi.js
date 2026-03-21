@@ -160,6 +160,9 @@ async function postMercadoPagoCompartilhado(endpoint, payload = {}) {
 carregarProjetosMercadoPagoIndisponiveisStorage();
 
 function mercadoPagoDisponivelNesteProjeto() {
+  if (usarBackendMercadoPagoCompartilhado()) {
+    return true;
+  }
   const projectKey = getProjetoAtivoMercadoPago();
   if (!projectKey) return false;
   if (PROJETOS_MERCADO_PAGO_FALHA_RUNTIME.has(projectKey)) return false;

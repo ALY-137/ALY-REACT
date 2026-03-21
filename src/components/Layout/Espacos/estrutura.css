@@ -23,6 +23,70 @@
   background: #000;
 }
 
+.live-modal__media-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.08), transparent 40%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.84), rgba(0, 0, 0, 0.96));
+  color: #fff;
+}
+
+.live-modal__media-fallback-body {
+  width: min(560px, 100%);
+  padding: 24px;
+  text-align: left;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 20px;
+  background: rgba(11, 11, 16, 0.48);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.28);
+}
+
+.live-modal__media-fallback-eyebrow,
+.live-modal__media-fallback-title,
+.live-modal__media-fallback-text {
+  margin: 0;
+}
+
+.live-modal__media-fallback-eyebrow {
+  margin-bottom: 8px;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+
+.live-modal__media-fallback-title {
+  margin-bottom: 10px;
+  font-size: clamp(24px, 4vw, 36px);
+  line-height: 1.05;
+}
+
+.live-modal__media-fallback-text {
+  max-width: 44ch;
+  font-size: 14px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.live-modal__media-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 16px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  color: #fff;
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.08);
+}
+
 .live-modal__chat {
   position: absolute;
   top: 16px;

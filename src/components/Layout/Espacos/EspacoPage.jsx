@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useOutletContext, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useOutletContext, useParams } from "react-router-dom";
 import {
   addDoc,
   collection,
@@ -322,6 +322,7 @@ async function gerarPreviewDesfocado(file) {
 
 export default function EspacoPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { espacoNome } = useParams();
   const {
     espacos,
@@ -461,13 +462,14 @@ export default function EspacoPage() {
   const liveRtcHostRoomUnsubRef = useRef(null);
   const liveRtcViewerPeerRef = useRef(null);
   const liveRtcViewerUnsubsRef = useRef([]);
+  const liveAutoOpenRef = useRef("");
   const nomeEspacoSingularCapitalizado = capitalizar(nomeEspacoSingular);
   const nomeBlocoSingularCapitalizado = capitalizar(nomeBlocoSingular);
   const loginLoadingMode = String(configSistemaCacheLocal?.loginLoadingMode || "")
     .trim()
     .toLowerCase();
   const loginLoadingSpriteUrl = String(configSistemaCacheLocal?.loginLoadingSpriteUrl || "").trim();
-  const exibirLoaderSprite = loginLoadingMode === "sprite_sheet" && Boolean(loginLoadingSpriteUrl);
+  const exibirLoaderSprite = Boolean(loginLoadingSpriteUrl);
   const carregamentoAcessoEspacoJSX = exibirLoaderSprite ? (
     <div className="sprite-loader-layer sprite-loader-layer-inline" aria-live="polite">
       <div
@@ -482,14 +484,14 @@ export default function EspacoPage() {
     </div>
   );
 
-  if (!espacos) return null;
+  const espacosLista = Array.isArray(espacos) ? espacos : [];
 
   const persistedUid = localStorage.getItem("userId");
   const authUserAtual = user || auth.currentUser || null;
   const authUid = auth.currentUser?.uid || null;
   const currentUidAutenticado = user?.uid || authUid || null;
   const currentUid = user?.uid || authUid || persistedUid || null;
-  const espacoAtual = espacos.find((e) => e.nome === espacoNome);
+  const espacoAtual = espacosLista.find((e) => e.nome === espacoNome);
   const espacoId = espacoAtual?.id || espacoAtual?.id_espaco;
   const oneOwnerPublicaAtivaEfetiva = Boolean(oneOwnerPublicaAtivaContexto || oneOwnerPublicaAtiva);
   const emailUsuarioAtual = String(authUserAtual?.email || "")
@@ -527,7 +529,7 @@ export default function EspacoPage() {
   );
   const ownerUserId =
     espacoAtualEfetivo?.ownerUserId ||
-    espacos?.[0]?.ownerUserId ||
+    espacosLista[0]?.ownerUserId ||
     (
       oneOwnerPublicaAtivaEfetiva
         ? ownerUidProjetoEfetivo || (usuarioEhOwnerProjeto ? currentUid : null)
@@ -1033,6 +1035,7 @@ export default function EspacoPage() {
 
     const onKeyDown = (event) => {
       if (event.key === "Escape") {
+        sincronizarQueryLive("");
         setLiveModal((prev) => ({ ...prev, aberto: false }));
       }
     };
@@ -2773,6 +2776,10 @@ export default function EspacoPage() {
     };
   }, [blocos, podeVerEspaco, currentUid]);
 
+  if (!Array.isArray(espacos)) {
+    return carregamentoAcessoEspacoJSX;
+  }
+
   if (!espacoAtual) {
     return <p>{`${nomeEspacoSingularCapitalizado} nao encontrado`}</p>;
   }
@@ -2978,6 +2985,21 @@ export default function EspacoPage() {
     });
     const conversationId = "principal";
     const tituloLive = String(bloco?.titulo || bloco?.nome || bloco?.id || "Live").trim();
+    const proximoLiveModal = {
+      aberto: true,
+      blocoId: String(bloco?.id || "").trim(),
+      titulo: tituloLive || "Live",
+      liveUrl,
+      embedUrl: normalizarEmbedLiveUrl(liveUrl),
+      contactId,
+      conversationId,
+      ownerUserId: ownerUidLive,
+    };
+
+    setLiveModal(proximoLiveModal);
+    sincronizarQueryLive(String(bloco?.id || "").trim());
+    setLiveChatMensagem("");
+    setLiveChatErro(currentUidAutenticado ? "" : "Faca login para participar do chat da live.");
 
     if (currentUidAutenticado) {
       try {
@@ -2991,6 +3013,7 @@ export default function EspacoPage() {
           ownerUserId: ownerUidLive,
           espacoId,
         });
+        setLiveChatErro("");
       } catch (err) {
         if (err?.code === "permission-denied") {
           setLiveChatErro("Sem permissao para abrir o chat da live.");
@@ -3000,19 +3023,33 @@ export default function EspacoPage() {
         return;
       }
     }
+  };
 
-    setLiveModal({
-      aberto: true,
-      blocoId: String(bloco?.id || "").trim(),
-      titulo: tituloLive || "Live",
-      liveUrl,
-      embedUrl: normalizarEmbedLiveUrl(liveUrl),
-      contactId,
-      conversationId,
-      ownerUserId: ownerUidLive,
-    });
-    setLiveChatMensagem("");
-    setLiveChatErro(currentUidAutenticado ? "" : "FaÃ§a login para participar do chat da live.");
+  const sincronizarQueryLive = (blocoId = "") => {
+    const searchAtual =
+      typeof window !== "undefined" ? window.location.search || "" : location.search || "";
+    const blocoIdNormalizado = String(blocoId || "").trim();
+    const params = new URLSearchParams(searchAtual);
+    const atual = String(params.get("liveBloco") || "").trim();
+
+    if (blocoIdNormalizado) {
+      if (atual === blocoIdNormalizado) return;
+      params.set("liveBloco", blocoIdNormalizado);
+    } else {
+      if (!atual) return;
+      params.delete("liveBloco");
+    }
+
+    const search = params.toString();
+    if (typeof window !== "undefined" && window.history?.replaceState) {
+      const pathnameAtual = window.location.pathname || location.pathname;
+      const hashAtual = window.location.hash || location.hash || "";
+      const destino = `${pathnameAtual}${search ? `?${search}` : ""}${hashAtual}`;
+      window.history.replaceState(window.history.state, "", destino);
+      return;
+    }
+
+    navigate(`${location.pathname}${search ? `?${search}` : ""}`, { replace: true });
   };
 
   const enviarMensagemLive = async () => {
@@ -3049,6 +3086,32 @@ export default function EspacoPage() {
       setLiveChatErro("Falha ao enviar mensagem.");
     }
   };
+
+  useEffect(() => {
+    const liveBlocoId = String(
+      new URLSearchParams(location.search || "").get("liveBloco") || ""
+    ).trim();
+
+    if (!liveBlocoId) {
+      liveAutoOpenRef.current = "";
+      return;
+    }
+
+    if (liveModal.aberto || liveAutoOpenRef.current === liveBlocoId) {
+      return;
+    }
+
+    const blocoLive = blocos.find(
+      (item) =>
+        String(item?.id || "").trim() === liveBlocoId &&
+        String(item?.tipo || "").trim().toLowerCase() === "live"
+    );
+
+    if (!blocoLive) return;
+
+    liveAutoOpenRef.current = liveBlocoId;
+    void abrirLiveBloco(blocoLive);
+  }, [location.search, blocos, liveModal.aberto]);
 
   const adicionarBloco = (bloco) => {
     setBlocos((prev) => {
@@ -3583,7 +3646,14 @@ export default function EspacoPage() {
                   {!bloqueado ? (
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                       {liveEmAndamento ? (
-                        <button type="button" onClick={() => abrirLiveBloco(bloco)}>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            void abrirLiveBloco(bloco);
+                          }}
+                        >
                           Entrar na live
                         </button>
                       ) : liveAgendada ? (
@@ -3708,7 +3778,10 @@ export default function EspacoPage() {
 
       <LiveModal
         aberto={liveModal.aberto}
-        onClose={() => setLiveModal((prev) => ({ ...prev, aberto: false }))}
+        onClose={() => {
+          sincronizarQueryLive("");
+          setLiveModal((prev) => ({ ...prev, aberto: false }));
+        }}
         ehVideoDireto={liveModalEhVideoDireto}
         titulo={liveModal.titulo || "Live"}
         liveUrl={liveModal.liveUrl}

@@ -30,7 +30,7 @@
 
 #login{
   background-image: var(--system-wallpaper);
-  background-color: #0d0d16;
+  background-color: var(--system-login-background-color, transparent);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -58,6 +58,19 @@
 .sprite-loader-transition-shell {
   position: relative;
   overflow: hidden;
+  background-image: var(--system-wallpaper);
+  background-color: var(--system-login-background-color, transparent);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.ritual-login-transition-shell {
+  background-image: var(--system-wallpaper);
+  background-color: var(--system-login-background-color, transparent);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 .sprite-loader-layer {

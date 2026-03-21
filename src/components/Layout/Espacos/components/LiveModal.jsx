@@ -34,6 +34,7 @@ export default function LiveModal({
   enviarMensagemLive,
 }) {
   const [cameraTelaCheia, setCameraTelaCheia] = useState(false);
+  const [midiaDiretaFalhou, setMidiaDiretaFalhou] = useState(false);
 
   const isMobile = typeof window !== "undefined" && window.innerWidth <= 860;
   const cameraLocalDisponivel = Boolean(usuarioPodeControlarCameraLive && liveCameraAtiva);
@@ -43,6 +44,10 @@ export default function LiveModal({
   const cameraDisponivel = cameraLocalDisponivel || cameraRemotaDisponivel;
   const rotacaoLocal = Number(liveCameraRotacaoGraus) || 0;
   const rotacaoRemota = Number(liveCameraRemotaRotacaoGraus) || 0;
+  const liveUrlNormalizada = String(liveUrl || "").trim();
+  const embedUrlNormalizada = String(embedUrl || "").trim();
+  const iframeDisponivel = !ehVideoDireto && Boolean(embedUrlNormalizada);
+  const linkExternoDisponivel = Boolean(liveUrlNormalizada);
 
   const cameraStage = useMemo(() => {
     if (cameraLocalDisponivel) {
@@ -76,6 +81,10 @@ export default function LiveModal({
       setCameraTelaCheia(false);
     }
   }, [aberto, cameraDisponivel]);
+
+  useEffect(() => {
+    setMidiaDiretaFalhou(false);
+  }, [aberto, ehVideoDireto, liveUrlNormalizada, embedUrlNormalizada]);
 
   const conectarVideoAoStream = (node, stream, { muted = false } = {}) => {
     if (!node || !stream) return;
@@ -151,24 +160,47 @@ export default function LiveModal({
         }}
       >
         {ehVideoDireto ? (
-          <video
-            className="live-modal__media"
-            src={liveUrl}
-            controls
-            autoPlay
-            playsInline
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              background: "#000",
-            }}
-          />
-        ) : (
+          !midiaDiretaFalhou && liveUrlNormalizada ? (
+            <video
+              className="live-modal__media"
+              src={liveUrlNormalizada}
+              controls
+              autoPlay
+              playsInline
+              onError={() => setMidiaDiretaFalhou(true)}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                background: "#000",
+              }}
+            />
+          ) : (
+            <div className="live-modal__media-fallback">
+              <div className="live-modal__media-fallback-body">
+                <p className="live-modal__media-fallback-eyebrow">Live</p>
+                <h2 className="live-modal__media-fallback-title">{titulo || "Live"}</h2>
+                <p className="live-modal__media-fallback-text">
+                  Nao foi possivel reproduzir o video diretamente nesta tela.
+                </p>
+                {linkExternoDisponivel ? (
+                  <a
+                    className="live-modal__media-link"
+                    href={liveUrlNormalizada}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Abrir transmissao em nova aba
+                  </a>
+                ) : null}
+              </div>
+            </div>
+          )
+        ) : iframeDisponivel ? (
           <iframe
             className="live-modal__media"
             title={titulo || "Live"}
-            src={embedUrl || liveUrl}
+            src={embedUrlNormalizada}
             allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
             style={{
               width: "100%",
@@ -177,6 +209,27 @@ export default function LiveModal({
               background: "#000",
             }}
           />
+        ) : (
+          <div className="live-modal__media-fallback">
+            <div className="live-modal__media-fallback-body">
+              <p className="live-modal__media-fallback-eyebrow">Live</p>
+              <h2 className="live-modal__media-fallback-title">{titulo || "Live"}</h2>
+              <p className="live-modal__media-fallback-text">
+                Esta URL nao permite incorporacao direta. O chat e a camera continuam disponiveis
+                nesta tela.
+              </p>
+              {linkExternoDisponivel ? (
+                <a
+                  className="live-modal__media-link"
+                  href={liveUrlNormalizada}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Abrir transmissao em nova aba
+                </a>
+              ) : null}
+            </div>
+          </div>
         )}
 
         <button

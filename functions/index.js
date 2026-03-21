@@ -578,13 +578,43 @@ function getOwnerIntegrationRef(ownerUserId, firestoreDb = db) {
   return firestoreDb.doc(`users/${ownerUserId}/integracoes/mercadoPago`);
 }
 
+function getSharedMercadoPagoIntegrationRef(targetProjectId = "", ownerUserId = "", firestoreDb = db) {
+  const projectIdNormalizado = sanitizeString(targetProjectId) || CURRENT_PROJECT_ID;
+  const ownerUidNormalizado = ensureRequiredString(ownerUserId, "uid");
+  return firestoreDb.doc(
+    `shared_mercado_pago_integracoes/${projectIdNormalizado}__${ownerUidNormalizado}`
+  );
+}
+
 function getOwnerPixManualRef(ownerUserId, firestoreDb = db) {
   return firestoreDb.doc(`users/${ownerUserId}/integracoes/pixManual`);
 }
 
-async function getOwnerMercadoPagoAccessToken(ownerUserId, firestoreDb = db) {
-  const integrationSnap = await getOwnerIntegrationRef(ownerUserId, firestoreDb).get();
-  const integrationData = integrationSnap.exists ? integrationSnap.data() : null;
+async function getOwnerMercadoPagoAccessToken(
+  ownerUserId,
+  firestoreDb = db,
+  targetProjectId = CURRENT_PROJECT_ID
+) {
+  let integrationData = null;
+
+  try {
+    const sharedIntegrationSnap = await getSharedMercadoPagoIntegrationRef(
+      targetProjectId,
+      ownerUserId,
+      db
+    ).get();
+    if (sharedIntegrationSnap.exists) {
+      integrationData = sharedIntegrationSnap.data() || null;
+    }
+  } catch {
+    // Segue para fallback abaixo.
+  }
+
+  if (!integrationData) {
+    const integrationSnap = await getOwnerIntegrationRef(ownerUserId, firestoreDb).get();
+    integrationData = integrationSnap.exists ? integrationSnap.data() : null;
+  }
+
   const accessToken = sanitizeString(integrationData?.accessToken);
 
   if (!accessToken) {
@@ -688,6 +718,7 @@ async function fetchMercadoPago(endpoint, accessToken, options = {}) {
 
 async function salvarMercadoPagoCredenciaisCore({
   firestoreDb = db,
+  targetProjectId = CURRENT_PROJECT_ID,
   uid,
   accessToken,
   publicKey = "",
@@ -701,17 +732,30 @@ async function salvarMercadoPagoCredenciaisCore({
 
   const me = await fetchMercadoPago("/users/me", accessTokenNormalizado, { method: "GET" });
 
-  await getOwnerIntegrationRef(uid, firestoreDb).set(
-    {
-      accessToken: accessTokenNormalizado,
-      publicKey: publicKeyNormalizada || null,
-      mpUserId: me?.id || null,
-      mpEmail: sanitizeString(me?.email) || null,
-      connectedAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    },
+  const payload = {
+    accessToken: accessTokenNormalizado,
+    publicKey: publicKeyNormalizada || null,
+    mpUserId: me?.id || null,
+    mpEmail: sanitizeString(me?.email) || null,
+    connectedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    targetProjectId: sanitizeString(targetProjectId) || CURRENT_PROJECT_ID,
+    ownerUid: sanitizeString(uid),
+  };
+
+  await getSharedMercadoPagoIntegrationRef(targetProjectId, uid, db).set(
+    payload,
     { merge: true }
   );
+
+  try {
+    await getOwnerIntegrationRef(uid, firestoreDb).set(
+      payload,
+      { merge: true }
+    );
+  } catch {
+    // O espelho no projeto-alvo é opcional quando não há IAM cross-project.
+  }
 
   return {
     ok: true,
@@ -721,9 +765,33 @@ async function salvarMercadoPagoCredenciaisCore({
   };
 }
 
-async function obterStatusMercadoPagoCore({ firestoreDb = db, uid }) {
-  const integrationSnap = await getOwnerIntegrationRef(uid, firestoreDb).get();
-  const integrationData = integrationSnap.exists ? integrationSnap.data() : {};
+async function obterStatusMercadoPagoCore({
+  firestoreDb = db,
+  targetProjectId = CURRENT_PROJECT_ID,
+  uid,
+}) {
+  let integrationData = {};
+
+  try {
+    const sharedIntegrationSnap = await getSharedMercadoPagoIntegrationRef(
+      targetProjectId,
+      uid,
+      db
+    ).get();
+    if (sharedIntegrationSnap.exists) {
+      integrationData = sharedIntegrationSnap.data() || {};
+    } else {
+      const integrationSnap = await getOwnerIntegrationRef(uid, firestoreDb).get();
+      integrationData = integrationSnap.exists ? integrationSnap.data() : {};
+    }
+  } catch {
+    const integrationSnap = await getSharedMercadoPagoIntegrationRef(
+      targetProjectId,
+      uid,
+      db
+    ).get();
+    integrationData = integrationSnap.exists ? integrationSnap.data() : {};
+  }
 
   return {
     conectado: Boolean(sanitizeString(integrationData?.accessToken)),
@@ -733,20 +801,36 @@ async function obterStatusMercadoPagoCore({ firestoreDb = db, uid }) {
   };
 }
 
-async function desconectarMercadoPagoCore({ firestoreDb = db, uid }) {
-  const integrationRef = getOwnerIntegrationRef(uid, firestoreDb);
+async function desconectarMercadoPagoCore({
+  firestoreDb = db,
+  targetProjectId = CURRENT_PROJECT_ID,
+  uid,
+}) {
+  const payload = {
+    accessToken: null,
+    publicKey: null,
+    mpUserId: null,
+    mpEmail: null,
+    disconnectedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    targetProjectId: sanitizeString(targetProjectId) || CURRENT_PROJECT_ID,
+    ownerUid: sanitizeString(uid),
+  };
 
-  await integrationRef.set(
-    {
-      accessToken: null,
-      publicKey: null,
-      mpUserId: null,
-      mpEmail: null,
-      disconnectedAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    },
+  await getSharedMercadoPagoIntegrationRef(targetProjectId, uid, db).set(
+    payload,
     { merge: true }
   );
+
+  try {
+    const integrationRef = getOwnerIntegrationRef(uid, firestoreDb);
+    await integrationRef.set(
+      payload,
+      { merge: true }
+    );
+  } catch {
+    // O espelho no projeto-alvo é opcional quando não há IAM cross-project.
+  }
 
   return {
     ok: true,
@@ -818,7 +902,8 @@ async function criarCheckoutBlocoMercadoPagoCore({
 
   const { accessToken } = await getOwnerMercadoPagoAccessToken(
     ownerUserIdNormalizado,
-    firestoreDb
+    firestoreDb,
+    targetProjectId
   );
   const isTestAccessToken = /^TEST-/i.test(accessToken);
 
@@ -967,7 +1052,8 @@ async function confirmarPagamentoBlocoMercadoPagoCore({
 
   const { accessToken } = await getOwnerMercadoPagoAccessToken(
     ownerUserIdNormalizado,
-    firestoreDb
+    firestoreDb,
+    targetProjectId
   );
   const payment = await fetchMercadoPago(
     `/v1/payments/${encodeURIComponent(paymentIdNormalizado)}`,
@@ -1526,7 +1612,7 @@ exports.confirmarPagamentoBlocoMercadoPago = onCall(CALLABLE_OPTIONS, async (req
   });
 });
 
-async function getUnifiedMercadoPagoHttpContext(req) {
+async function getUnifiedMercadoPagoHttpContext(req, { resolveFirestoreDb = true } = {}) {
   if (req.method !== "POST") {
     throw new HttpsError("failed-precondition", "Metodo nao permitido.");
   }
@@ -1544,7 +1630,9 @@ async function getUnifiedMercadoPagoHttpContext(req) {
     decoded,
     sourceAuthProjectId,
     targetProjectId,
-    firestoreDb: getProjectDb(targetProjectId, sourceAuthProjectId),
+    firestoreDb: resolveFirestoreDb
+      ? getProjectDb(targetProjectId, sourceAuthProjectId)
+      : null,
   };
 }
 
@@ -1552,9 +1640,11 @@ exports.mercadoPagoSalvarCredenciaisHttp = onRequest(
   HTTP_OPTIONS,
   async (req, res) => {
     try {
-      const { body, decoded, firestoreDb } = await getUnifiedMercadoPagoHttpContext(req);
+      const { body, decoded, targetProjectId } = await getUnifiedMercadoPagoHttpContext(req, {
+        resolveFirestoreDb: false,
+      });
       const result = await salvarMercadoPagoCredenciaisCore({
-        firestoreDb,
+        targetProjectId,
         uid: decoded.uid,
         accessToken: body?.accessToken,
         publicKey: body?.publicKey,
@@ -1570,9 +1660,11 @@ exports.mercadoPagoObterStatusHttp = onRequest(
   HTTP_OPTIONS,
   async (req, res) => {
     try {
-      const { decoded, firestoreDb } = await getUnifiedMercadoPagoHttpContext(req);
+      const { decoded, targetProjectId } = await getUnifiedMercadoPagoHttpContext(req, {
+        resolveFirestoreDb: false,
+      });
       const result = await obterStatusMercadoPagoCore({
-        firestoreDb,
+        targetProjectId,
         uid: decoded.uid,
       });
       res.json(result);
@@ -1586,9 +1678,11 @@ exports.mercadoPagoDesconectarHttp = onRequest(
   HTTP_OPTIONS,
   async (req, res) => {
     try {
-      const { decoded, firestoreDb } = await getUnifiedMercadoPagoHttpContext(req);
+      const { decoded, targetProjectId } = await getUnifiedMercadoPagoHttpContext(req, {
+        resolveFirestoreDb: false,
+      });
       const result = await desconectarMercadoPagoCore({
-        firestoreDb,
+        targetProjectId,
         uid: decoded.uid,
       });
       res.json(result);
