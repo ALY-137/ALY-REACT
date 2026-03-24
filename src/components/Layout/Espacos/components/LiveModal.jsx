@@ -47,7 +47,8 @@ export default function LiveModal({
   const liveUrlNormalizada = String(liveUrl || "").trim();
   const embedUrlNormalizada = String(embedUrl || "").trim();
   const iframeDisponivel = !ehVideoDireto && Boolean(embedUrlNormalizada);
-  const linkExternoDisponivel = Boolean(liveUrlNormalizada);
+  const exibirMidiaIncorporada =
+    Boolean(ehVideoDireto && !midiaDiretaFalhou && liveUrlNormalizada) || iframeDisponivel;
 
   const cameraStage = useMemo(() => {
     if (cameraLocalDisponivel) {
@@ -143,94 +144,43 @@ export default function LiveModal({
         position: "fixed",
         inset: 0,
         zIndex: 99998,
-        background: "rgba(0,0,0,0.92)",
         display: "flex",
         alignItems: "stretch",
-        justifyContent: "stretch",
+        justifyContent: isMobile ? "stretch" : "flex-end",
+        padding: cameraTelaCheia ? "0" : isMobile ? "12px" : "16px",
       }}
     >
       <div
-        className="live-modal__surface"
+        className={[
+          "live-modal__surface",
+          isMobile ? "is-mobile" : "",
+          cameraTelaCheia ? "is-fullscreen" : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
         onClick={(event) => event.stopPropagation()}
-        style={{
-          position: "relative",
-          width: "100vw",
-          height: "100dvh",
-          overflow: "hidden",
-        }}
       >
-        {ehVideoDireto ? (
-          !midiaDiretaFalhou && liveUrlNormalizada ? (
-            <video
-              className="live-modal__media"
-              src={liveUrlNormalizada}
-              controls
-              autoPlay
-              playsInline
-              onError={() => setMidiaDiretaFalhou(true)}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                background: "#000",
-              }}
-            />
-          ) : (
-            <div className="live-modal__media-fallback">
-              <div className="live-modal__media-fallback-body">
-                <p className="live-modal__media-fallback-eyebrow">Live</p>
-                <h2 className="live-modal__media-fallback-title">{titulo || "Live"}</h2>
-                <p className="live-modal__media-fallback-text">
-                  Nao foi possivel reproduzir o video diretamente nesta tela.
-                </p>
-                {linkExternoDisponivel ? (
-                  <a
-                    className="live-modal__media-link"
-                    href={liveUrlNormalizada}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Abrir transmissao em nova aba
-                  </a>
-                ) : null}
-              </div>
-            </div>
-          )
-        ) : iframeDisponivel ? (
-          <iframe
-            className="live-modal__media"
-            title={titulo || "Live"}
-            src={embedUrlNormalizada}
-            allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-            style={{
-              width: "100%",
-              height: "100%",
-              border: "none",
-              background: "#000",
-            }}
-          />
-        ) : (
-          <div className="live-modal__media-fallback">
-            <div className="live-modal__media-fallback-body">
-              <p className="live-modal__media-fallback-eyebrow">Live</p>
-              <h2 className="live-modal__media-fallback-title">{titulo || "Live"}</h2>
-              <p className="live-modal__media-fallback-text">
-                Esta URL nao permite incorporacao direta. O chat e a camera continuam disponiveis
-                nesta tela.
-              </p>
-              {linkExternoDisponivel ? (
-                <a
-                  className="live-modal__media-link"
-                  href={liveUrlNormalizada}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Abrir transmissao em nova aba
-                </a>
-              ) : null}
-            </div>
+        {!cameraTelaCheia && exibirMidiaIncorporada ? (
+          <div className="live-modal__media-pane">
+            {ehVideoDireto ? (
+              <video
+                className="live-modal__media"
+                src={liveUrlNormalizada}
+                controls
+                autoPlay
+                playsInline
+                onError={() => setMidiaDiretaFalhou(true)}
+              />
+            ) : (
+              <iframe
+                className="live-modal__media"
+                title={titulo || "Live"}
+                src={embedUrlNormalizada}
+                allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+              />
+            )}
           </div>
-        )}
+        ) : null}
 
         <button
           className="live-modal__close"

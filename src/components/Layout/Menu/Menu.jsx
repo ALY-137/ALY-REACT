@@ -280,10 +280,6 @@ function Menu({ menuOpen }) {
     navigateIfChanged(`/menu/${menuTargetUser}/espacos`);
   }
 
-  function abrirConfiguracoesGerenciador() {
-    navigateIfChanged(`/menu/${menuTargetUser}/configuracoes-gerenciador`);
-  }
-
   function abrirGerenciadorIcones() {
     navigateIfChanged(`/menu/${menuTargetUser}/gerenciador-icones`);
   }
@@ -449,10 +445,6 @@ function Menu({ menuOpen }) {
             setBackAction(() => closeMenu);
           } else if (path.endsWith("/users")) {
             setAtualTxt("USERS");
-            setBackText("MENU");
-            setBackAction(() => returnMenu);
-          } else if (path.endsWith("/configuracoes-gerenciador")) {
-            setAtualTxt("CONFIGURACOES DO GERENCIADOR");
             setBackText("MENU");
             setBackAction(() => returnMenu);
           } else if (path.endsWith("/acessos")) {
@@ -692,9 +684,6 @@ function Menu({ menuOpen }) {
           <>
             <div onClick={abrirUsers} className="gavetaOption">
               USERS
-            </div>
-            <div onClick={abrirConfiguracoesGerenciador} className="gavetaOption">
-              CONFIGURACOES DO GERENCIADOR
             </div>
             <div onClick={abrirAcessos} className="gavetaOption">
               ACESSOS

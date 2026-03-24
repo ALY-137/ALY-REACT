@@ -51,6 +51,7 @@ const SHARED_BUCKET_ALLOWED_AUTH_PROJECTS = [
   SYSTEM_MANAGER_PROJECT_ID,
 ].filter(Boolean);
 const UNIQUE_SHARED_BUCKET_AUTH_PROJECTS = [...new Set(SHARED_BUCKET_ALLOWED_AUTH_PROJECTS)];
+const SHARED_ONEOWNER_RUNTIME_KEYS = new Set(["aly-onepages-runtime"]);
 const sharedVerifierApps = new Map();
 const sharedProjectRuntimeApps = new Map();
 const ADMIN_ONLY_AUTH_PROJECTS = [
@@ -116,6 +117,29 @@ async function assertSystemManagerAdminIdentity({ uid = "", email = "" } = {}) {
 
 function sanitizeString(value) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function sanitizeSkinsResumo(value) {
+  if (!Array.isArray(value)) return [];
+
+  const dedupe = new Map();
+  value.forEach((item, index) => {
+    const id = sanitizeString(item?.id || item?.id_skin || `skin_${index}`);
+    const username = sanitizeString(item?.username);
+    if (!id && !username) return;
+
+    const key = id || username.toLowerCase();
+    if (!key || dedupe.has(key)) return;
+
+    dedupe.set(key, {
+      id,
+      username,
+      is_main: Boolean(item?.is_main),
+      theme: sanitizeString(item?.theme),
+    });
+  });
+
+  return Array.from(dedupe.values());
 }
 
 function parseCsv(value) {
@@ -491,9 +515,25 @@ function sendHttpError(res, error) {
     return;
   }
 
+  const errorCode = sanitizeString(error?.code).toLowerCase();
+  const errorMessage = sanitizeString(error?.message);
+  const permissionDenied =
+    errorCode === "7" ||
+    errorCode === "permission-denied" ||
+    /missing or insufficient permissions/i.test(errorMessage);
+
+  if (permissionDenied) {
+    res.status(403).json({
+      ok: false,
+      error: errorMessage || "Permissao insuficiente.",
+      code: "permission-denied",
+    });
+    return;
+  }
+
   res.status(500).json({
     ok: false,
-    error: sanitizeString(error?.message) || "Erro interno.",
+    error: errorMessage || "Erro interno.",
     code: "internal",
   });
 }
@@ -519,6 +559,34 @@ function normalizeBaseUrl(baseUrl) {
     throw new HttpsError("invalid-argument", "URL base invalida.");
   }
   return normalized;
+}
+
+function extractClientIp(req) {
+  const forwarded = sanitizeString(
+    req?.headers?.["x-forwarded-for"] || req?.headers?.["X-Forwarded-For"] || ""
+  );
+  if (forwarded) {
+    const firstForwarded = forwarded
+      .split(",")
+      .map((item) => sanitizeString(item))
+      .find(Boolean);
+    if (firstForwarded) {
+      return firstForwarded;
+    }
+  }
+
+  const candidates = [
+    req?.ip,
+    req?.socket?.remoteAddress,
+    req?.connection?.remoteAddress,
+  ];
+
+  for (const candidate of candidates) {
+    const normalized = sanitizeString(candidate);
+    if (normalized) return normalized;
+  }
+
+  return "";
 }
 
 function isLocalhostUrl(urlValue) {
@@ -570,12 +638,52 @@ function parseExternalReference(reference) {
   };
 }
 
-function getBlockDocRef(ownerUserId, espacoId, blocoId, firestoreDb = db) {
-  return firestoreDb.doc(`users/${ownerUserId}/espacos/${espacoId}/blocos/${blocoId}`);
+function normalizeProjectSystemKey(projectSystemKey = "") {
+  return sanitizeString(projectSystemKey).toLowerCase();
 }
 
-function getOwnerIntegrationRef(ownerUserId, firestoreDb = db) {
-  return firestoreDb.doc(`users/${ownerUserId}/integracoes/mercadoPago`);
+function shouldUseProjectNamespace(targetProjectId = "", projectSystemKey = "") {
+  const targetProjectIdNormalizado = sanitizeString(targetProjectId).toLowerCase();
+  const projectSystemKeyNormalizado = normalizeProjectSystemKey(projectSystemKey);
+  return (
+    SHARED_ONEOWNER_RUNTIME_KEYS.has(targetProjectIdNormalizado) &&
+    !!projectSystemKeyNormalizado &&
+    projectSystemKeyNormalizado !== targetProjectIdNormalizado
+  );
+}
+
+function buildProjectDataPath(segments = [], { targetProjectId = "", projectSystemKey = "" } = {}) {
+  const path = Array.isArray(segments) ? segments.filter(Boolean).map((item) => String(item)) : [];
+  if (!path.length) return "";
+  if (!shouldUseProjectNamespace(targetProjectId, projectSystemKey)) {
+    return path.join("/");
+  }
+  return ["projetos", normalizeProjectSystemKey(projectSystemKey), ...path].join("/");
+}
+
+function getProjectDataDocRef(firestoreDb = db, segments = [], options = {}) {
+  const path = buildProjectDataPath(segments, options);
+  return firestoreDb.doc(path);
+}
+
+function getUserDocRef(userId, firestoreDb = db, options = {}) {
+  return getProjectDataDocRef(firestoreDb, ["users", userId], options);
+}
+
+function getBlockDocRef(ownerUserId, espacoId, blocoId, firestoreDb = db, options = {}) {
+  return getProjectDataDocRef(
+    firestoreDb,
+    ["users", ownerUserId, "espacos", espacoId, "blocos", blocoId],
+    options
+  );
+}
+
+function getOwnerIntegrationRef(ownerUserId, firestoreDb = db, options = {}) {
+  return getProjectDataDocRef(
+    firestoreDb,
+    ["users", ownerUserId, "integracoes", "mercadoPago"],
+    options
+  );
 }
 
 function getSharedMercadoPagoIntegrationRef(targetProjectId = "", ownerUserId = "", firestoreDb = db) {
@@ -586,14 +694,19 @@ function getSharedMercadoPagoIntegrationRef(targetProjectId = "", ownerUserId = 
   );
 }
 
-function getOwnerPixManualRef(ownerUserId, firestoreDb = db) {
-  return firestoreDb.doc(`users/${ownerUserId}/integracoes/pixManual`);
+function getOwnerPixManualRef(ownerUserId, firestoreDb = db, options = {}) {
+  return getProjectDataDocRef(
+    firestoreDb,
+    ["users", ownerUserId, "integracoes", "pixManual"],
+    options
+  );
 }
 
 async function getOwnerMercadoPagoAccessToken(
   ownerUserId,
   firestoreDb = db,
-  targetProjectId = CURRENT_PROJECT_ID
+  targetProjectId = CURRENT_PROJECT_ID,
+  projectSystemKey = ""
 ) {
   let integrationData = null;
 
@@ -611,7 +724,10 @@ async function getOwnerMercadoPagoAccessToken(
   }
 
   if (!integrationData) {
-    const integrationSnap = await getOwnerIntegrationRef(ownerUserId, firestoreDb).get();
+    const integrationSnap = await getOwnerIntegrationRef(ownerUserId, firestoreDb, {
+      targetProjectId,
+      projectSystemKey,
+    }).get();
     integrationData = integrationSnap.exists ? integrationSnap.data() : null;
   }
 
@@ -627,8 +743,15 @@ async function getOwnerMercadoPagoAccessToken(
   return { accessToken, integrationData };
 }
 
-async function getBuyerContext(compradorUid, firestoreDb = db) {
-  const buyerSnap = await firestoreDb.doc(`users/${compradorUid}`).get();
+async function getBuyerContext(
+  compradorUid,
+  firestoreDb = db,
+  { targetProjectId = CURRENT_PROJECT_ID, projectSystemKey = "" } = {}
+) {
+  const buyerSnap = await getUserDocRef(compradorUid, firestoreDb, {
+    targetProjectId,
+    projectSystemKey,
+  }).get();
   const buyerData = buyerSnap.exists ? buyerSnap.data() : null;
   const activeSkinId =
     typeof buyerData?.skinAtivaId === "string" && buyerData.skinAtivaId
@@ -648,8 +771,13 @@ async function buyerAlreadyHasAccess({
   compradorUid,
   activeSkinId,
   firestoreDb = db,
+  targetProjectId = CURRENT_PROJECT_ID,
+  projectSystemKey = "",
 }) {
-  const basePath = `users/${ownerUserId}/espacos/${espacoId}/blocos/${blocoId}/compradores`;
+  const basePath = buildProjectDataPath(
+    ["users", ownerUserId, "espacos", espacoId, "blocos", blocoId, "compradores"],
+    { targetProjectId, projectSystemKey }
+  );
   const buyerDoc = await firestoreDb.doc(`${basePath}/${compradorUid}`).get();
   if (buyerDoc.exists) return true;
 
@@ -682,6 +810,37 @@ function ensureValidBlockForPurchase(blocoData) {
     precoCentavos: Math.round(precoCentavos),
     moeda: sanitizeString(blocoData?.moeda) || "BRL",
   };
+}
+
+function getBlockPaymentMethods(blocoData = {}) {
+  const metodos = blocoData?.metodosPagamento || blocoData?.metodosPagamentoPermitidos || {};
+  return {
+    mercadoPago:
+      typeof metodos?.mercadoPago === "boolean" ? metodos.mercadoPago : true,
+    pixManual:
+      typeof metodos?.pixManual === "boolean" ? metodos.pixManual : true,
+  };
+}
+
+function assertBlockPaymentMethodEnabled(blocoData = {}, metodo = "") {
+  const metodos = getBlockPaymentMethods(blocoData);
+  const metodoNormalizado = sanitizeString(metodo);
+
+  if (metodoNormalizado === "mercadoPago" && !metodos.mercadoPago) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Mercado Pago desativado para esta live."
+    );
+  }
+
+  if (metodoNormalizado === "pixManual" && !metodos.pixManual) {
+    throw new HttpsError(
+      "failed-precondition",
+      "PIX manual desativado para esta live."
+    );
+  }
+
+  return metodos;
 }
 
 async function fetchMercadoPago(endpoint, accessToken, options = {}) {
@@ -719,6 +878,7 @@ async function fetchMercadoPago(endpoint, accessToken, options = {}) {
 async function salvarMercadoPagoCredenciaisCore({
   firestoreDb = db,
   targetProjectId = CURRENT_PROJECT_ID,
+  projectSystemKey = "",
   uid,
   accessToken,
   publicKey = "",
@@ -749,7 +909,10 @@ async function salvarMercadoPagoCredenciaisCore({
   );
 
   try {
-    await getOwnerIntegrationRef(uid, firestoreDb).set(
+    await getOwnerIntegrationRef(uid, firestoreDb, {
+      targetProjectId,
+      projectSystemKey,
+    }).set(
       payload,
       { merge: true }
     );
@@ -768,6 +931,7 @@ async function salvarMercadoPagoCredenciaisCore({
 async function obterStatusMercadoPagoCore({
   firestoreDb = db,
   targetProjectId = CURRENT_PROJECT_ID,
+  projectSystemKey = "",
   uid,
 }) {
   let integrationData = {};
@@ -781,7 +945,10 @@ async function obterStatusMercadoPagoCore({
     if (sharedIntegrationSnap.exists) {
       integrationData = sharedIntegrationSnap.data() || {};
     } else {
-      const integrationSnap = await getOwnerIntegrationRef(uid, firestoreDb).get();
+      const integrationSnap = await getOwnerIntegrationRef(uid, firestoreDb, {
+        targetProjectId,
+        projectSystemKey,
+      }).get();
       integrationData = integrationSnap.exists ? integrationSnap.data() : {};
     }
   } catch {
@@ -804,6 +971,7 @@ async function obterStatusMercadoPagoCore({
 async function desconectarMercadoPagoCore({
   firestoreDb = db,
   targetProjectId = CURRENT_PROJECT_ID,
+  projectSystemKey = "",
   uid,
 }) {
   const payload = {
@@ -823,7 +991,10 @@ async function desconectarMercadoPagoCore({
   );
 
   try {
-    const integrationRef = getOwnerIntegrationRef(uid, firestoreDb);
+    const integrationRef = getOwnerIntegrationRef(uid, firestoreDb, {
+      targetProjectId,
+      projectSystemKey,
+    });
     await integrationRef.set(
       payload,
       { merge: true }
@@ -841,6 +1012,7 @@ async function desconectarMercadoPagoCore({
 async function criarCheckoutBlocoMercadoPagoCore({
   firestoreDb = db,
   targetProjectId = CURRENT_PROJECT_ID,
+  projectSystemKey = "",
   compradorUid,
   authEmail = "",
   ownerUserId,
@@ -873,7 +1045,8 @@ async function criarCheckoutBlocoMercadoPagoCore({
     ownerUserIdNormalizado,
     espacoIdNormalizado,
     blocoIdNormalizado,
-    firestoreDb
+    firestoreDb,
+    { targetProjectId, projectSystemKey }
   );
   const blocoSnap = await blocoRef.get();
   if (!blocoSnap.exists) {
@@ -882,7 +1055,11 @@ async function criarCheckoutBlocoMercadoPagoCore({
 
   const blocoData = blocoSnap.data() || {};
   const { precoCentavos, moeda } = ensureValidBlockForPurchase(blocoData);
-  const buyerContext = await getBuyerContext(compradorUid, firestoreDb);
+  assertBlockPaymentMethodEnabled(blocoData, "mercadoPago");
+  const buyerContext = await getBuyerContext(compradorUid, firestoreDb, {
+    targetProjectId,
+    projectSystemKey,
+  });
 
   const alreadyPurchased = await buyerAlreadyHasAccess({
     ownerUserId: ownerUserIdNormalizado,
@@ -891,6 +1068,8 @@ async function criarCheckoutBlocoMercadoPagoCore({
     compradorUid,
     activeSkinId: buyerContext.activeSkinId,
     firestoreDb,
+    targetProjectId,
+    projectSystemKey,
   });
   if (alreadyPurchased) {
     return {
@@ -903,7 +1082,8 @@ async function criarCheckoutBlocoMercadoPagoCore({
   const { accessToken } = await getOwnerMercadoPagoAccessToken(
     ownerUserIdNormalizado,
     firestoreDb,
-    targetProjectId
+    targetProjectId,
+    projectSystemKey
   );
   const isTestAccessToken = /^TEST-/i.test(accessToken);
 
@@ -960,6 +1140,7 @@ async function criarCheckoutBlocoMercadoPagoCore({
       compradorUid,
       compradorSkinId: buyerContext.activeSkinId || null,
       targetProjectId: sanitizeString(targetProjectId) || CURRENT_PROJECT_ID,
+      projectSystemKey: normalizeProjectSystemKey(projectSystemKey) || null,
     },
   };
 
@@ -1006,6 +1187,7 @@ async function criarCheckoutBlocoMercadoPagoCore({
       compradorSkinId: buyerContext.activeSkinId || null,
       precoCentavos,
       moeda,
+      projectSystemKey: normalizeProjectSystemKey(projectSystemKey) || null,
       criadoEm: serverTimestamp(),
       atualizadoEm: serverTimestamp(),
     },
@@ -1026,6 +1208,7 @@ async function criarCheckoutBlocoMercadoPagoCore({
 async function confirmarPagamentoBlocoMercadoPagoCore({
   firestoreDb = db,
   targetProjectId = CURRENT_PROJECT_ID,
+  projectSystemKey = "",
   compradorUid,
   ownerUserId,
   espacoId,
@@ -1036,12 +1219,14 @@ async function confirmarPagamentoBlocoMercadoPagoCore({
   const espacoIdNormalizado = ensureRequiredString(espacoId, "espacoId");
   const blocoIdNormalizado = ensureRequiredString(blocoId, "blocoId");
   const paymentIdNormalizado = ensureRequiredString(paymentId, "paymentId");
+  const projectSystemKeyNormalizado = normalizeProjectSystemKey(projectSystemKey);
 
   const blocoRef = getBlockDocRef(
     ownerUserIdNormalizado,
     espacoIdNormalizado,
     blocoIdNormalizado,
-    firestoreDb
+    firestoreDb,
+    { targetProjectId, projectSystemKey: projectSystemKeyNormalizado }
   );
   const blocoSnap = await blocoRef.get();
   if (!blocoSnap.exists) {
@@ -1053,7 +1238,8 @@ async function confirmarPagamentoBlocoMercadoPagoCore({
   const { accessToken } = await getOwnerMercadoPagoAccessToken(
     ownerUserIdNormalizado,
     firestoreDb,
-    targetProjectId
+    targetProjectId,
+    projectSystemKeyNormalizado
   );
   const payment = await fetchMercadoPago(
     `/v1/payments/${encodeURIComponent(paymentIdNormalizado)}`,
@@ -1069,6 +1255,7 @@ async function confirmarPagamentoBlocoMercadoPagoCore({
   const espacoFromMetadata = sanitizeString(metadata.espacoId);
   const blocoFromMetadata = sanitizeString(metadata.blocoId);
   const compradorFromMetadata = sanitizeString(metadata.compradorUid);
+  const projectSystemKeyFromMetadata = normalizeProjectSystemKey(metadata.projectSystemKey);
 
   const metadataMatches =
     ownerFromMetadata === ownerUserIdNormalizado &&
@@ -1097,9 +1284,20 @@ async function confirmarPagamentoBlocoMercadoPagoCore({
     ? Math.round(transactionAmount * 100)
     : Number(blocoData?.precoCentavos) || null;
 
-  const buyerContext = await getBuyerContext(compradorUid, firestoreDb);
-  const compradoresRef = blocoRef.collection("compradores");
-  const pagamentoRef = blocoRef.collection("pagamentos").doc(String(paymentIdNormalizado));
+  const projectSystemKeyFinal = projectSystemKeyNormalizado || projectSystemKeyFromMetadata;
+  const blocoRefFinal =
+    projectSystemKeyFinal && projectSystemKeyFinal !== projectSystemKeyNormalizado
+      ? getBlockDocRef(ownerUserIdNormalizado, espacoIdNormalizado, blocoIdNormalizado, firestoreDb, {
+          targetProjectId,
+          projectSystemKey: projectSystemKeyFinal,
+        })
+      : blocoRef;
+  const buyerContext = await getBuyerContext(compradorUid, firestoreDb, {
+    targetProjectId,
+    projectSystemKey: projectSystemKeyFinal,
+  });
+  const compradoresRef = blocoRefFinal.collection("compradores");
+  const pagamentoRef = blocoRefFinal.collection("pagamentos").doc(String(paymentIdNormalizado));
 
   await pagamentoRef.set(
     {
@@ -1115,6 +1313,7 @@ async function confirmarPagamentoBlocoMercadoPagoCore({
       compradorSkinId: buyerContext.activeSkinId || null,
       amountCentavos: amountCentavos || null,
       moeda: sanitizeString(payment?.currency_id) || moeda,
+      projectSystemKey: projectSystemKeyFinal || null,
       raw: payment || null,
       atualizadoEm: serverTimestamp(),
     },
@@ -1274,6 +1473,7 @@ exports.obterCheckoutPixManualBloco = onCall(CALLABLE_OPTIONS, async (request) =
 
   const blocoData = blocoSnap.data() || {};
   const { precoCentavos, moeda } = ensureValidBlockForPurchase(blocoData);
+  assertBlockPaymentMethodEnabled(blocoData, "pixManual");
   const buyerContext = await getBuyerContext(compradorUid);
 
   const alreadyPurchased = await buyerAlreadyHasAccess({
@@ -1624,12 +1824,14 @@ async function getUnifiedMercadoPagoHttpContext(req, { resolveFirestoreDb = true
     body?.targetProjectId,
     sourceAuthProjectId
   );
+  const projectSystemKey = normalizeProjectSystemKey(body?.projectSystemKey);
 
   return {
     body,
     decoded,
     sourceAuthProjectId,
     targetProjectId,
+    projectSystemKey,
     firestoreDb: resolveFirestoreDb
       ? getProjectDb(targetProjectId, sourceAuthProjectId)
       : null,
@@ -1640,11 +1842,12 @@ exports.mercadoPagoSalvarCredenciaisHttp = onRequest(
   HTTP_OPTIONS,
   async (req, res) => {
     try {
-      const { body, decoded, targetProjectId } = await getUnifiedMercadoPagoHttpContext(req, {
+      const { body, decoded, targetProjectId, projectSystemKey } = await getUnifiedMercadoPagoHttpContext(req, {
         resolveFirestoreDb: false,
       });
       const result = await salvarMercadoPagoCredenciaisCore({
         targetProjectId,
+        projectSystemKey,
         uid: decoded.uid,
         accessToken: body?.accessToken,
         publicKey: body?.publicKey,
@@ -1660,11 +1863,12 @@ exports.mercadoPagoObterStatusHttp = onRequest(
   HTTP_OPTIONS,
   async (req, res) => {
     try {
-      const { decoded, targetProjectId } = await getUnifiedMercadoPagoHttpContext(req, {
+      const { decoded, targetProjectId, projectSystemKey } = await getUnifiedMercadoPagoHttpContext(req, {
         resolveFirestoreDb: false,
       });
       const result = await obterStatusMercadoPagoCore({
         targetProjectId,
+        projectSystemKey,
         uid: decoded.uid,
       });
       res.json(result);
@@ -1678,11 +1882,12 @@ exports.mercadoPagoDesconectarHttp = onRequest(
   HTTP_OPTIONS,
   async (req, res) => {
     try {
-      const { decoded, targetProjectId } = await getUnifiedMercadoPagoHttpContext(req, {
+      const { decoded, targetProjectId, projectSystemKey } = await getUnifiedMercadoPagoHttpContext(req, {
         resolveFirestoreDb: false,
       });
       const result = await desconectarMercadoPagoCore({
         targetProjectId,
+        projectSystemKey,
         uid: decoded.uid,
       });
       res.json(result);
@@ -1696,11 +1901,12 @@ exports.mercadoPagoCriarCheckoutHttp = onRequest(
   HTTP_OPTIONS,
   async (req, res) => {
     try {
-      const { body, decoded, targetProjectId, firestoreDb } =
+      const { body, decoded, targetProjectId, projectSystemKey, firestoreDb } =
         await getUnifiedMercadoPagoHttpContext(req);
       const result = await criarCheckoutBlocoMercadoPagoCore({
         firestoreDb,
         targetProjectId,
+        projectSystemKey,
         compradorUid: decoded.uid,
         authEmail: decoded.email,
         ownerUserId: body?.ownerUserId,
@@ -1721,11 +1927,12 @@ exports.mercadoPagoConfirmarPagamentoHttp = onRequest(
   HTTP_OPTIONS,
   async (req, res) => {
     try {
-      const { body, decoded, targetProjectId, firestoreDb } =
+      const { body, decoded, targetProjectId, projectSystemKey, firestoreDb } =
         await getUnifiedMercadoPagoHttpContext(req);
       const result = await confirmarPagamentoBlocoMercadoPagoCore({
         firestoreDb,
         targetProjectId,
+        projectSystemKey,
         compradorUid: decoded.uid,
         ownerUserId: body?.ownerUserId,
         espacoId: body?.espacoId,
@@ -1859,6 +2066,7 @@ exports.registrarAcessoPublico = onRequest(
       const body = normalizeRequestBody(req);
       const hostname = normalizeHostValue(body?.hostname);
       const fullPath = sanitizeString(body?.fullPath || body?.path || "/").slice(0, 300);
+      const clientIp = sanitizeString(body?.ip) || extractClientIp(req) || null;
       const managerDb = getSystemManagerDb();
 
       await managerDb.collection("acessos").add({
@@ -1868,6 +2076,7 @@ exports.registrarAcessoPublico = onRequest(
         perfilAcesso: sanitizeString(body?.perfilAcesso) || "visitante",
         autenticado: Boolean(body?.autenticado),
         hash: sanitizeString(body?.hash) || null,
+        visitorHash: sanitizeString(body?.visitorHash) || null,
 
         projectSystemKey: sanitizeString(body?.projectSystemKey) || null,
         projectNome: sanitizeString(body?.projectNome) || null,
@@ -1875,14 +2084,26 @@ exports.registrarAcessoPublico = onRequest(
         runtimeProjectId: sanitizeString(body?.runtimeProjectId) || null,
         tipoExperiencia: sanitizeString(body?.tipoExperiencia) || null,
         modoAcessoProjeto: sanitizeString(body?.modoAcessoProjeto) || null,
+        skinUsername: sanitizeString(body?.skinUsername) || null,
+        skinId: sanitizeString(body?.skinId) || null,
+        skinUsernameRota: sanitizeString(body?.skinUsernameRota) || null,
 
         hostname: hostname || null,
         path: sanitizeString(body?.path) || "/",
         search: sanitizeString(body?.search) || "",
+        urlHash: sanitizeString(body?.urlHash) || "",
         fullPath,
         userAgent: sanitizeString(body?.userAgent) || null,
+        eventoTipo: sanitizeString(body?.eventoTipo) || "page_view",
+        eventoAcao: sanitizeString(body?.eventoAcao) || null,
+        pageSessionId: sanitizeString(body?.pageSessionId) || null,
+        elementoTag: sanitizeString(body?.elementoTag) || null,
+        elementoId: sanitizeString(body?.elementoId) || null,
+        elementoTexto: sanitizeString(body?.elementoTexto) || null,
+        elementoHref: sanitizeString(body?.elementoHref) || null,
+        duracaoMs: Number.isFinite(Number(body?.duracaoMs)) ? Number(body?.duracaoMs) : null,
 
-        ip: sanitizeString(body?.ip) || null,
+        ip: clientIp,
         country: sanitizeString(body?.country) || null,
         region: sanitizeString(body?.region) || null,
         city: sanitizeString(body?.city) || null,
@@ -1979,6 +2200,85 @@ exports.resolverProjetoPorDominioPublico = onRequest(
   }
 );
 
+exports.listarUsuariosGerenciadorHttp = onRequest(
+  HTTP_OPTIONS,
+  async (req, res) => {
+    try {
+      if (req.method !== "POST") {
+        res.status(405).json({ ok: false, error: "Metodo nao permitido." });
+        return;
+      }
+
+      const body = normalizeRequestBody(req);
+      const token = getBearerToken(req);
+      const { decoded } = await verifySharedBucketIdToken(token);
+      await assertSystemManagerAdminIdentity({
+        uid: decoded?.uid,
+        email: decoded?.email,
+      });
+
+      const maxItems = Math.min(Math.max(Number(body?.limit) || 1500, 1), 5000);
+      const managerDb = getSystemManagerDb();
+      const snap = await managerDb
+        .collection("usuarios_projetos")
+        .orderBy("updatedAt", "desc")
+        .limit(maxItems)
+        .get();
+
+      res.json({
+        ok: true,
+        items: snap.docs.map((docItem) => ({
+          id: docItem.id,
+          ...docItem.data(),
+        })),
+      });
+    } catch (error) {
+      sendHttpError(res, error);
+    }
+  }
+);
+
+exports.listarAcessosGerenciadorHttp = onRequest(
+  HTTP_OPTIONS,
+  async (req, res) => {
+    try {
+      if (req.method !== "POST") {
+        res.status(405).json({ ok: false, error: "Metodo nao permitido." });
+        return;
+      }
+
+      const body = normalizeRequestBody(req);
+      const token = getBearerToken(req);
+      const { decoded } = await verifySharedBucketIdToken(token);
+      await assertSystemManagerAdminIdentity({
+        uid: decoded?.uid,
+        email: decoded?.email,
+      });
+
+      const maxItems = Math.min(Math.max(Number(body?.limit) || 3000, 1), 8000);
+      const projectSystemKey = sanitizeString(body?.projectSystemKey).toLowerCase();
+      const managerDb = getSystemManagerDb();
+      let ref = managerDb.collection("acessos");
+
+      if (projectSystemKey) {
+        ref = ref.where("projectSystemKey", "==", projectSystemKey);
+      }
+
+      const snap = await ref.orderBy("data", "desc").limit(maxItems).get();
+
+      res.json({
+        ok: true,
+        items: snap.docs.map((docItem) => ({
+          id: docItem.id,
+          ...docItem.data(),
+        })),
+      });
+    } catch (error) {
+      sendHttpError(res, error);
+    }
+  }
+);
+
 exports.espelharUsuarioProjeto = onRequest(
   HTTP_OPTIONS,
   async (req, res) => {
@@ -2005,6 +2305,7 @@ exports.espelharUsuarioProjeto = onRequest(
       const managerDb = getSystemManagerDb();
       const ref = managerDb.collection("usuarios_projetos").doc(docId);
       const snap = await ref.get();
+      const skinsResumo = sanitizeSkinsResumo(body?.skinsResumo);
       const payload = {
         uid,
         nomeGoogle: sanitizeString(body?.nomeGoogle) || "",
@@ -2014,6 +2315,10 @@ exports.espelharUsuarioProjeto = onRequest(
         projectSystemKey,
         runtimeProjectKey: sanitizeString(body?.runtimeProjectKey) || null,
         sourceAuthProjectId: sanitizeString(projectId) || null,
+        skinsResumo,
+        skinUsernames: skinsResumo
+          .map((item) => sanitizeString(item?.username))
+          .filter(Boolean),
         lastLoginAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { doc, getDoc } from "firebase/firestore";
 import { db } from "../../Banco/init-firebase";
+import { getFirstExistingProjectDocSnapshot } from "../../Banco/projectDataRefs";
 import {
   confirmarPagamentoBlocoMercadoPago,
   criarCheckoutBlocoMercadoPago,
@@ -29,6 +29,20 @@ function formatarPreco(precoCentavos, moeda = "BRL") {
   } catch {
     return `R$ ${(valorNumerico / 100).toFixed(2)}`;
   }
+}
+
+function normalizarMetodosPagamentoBloco(bloco = {}, fallback = {}) {
+  const metodos = bloco?.metodosPagamento || bloco?.metodosPagamentoPermitidos || {};
+  return {
+    mercadoPago:
+      typeof metodos?.mercadoPago === "boolean"
+        ? metodos.mercadoPago
+        : Boolean(fallback?.mercadoPago ?? true),
+    pixManual:
+      typeof metodos?.pixManual === "boolean"
+        ? metodos.pixManual
+        : Boolean(fallback?.pixManual ?? true),
+  };
 }
 
 export default function CheckoutBlocoMercadoPago({
@@ -64,6 +78,14 @@ export default function CheckoutBlocoMercadoPago({
   }, [location.pathname, skinLogadoUser]);
 
   const checkoutAtivo = Boolean(blocoId && espacoId && ownerUserId);
+  const metodosPagamentoBloco = useMemo(
+    () => normalizarMetodosPagamentoBloco(blocoInfo, { mercadoPago: true, pixManual: true }),
+    [blocoInfo]
+  );
+  const mercadoPagoCheckoutHabilitado =
+    Boolean(mercadoPagoHabilitado) && Boolean(metodosPagamentoBloco.mercadoPago);
+  const pixManualCheckoutHabilitado =
+    Boolean(pixManualHabilitado) && Boolean(metodosPagamentoBloco.pixManual);
 
   useEffect(() => {
     if (!checkoutAtivo) {
@@ -75,7 +97,7 @@ export default function CheckoutBlocoMercadoPago({
     async function carregarBloco() {
       setCarregandoBloco(true);
       try {
-        const blocoRef = doc(
+        const blocoSnap = await getFirstExistingProjectDocSnapshot(
           db,
           "users",
           ownerUserId,
@@ -84,9 +106,8 @@ export default function CheckoutBlocoMercadoPago({
           "blocos",
           blocoId
         );
-        const blocoSnap = await getDoc(blocoRef);
         if (!cancelado) {
-          setBlocoInfo(blocoSnap.exists() ? { id: blocoSnap.id, ...blocoSnap.data() } : null);
+          setBlocoInfo(blocoSnap?.exists?.() ? { id: blocoSnap.id, ...blocoSnap.data() } : null);
         }
       } catch (err) {
         if (!cancelado) {
@@ -141,8 +162,8 @@ export default function CheckoutBlocoMercadoPago({
   const precoFormatado = formatarPreco(blocoInfo?.precoCentavos, blocoInfo?.moeda || "BRL");
 
   const abrirCheckout = async () => {
-    if (!mercadoPagoHabilitado) {
-      setMensagem("Checkout do Mercado Pago desativado neste projeto.");
+    if (!mercadoPagoCheckoutHabilitado) {
+      setMensagem("Mercado Pago desativado para esta live.");
       return;
     }
     setProcessando(true);
@@ -178,8 +199,8 @@ export default function CheckoutBlocoMercadoPago({
   };
 
   const abrirPixManual = async () => {
-    if (!pixManualHabilitado) {
-      setMensagem("Pagamento manual por PIX desativado neste projeto.");
+    if (!pixManualCheckoutHabilitado) {
+      setMensagem("PIX manual desativado para esta live.");
       return;
     }
     setProcessandoPix(true);
@@ -272,9 +293,14 @@ export default function CheckoutBlocoMercadoPago({
   return (
     <div style={painelStyle}>
       <h3 style={{ marginTop: 0 }}>Checkout do Bloco</h3>
-      {mercadoPagoHabilitado && pixManualHabilitado ? (
+      {mercadoPagoCheckoutHabilitado && pixManualCheckoutHabilitado ? (
         <p style={{ margin: "4px 0 8px" }}>
           Escolha como pagar: Mercado Pago ou PIX manual (alternativo).
+        </p>
+      ) : null}
+      {!mercadoPagoCheckoutHabilitado && !pixManualCheckoutHabilitado ? (
+        <p style={{ margin: "4px 0 8px" }}>
+          Esta live nao possui nenhum metodo de pagamento habilitado.
         </p>
       ) : null}
       {!!statusRetorno && (
@@ -298,7 +324,7 @@ export default function CheckoutBlocoMercadoPago({
       )}
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        {mercadoPagoHabilitado ? (
+        {mercadoPagoCheckoutHabilitado ? (
           <button
             onClick={abrirCheckout}
             disabled={
@@ -308,7 +334,7 @@ export default function CheckoutBlocoMercadoPago({
             {processando ? "Processando..." : "Pagar com Mercado Pago (PIX e Cartao)"}
           </button>
         ) : null}
-        {pixManualHabilitado ? (
+        {pixManualCheckoutHabilitado ? (
           <button
             onClick={abrirPixManual}
             disabled={

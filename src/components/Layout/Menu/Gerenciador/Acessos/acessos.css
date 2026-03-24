@@ -51,6 +51,30 @@
   font-size: 12px;
 }
 
+.gerenciador-acessos__pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+
+.gerenciador-acessos__pagination button {
+  min-height: 38px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  cursor: pointer;
+}
+
+.gerenciador-acessos__pagination button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .gerenciador-acessos__list {
   display: grid;
   gap: 12px;

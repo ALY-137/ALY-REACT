@@ -120,7 +120,7 @@ function normalizeTipoProjeto(value) {
 function rotuloTipoProjeto(tipoProjeto = "") {
   const normalizado = normalizeTipoProjeto(tipoProjeto);
   if (normalizado === "oneowner") return "Oneowner";
-  if (normalizado === "manager") return "Menager";
+  if (normalizado === "manager") return "Manager";
   return "Multiowner";
 }
 
@@ -128,7 +128,10 @@ function resolveTipoProjetoProjeto(projeto = {}) {
   const managerProjectId = normalizeText(obterManagerProjectIdConfigurado()).toLowerCase();
   const systemKeyProjeto = normalizeText(projeto?.systemKey || projeto?.key || projeto?.id).toLowerCase();
   const firebaseProjectIdProjeto = normalizeText(
-    projeto?.firebaseProjectId || projeto?.projectId
+    projeto?.firebaseProjectId ||
+      projeto?.projectId ||
+      projeto?.firebaseRuntimeConfig?.projectId ||
+      projeto?.configSistema?.firebaseProjectId
   ).toLowerCase();
 
   if (
@@ -241,7 +244,12 @@ function projetoComCamposPadrao(projeto = {}) {
     systemKey: keyNormalizada,
     nomeProjeto,
     tipoProjeto,
-    firebaseProjectId: normalizeText(projeto.firebaseProjectId || projeto.projectId),
+    firebaseProjectId: normalizeText(
+      projeto.firebaseProjectId ||
+        projeto.projectId ||
+        projeto?.firebaseRuntimeConfig?.projectId ||
+        projeto?.configSistema?.firebaseProjectId
+    ),
     domains: domainsNormalizados,
     firebaseRuntimeConfig:
       projeto.firebaseRuntimeConfig && typeof projeto.firebaseRuntimeConfig === "object"
@@ -727,7 +735,7 @@ function GerenciadorProjetos() {
             <option value="todos">Todos</option>
             <option value="multiowner">Multiowners</option>
             <option value="oneowner">Oneowners</option>
-            <option value="manager">Menager</option>
+            <option value="manager">Manager</option>
           </select>
         </label>
       </div>

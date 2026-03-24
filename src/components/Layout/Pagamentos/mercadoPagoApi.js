@@ -22,6 +22,7 @@ import {
   getProjectCollectionCandidates,
   getProjectDocCandidates,
 } from "../../Banco/projectDataRefs";
+import { obterProjectKeyContextual } from "../Sistema/configSistema";
 
 function callSalvarCredenciais(data) {
   if (usarBackendMercadoPagoCompartilhado()) {
@@ -87,6 +88,34 @@ function sanitizeString(value) {
   return String(value || "").trim();
 }
 
+function normalizarMetodosPagamentoBloco(blocoData = {}, fallback = {}) {
+  const metodos = blocoData?.metodosPagamento || blocoData?.metodosPagamentoPermitidos || {};
+  return {
+    mercadoPago:
+      typeof metodos?.mercadoPago === "boolean"
+        ? metodos.mercadoPago
+        : Boolean(fallback?.mercadoPago ?? true),
+    pixManual:
+      typeof metodos?.pixManual === "boolean"
+        ? metodos.pixManual
+        : Boolean(fallback?.pixManual ?? true),
+  };
+}
+
+function assertMetodoPagamentoPermitidoNoBloco(blocoData = {}, metodo = "") {
+  const metodos = normalizarMetodosPagamentoBloco(blocoData, {
+    mercadoPago: true,
+    pixManual: true,
+  });
+  if (String(metodo || "").trim() === "mercadoPago" && !metodos.mercadoPago) {
+    throw new Error("Mercado Pago desativado para esta live.");
+  }
+  if (String(metodo || "").trim() === "pixManual" && !metodos.pixManual) {
+    throw new Error("PIX manual desativado para esta live.");
+  }
+  return metodos;
+}
+
 function carregarProjetosMercadoPagoIndisponiveisStorage() {
   if (typeof window === "undefined") return;
   try {
@@ -119,6 +148,10 @@ function getProjetoAtivoMercadoPago() {
   return sanitizeString(activeFirebaseProjectKey);
 }
 
+function getProjectSystemKeyMercadoPago() {
+  return sanitizeString(obterProjectKeyContextual() || activeFirebaseProjectKey).toLowerCase();
+}
+
 function usarBackendMercadoPagoCompartilhado() {
   return Boolean(SHARED_FUNCTIONS_BASE_URL);
 }
@@ -143,6 +176,7 @@ async function postMercadoPagoCompartilhado(endpoint, payload = {}) {
     body: JSON.stringify({
       ...(payload || {}),
       targetProjectId: sanitizeString(activeFirebaseProjectId) || null,
+      projectSystemKey: getProjectSystemKeyMercadoPago() || null,
     }),
   });
 
@@ -206,6 +240,20 @@ function isMercadoPagoFunctionsIndisponivel(err) {
     texto.includes("failed to fetch") ||
     texto.includes("net::err_failed") ||
     texto.includes("network request failed")
+  );
+}
+
+function isMercadoPagoPermissionDenied(err) {
+  const code = sanitizeString(err?.code || "").toLowerCase();
+  const message = sanitizeString(err?.message || "").toLowerCase();
+  const details = sanitizeString(err?.details || err?.customData?.details || "").toLowerCase();
+  const texto = `${message} ${details}`.trim();
+
+  return (
+    code === "permission-denied" ||
+    code === "http-403" ||
+    texto.includes("missing or insufficient permissions") ||
+    texto.includes("permission denied")
   );
 }
 
@@ -545,6 +593,10 @@ async function carregarBlocoCompravel(ownerUserId, espacoId, blocoId) {
     liveFimEmMs: parseLiveMs(blocoData?.liveFimEmMs, blocoData?.liveFimEmIso),
     liveInicioEmIso: sanitizeString(blocoData?.liveInicioEmIso) || "",
     liveFimEmIso: sanitizeString(blocoData?.liveFimEmIso) || "",
+    metodosPagamento: normalizarMetodosPagamentoBloco(blocoData, {
+      mercadoPago: true,
+      pixManual: true,
+    }),
   };
 }
 
@@ -658,6 +710,13 @@ export async function criarCheckoutBlocoMercadoPago({
         "Checkout Mercado Pago indisponivel neste projeto. Use PIX manual ou faca deploy das Functions."
       );
     }
+    if (isMercadoPagoPermissionDenied(err)) {
+      const erro = new Error(
+        "Checkout Mercado Pago sem permissao no projeto alvo. Falta liberar IAM do backend central para o Firestore deste projeto."
+      );
+      erro.code = "permission-denied";
+      throw erro;
+    }
     throw err;
   }
 }
@@ -686,6 +745,13 @@ export async function confirmarPagamentoBlocoMercadoPago({
       throw criarErroMercadoPagoIndisponivel(
         "Confirmacao Mercado Pago indisponivel neste projeto. Use PIX manual ou faca deploy das Functions."
       );
+    }
+    if (isMercadoPagoPermissionDenied(err)) {
+      const erro = new Error(
+        "Confirmacao Mercado Pago sem permissao no projeto alvo. Falta liberar IAM do backend central para o Firestore deste projeto."
+      );
+      erro.code = "permission-denied";
+      throw erro;
     }
     throw err;
   }
@@ -774,6 +840,7 @@ export async function obterCheckoutPixManualBloco({ ownerUserId, espacoId, bloco
   }
 
   const blocoInfo = await carregarBlocoCompravel(ownerUid, espaco, bloco);
+  assertMetodoPagamentoPermitidoNoBloco(blocoInfo.data, "pixManual");
   const buyerContext = await getBuyerContext(compradorUid);
   const alreadyPurchased = await buyerAlreadyHasAccess({
     ownerUserId: ownerUid,
@@ -844,6 +911,7 @@ export async function solicitarSolicitacaoPixManualBloco({
   }
 
   const blocoInfo = await carregarBlocoCompravel(ownerUid, espaco, bloco);
+  assertMetodoPagamentoPermitidoNoBloco(blocoInfo.data, "pixManual");
   const buyerContext = await getBuyerContext(compradorUid);
   const alreadyPurchased = await buyerAlreadyHasAccess({
     ownerUserId: ownerUid,
@@ -900,6 +968,10 @@ export async function solicitarSolicitacaoPixManualBloco({
     blocoOriginalUrl: blocoInfo.originalUrl || null,
     blocoOriginalPath: blocoInfo.originalPath || null,
     blocoOriginalTitulo: blocoInfo.miniaturaTitulo || null,
+    metodosPagamento: blocoInfo.metodosPagamento || {
+      mercadoPago: true,
+      pixManual: true,
+    },
     qrSelecionado,
     status: "pedido_solicitado",
     atualizadoEm: serverTimestamp(),

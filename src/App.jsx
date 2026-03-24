@@ -24,7 +24,7 @@ import {
   obterConfigSistema,
 } from "./components/Layout/Sistema/configSistema";
 import PropriedadesSistema from "./components/Layout/Menu/Gerenciador/PropriedadesSistema/PropriedadesSistema";
-import { bootstrapUser } from "./components/Banco/bootstrapUser";
+import { bootstrapUser, espelharUsuarioNoGerenciador } from "./components/Banco/bootstrapUser";
 import {
   exibirNotificacaoAdminLocal,
   registrarTokenPushAdmin,
@@ -297,6 +297,18 @@ const App = () => {
         const skinsList = skinsSnapshot.docs.map((docItem) => docItem.data());
 
         setSkins(skinsList);
+        try {
+          await espelharUsuarioNoGerenciador(user, {
+            skinsResumo: skinsSnapshot.docs.map((docItem) => ({
+              id: docItem.id,
+              username: String(docItem.data()?.username || "").trim(),
+              is_main: Boolean(docItem.data()?.is_main),
+              theme: String(docItem.data()?.theme || "").trim(),
+            })),
+          });
+        } catch (error) {
+          console.warn("Falha ao atualizar skins do usuario no gerenciador:", error);
+        }
 
         if (skinsList.length === 1) {
           const skin = skinsList[0];

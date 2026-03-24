@@ -75,6 +75,20 @@ function obterSolicitacaoId(solicitacao = {}) {
   ).trim();
 }
 
+function normalizarMetodosPagamentoBloco(origem = {}, fallback = {}) {
+  const metodos = origem?.metodosPagamento || origem?.metodosPagamentoPermitidos || {};
+  return {
+    mercadoPago:
+      typeof metodos?.mercadoPago === "boolean"
+        ? metodos.mercadoPago
+        : Boolean(fallback?.mercadoPago ?? true),
+    pixManual:
+      typeof metodos?.pixManual === "boolean"
+        ? metodos.pixManual
+        : Boolean(fallback?.pixManual ?? true),
+  };
+}
+
 function extrairMiniaturaSolicitacao(solicitacao = {}) {
   const url = String(
     solicitacao?.blocoMiniaturaUrl ||
@@ -270,6 +284,10 @@ export default function SolicitacoesPixManual() {
           originalUrl: String(item.originalUrlDocumento || "").trim(),
           originalPath: String(item.originalPathDocumento || "").trim(),
           titulo: "",
+          metodosPagamento: normalizarMetodosPagamentoBloco({}, {
+            mercadoPago: true,
+            pixManual: true,
+          }),
         };
 
         if (
@@ -307,6 +325,10 @@ export default function SolicitacoesPixManual() {
           );
           if (!blocoSnap.exists()) continue;
           const miniatura = extrairMiniaturaDoBloco(blocoSnap.data() || {});
+          miniaturaAtualizada.metodosPagamento = normalizarMetodosPagamentoBloco(
+            blocoSnap.data() || {},
+            { mercadoPago: true, pixManual: true }
+          );
           miniaturaAtualizada.url = String(
             miniaturaAtualizada.url || miniatura.url || ""
           ).trim();
@@ -428,6 +450,26 @@ export default function SolicitacoesPixManual() {
     navigate(`/menu/${menuTargetUser}/contatos/${contactId}/chat/${conversationId}`);
   };
 
+  const abrirCheckoutMercadoPago = (solicitacao) => {
+    const ownerUserId = String(solicitacao?.ownerUserId || "").trim();
+    const espacoId = String(solicitacao?.espacoId || "").trim();
+    const blocoId = String(solicitacao?.blocoId || "").trim();
+    if (!ownerUserId || !espacoId || !blocoId) return;
+
+    const returnTo =
+      typeof window !== "undefined"
+        ? `${window.location.pathname}${window.location.search || ""}`
+        : `/menu/${menuTargetUser}/solicitacoes`;
+
+    const params = new URLSearchParams({
+      comprarBloco: blocoId,
+      espacoId,
+      ownerUserId,
+      returnTo,
+    });
+    navigate(`/menu/${menuTargetUser}?${params.toString()}`);
+  };
+
   const abrirModalImagem = ({ url = "", titulo = "", alt = "Imagem ampliada" } = {}) => {
     const imagemUrl = String(url || "").trim();
     if (!imagemUrl) return;
@@ -462,10 +504,14 @@ export default function SolicitacoesPixManual() {
           const qrUrl = String(solicitacao?.qrSelecionado?.imagemUrl || "").trim();
           const qrTitulo = String(solicitacao?.qrSelecionado?.titulo || "").trim();
           const miniaturaDoDocumento = extrairMiniaturaSolicitacao(solicitacao);
-          const miniaturaFallback = miniaturasFallback[solicitacaoId] || {};
-          const miniaturaUrl = String(
-            miniaturaDoDocumento.url || miniaturaFallback.url || ""
-          ).trim();
+        const miniaturaFallback = miniaturasFallback[solicitacaoId] || {};
+        const metodosPagamentoSolicitacao = normalizarMetodosPagamentoBloco(
+          solicitacao,
+          miniaturaFallback.metodosPagamento || { mercadoPago: true, pixManual: true }
+        );
+        const miniaturaUrl = String(
+          miniaturaDoDocumento.url || miniaturaFallback.url || ""
+        ).trim();
           const miniaturaOriginalDocumentoUrl = String(
             miniaturaDoDocumento.originalUrl || ""
           ).trim();
@@ -489,6 +535,15 @@ export default function SolicitacoesPixManual() {
           const exibirQr = Boolean(qrUrl) && !statusConfirmado;
           const possuiColunaMidia = Boolean(exibirQr || miniaturaUrl);
           const podeConfirmar = Boolean(solicitacao?.__isOwner) && !statusConfirmado;
+          const podePagarComMercadoPago =
+            !Boolean(solicitacao?.__isOwner) &&
+            !statusConfirmado &&
+            metodosPagamentoSolicitacao.mercadoPago &&
+            Boolean(
+              String(solicitacao?.ownerUserId || "").trim() &&
+                String(solicitacao?.espacoId || "").trim() &&
+                String(solicitacao?.blocoId || "").trim()
+            );
           const chatDisponivel = Boolean(String(solicitacao?.sessionContactId || "").trim());
           const blocoTipo = String(solicitacao?.blocoTipo || "").trim().toLowerCase();
           const blocoEhLive = blocoTipo === "live";
@@ -681,6 +736,16 @@ export default function SolicitacoesPixManual() {
                     {atualizandoSolicitacaoId === solicitacaoId
                       ? "Confirmando..."
                       : "Confirmar solicitacao e liberar acesso"}
+                  </button>
+                ) : null}
+
+                {podePagarComMercadoPago ? (
+                  <button
+                    type="button"
+                    onClick={() => abrirCheckoutMercadoPago(solicitacao)}
+                    style={{ marginLeft: podeConfirmar ? 8 : 0 }}
+                  >
+                    Pagar com Mercado Pago
                   </button>
                 ) : null}
 

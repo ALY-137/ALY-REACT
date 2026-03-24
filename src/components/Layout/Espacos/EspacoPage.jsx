@@ -150,6 +150,27 @@ const normalizarCardsDoBloco = (valor) => {
     .sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
 };
 
+const BLOCOS_PAGE_SIZE = 6;
+
+const obterScoreOrdenacaoBloco = (bloco = {}) => {
+  const ordem = Number(bloco?.ordem);
+  if (Number.isFinite(ordem)) return ordem;
+  const criadoEm =
+    bloco?.criadoEm?.seconds ||
+    bloco?.createdAt?.seconds ||
+    bloco?.updatedAt?.seconds ||
+    0;
+  return Number(criadoEm) || 0;
+};
+
+const ordenarBlocosMaisRecentesPrimeiro = (lista = []) =>
+  [...lista].sort((a, b) => {
+    const scoreA = obterScoreOrdenacaoBloco(a);
+    const scoreB = obterScoreOrdenacaoBloco(b);
+    if (scoreA !== scoreB) return scoreB - scoreA;
+    return String(b?.id || "").localeCompare(String(a?.id || ""), "pt-BR");
+  });
+
 const formatarPreco = (precoCentavos, moeda = "BRL") => {
   const valorNumerico = Number(precoCentavos);
   if (!Number.isFinite(valorNumerico) || valorNumerico <= 0) return null;
@@ -332,6 +353,7 @@ export default function EspacoPage() {
   } = useOutletContext();
   const configSistemaCacheLocal = obterConfigSistemaCacheLocal() || DEFAULT_SISTEMA_CONFIG;
   const [blocos, setBlocos] = useState([]);
+  const [visibleBlocosCount, setVisibleBlocosCount] = useState(BLOCOS_PAGE_SIZE);
   const [erroBlocos, setErroBlocos] = useState("");
   const [isAssinante, setIsAssinante] = useState(false);
   const [assinaturaCheckPronto, setAssinaturaCheckPronto] = useState(false);
@@ -453,6 +475,7 @@ export default function EspacoPage() {
   const blockedOriginalPathsRef = useRef(new Set());
   const blockedPreviewPathsRef = useRef(new Set());
   const backfilledPublicUrlsRef = useRef(new Set());
+  const blocosInfiniteScrollRef = useRef(null);
   const liveChatScrollRef = useRef(null);
   const liveCameraVideoRef = useRef(null);
   const liveCameraStreamRef = useRef(null);
@@ -2140,6 +2163,37 @@ export default function EspacoPage() {
     carregarGoogleFontsNoDocumento(googleFontsUrlsProjeto);
   }, [googleFontsUrlsProjeto]);
 
+  const blocosVisiveis = useMemo(
+    () => blocos.slice(0, visibleBlocosCount),
+    [blocos, visibleBlocosCount]
+  );
+
+  useEffect(() => {
+    setVisibleBlocosCount(BLOCOS_PAGE_SIZE);
+  }, [espacoId, ownerUserId, blocos.length]);
+
+  useEffect(() => {
+    if (blocos.length <= visibleBlocosCount) return undefined;
+
+    const alvo = blocosInfiniteScrollRef.current;
+    if (!alvo || typeof IntersectionObserver === "undefined") return undefined;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const primeiraEntrada = entries[0];
+        if (!primeiraEntrada?.isIntersecting) return;
+        setVisibleBlocosCount((prev) => Math.min(prev + BLOCOS_PAGE_SIZE, blocos.length));
+      },
+      {
+        rootMargin: "220px 0px",
+        threshold: 0.1,
+      }
+    );
+
+    observer.observe(alvo);
+    return () => observer.disconnect();
+  }, [blocos.length, visibleBlocosCount]);
+
   useEffect(() => {
     if (!espacoId || !ownerUserId) return;
 
@@ -2317,7 +2371,7 @@ export default function EspacoPage() {
           });
         }
 
-        const lista = [...dedupe.values()].sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
+        const lista = ordenarBlocosMaisRecentesPrimeiro([...dedupe.values()]);
         setBlocos(lista);
       } catch (err) {
         console.error("Erro ao carregar blocos:", err);
@@ -3061,7 +3115,7 @@ export default function EspacoPage() {
     setBlocos((prev) => {
       const dedupe = new Map(prev.map((item) => [item.id, item]));
       dedupe.set(bloco.id, bloco);
-      return [...dedupe.values()].sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
+      return ordenarBlocosMaisRecentesPrimeiro([...dedupe.values()]);
     });
 
     // Reconsulta apÃ³s breve janela para pegar dados consolidados (rules/indexaÃ§Ãµes).
@@ -3253,7 +3307,9 @@ export default function EspacoPage() {
       }
 
       setBlocos((prev) =>
-        prev.map((item) => (item.id === blocoId ? { ...item, ...payload } : item))
+        ordenarBlocosMaisRecentesPrimeiro(
+          prev.map((item) => (item.id === blocoId ? { ...item, ...payload } : item))
+        )
       );
       setOriginaisPorBloco((prev) => {
         const next = { ...prev };
@@ -3406,7 +3462,7 @@ export default function EspacoPage() {
 
       {acessoEspacoResolvido &&
         podeVerEspaco &&
-        blocos.map((bloco) => {
+        blocosVisiveis.map((bloco) => {
           const blocoEhCards = bloco?.tipo === "cards";
           const blocoEhLive = bloco?.tipo === "live";
           const cardsDoBloco = normalizarCardsDoBloco(bloco?.cards);
@@ -3719,6 +3775,24 @@ export default function EspacoPage() {
             </Container>
           );
         })}
+
+      {acessoEspacoResolvido &&
+        podeVerEspaco &&
+        blocosVisiveis.length < blocos.length ? (
+          <div
+            ref={blocosInfiniteScrollRef}
+            style={{
+              width: "100%",
+              minHeight: 48,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              opacity: 0.7,
+            }}
+          >
+            Carregando mais blocos...
+          </div>
+        ) : null}
 
       <LiveModal
         aberto={liveModal.aberto}

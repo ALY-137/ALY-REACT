@@ -90,6 +90,20 @@ const parseDateTimeLocalToMs = (valor = "") => {
   return Number.isFinite(parsedMs) ? parsedMs : null;
 };
 
+const normalizarMetodosPagamentoBloco = (bloco = {}, fallback = {}) => {
+  const metodos = bloco?.metodosPagamento || bloco?.metodosPagamentoPermitidos || {};
+  return {
+    mercadoPago:
+      typeof metodos?.mercadoPago === "boolean"
+        ? metodos.mercadoPago
+        : Boolean(fallback?.mercadoPago),
+    pixManual:
+      typeof metodos?.pixManual === "boolean"
+        ? metodos.pixManual
+        : Boolean(fallback?.pixManual),
+  };
+};
+
 const criarCardVazio = () => ({
   nome: "",
   descricao: "",
@@ -142,6 +156,9 @@ export default function CriadorBloco({
   const [liveBannerUrl, setLiveBannerUrl] = useState("");
   const [liveBannerArquivo, setLiveBannerArquivo] = useState(null);
   const [liveBannerPreviewUrl, setLiveBannerPreviewUrl] = useState("");
+  const [permitirMercadoPagoLive, setPermitirMercadoPagoLive] = useState(true);
+  const [permitirPixManualLive, setPermitirPixManualLive] = useState(true);
+  const [metodosPagamentoLiveCustomizados, setMetodosPagamentoLiveCustomizados] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState("");
   const [visibilidade, setVisibilidade] = useState("publico");
@@ -305,6 +322,10 @@ export default function CriadorBloco({
   const metodoPagamentoCompradorDisponivel =
     mpConectado ||
     (pixManualSistemaHabilitado && pixManualConectado);
+  const mercadoPagoDisponivelParaLive = Boolean(mercadoPagoSistemaHabilitado && mpConectado);
+  const pixManualDisponivelParaLive = Boolean(
+    pixManualSistemaHabilitado && pixManualConectado
+  );
 
   useEffect(() => {
     const visibilidadeExclusiva =
@@ -328,6 +349,30 @@ export default function CriadorBloco({
       setTipoConteudo("imagem");
     }
   }, [livesHabilitadas, tipoConteudo]);
+
+  useEffect(() => {
+    if (tipoConteudo !== "live") {
+      setMetodosPagamentoLiveCustomizados(false);
+      return;
+    }
+
+    if (metodosPagamentoLiveCustomizados) return;
+
+    const metodosPadrao = normalizarMetodosPagamentoBloco(
+      {},
+      {
+        mercadoPago: mercadoPagoDisponivelParaLive,
+        pixManual: pixManualDisponivelParaLive,
+      }
+    );
+    setPermitirMercadoPagoLive(metodosPadrao.mercadoPago);
+    setPermitirPixManualLive(metodosPadrao.pixManual);
+  }, [
+    tipoConteudo,
+    mercadoPagoDisponivelParaLive,
+    pixManualDisponivelParaLive,
+    metodosPagamentoLiveCustomizados,
+  ]);
 
   const isExclusivoComprador = visibilidade === "exclusivo_comprador";
   const pixManualValoresDisponiveis = Array.isArray(pixManualQrsDisponiveis)
@@ -509,6 +554,14 @@ export default function CriadorBloco({
         alert("A data/hora de fim deve ser maior que a data/hora de inicio.");
         return;
       }
+      if (
+        visibilidade === "exclusivo_comprador" &&
+        !permitirMercadoPagoLive &&
+        !permitirPixManualLive
+      ) {
+        alert("Selecione ao menos um metodo de pagamento para a live.");
+        return;
+      }
     }
 
     const precoCentavos = isExclusivoComprador
@@ -573,6 +626,16 @@ export default function CriadorBloco({
           visibilidade,
           precoCentavos: precoCentavos || null,
           moeda: precoCentavos ? "BRL" : null,
+          metodosPagamento:
+            visibilidade === "exclusivo_comprador"
+              ? {
+                  mercadoPago: Boolean(permitirMercadoPagoLive),
+                  pixManual: Boolean(permitirPixManualLive),
+                }
+              : {
+                  mercadoPago: true,
+                  pixManual: true,
+                },
         };
 
         await setDoc(blocoRef, blocoPayload);
@@ -591,6 +654,9 @@ export default function CriadorBloco({
         setLiveBannerUrl("");
         setLiveBannerArquivo(null);
         setLiveBannerPreviewUrl("");
+        setPermitirMercadoPagoLive(mercadoPagoDisponivelParaLive);
+        setPermitirPixManualLive(pixManualDisponivelParaLive);
+        setMetodosPagamentoLiveCustomizados(false);
         alert(`${nomeBlocoSingularCapitalizado} criado com sucesso!`);
         return;
       }
@@ -1067,6 +1133,41 @@ export default function CriadorBloco({
 
       {isExclusivoComprador && (
         <>
+          {blocoEhLive ? (
+            <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 8 }}>
+              <strong>Metodos permitidos nesta live</strong>
+              <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={permitirMercadoPagoLive}
+                  disabled={!mercadoPagoDisponivelParaLive}
+                  onChange={(e) => {
+                    setMetodosPagamentoLiveCustomizados(true);
+                    setPermitirMercadoPagoLive(e.target.checked);
+                  }}
+                />
+                <span>
+                  Mercado Pago
+                  {!mercadoPagoDisponivelParaLive ? " (indisponivel)" : ""}
+                </span>
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={permitirPixManualLive}
+                  disabled={!pixManualDisponivelParaLive}
+                  onChange={(e) => {
+                    setMetodosPagamentoLiveCustomizados(true);
+                    setPermitirPixManualLive(e.target.checked);
+                  }}
+                />
+                <span>
+                  PIX manual
+                  {!pixManualDisponivelParaLive ? " (indisponivel)" : ""}
+                </span>
+              </label>
+            </div>
+          ) : null}
           {usarValoresPixManual ? (
             <select value={valorCompra} onChange={(e) => setValorCompra(e.target.value)}>
               {pixManualValoresDisponiveis.map((item) => (

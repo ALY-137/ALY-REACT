@@ -86,7 +86,7 @@ export default function RouterComponent() {
     ? [
         {
           path: "configuracoes-gerenciador",
-          element: <PropriedadesSistema tituloSecao="CONFIGURACOES DO GERENCIADOR" />,
+          element: <Navigate to="../gerenciador-projetos" replace />,
         },
         { path: "users", element: <Users /> },
         { path: "acessos", element: <ListaAcessos /> },

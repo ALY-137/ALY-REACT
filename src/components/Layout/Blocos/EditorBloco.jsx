@@ -17,6 +17,20 @@ const OPCOES_VISIBILIDADE = [
 const capitalizar = (texto = "") =>
   texto ? texto.charAt(0).toUpperCase() + texto.slice(1) : "";
 
+const normalizarMetodosPagamentoBloco = (bloco = {}, fallback = {}) => {
+  const metodos = bloco?.metodosPagamento || bloco?.metodosPagamentoPermitidos || {};
+  return {
+    mercadoPago:
+      typeof metodos?.mercadoPago === "boolean"
+        ? metodos.mercadoPago
+        : Boolean(fallback?.mercadoPago),
+    pixManual:
+      typeof metodos?.pixManual === "boolean"
+        ? metodos.pixManual
+        : Boolean(fallback?.pixManual),
+  };
+};
+
 export default function EditorBloco({
   bloco,
   imagensEditor = [],
@@ -29,6 +43,12 @@ export default function EditorBloco({
   const [visibilidade, setVisibilidade] = useState(bloco?.visibilidade || "publico");
   const [valorCompra, setValorCompra] = useState(
     bloco?.precoCentavos ? (Number(bloco.precoCentavos) / 100).toFixed(2) : ""
+  );
+  const [permitirMercadoPagoLive, setPermitirMercadoPagoLive] = useState(
+    () => normalizarMetodosPagamentoBloco(bloco, { mercadoPago: true }).mercadoPago
+  );
+  const [permitirPixManualLive, setPermitirPixManualLive] = useState(
+    () => normalizarMetodosPagamentoBloco(bloco, { pixManual: true }).pixManual
   );
   const [indicesRemovidos, setIndicesRemovidos] = useState([]);
   const [novasImagens, setNovasImagens] = useState([]);
@@ -51,6 +71,12 @@ export default function EditorBloco({
   useEffect(() => {
     setVisibilidade(bloco?.visibilidade || "publico");
     setValorCompra(bloco?.precoCentavos ? (Number(bloco.precoCentavos) / 100).toFixed(2) : "");
+    const metodosPagamento = normalizarMetodosPagamentoBloco(bloco, {
+      mercadoPago: true,
+      pixManual: true,
+    });
+    setPermitirMercadoPagoLive(metodosPagamento.mercadoPago);
+    setPermitirPixManualLive(metodosPagamento.pixManual);
     setIndicesRemovidos([]);
     setNovasImagens([]);
     setMpConectado(null);
@@ -147,6 +173,29 @@ export default function EditorBloco({
   const metodoPagamentoCompradorDisponivel =
     (mercadoPagoSistemaHabilitado && mpConectado === true) ||
     (pixManualSistemaHabilitado && pixManualConectado === true);
+  const mercadoPagoDisponivelParaLive = Boolean(mercadoPagoSistemaHabilitado && mpConectado);
+  const pixManualDisponivelParaLive = Boolean(
+    pixManualSistemaHabilitado && pixManualConectado === true
+  );
+  const blocoTemMetodosPagamentoExplicitos = Boolean(
+    bloco?.metodosPagamento &&
+      (
+        typeof bloco.metodosPagamento?.mercadoPago === "boolean" ||
+        typeof bloco.metodosPagamento?.pixManual === "boolean"
+      )
+  );
+
+  useEffect(() => {
+    if (!aberto || bloco?.tipo !== "live" || blocoTemMetodosPagamentoExplicitos) return;
+    setPermitirMercadoPagoLive(mercadoPagoDisponivelParaLive);
+    setPermitirPixManualLive(pixManualDisponivelParaLive);
+  }, [
+    aberto,
+    bloco?.tipo,
+    blocoTemMetodosPagamentoExplicitos,
+    mercadoPagoDisponivelParaLive,
+    pixManualDisponivelParaLive,
+  ]);
 
   useEffect(() => {
     const visibilidadeExclusiva =
@@ -251,6 +300,16 @@ export default function EditorBloco({
       return;
     }
 
+    if (
+      bloco?.tipo === "live" &&
+      isExclusivoComprador &&
+      !permitirMercadoPagoLive &&
+      !permitirPixManualLive
+    ) {
+      alert("Selecione ao menos um metodo de pagamento para a live.");
+      return;
+    }
+
     if (!imagensAtivas.length && !novasImagens.length) {
       alert(`O ${nomeBlocoSingular} precisa ter ao menos uma imagem.`);
       return;
@@ -260,6 +319,18 @@ export default function EditorBloco({
       visibilidade,
       precoCentavos: precoCentavos || null,
       moeda: precoCentavos ? "BRL" : null,
+      metodosPagamento:
+        bloco?.tipo === "live"
+          ? visibilidade === "exclusivo_comprador"
+            ? {
+                mercadoPago: Boolean(permitirMercadoPagoLive),
+                pixManual: Boolean(permitirPixManualLive),
+              }
+            : {
+                mercadoPago: true,
+                pixManual: true,
+              }
+          : undefined,
       removerIndices: indicesRemovidos,
       novasImagens,
     });
@@ -274,6 +345,12 @@ export default function EditorBloco({
   const handleCancelar = () => {
     setVisibilidade(bloco?.visibilidade || "publico");
     setValorCompra(bloco?.precoCentavos ? (Number(bloco.precoCentavos) / 100).toFixed(2) : "");
+    const metodosPagamento = normalizarMetodosPagamentoBloco(bloco, {
+      mercadoPago: true,
+      pixManual: true,
+    });
+    setPermitirMercadoPagoLive(metodosPagamento.mercadoPago);
+    setPermitirPixManualLive(metodosPagamento.pixManual);
     setIndicesRemovidos([]);
     setNovasImagens([]);
     setAberto(false);
@@ -313,6 +390,35 @@ export default function EditorBloco({
 
           {isExclusivoComprador && (
             <>
+              {bloco?.tipo === "live" ? (
+                <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 8 }}>
+                  <strong>Metodos permitidos nesta live</strong>
+                  <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input
+                      type="checkbox"
+                      checked={permitirMercadoPagoLive}
+                      disabled={!mercadoPagoDisponivelParaLive || bloqueado}
+                      onChange={(event) => setPermitirMercadoPagoLive(event.target.checked)}
+                    />
+                    <span>
+                      Mercado Pago
+                      {!mercadoPagoDisponivelParaLive ? " (indisponivel)" : ""}
+                    </span>
+                  </label>
+                  <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input
+                      type="checkbox"
+                      checked={permitirPixManualLive}
+                      disabled={!pixManualDisponivelParaLive || bloqueado}
+                      onChange={(event) => setPermitirPixManualLive(event.target.checked)}
+                    />
+                    <span>
+                      PIX manual
+                      {!pixManualDisponivelParaLive ? " (indisponivel)" : ""}
+                    </span>
+                  </label>
+                </div>
+              ) : null}
               {usarValoresPixManual ? (
                 <select
                   value={valorCompra}

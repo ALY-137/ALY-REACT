@@ -41,6 +41,35 @@ async function callLimparEnvsProjetoNoVercel(data) {
   });
 }
 
+async function callSharedManagerRead(endpoint, payload = {}) {
+  const user = auth?.currentUser;
+  if (!user?.getIdToken) {
+    throw new Error("Usuario autenticado obrigatorio para consultar dados do gerenciador.");
+  }
+
+  return postSharedFunctionJson(endpoint, {
+    payload,
+    idToken: await user.getIdToken(),
+  });
+}
+
+function shouldFallbackToDirectManagerRead(error) {
+  const code = normalizeText(error?.code).toLowerCase();
+  const message = normalizeText(error?.message).toLowerCase();
+
+  if (error instanceof TypeError) return true;
+  if (code === "failed-precondition") return true;
+  if (code === "unavailable") return true;
+  if (code === "http-404") return true;
+  if (code === "http-500") return true;
+  if (message.includes("failed to fetch")) return true;
+  if (message.includes("cors")) return true;
+  if (message.includes("backend compartilhado")) return true;
+  if (message.includes("nao configurado")) return true;
+
+  return false;
+}
+
 function normalizeText(value) {
   return String(value || "").trim();
 }
@@ -79,7 +108,24 @@ function normalizeProjectType(value) {
   return raw === "oneowner" ? "oneowner" : "multiowner";
 }
 
+function getManagerProjectIdNormalized() {
+  return normalizeText(process.env.REACT_APP_SYSTEM_MANAGER_PROJECT_ID).toLowerCase();
+}
+
 function resolveProjectTypeFromData(data = {}) {
+  const managerProjectId = getManagerProjectIdNormalized();
+  const systemKey = normalizeText(data?.systemKey || data?.id).toLowerCase();
+  const firebaseProjectId = normalizeText(
+    data?.firebaseProjectId || data?.projectId || data?.firebaseRuntimeConfig?.projectId
+  ).toLowerCase();
+
+  if (
+    managerProjectId &&
+    (systemKey === managerProjectId || firebaseProjectId === managerProjectId)
+  ) {
+    return "manager";
+  }
+
   const configTipoExperiencia = normalizeText(data?.configSistema?.tipoExperiencia);
   if (configTipoExperiencia) {
     return normalizeProjectType(configTipoExperiencia);
@@ -221,6 +267,84 @@ function getManagerDb() {
 
 export function obterFirestoreDoGerenciador() {
   return getManagerDb();
+}
+
+export async function listarUsuariosEspelhadosNoGerenciador({ limit: maxItems = 1500 } = {}) {
+  const managerDb = getManagerDb();
+  const managerProjectId = getManagerProjectIdNormalized();
+  const managerAtivo =
+    managerDb &&
+    managerProjectId &&
+    normalizeText(activeFirebaseProjectId).toLowerCase() === managerProjectId;
+
+  try {
+    const response = await callSharedManagerRead("listarUsuariosGerenciadorHttp", {
+      limit: maxItems,
+    });
+    return Array.isArray(response?.items) ? response.items : [];
+  } catch (error) {
+    if (!managerAtivo || !shouldFallbackToDirectManagerRead(error)) {
+      throw error;
+    }
+  }
+
+  const snap = await getDocs(collection(managerDb, "usuarios_projetos"));
+  return snap.docs
+    .map((docItem) => ({
+      id: docItem.id,
+      ...(docItem.data() || {}),
+    }))
+    .sort((a, b) => {
+      const dataA = a?.ultimaSincronizacaoEm?.seconds || 0;
+      const dataB = b?.ultimaSincronizacaoEm?.seconds || 0;
+      return dataB - dataA;
+    })
+    .slice(0, maxItems);
+}
+
+export async function listarAcessosNoGerenciador({
+  limit: maxItems = 3000,
+  projectSystemKey = "",
+} = {}) {
+  const managerDb = getManagerDb();
+  const managerProjectId = getManagerProjectIdNormalized();
+  const managerAtivo =
+    managerDb &&
+    managerProjectId &&
+    normalizeText(activeFirebaseProjectId).toLowerCase() === managerProjectId;
+  const projectSystemKeyNormalizado = normalizeText(projectSystemKey).toLowerCase();
+
+  try {
+    const response = await callSharedManagerRead("listarAcessosGerenciadorHttp", {
+      limit: maxItems,
+      projectSystemKey: projectSystemKeyNormalizado || null,
+    });
+    return Array.isArray(response?.items) ? response.items : [];
+  } catch (error) {
+    if (!managerAtivo || !shouldFallbackToDirectManagerRead(error)) {
+      throw error;
+    }
+  }
+
+  const snap = await getDocs(collection(managerDb, "acessos"));
+  return snap.docs
+    .map((docItem) => ({
+      id: docItem.id,
+      ...(docItem.data() || {}),
+    }))
+    .filter((item) => {
+      if (!projectSystemKeyNormalizado) return true;
+      const keyAtual = normalizeText(
+        item?.projectSystemKey || item?.runtimeProjectKey
+      ).toLowerCase();
+      return keyAtual === projectSystemKeyNormalizado;
+    })
+    .sort((a, b) => {
+      const dataA = a?.data?.seconds || 0;
+      const dataB = b?.data?.seconds || 0;
+      return dataB - dataA;
+    })
+    .slice(0, maxItems);
 }
 
 function extrairConfigSistemaDoDocumento(data = {}) {
@@ -554,7 +678,9 @@ export async function listarSistemasNoGerenciador() {
           systemKey: normalizeText(data.systemKey || docItem.id),
           nomeProjeto: normalizeText(data.nomeProjeto || data.systemName || docItem.id),
           tipoProjeto: resolveProjectTypeFromData(data),
-          firebaseProjectId: normalizeText(data.firebaseProjectId),
+          firebaseProjectId: normalizeText(
+            data.firebaseProjectId || data.projectId || data?.firebaseRuntimeConfig?.projectId
+          ),
           domains: Array.isArray(data.domains)
             ? data.domains.map((d) => normalizeHost(d)).filter(Boolean)
             : [],

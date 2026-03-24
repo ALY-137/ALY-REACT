@@ -2,11 +2,13 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
   serverTimestamp,
   setDoc,
 } from "firebase/firestore";
 
 import { activeFirebaseProjectKey, db } from "./init-firebase";
+import { getProjectCollectionCandidates } from "./projectDataRefs";
 import { buildProjectDataPathCandidates } from "./projectDataNamespace";
 import { buildSharedFunctionsUrl } from "./sharedFunctionsApi";
 
@@ -68,7 +70,57 @@ function getProjectSystemKeyForMirror() {
   return normalizeText(activeFirebaseProjectKey).toLowerCase();
 }
 
-async function espelharUsuarioNoGerenciador(user) {
+function normalizarSkinsResumo(lista = []) {
+  const dedupe = new Map();
+
+  (Array.isArray(lista) ? lista : []).forEach((item, index) => {
+    const id = normalizeText(item?.id || item?.id_skin || `skin_${index}`);
+    const username = normalizeText(item?.username);
+    if (!id && !username) return;
+
+    const chave = id || username.toLowerCase();
+    if (!chave || dedupe.has(chave)) return;
+
+    dedupe.set(chave, {
+      id,
+      username,
+      is_main: Boolean(item?.is_main),
+      theme: normalizeText(item?.theme),
+    });
+  });
+
+  return Array.from(dedupe.values());
+}
+
+async function coletarResumoSkinsDoUsuario(uid = "") {
+  const uidNormalizado = normalizeText(uid);
+  if (!uidNormalizado) return [];
+
+  const skinsRefs = getProjectCollectionCandidates(db, "users", uidNormalizado, "skins");
+  const skinsMap = new Map();
+
+  for (const skinsRef of skinsRefs) {
+    try {
+      const snap = await getDocs(skinsRef);
+      snap.docs.forEach((docItem) => {
+        if (skinsMap.has(docItem.id)) return;
+        const data = docItem.data() || {};
+        skinsMap.set(docItem.id, {
+          id: docItem.id,
+          username: normalizeText(data?.username),
+          is_main: Boolean(data?.is_main),
+          theme: normalizeText(data?.theme),
+        });
+      });
+    } catch {
+      // Segue com os snapshots disponiveis.
+    }
+  }
+
+  return normalizarSkinsResumo(Array.from(skinsMap.values()));
+}
+
+export async function espelharUsuarioNoGerenciador(user, extras = {}) {
   if (!user?.uid || typeof user?.getIdToken !== "function") return;
 
   const url = buildSharedFunctionsUrl("espelharUsuarioProjeto");
@@ -76,6 +128,12 @@ async function espelharUsuarioNoGerenciador(user) {
 
   const token = await user.getIdToken();
   const projectSystemKey = getProjectSystemKeyForMirror();
+  const skinsResumo =
+    extras?.ignorarSkins === true
+      ? []
+      : normalizarSkinsResumo(
+          Array.isArray(extras?.skinsResumo) ? extras.skinsResumo : await coletarResumoSkinsDoUsuario(user.uid)
+        );
 
   await fetch(url, {
     method: "POST",
@@ -93,6 +151,7 @@ async function espelharUsuarioNoGerenciador(user) {
       picGoogle: normalizeText(user.photoURL),
       runtimeProjectKey: normalizeText(activeFirebaseProjectKey),
       projectSystemKey,
+      skinsResumo,
     }),
   }).then(async (response) => {
     if (response.ok) return;
