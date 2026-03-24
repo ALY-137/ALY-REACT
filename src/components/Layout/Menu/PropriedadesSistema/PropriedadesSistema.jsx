@@ -409,6 +409,7 @@ function PropriedadesSistema({
 
     try {
       let configSalva = null;
+      let resultadoProjetoSalvo = null;
       const urlsGoogleFontsValidadas = normalizarGoogleFontsUrlsTexto(googleFontsUrlsInput);
       const configParaSalvar = {
         ...config,
@@ -422,7 +423,7 @@ function PropriedadesSistema({
           : "";
 
         try {
-          await salvarConfigProjetoNoGerenciador({
+          resultadoProjetoSalvo = await salvarConfigProjetoNoGerenciador({
             projectKey: projetoGerenciado?.systemKey || "",
             projectId: projetoGerenciado?.firebaseProjectId || "",
             hostname: hostnameProjeto,
@@ -442,7 +443,7 @@ function PropriedadesSistema({
             adminUid: user.uid,
           });
 
-          await salvarConfigProjetoNoGerenciador({
+          resultadoProjetoSalvo = await salvarConfigProjetoNoGerenciador({
             projectKey: projetoGerenciado?.systemKey || "",
             projectId: projetoGerenciado?.firebaseProjectId || "",
             hostname: hostnameProjeto,
@@ -478,7 +479,7 @@ function PropriedadesSistema({
           : ""
       );
       if (typeof onConfigSalva === "function") {
-        onConfigSalva(configSalva);
+        onConfigSalva(configSalva, resultadoProjetoSalvo);
       }
     } catch (error) {
       const codigo = String(error?.code || "desconhecido");

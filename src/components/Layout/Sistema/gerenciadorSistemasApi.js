@@ -21,6 +21,7 @@ import { postSharedFunctionJson } from "../../Banco/sharedFunctionsApi";
 
 const MANAGER_APP_NAME = "system-manager-app";
 const MANAGER_COLLECTION = "systems";
+const PRECONFIG_COLLECTION = "systemPreconfigs";
 const ICON_COLLECTION = "iconCollections";
 const MANAGER_COLLECTIONS_READ = ["systems"];
 const MANAGER_COLLECTIONS_DELETE = ["systems", "sistemas"];
@@ -241,6 +242,140 @@ function buildManagerConfigFromEnv() {
     appId,
     databaseURL,
   };
+}
+
+function buildManagerRuntimeConfigFromEnv() {
+  const managerConfig = buildManagerConfigFromEnv();
+  if (!managerConfig) return null;
+  return {
+    ...managerConfig,
+    functionsRegion: normalizeText(process.env.REACT_APP_SYSTEM_MANAGER_FUNCTIONS_REGION || "us-central1"),
+  };
+}
+
+function sanitizePreconfigTemplate(configSistema = {}) {
+  if (!configSistema || typeof configSistema !== "object") return {};
+
+  const {
+    tituloSistema,
+    ownerUid,
+    ownerEmail,
+    adminUid,
+    adminEmail,
+    projectSystemKey,
+    projectOwnerUid,
+    projectLastEditorUid,
+    preconfigBaseKey,
+    preconfigBaseName,
+    ...resto
+  } = configSistema;
+
+  void tituloSistema;
+  void ownerUid;
+  void ownerEmail;
+  void adminUid;
+  void adminEmail;
+  void projectSystemKey;
+  void projectOwnerUid;
+  void projectLastEditorUid;
+  void preconfigBaseKey;
+  void preconfigBaseName;
+
+  return resto;
+}
+
+function sanitizeFirebaseTemplateForPreconfig(firebaseRuntimeConfig = {}, tipoProjeto = "multiowner") {
+  const tipoNormalizado = normalizeProjectType(tipoProjeto);
+  if (tipoNormalizado === "oneowner") {
+    return {
+      functionsRegion: normalizeText(firebaseRuntimeConfig?.functionsRegion || "us-central1"),
+    };
+  }
+
+  return {
+    functionsRegion: normalizeText(firebaseRuntimeConfig?.functionsRegion || "us-central1"),
+    databaseURL: normalizeText(firebaseRuntimeConfig?.databaseURL || ""),
+  };
+}
+
+function resolveRuntimeConfigForProjectType({
+  tipoProjeto = "multiowner",
+  dataAtual = {},
+  projectId = "",
+  firebaseConfig = {},
+} = {}) {
+  const tipoProjetoNormalizado = normalizeProjectType(tipoProjeto);
+
+  if (tipoProjetoNormalizado === "oneowner") {
+    const runtime = getOneownerRuntimeConfigFromEnv();
+    if (!runtime) {
+      throw new Error(
+        "Runtime oneowner nao configurado no .env (REACT_APP_FIREBASE_ALY_ONEPAGES_RUNTIME_*)."
+      );
+    }
+    return runtime;
+  }
+
+  if (tipoProjetoNormalizado === "manager") {
+    const runtime = buildManagerRuntimeConfigFromEnv();
+    if (!runtime) {
+      throw new Error(
+        "Projeto manager nao configurado no .env (REACT_APP_SYSTEM_MANAGER_*)."
+      );
+    }
+    return runtime;
+  }
+
+  const runtimeAtual =
+    dataAtual?.firebaseRuntimeConfig && typeof dataAtual.firebaseRuntimeConfig === "object"
+      ? dataAtual.firebaseRuntimeConfig
+      : {};
+  const projectIdAtual = normalizeText(
+    dataAtual?.firebaseProjectId ||
+      dataAtual?.projectId ||
+      dataAtual?.firebaseRuntimeConfig?.projectId
+  );
+  const runtimeProjectIdAtual = normalizeText(runtimeAtual?.projectId);
+  const runtimeOneowner = getOneownerRuntimeConfigFromEnv();
+  const runtimeOneownerProjectId = normalizeText(runtimeOneowner?.projectId);
+
+  const projectIdFinal = normalizeText(projectId || firebaseConfig?.projectId || runtimeProjectIdAtual);
+  const payload = {
+    apiKey: normalizeText(firebaseConfig?.apiKey || runtimeAtual?.apiKey),
+    authDomain: normalizeText(firebaseConfig?.authDomain || runtimeAtual?.authDomain),
+    projectId: projectIdFinal,
+    storageBucket: normalizeText(firebaseConfig?.storageBucket || runtimeAtual?.storageBucket),
+    messagingSenderId: normalizeText(
+      firebaseConfig?.messagingSenderId || runtimeAtual?.messagingSenderId
+    ),
+    appId: normalizeText(firebaseConfig?.appId || runtimeAtual?.appId),
+    databaseURL: normalizeText(firebaseConfig?.databaseURL || runtimeAtual?.databaseURL),
+    functionsRegion: normalizeText(
+      firebaseConfig?.functionsRegion || runtimeAtual?.functionsRegion || "us-central1"
+    ),
+  };
+
+  const obrigatorios = [
+    payload.apiKey,
+    payload.authDomain,
+    payload.projectId,
+    payload.storageBucket,
+    payload.messagingSenderId,
+    payload.appId,
+  ];
+
+  if (obrigatorios.some((item) => !item)) {
+    const estavaEmOneowner =
+      runtimeProjectIdAtual === runtimeOneownerProjectId || projectIdAtual === runtimeOneownerProjectId;
+    if (estavaEmOneowner) {
+      throw new Error(
+        "Para converter este projeto para multiowner, informe primeiro as credenciais Firebase do projeto definitivo."
+      );
+    }
+    throw new Error("Credenciais Firebase incompletas para o projeto multiowner.");
+  }
+
+  return payload;
 }
 
 function getManagerDb() {
@@ -609,6 +744,9 @@ export async function salvarConfigSistemaNoGerenciador({
   domains = null,
   configSistema = {},
   atualizadoPorUid = null,
+  firebaseConfig = {},
+  preconfigBaseKey = "",
+  preconfigBaseName = "",
 } = {}) {
   const managerDb = getManagerDb();
   if (!managerDb) return false;
@@ -643,15 +781,30 @@ export async function salvarConfigSistemaNoGerenciador({
     ...dataAtual,
     configSistema: configSistemaFinal,
   });
+  const runtimeConfigFinal = resolveRuntimeConfigForProjectType({
+    tipoProjeto: tipoProjetoFinal,
+    dataAtual,
+    projectId,
+    firebaseConfig,
+  });
+  const projectSystemKeyFinal = normalizeText(
+    configSistemaFinal?.projectSystemKey || keyNormalizada
+  );
 
   await setDoc(
     docRef,
     {
       systemKey: keyNormalizada,
       tipoProjeto: tipoProjetoFinal,
-      firebaseProjectId: normalizeText(projectId),
+      firebaseProjectId: normalizeText(runtimeConfigFinal?.projectId || projectId),
       domains: Array.from(domainsSet),
-      configSistema: configSistemaFinal,
+      firebaseRuntimeConfig: runtimeConfigFinal,
+      configSistema: {
+        ...configSistemaFinal,
+        projectSystemKey: projectSystemKeyFinal || keyNormalizada,
+      },
+      preconfigBaseKey: normalizeText(preconfigBaseKey || dataAtual?.preconfigBaseKey || ""),
+      preconfigBaseName: normalizeText(preconfigBaseName || dataAtual?.preconfigBaseName || ""),
       ...(uidAtualizacao ? { criadoPorUid: uidAtualizacao } : {}),
       atualizadoPorUid: uidAtualizacao || null,
       atualizadoEm: serverTimestamp(),
@@ -659,7 +812,19 @@ export async function salvarConfigSistemaNoGerenciador({
     { merge: true }
   );
 
-  return true;
+  return {
+    ok: true,
+    systemKey: keyNormalizada,
+    tipoProjeto: tipoProjetoFinal,
+    firebaseProjectId: normalizeText(runtimeConfigFinal?.projectId || projectId),
+    firebaseRuntimeConfig: runtimeConfigFinal,
+    configSistema: {
+      ...configSistemaFinal,
+      projectSystemKey: projectSystemKeyFinal || keyNormalizada,
+    },
+    preconfigBaseKey: normalizeText(preconfigBaseKey || dataAtual?.preconfigBaseKey || ""),
+    preconfigBaseName: normalizeText(preconfigBaseName || dataAtual?.preconfigBaseName || ""),
+  };
 }
 
 export async function listarSistemasNoGerenciador() {
@@ -688,6 +853,8 @@ export async function listarSistemasNoGerenciador() {
             data.firebaseRuntimeConfig && typeof data.firebaseRuntimeConfig === "object"
               ? data.firebaseRuntimeConfig
               : {},
+          preconfigBaseKey: normalizeText(data.preconfigBaseKey),
+          preconfigBaseName: normalizeText(data.preconfigBaseName),
           configSistema:
             data.configSistema && typeof data.configSistema === "object" ? data.configSistema : {},
         });
@@ -728,7 +895,9 @@ export async function criarSistemaNoGerenciador({
   tipoProjeto = "multiowner",
   firebaseConfig = {},
   criadoPorUid = null,
-}) {
+  ownerUid = "",
+  preconfigInicial = null,
+} = {}) {
   const managerDb = getManagerDb();
   if (!managerDb) {
     throw new Error("Gerenciador de projetos nao configurado.");
@@ -742,38 +911,12 @@ export async function criarSistemaNoGerenciador({
   }
 
   const domainsNorm = normalizeList(domains).map((host) => normalizeHost(host)).filter(Boolean);
-  const payloadFirebase =
-    tipoProjetoNormalizado === "oneowner"
-      ? getOneownerRuntimeConfigFromEnv()
-      : {
-          apiKey: normalizeText(firebaseConfig.apiKey),
-          authDomain: normalizeText(firebaseConfig.authDomain),
-          projectId: normalizeText(firebaseConfig.projectId),
-          storageBucket: normalizeText(firebaseConfig.storageBucket),
-          messagingSenderId: normalizeText(firebaseConfig.messagingSenderId),
-          appId: normalizeText(firebaseConfig.appId),
-          databaseURL: normalizeText(firebaseConfig.databaseURL),
-          functionsRegion: normalizeText(firebaseConfig.functionsRegion || "us-central1"),
-        };
-
-  if (!payloadFirebase) {
-    throw new Error(
-      "Runtime oneowner nao configurado no .env (REACT_APP_FIREBASE_ALY_ONEPAGES_RUNTIME_*)."
-    );
-  }
-
-  const obrigatorios = [
-    payloadFirebase.apiKey,
-    payloadFirebase.authDomain,
-    payloadFirebase.projectId,
-    payloadFirebase.storageBucket,
-    payloadFirebase.messagingSenderId,
-    payloadFirebase.appId,
-  ];
-
-  if (obrigatorios.some((item) => !item)) {
-    throw new Error("Credenciais Firebase incompletas.");
-  }
+  const preconfigNormalizada =
+    preconfigInicial && typeof preconfigInicial === "object" ? preconfigInicial : null;
+  const payloadFirebase = resolveRuntimeConfigForProjectType({
+    tipoProjeto: tipoProjetoNormalizado,
+    firebaseConfig,
+  });
 
   const docRef = doc(managerDb, MANAGER_COLLECTION, keyNormalizada);
   const existente = await getDoc(docRef);
@@ -781,13 +924,28 @@ export async function criarSistemaNoGerenciador({
     throw new Error("Ja existe um projeto com essa chave.");
   }
 
+  const configTemplate =
+    preconfigNormalizada?.configSistemaTemplate &&
+    typeof preconfigNormalizada.configSistemaTemplate === "object"
+      ? preconfigNormalizada.configSistemaTemplate
+      : {};
+  const ownerUidNormalizado = normalizeText(ownerUid || configTemplate?.ownerUid);
+
   const configSistemaInicial = {
+    ...configTemplate,
     tituloSistema: nomeNormalizado || keyNormalizada.toUpperCase(),
-    temaPadraoSistema: "ALY_137",
-    loginPresetId: "manual",
-    destinoPosLogin: "home_skin_usuario",
-    exibirTituloSistemaNoLogin: true,
-    textoLogin: "EMBARQUE COM O GOOGLE",
+    temaPadraoSistema: normalizeText(configTemplate?.temaPadraoSistema || "ALY_137") || "ALY_137",
+    loginPresetId: normalizeText(configTemplate?.loginPresetId || "manual") || "manual",
+    destinoPosLogin:
+      normalizeText(configTemplate?.destinoPosLogin || "home_skin_usuario") || "home_skin_usuario",
+    exibirTituloSistemaNoLogin:
+      typeof configTemplate?.exibirTituloSistemaNoLogin === "boolean"
+        ? configTemplate.exibirTituloSistemaNoLogin
+        : true,
+    textoLogin: normalizeText(configTemplate?.textoLogin || "EMBARQUE COM O GOOGLE"),
+    ownerUid: ownerUidNormalizado,
+    projectSystemKey: keyNormalizada,
+    projectOwnerUid: normalizeText(criadoPorUid || ownerUidNormalizado),
     ...(tipoProjetoNormalizado === "manager"
       ? {
           tipoExperiencia: "manager",
@@ -814,6 +972,8 @@ export async function criarSistemaNoGerenciador({
       domains: domainsNorm,
       firebaseRuntimeConfig: payloadFirebase,
       configSistema: configSistemaInicial,
+      preconfigBaseKey: normalizeText(preconfigNormalizada?.preconfigKey),
+      preconfigBaseName: normalizeText(preconfigNormalizada?.nomePreconfig),
       criadoPorUid: criadoPorUid || null,
       criadoEm: serverTimestamp(),
       atualizadoEm: serverTimestamp(),
@@ -828,6 +988,114 @@ export async function criarSistemaNoGerenciador({
     domains: domainsNorm,
     firebaseRuntimeConfig: payloadFirebase,
     configSistema: configSistemaInicial,
+    preconfigBaseKey: normalizeText(preconfigNormalizada?.preconfigKey),
+    preconfigBaseName: normalizeText(preconfigNormalizada?.nomePreconfig),
+  };
+}
+
+export async function listarPreconfiguracoesNoGerenciador() {
+  const managerDb = getManagerDb();
+  if (!managerDb) return [];
+
+  const snap = await getDocs(collection(managerDb, PRECONFIG_COLLECTION));
+  return snap.docs
+    .map((docItem) => {
+      const data = docItem.data() || {};
+      return {
+        id: docItem.id,
+        preconfigKey: normalizeText(data.preconfigKey || docItem.id),
+        nomePreconfig: normalizeText(data.nomePreconfig || data.nome || docItem.id),
+        tipoProjeto: normalizeProjectType(data.tipoProjeto || data?.configSistemaTemplate?.tipoExperiencia),
+        baseProjectSystemKey: normalizeText(data.baseProjectSystemKey),
+        configSistemaTemplate:
+          data.configSistemaTemplate && typeof data.configSistemaTemplate === "object"
+            ? data.configSistemaTemplate
+            : {},
+        firebaseRuntimeTemplate:
+          data.firebaseRuntimeTemplate && typeof data.firebaseRuntimeTemplate === "object"
+            ? data.firebaseRuntimeTemplate
+            : {},
+        criadoPorUid: normalizeText(data.criadoPorUid),
+        atualizadoPorUid: normalizeText(data.atualizadoPorUid),
+      };
+    })
+    .sort((a, b) => a.nomePreconfig.localeCompare(b.nomePreconfig));
+}
+
+export async function salvarPreconfiguracaoProjetoNoGerenciador({
+  projeto = null,
+  preconfigKey = "",
+  nomePreconfig = "",
+  atualizadoPorUid = null,
+} = {}) {
+  const managerDb = getManagerDb();
+  if (!managerDb) {
+    throw new Error("Gerenciador de projetos nao configurado.");
+  }
+
+  const projetoBase = projeto && typeof projeto === "object" ? projeto : {};
+  const tipoProjeto = resolveProjectTypeFromData(projetoBase);
+  const keyNormalizada = normalizeSystemKey(
+    preconfigKey ||
+      projetoBase?.preconfigBaseKey ||
+      projetoBase?.systemKey ||
+      projetoBase?.nomeProjeto ||
+      nomePreconfig
+  );
+  const nomeFinal =
+    normalizeText(nomePreconfig) ||
+    normalizeText(projetoBase?.preconfigBaseName) ||
+    normalizeText(projetoBase?.nomeProjeto) ||
+    keyNormalizada;
+
+  if (!keyNormalizada) {
+    throw new Error("Nome/chave da preconfiguracao invalido.");
+  }
+
+  const configSistemaTemplate = sanitizePreconfigTemplate(projetoBase?.configSistema || {});
+  const firebaseRuntimeTemplate = sanitizeFirebaseTemplateForPreconfig(
+    projetoBase?.firebaseRuntimeConfig || {},
+    tipoProjeto
+  );
+  const docRef = doc(managerDb, PRECONFIG_COLLECTION, keyNormalizada);
+
+  await setDoc(
+    docRef,
+    {
+      preconfigKey: keyNormalizada,
+      nomePreconfig: nomeFinal,
+      tipoProjeto,
+      baseProjectSystemKey: normalizeText(projetoBase?.systemKey),
+      configSistemaTemplate,
+      firebaseRuntimeTemplate,
+      atualizadoPorUid: normalizeText(atualizadoPorUid) || null,
+      atualizadoEm: serverTimestamp(),
+      criadoPorUid: normalizeText(atualizadoPorUid) || null,
+      criadoEm: serverTimestamp(),
+    },
+    { merge: true }
+  );
+
+  if (normalizeText(projetoBase?.systemKey)) {
+    await setDoc(
+      doc(managerDb, MANAGER_COLLECTION, normalizeText(projetoBase.systemKey)),
+      {
+        preconfigBaseKey: keyNormalizada,
+        preconfigBaseName: nomeFinal,
+        atualizadoPorUid: normalizeText(atualizadoPorUid) || null,
+        atualizadoEm: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  }
+
+  return {
+    ok: true,
+    preconfigKey: keyNormalizada,
+    nomePreconfig: nomeFinal,
+    tipoProjeto,
+    configSistemaTemplate,
+    firebaseRuntimeTemplate,
   };
 }
 

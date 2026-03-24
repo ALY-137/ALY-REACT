@@ -6,6 +6,8 @@ export {
   criarProjetoNoGerenciador,
   obterConfigProjetoDoGerenciador,
   salvarConfigProjetoNoGerenciador,
+  listarPreconfiguracoesNoGerenciador,
+  salvarPreconfiguracaoProjetoNoGerenciador,
   listarIconCollectionsNoGerenciador,
   criarIconCollectionNoGerenciador,
   salvarIconCollectionNoGerenciador,

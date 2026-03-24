@@ -5,9 +5,11 @@ import {
   criarProjetoNoGerenciador,
   gerarBlocoEnvProjeto,
   limparEnvsProjetoNoVercel,
+  listarPreconfiguracoesNoGerenciador,
   listarProjetosNoGerenciador,
   removerProjetoNoGerenciador,
   salvarConfigProjetoNoGerenciador,
+  salvarPreconfiguracaoProjetoNoGerenciador,
 } from "../../Sistema/gerenciadorProjetosApi";
 import {
   obterManagerProjectIdConfigurado,
@@ -76,8 +78,10 @@ function montarChecklistRemocaoEnvVercel(systemKey = "") {
 const FORM_INICIAL = {
   nomeProjeto: "",
   systemKey: "",
+  preconfigKey: "",
   tipoProjeto: "multiowner",
   domains: "",
+  ownerUid: "",
   apiKey: "",
   authDomain: "",
   projectId: "",
@@ -177,7 +181,17 @@ function nomeProjetoFallback(systemKey = "") {
 function resolverFirebaseTargetPorProjeto(projeto) {
   const systemKey = normalizeText(projeto?.systemKey).toLowerCase();
   const firebaseProjectId = normalizeText(projeto?.firebaseProjectId).toLowerCase();
+  const tipoProjeto = resolveTipoProjetoProjeto(projeto);
   const projetosConfigurados = listConfiguredFirebaseProjects();
+
+  if ((tipoProjeto === "oneowner" || tipoProjeto === "manager") && firebaseProjectId) {
+    const matchByProjectId = projetosConfigurados.find(
+      (item) => normalizeText(item?.projectId).toLowerCase() === firebaseProjectId
+    );
+    if (matchByProjectId?.key) {
+      return normalizeText(matchByProjectId.key);
+    }
+  }
 
   const matchByKey = projetosConfigurados.find(
     (item) => normalizeText(item?.key).toLowerCase() === systemKey
@@ -193,7 +207,84 @@ function resolverFirebaseTargetPorProjeto(projeto) {
     return normalizeText(matchByProjectId.key);
   }
 
-  return systemKey;
+  return tipoProjeto === "oneowner" || tipoProjeto === "manager"
+    ? normalizeText(firebaseProjectId || systemKey)
+    : systemKey;
+}
+
+function limparCachesLocaisProjeto(systemKey = "", domains = []) {
+  const keyNormalizada = normalizeText(systemKey).toLowerCase();
+  if (typeof window === "undefined" || !keyNormalizada) return;
+
+  try {
+    const aliases = JSON.parse(localStorage.getItem(FIREBASE_PROJECT_ALIASES_STORAGE_KEY) || "{}");
+    if (aliases && typeof aliases === "object") {
+      delete aliases[keyNormalizada];
+      localStorage.setItem(FIREBASE_PROJECT_ALIASES_STORAGE_KEY, JSON.stringify(aliases));
+    }
+  } catch {
+    // Ignora indisponibilidade de storage local.
+  }
+
+  try {
+    const targetAtual = normalizeText(localStorage.getItem("firebaseProjectTarget")).toLowerCase();
+    if (targetAtual === keyNormalizada) {
+      localStorage.removeItem("firebaseProjectTarget");
+    }
+  } catch {
+    // Ignora indisponibilidade de storage local.
+  }
+
+  try {
+    const contextoAtual = normalizeText(localStorage.getItem("systemProjectContextKey")).toLowerCase();
+    if (contextoAtual === keyNormalizada) {
+      localStorage.removeItem("systemProjectContextKey");
+    }
+  } catch {
+    // Ignora indisponibilidade de storage local.
+  }
+
+  domains.forEach((domain) => {
+    const host = normalizeHost(domain);
+    if (!host) return;
+    try {
+      localStorage.removeItem(`firebaseManagerDomain:v2:${host}`);
+    } catch {
+      // Ignora indisponibilidade de storage local.
+    }
+  });
+}
+
+function aplicarPreconfigAoFormulario(formAnterior, preconfig) {
+  if (!preconfig) {
+    return {
+      ...FORM_INICIAL,
+      nomeProjeto: formAnterior?.nomeProjeto || "",
+      systemKey: formAnterior?.systemKey || "",
+      domains: formAnterior?.domains || "",
+      ownerUid: formAnterior?.ownerUid || "",
+    };
+  }
+
+  const tipoProjeto = normalizeTipoProjeto(preconfig?.tipoProjeto);
+  const firebaseTemplate =
+    preconfig?.firebaseRuntimeTemplate && typeof preconfig.firebaseRuntimeTemplate === "object"
+      ? preconfig.firebaseRuntimeTemplate
+      : {};
+
+  return {
+    ...FORM_INICIAL,
+    preconfigKey: normalizeText(preconfig?.preconfigKey),
+    nomeProjeto: formAnterior?.nomeProjeto || "",
+    systemKey: formAnterior?.systemKey || "",
+    domains: formAnterior?.domains || "",
+    ownerUid:
+      tipoProjeto === "oneowner"
+        ? formAnterior?.ownerUid || normalizeText(preconfig?.configSistemaTemplate?.ownerUid)
+        : "",
+    tipoProjeto,
+    functionsRegion: normalizeText(firebaseTemplate?.functionsRegion || "us-central1") || "us-central1",
+  };
 }
 
 function validarFormularioCriacao(form, oneownerRuntimeProjectId) {
@@ -255,6 +346,8 @@ function projetoComCamposPadrao(projeto = {}) {
       projeto.firebaseRuntimeConfig && typeof projeto.firebaseRuntimeConfig === "object"
         ? projeto.firebaseRuntimeConfig
         : {},
+    preconfigBaseKey: normalizeText(projeto.preconfigBaseKey),
+    preconfigBaseName: normalizeText(projeto.preconfigBaseName),
     configSistema:
       projeto.configSistema && typeof projeto.configSistema === "object" ? projeto.configSistema : {},
   };
@@ -336,6 +429,7 @@ function GerenciadorProjetos() {
   const [erro, setErro] = useState("");
   const [mensagem, setMensagem] = useState("");
   const [projetos, setProjetos] = useState([]);
+  const [preconfiguracoes, setPreconfiguracoes] = useState([]);
   const [form, setForm] = useState(FORM_INICIAL);
   const [envGerada, setEnvGerada] = useState("");
   const [checklistRemocaoEnv, setChecklistRemocaoEnv] = useState("");
@@ -346,6 +440,7 @@ function GerenciadorProjetos() {
   const [salvandoDomainsProjeto, setSalvandoDomainsProjeto] = useState(false);
   const [limpandoEnvSystemKey, setLimpandoEnvSystemKey] = useState("");
   const [removendoProjetoSystemKey, setRemovendoProjetoSystemKey] = useState("");
+  const [salvandoPreconfigSystemKey, setSalvandoPreconfigSystemKey] = useState("");
   const [systemKeysOcultas, setSystemKeysOcultas] = useState(() =>
     carregarSystemKeysOcultasStorage()
   );
@@ -356,6 +451,13 @@ function GerenciadorProjetos() {
   const projetosOrdenados = useMemo(
     () => [...projetos].sort((a, b) => a.systemKey.localeCompare(b.systemKey)),
     [projetos]
+  );
+  const preconfigSelecionada = useMemo(
+    () =>
+      preconfiguracoes.find(
+        (item) => normalizeText(item?.preconfigKey) === normalizeText(form.preconfigKey)
+      ) || null,
+    [form.preconfigKey, preconfiguracoes]
   );
   const projetosFiltrados = useMemo(() => {
     if (filtroTipoProjeto === "todos") return projetosOrdenados;
@@ -369,14 +471,29 @@ function GerenciadorProjetos() {
     setErro("");
     try {
       const lista = await listarProjetosNoGerenciador();
+      let listaPreconfiguracoes = [];
+      let avisoPreconfig = "";
+
+      try {
+        listaPreconfiguracoes = await listarPreconfiguracoesNoGerenciador();
+      } catch (error) {
+        avisoPreconfig =
+          error?.message || "Falha ao carregar pre-configuracoes do gerenciador.";
+      }
+
       const projetosMesclados = mesclarProjetosGerenciadorComEnv(lista);
+      setPreconfiguracoes(listaPreconfiguracoes);
       setProjetos(
         projetosMesclados.filter(
           (item) => !systemKeysOcultas.includes(normalizeText(item?.systemKey).toLowerCase())
         )
       );
+      if (avisoPreconfig) {
+        setErro(avisoPreconfig);
+      }
     } catch (error) {
       const projetosMesclados = mesclarProjetosGerenciadorComEnv([]);
+      setPreconfiguracoes([]);
       setProjetos(
         projetosMesclados.filter(
           (item) => !systemKeysOcultas.includes(normalizeText(item?.systemKey).toLowerCase())
@@ -439,6 +556,18 @@ function GerenciadorProjetos() {
     }));
   };
 
+  const selecionarPreconfiguracao = (preconfigKey) => {
+    const chaveNormalizada = normalizeText(preconfigKey);
+    const preconfig = preconfiguracoes.find(
+      (item) => normalizeText(item?.preconfigKey) === chaveNormalizada
+    );
+
+    setForm((prev) => ({
+      ...aplicarPreconfigAoFormulario(prev, preconfig),
+      preconfigKey: chaveNormalizada,
+    }));
+  };
+
   const criarProjeto = async (event) => {
     event.preventDefault();
     setErro("");
@@ -460,6 +589,8 @@ function GerenciadorProjetos() {
         systemKey: form.systemKey,
         tipoProjeto: normalizeTipoProjeto(form.tipoProjeto),
         domains: form.domains,
+        ownerUid: form.ownerUid,
+        preconfigInicial: preconfigSelecionada,
         firebaseConfig:
           normalizeTipoProjeto(form.tipoProjeto) === "oneowner"
             ? {}
@@ -582,6 +713,7 @@ function GerenciadorProjetos() {
       setProjetos((prev) =>
         prev.filter((item) => normalizeText(item?.systemKey).toLowerCase() !== systemKey)
       );
+      limparCachesLocaisProjeto(systemKey, projeto?.domains || []);
       setSystemKeysOcultas((prev) =>
         prev.includes(systemKey) ? prev : [...prev, systemKey]
       );
@@ -606,6 +738,75 @@ function GerenciadorProjetos() {
       setErro(error?.message || "Falha ao remover projeto e ENV no Vercel.");
     } finally {
       setRemovendoProjetoSystemKey("");
+    }
+  };
+
+  const salvarPreconfiguracaoProjeto = async (projeto) => {
+    const systemKey = normalizeText(projeto?.systemKey).toLowerCase();
+    if (!systemKey || salvandoPreconfigSystemKey) return;
+
+    const nomePadrao =
+      normalizeText(projeto?.preconfigBaseName) ||
+      normalizeText(projeto?.nomeProjeto) ||
+      systemKey;
+    const nomePreconfig = window.prompt(
+      "Nome da pre-configuracao inicial:",
+      nomePadrao
+    );
+
+    if (nomePreconfig === null) return;
+    if (!normalizeText(nomePreconfig)) {
+      setErro("Informe um nome valido para a pre-configuracao.");
+      return;
+    }
+
+    setSalvandoPreconfigSystemKey(systemKey);
+    setErro("");
+    setMensagem("");
+
+    try {
+      const resultado = await salvarPreconfiguracaoProjetoNoGerenciador({
+        projeto,
+        preconfigKey:
+          normalizeText(projeto?.preconfigBaseKey) || normalizeText(projeto?.systemKey),
+        nomePreconfig,
+        atualizadoPorUid: user?.uid || null,
+      });
+
+      setPreconfiguracoes((prev) => {
+        const demais = prev.filter(
+          (item) => normalizeText(item?.preconfigKey) !== normalizeText(resultado?.preconfigKey)
+        );
+        return [...demais, resultado].sort((a, b) =>
+          normalizeText(a?.nomePreconfig).localeCompare(normalizeText(b?.nomePreconfig))
+        );
+      });
+
+      setProjetos((prev) =>
+        prev.map((item) =>
+          normalizeText(item?.systemKey).toLowerCase() === systemKey
+            ? {
+                ...item,
+                preconfigBaseKey: normalizeText(resultado?.preconfigKey),
+                preconfigBaseName: normalizeText(resultado?.nomePreconfig),
+              }
+            : item
+        )
+      );
+      setProjetoEmGerenciamento((atual) =>
+        normalizeText(atual?.systemKey).toLowerCase() === systemKey
+          ? {
+              ...atual,
+              preconfigBaseKey: normalizeText(resultado?.preconfigKey),
+              preconfigBaseName: normalizeText(resultado?.nomePreconfig),
+            }
+          : atual
+      );
+      setMensagem(`Pre-configuracao salva: ${resultado?.nomePreconfig || nomePreconfig}.`);
+    } catch (error) {
+      setErro(error?.message || "Falha ao salvar pre-configuracao do projeto.");
+    } finally {
+      setSalvandoPreconfigSystemKey("");
     }
   };
 
@@ -772,6 +973,28 @@ function GerenciadorProjetos() {
             style={{ width: "100%", marginTop: 6 }}
           />
 
+          <label htmlFor="preconfigKey" style={{ display: "block", marginTop: 8 }}>
+            Pre-configuracao inicial
+          </label>
+          <select
+            id="preconfigKey"
+            value={form.preconfigKey}
+            onChange={(event) => selecionarPreconfiguracao(event.target.value)}
+            style={{ width: "100%", marginTop: 6 }}
+          >
+            <option value="">Nenhuma</option>
+            {preconfiguracoes.map((item) => (
+              <option key={item.preconfigKey} value={item.preconfigKey}>
+                {`${item.nomePreconfig} (${rotuloTipoProjeto(item.tipoProjeto)})`}
+              </option>
+            ))}
+          </select>
+          {preconfigSelecionada ? (
+            <p style={{ marginTop: 8, opacity: 0.8 }}>
+              {`Baseando novo projeto em: ${preconfigSelecionada.nomePreconfig}. Titulo e dominios continuam livres.`}
+            </p>
+          ) : null}
+
           <label htmlFor="tipoProjeto" style={{ display: "block", marginTop: 8 }}>
             Tipo do projeto
           </label>
@@ -779,6 +1002,7 @@ function GerenciadorProjetos() {
             id="tipoProjeto"
             value={form.tipoProjeto}
             onChange={(event) => atualizarCampo("tipoProjeto", event.target.value)}
+            disabled={Boolean(preconfigSelecionada)}
             style={{ width: "100%", marginTop: 6 }}
           >
             <option value="multiowner">Multiowner</option>
@@ -786,9 +1010,22 @@ function GerenciadorProjetos() {
           </select>
 
           {normalizeTipoProjeto(form.tipoProjeto) === "oneowner" ? (
-            <p style={{ marginTop: 8, opacity: 0.8 }}>
-              {`Oneowner usa runtime padrao: ${oneownerRuntimeProjectId || "nao configurado"}.`}
-            </p>
+            <>
+              <p style={{ marginTop: 8, opacity: 0.8 }}>
+                {`Oneowner usa runtime padrao: ${oneownerRuntimeProjectId || "nao configurado"}.`}
+              </p>
+              <label htmlFor="ownerUid" style={{ display: "block", marginTop: 8 }}>
+                UID do owner inicial
+              </label>
+              <input
+                id="ownerUid"
+                type="text"
+                value={form.ownerUid}
+                onChange={(event) => atualizarCampo("ownerUid", event.target.value)}
+                placeholder="UID do owner deste oneowner"
+                style={{ width: "100%", marginTop: 6 }}
+              />
+            </>
           ) : null}
 
           <label htmlFor="domains" style={{ display: "block", marginTop: 8 }}>
@@ -805,6 +1042,11 @@ function GerenciadorProjetos() {
 
           {normalizeTipoProjeto(form.tipoProjeto) !== "oneowner" ? (
             <>
+              {preconfigSelecionada ? (
+                <p style={{ marginTop: 8, opacity: 0.8 }}>
+                  Credenciais Firebase continuam obrigatorias para novos projetos multiowner.
+                </p>
+              ) : null}
               <h4 style={{ marginTop: 12, marginBottom: 8 }}>Credenciais Firebase</h4>
 
               <label htmlFor="apiKey">API Key</label>
@@ -984,6 +1226,9 @@ function GerenciadorProjetos() {
                       Firebase Project: {projeto.firebaseProjectId || "-"}
                     </p>
                     <p style={{ margin: "2px 0 0 0" }}>
+                      Pre-config: {projeto.preconfigBaseName || projeto.preconfigBaseKey || "-"}
+                    </p>
+                    <p style={{ margin: "2px 0 0 0" }}>
                       Dominios: {(projeto.domains || []).join(", ") || "-"}
                     </p>
                     <p style={{ margin: "2px 0 10px 0", opacity: 0.75 }}>
@@ -998,6 +1243,15 @@ function GerenciadorProjetos() {
                       </button>
                       <button type="button" onClick={() => gerarEnvParaProjetoExistente(projeto)}>
                         Gerar ENV
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => salvarPreconfiguracaoProjeto(projeto)}
+                        disabled={Boolean(salvandoPreconfigSystemKey)}
+                      >
+                        {salvandoPreconfigSystemKey === projeto.systemKey
+                          ? "Salvando pre-config..."
+                          : "Salvar pre-config"}
                       </button>
                       <button
                         type="button"
@@ -1051,6 +1305,13 @@ function GerenciadorProjetos() {
 
           <div style={{ border: "1px solid #999", borderRadius: 8, padding: 12, marginBottom: 12 }}>
             <h3 style={{ marginTop: 0 }}>Dominios do projeto</h3>
+            <p style={{ marginTop: 0, opacity: 0.8 }}>
+              {`Pre-configuracao vinculada: ${
+                projetoEmGerenciamento.preconfigBaseName ||
+                projetoEmGerenciamento.preconfigBaseKey ||
+                "nenhuma"
+              }`}
+            </p>
             <label
               htmlFor="domainsProjetoEdicao"
               style={{ display: "block", marginBottom: 6 }}
@@ -1069,6 +1330,15 @@ function GerenciadorProjetos() {
               <button type="button" onClick={salvarDomainsProjeto} disabled={salvandoDomainsProjeto}>
                 {salvandoDomainsProjeto ? "Salvando dominios..." : "Salvar dominios"}
               </button>
+              <button
+                type="button"
+                onClick={() => salvarPreconfiguracaoProjeto(projetoEmGerenciamento)}
+                disabled={Boolean(salvandoPreconfigSystemKey)}
+              >
+                {salvandoPreconfigSystemKey === projetoEmGerenciamento.systemKey
+                  ? "Salvando pre-config..."
+                  : "Salvar pre-config deste projeto"}
+              </button>
             </div>
             <p style={{ marginTop: 8, opacity: 0.75 }}>
               Esse campo precisa listar todos os hostnames que devem abrir este mesmo projeto.
@@ -1080,7 +1350,7 @@ function GerenciadorProjetos() {
               projetoEmGerenciamento.nomeProjeto || projetoEmGerenciamento.systemKey
             }`}
             projetoGerenciado={projetoEmGerenciamento}
-            onConfigSalva={(configSalva) => {
+            onConfigSalva={(configSalva, resultadoProjetoSalvo) => {
               setProjetos((prev) =>
                 prev.map((item) =>
                   item.systemKey === projetoEmGerenciamento.systemKey
@@ -1091,6 +1361,14 @@ function GerenciadorProjetos() {
                         tipoProjeto: normalizeTipoProjeto(
                           configSalva?.tipoExperiencia || item.tipoProjeto
                         ),
+                        firebaseProjectId:
+                          resultadoProjetoSalvo?.firebaseProjectId || item.firebaseProjectId,
+                        firebaseRuntimeConfig:
+                          resultadoProjetoSalvo?.firebaseRuntimeConfig || item.firebaseRuntimeConfig,
+                        preconfigBaseKey:
+                          resultadoProjetoSalvo?.preconfigBaseKey || item.preconfigBaseKey,
+                        preconfigBaseName:
+                          resultadoProjetoSalvo?.preconfigBaseName || item.preconfigBaseName,
                       }
                     : item
                 )
@@ -1104,9 +1382,18 @@ function GerenciadorProjetos() {
                       tipoProjeto: normalizeTipoProjeto(
                         configSalva?.tipoExperiencia || atual.tipoProjeto
                       ),
+                      firebaseProjectId:
+                        resultadoProjetoSalvo?.firebaseProjectId || atual.firebaseProjectId,
+                      firebaseRuntimeConfig:
+                        resultadoProjetoSalvo?.firebaseRuntimeConfig || atual.firebaseRuntimeConfig,
+                      preconfigBaseKey:
+                        resultadoProjetoSalvo?.preconfigBaseKey || atual.preconfigBaseKey,
+                      preconfigBaseName:
+                        resultadoProjetoSalvo?.preconfigBaseName || atual.preconfigBaseName,
                     }
                   : atual
               );
+              carregarProjetos();
             }}
           />
         </div>
