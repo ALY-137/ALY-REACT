@@ -1,4 +1,8 @@
 // Tema de sistema (identidade global) e tema de skin (visual da skin)
+const LEGACY_THEME_ID_ALIASES = {
+  ALY_137: "CYBERPINK",
+};
+
 export const SYSTEM_THEMES = [
   {
     id: "PADRAO_INICIAL",
@@ -8,11 +12,11 @@ export const SYSTEM_THEMES = [
     description: "Tema temporario para primeira configuracao do sistema.",
   },
   {
-    id: "ALY_137",
-    label: "Aly-137",
+    id: "CYBERPINK",
+    label: "Cyberpink",
     layoutTheme: "CYBERPINK",
     wallpaper: "/bigSky.jpg",
-    description: "Identidade atual baseada em Cyberpink.",
+    description: "Visual neon com identidade synth-tech e contraste alto.",
   },
   {
     id: "LOJA_DE_ROUPAS",
@@ -60,26 +64,12 @@ export const SKIN_THEMES = [
     },
   },
   {
-    id: "ALY_137",
-    label: "Aly-137 (padrao)",
-    family: "ALY_137",
-    cssTheme: "CYBERPINK",
-    extendsSystem: ["ALY_137"],
-    isPrimary: true,
-    layout: {
-      menuPosition: "drawer",
-      surfaceDensity: "compact",
-      frameMaxWidth: 995,
-      viewportMargin: 5,
-    },
-  },
-  {
     id: "CYBERPINK",
-    label: "Cyberpink",
-    family: "ALY_137",
+    label: "Cyberpink (padrao)",
+    family: "CYBERPINK",
     cssTheme: "CYBERPINK",
-    extendsSystem: ["ALY_137"],
-    isPrimary: false,
+    extendsSystem: ["CYBERPINK", "ALY_137"],
+    isPrimary: true,
     layout: {
       menuPosition: "drawer",
       surfaceDensity: "compact",
@@ -216,7 +206,8 @@ export const LAYOUT_STANDARD_OPERATIONS = [
 ];
 
 function normalizarIdTema(value) {
-  return String(value || "").trim().toUpperCase();
+  const temaId = String(value || "").trim().toUpperCase();
+  return LEGACY_THEME_ID_ALIASES[temaId] || temaId;
 }
 
 function ordenarTemasFamilia(temas = []) {

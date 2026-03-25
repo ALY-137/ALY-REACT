@@ -172,18 +172,18 @@ export default function MercadoPagoConfig() {
         }}
       >
         <input
+          type="text"
+          placeholder="Public Key (opcional)"
+          value={publicKey}
+          onChange={(event) => setPublicKey(event.target.value)}
+          style={{ width: "100%", marginTop: 8 }}
+        />
+        <input
           type="password"
           placeholder="Access Token Mercado Pago"
           autoComplete="current-password"
           value={accessToken}
           onChange={(event) => setAccessToken(event.target.value)}
-          style={{ width: "100%", marginTop: 8 }}
-        />
-        <input
-          type="text"
-          placeholder="Public Key (opcional)"
-          value={publicKey}
-          onChange={(event) => setPublicKey(event.target.value)}
           style={{ width: "100%", marginTop: 8 }}
         />
 

@@ -24,7 +24,8 @@ const TEMA_SISTEMA_FALLBACK = TEMAS_SISTEMA_VALIDOS.includes("PADRAO_INICIAL")
   ? "PADRAO_INICIAL"
   : TEMAS_SISTEMA_VALIDOS[0] || "PADRAO_INICIAL";
 const LEGACY_MAP_TEMA_SKIN_TO_SISTEMA = {
-  CYBERPINK: "ALY_137",
+  ALY_137: "CYBERPINK",
+  CYBERPINK: "CYBERPINK",
   SUNSHINE: "LOJA_DE_ROUPAS",
 };
 const LIMITE_SKINS_VALIDOS = ["1", "ilimitado"];
@@ -228,7 +229,7 @@ function obterDefaultConfigSistemaProjeto() {
   if (isManagerProjectRuntime()) {
     return {
       ...DEFAULT_SISTEMA_CONFIG,
-      temaPadraoSistema: "ALY_137",
+      temaPadraoSistema: "CYBERPINK",
       tituloSistema: "GERENCIADO DE PROJETOS",
       tipoExperiencia: "manager",
       modoAcessoProjeto: "privado_com_login",
@@ -242,8 +243,12 @@ function aplicarDefaultsPorProjeto(configSistema = DEFAULT_SISTEMA_CONFIG) {
     ...configSistema,
   };
   if (isManagerProjectRuntime(config)) {
-    if (!config.temaPadraoSistema || config.temaPadraoSistema === "PADRAO_INICIAL") {
-      config.temaPadraoSistema = "ALY_137";
+    if (
+      !config.temaPadraoSistema ||
+      config.temaPadraoSistema === "PADRAO_INICIAL" ||
+      config.temaPadraoSistema === "ALY_137"
+    ) {
+      config.temaPadraoSistema = "CYBERPINK";
     }
     if (!config.tituloSistema) {
       config.tituloSistema = "GERENCIADO DE PROJETOS";

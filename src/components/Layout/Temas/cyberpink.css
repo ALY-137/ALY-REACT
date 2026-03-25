@@ -773,3 +773,6 @@ body.theme-cyberpink .loginCadastroButton:focus-visible {
   border-color: var(--cyberpink-border-strong);
 }
 
+body{
+  color: rgb(199, 159, 255);
+}

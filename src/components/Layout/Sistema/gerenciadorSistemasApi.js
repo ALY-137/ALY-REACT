@@ -1188,31 +1188,41 @@ export async function removerProjetoNoGerenciador({
 
   const docsRemovidos = [];
   const idsRemovidos = new Set();
+  const avisos = [];
 
   for (const collectionName of MANAGER_COLLECTIONS_DELETE) {
-    const docRefDireta = doc(managerDb, collectionName, keyNormalizada);
-    const docSnapDireta = await getDoc(docRefDireta);
+    try {
+      const docRefDireta = doc(managerDb, collectionName, keyNormalizada);
+      const docSnapDireta = await getDoc(docRefDireta);
 
-    if (docSnapDireta.exists()) {
-      await deleteDoc(docRefDireta);
-      docsRemovidos.push(`${collectionName}/${keyNormalizada}`);
-      idsRemovidos.add(`${collectionName}:${keyNormalizada}`);
-    }
+      if (docSnapDireta.exists()) {
+        await deleteDoc(docRefDireta);
+        docsRemovidos.push(`${collectionName}/${keyNormalizada}`);
+        idsRemovidos.add(`${collectionName}:${keyNormalizada}`);
+      }
 
-    const bySystemKeyQuery = query(
-      collection(managerDb, collectionName),
-      where("systemKey", "==", keyNormalizada),
-      limit(25)
-    );
-    const bySystemKeySnap = await getDocs(bySystemKeyQuery);
+      const bySystemKeyQuery = query(
+        collection(managerDb, collectionName),
+        where("systemKey", "==", keyNormalizada),
+        limit(25)
+      );
+      const bySystemKeySnap = await getDocs(bySystemKeyQuery);
 
-    for (const item of bySystemKeySnap.docs) {
-      const dedupeKey = `${collectionName}:${item.id}`;
-      if (idsRemovidos.has(dedupeKey)) continue;
+      for (const item of bySystemKeySnap.docs) {
+        const dedupeKey = `${collectionName}:${item.id}`;
+        if (idsRemovidos.has(dedupeKey)) continue;
 
-      await deleteDoc(doc(managerDb, collectionName, item.id));
-      docsRemovidos.push(`${collectionName}/${item.id}`);
-      idsRemovidos.add(dedupeKey);
+        await deleteDoc(doc(managerDb, collectionName, item.id));
+        docsRemovidos.push(`${collectionName}/${item.id}`);
+        idsRemovidos.add(dedupeKey);
+      }
+    } catch (error) {
+      if (collectionName === MANAGER_COLLECTION) {
+        throw error;
+      }
+      avisos.push(
+        `${collectionName}: ${normalizeText(error?.message || "falha ao remover registros legados")}`
+      );
     }
   }
 
@@ -1222,6 +1232,7 @@ export async function removerProjetoNoGerenciador({
     envCleanup: resultadoLimpezaEnv || null,
     envCleanupError: erroLimpezaEnv || null,
     docsRemovidos,
+    warnings: avisos,
   };
 }
 
