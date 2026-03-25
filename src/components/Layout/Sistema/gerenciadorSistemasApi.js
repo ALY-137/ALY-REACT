@@ -109,6 +109,21 @@ function normalizeProjectType(value) {
   return raw === "oneowner" ? "oneowner" : "multiowner";
 }
 
+function isSharedOneownerRuntimeProjectId(projectId = "") {
+  const normalized = normalizeText(projectId).toLowerCase();
+  const runtimeProjectId = normalizeText(
+    process.env.REACT_APP_FIREBASE_ALY_ONEPAGES_RUNTIME_PROJECT_ID
+  ).toLowerCase();
+
+  return Boolean(
+    normalized &&
+      (
+        normalized === "aly-onepages-runtime" ||
+        (runtimeProjectId && normalized === runtimeProjectId)
+      )
+  );
+}
+
 function getManagerProjectIdNormalized() {
   return normalizeText(process.env.REACT_APP_SYSTEM_MANAGER_PROJECT_ID).toLowerCase();
 }
@@ -742,7 +757,14 @@ export async function obterConfigSistemaDoGerenciador({
   // 3) Busca por projectId Firebase.
   // Importante: projectId pode ser compartilhado entre varios projetos oneowner.
   // Por isso ele deve ficar depois da busca por dominio.
-  if (projectIdNormalizado) {
+  const podeResolverPorProjectId =
+    projectIdNormalizado &&
+    (
+      !isSharedOneownerRuntimeProjectId(projectIdNormalizado) ||
+      Boolean(keyNormalizada || hostNormalizado)
+    );
+
+  if (podeResolverPorProjectId) {
     const byProjectIdQuery = query(
       collection(managerDb, MANAGER_COLLECTION),
       where("firebaseProjectId", "==", projectIdNormalizado),
@@ -962,7 +984,7 @@ export async function criarSistemaNoGerenciador({
   const configSistemaInicial = {
     ...configTemplate,
     tituloSistema: nomeNormalizado || keyNormalizada.toUpperCase(),
-    temaPadraoSistema: normalizeText(configTemplate?.temaPadraoSistema || "ALY_137") || "ALY_137",
+    temaPadraoSistema: normalizeText(configTemplate?.temaPadraoSistema || "CYBERPINK") || "CYBERPINK",
     loginPresetId: normalizeText(configTemplate?.loginPresetId || "manual") || "manual",
     destinoPosLogin:
       normalizeText(configTemplate?.destinoPosLogin || "home_skin_usuario") || "home_skin_usuario",
@@ -972,6 +994,7 @@ export async function criarSistemaNoGerenciador({
         : true,
     textoLogin: normalizeText(configTemplate?.textoLogin || "EMBARQUE COM O GOOGLE"),
     ownerUid: ownerUidNormalizado,
+    adminUid: ownerUidNormalizado,
     projectSystemKey: keyNormalizada,
     projectOwnerUid: normalizeText(criadoPorUid || ownerUidNormalizado),
     ...(tipoProjetoNormalizado === "manager"

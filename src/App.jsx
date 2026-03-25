@@ -22,6 +22,7 @@ import {
   obterOwnerUidConfigurado,
   obterConfigSistemaCacheLocal,
   obterConfigSistema,
+  usuarioCorrespondeOwnerConfigurado,
 } from "./components/Layout/Sistema/configSistema";
 import PropriedadesSistema from "./components/Layout/Menu/Gerenciador/PropriedadesSistema/PropriedadesSistema";
 import { bootstrapUser, espelharUsuarioNoGerenciador } from "./components/Banco/bootstrapUser";
@@ -237,7 +238,7 @@ const App = () => {
 
       const usuarioEhOwnerGerenciador =
         (ownerUidConfig && user.uid === ownerUidConfig) ||
-        (ownerEmailConfig && userEmailAtual === ownerEmailConfig) ||
+        (!ownerUidConfig && ownerEmailConfig && userEmailAtual === ownerEmailConfig) ||
         seforAdm(user);
 
       if (usuarioEhOwnerGerenciador) {
@@ -573,9 +574,10 @@ const App = () => {
     .toLowerCase();
   const usuarioEhOwnerProjeto = Boolean(
     user?.uid &&
-      ((uidOwnerProjetoConfigurado && user.uid === uidOwnerProjetoConfigurado) ||
-        (emailOwnerProjetoConfigurado &&
-          emailUsuarioAtual === emailOwnerProjetoConfigurado) ||
+      (usuarioCorrespondeOwnerConfigurado(configSistema, {
+        uid: user.uid,
+        email: user?.email,
+      }) ||
         (!uidOwnerProjetoConfigurado &&
           !emailOwnerProjetoConfigurado &&
           seforAdm(user)))
@@ -596,7 +598,8 @@ const App = () => {
     user?.uid &&
       ((ownerUidGerenciadorConfigurado &&
         user.uid === ownerUidGerenciadorConfigurado) ||
-        (ownerEmailGerenciadorConfigurado &&
+        (!ownerUidGerenciadorConfigurado &&
+          ownerEmailGerenciadorConfigurado &&
           emailUsuarioAtual === ownerEmailGerenciadorConfigurado) ||
         (!ownerUidGerenciadorConfigurado &&
           !ownerEmailGerenciadorConfigurado &&

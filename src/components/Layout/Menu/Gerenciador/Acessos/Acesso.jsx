@@ -4,8 +4,7 @@ import { useLocation } from "react-router-dom";
 import { activeFirebaseProjectId, activeFirebaseProjectKey } from "../../../../Banco/init-firebase";
 import { buildSharedFunctionsUrl } from "../../../../Banco/sharedFunctionsApi";
 import {
-  obterOwnerEmailConfigurado,
-  obterOwnerUidConfigurado,
+  usuarioCorrespondeOwnerConfigurado,
 } from "../../../Sistema/configSistema";
 import { seforAdm } from "../../../../Scripts/verificacoes/verificaAdm";
 
@@ -73,13 +72,11 @@ function getOrCreateVisitorHash() {
 function resolvePerfilAcesso({ user, configSistema }) {
   if (!user?.uid) return "visitante";
 
-  const ownerUid = normalizeText(obterOwnerUidConfigurado(configSistema));
-  const ownerEmail = normalizeText(obterOwnerEmailConfigurado(configSistema)).toLowerCase();
-  const userEmail = normalizeText(user?.email).toLowerCase();
-
   if (
-    (ownerUid && user.uid === ownerUid) ||
-    (ownerEmail && userEmail === ownerEmail) ||
+    usuarioCorrespondeOwnerConfigurado(configSistema, {
+      uid: user.uid,
+      email: user?.email,
+    }) ||
     seforAdm(user)
   ) {
     return "owner";

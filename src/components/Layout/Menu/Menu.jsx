@@ -28,6 +28,7 @@ import {
   obterConfigSistemaCacheLocal,
   obterConfigSistema,
   obterProjectKeyContextual,
+  usuarioCorrespondeOwnerConfigurado,
 } from "../Sistema/configSistema";
 import FirebaseProjectBadge from "../Geral/FirebaseProjectBadge";
 import ProjectLoadingFallback from "../Geral/ProjectLoadingFallback";
@@ -142,10 +143,10 @@ function Menu({ menuOpen }) {
   const usuarioEhOwnerProjeto = Boolean(
     usuarioAuthAtual?.uid &&
       (
-        (ownerUidProjetoConfigurado &&
-          usuarioAuthAtual.uid === ownerUidProjetoConfigurado) ||
-        (ownerEmailProjetoConfigurado &&
-          emailUsuarioAtual === ownerEmailProjetoConfigurado) ||
+        usuarioCorrespondeOwnerConfigurado(configSistema, {
+          uid: usuarioAuthAtual.uid,
+          email: usuarioAuthAtual?.email,
+        }) ||
         (!ownerProjetoConfigurado &&
           seforAdm(usuarioAuthAtual))
       )
@@ -191,7 +192,8 @@ function Menu({ menuOpen }) {
     usuarioAuthAtual?.uid &&
       ((ownerUidGerenciadorConfigurado &&
         usuarioAuthAtual.uid === ownerUidGerenciadorConfigurado) ||
-        (ownerEmailGerenciadorConfigurado &&
+        (!ownerUidGerenciadorConfigurado &&
+          ownerEmailGerenciadorConfigurado &&
           emailUsuarioAtual === ownerEmailGerenciadorConfigurado) ||
         (!ownerUidGerenciadorConfigurado &&
           !ownerEmailGerenciadorConfigurado &&

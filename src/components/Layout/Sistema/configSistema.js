@@ -19,6 +19,12 @@ import { buildProjectDataPathCandidates } from "../../Banco/projectDataNamespace
 const SISTEMA_CONFIG_CACHE_KEY_BASE = "sistemaConfigCacheV1";
 const SISTEMA_PROJECT_CONTEXT_KEY = "systemProjectContextKey";
 const SHARED_ONEOWNER_RUNTIME_KEYS = new Set(["aly-onepages-runtime"]);
+const LOCALHOST_PROJECT_SYSTEM_QUERY_KEYS = [
+  "projectSystemKey",
+  "systemKey",
+  "slug",
+  "projectSlug",
+];
 const TEMAS_SISTEMA_VALIDOS = SYSTEM_THEMES.map((tema) => tema.id);
 const TEMA_SISTEMA_FALLBACK = TEMAS_SISTEMA_VALIDOS.includes("PADRAO_INICIAL")
   ? "PADRAO_INICIAL"
@@ -143,6 +149,28 @@ function limparProjectSystemKey(value) {
     .slice(0, 80);
 }
 
+function obterProjectSystemKeyDaQuery(search = "") {
+  try {
+    const searchParams = new URLSearchParams(search || "");
+    for (const key of LOCALHOST_PROJECT_SYSTEM_QUERY_KEYS) {
+      const value = limparProjectSystemKey(searchParams.get(key) || "");
+      if (value) return value;
+    }
+  } catch {
+    // Ignora erro de parse da URL.
+  }
+  return "";
+}
+
+function isSharedOneownerRuntimeAtivo() {
+  const projectKey = String(activeFirebaseProjectKey || "").trim().toLowerCase();
+  const projectId = String(activeFirebaseProjectId || "").trim().toLowerCase();
+  return (
+    SHARED_ONEOWNER_RUNTIME_KEYS.has(projectKey) ||
+    SHARED_ONEOWNER_RUNTIME_KEYS.has(projectId)
+  );
+}
+
 function isHostnameLocal(hostname = "") {
   const host = String(hostname || "").trim().toLowerCase();
   return host === "localhost" || host === "127.0.0.1" || host === "::1";
@@ -150,7 +178,7 @@ function isHostnameLocal(hostname = "") {
 
 function exigirResolucaoEstritaPorDominio(hostname = "") {
   return (
-    SHARED_ONEOWNER_RUNTIME_KEYS.has(String(activeFirebaseProjectKey || "").trim().toLowerCase()) &&
+    isSharedOneownerRuntimeAtivo() &&
     !isHostnameLocal(hostname)
   );
 }
@@ -274,13 +302,22 @@ function obterChaveCacheSistemaProjeto() {
 
     if (isLocalHost) {
       try {
+        const queryProjectSystemKey = obterProjectSystemKeyDaQuery(window.location.search || "");
         const searchParams = new URLSearchParams(window.location.search || "");
         const queryProject = String(searchParams.get("firebaseProject") || "")
           .trim()
           .toLowerCase();
-        contextoProjeto = queryProject || hostname || "localhost";
+        if (queryProjectSystemKey) {
+          contextoProjeto = queryProjectSystemKey;
+        } else if (isSharedOneownerRuntimeAtivo()) {
+          contextoProjeto = `${hostname || "localhost"}:shared-runtime`;
+        } else {
+          contextoProjeto = queryProject || hostname || "localhost";
+        }
       } catch {
-        contextoProjeto = hostname || "localhost";
+        contextoProjeto = isSharedOneownerRuntimeAtivo()
+          ? `${hostname || "localhost"}:shared-runtime`
+          : (hostname || "localhost");
       }
     } else {
       contextoProjeto = hostname || "default";
@@ -298,18 +335,32 @@ export function obterProjectKeyContextual() {
     hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
 
   if (isLocalHost) {
+    const projectKeyQuery = obterProjectSystemKeyDaQuery(window.location.search || "");
+    if (projectKeyQuery) {
+      try {
+        window.localStorage.setItem(SISTEMA_PROJECT_CONTEXT_KEY, projectKeyQuery);
+      } catch {
+        // Ignora indisponibilidade de storage local.
+      }
+      return projectKeyQuery;
+    }
+
+    if (isSharedOneownerRuntimeAtivo()) {
+      return "";
+    }
+
     try {
       const searchParams = new URLSearchParams(window.location.search || "");
-      const projectKeyQuery = String(searchParams.get("firebaseProject") || "")
+      const firebaseProjectQuery = String(searchParams.get("firebaseProject") || "")
         .trim()
         .toLowerCase();
-      if (projectKeyQuery) {
+      if (firebaseProjectQuery) {
         try {
-          window.localStorage.setItem(SISTEMA_PROJECT_CONTEXT_KEY, projectKeyQuery);
+          window.localStorage.setItem(SISTEMA_PROJECT_CONTEXT_KEY, firebaseProjectQuery);
         } catch {
           // Ignora indisponibilidade de storage local.
         }
-        return projectKeyQuery;
+        return firebaseProjectQuery;
       }
 
       try {
@@ -515,10 +566,22 @@ function normalizarEmailOwner(value) {
   return value.trim().toLowerCase().slice(0, 160);
 }
 
+function ignorarFallbackOwnerLocalPorRuntimeCompartilhado() {
+  if (typeof window === "undefined") return false;
+  const hostname = String(window.location.hostname || "").trim().toLowerCase();
+  return (
+    isHostnameLocal(hostname) &&
+    isSharedOneownerRuntimeAtivo() &&
+    !obterProjectSystemKeyDaQuery(window.location.search || "")
+  );
+}
+
 export function obterOwnerUidConfigurado(configSistema = DEFAULT_SISTEMA_CONFIG) {
   const ownerUid = String(configSistema?.ownerUid || configSistema?.adminUid || "").trim();
   if (ownerUid) return ownerUid;
-  if (typeof window === "undefined") return "";
+  if (typeof window === "undefined" || ignorarFallbackOwnerLocalPorRuntimeCompartilhado()) {
+    return "";
+  }
   return String(
     window.localStorage.getItem("systemOwnerUid") ||
       window.localStorage.getItem("systemAdminUid") ||
@@ -531,7 +594,9 @@ export function obterOwnerEmailConfigurado(configSistema = DEFAULT_SISTEMA_CONFI
     .trim()
     .toLowerCase();
   if (ownerEmail) return ownerEmail;
-  if (typeof window === "undefined") return "";
+  if (typeof window === "undefined" || ignorarFallbackOwnerLocalPorRuntimeCompartilhado()) {
+    return "";
+  }
   return String(
     window.localStorage.getItem("systemOwnerEmail") ||
       window.localStorage.getItem("systemAdminEmail") ||
@@ -539,6 +604,24 @@ export function obterOwnerEmailConfigurado(configSistema = DEFAULT_SISTEMA_CONFI
   )
     .trim()
     .toLowerCase();
+}
+
+export function usuarioCorrespondeOwnerConfigurado(
+  configSistema = DEFAULT_SISTEMA_CONFIG,
+  { uid = "", email = "" } = {}
+) {
+  const ownerUid = obterOwnerUidConfigurado(configSistema);
+  if (ownerUid) {
+    return Boolean(uid && String(uid).trim() === ownerUid);
+  }
+
+  const ownerEmail = obterOwnerEmailConfigurado(configSistema);
+  const emailNormalizado = String(email || "").trim().toLowerCase();
+  if (ownerEmail) {
+    return Boolean(emailNormalizado && emailNormalizado === ownerEmail);
+  }
+
+  return false;
 }
 
 function normalizarLarguraIconsLogin(value) {

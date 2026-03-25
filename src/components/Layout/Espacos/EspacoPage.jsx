@@ -63,9 +63,12 @@ import {
   isOneOwnerComEntradaPublica,
   obterConfigSistema,
   obterConfigSistemaCacheLocal,
+  obterOwnerEmailConfigurado,
+  obterOwnerUidConfigurado,
   obterRotulosBloco,
   obterRotulosEspaco,
   obterRotulosSkin,
+  usuarioCorrespondeOwnerConfigurado,
 } from "../Sistema/configSistema";
 import { solicitarSolicitacaoPixManualBloco } from "../Pagamentos/mercadoPagoApi";
 import { seforAdm } from "../../Scripts/verificacoes/verificaAdm";
@@ -381,20 +384,12 @@ export default function EspacoPage() {
   );
   const [ownerUidProjeto, setOwnerUidProjeto] = useState(
     String(
-      configSistemaCacheLocal?.ownerUid ||
-        configSistemaCacheLocal?.adminUid ||
-        localStorage.getItem("systemOwnerUid") ||
-        localStorage.getItem("systemAdminUid") ||
-        ""
+      obterOwnerUidConfigurado(configSistemaCacheLocal) || ""
     ).trim()
   );
   const [ownerEmailProjeto, setOwnerEmailProjeto] = useState(
     String(
-      configSistemaCacheLocal?.ownerEmail ||
-        configSistemaCacheLocal?.adminEmail ||
-        localStorage.getItem("systemOwnerEmail") ||
-        localStorage.getItem("systemAdminEmail") ||
-        ""
+      obterOwnerEmailConfigurado(configSistemaCacheLocal) || ""
     )
       .trim()
       .toLowerCase()
@@ -516,20 +511,11 @@ export default function EspacoPage() {
   const espacoAtual = espacosLista.find((e) => e.nome === espacoNome);
   const espacoId = espacoAtual?.id || espacoAtual?.id_espaco;
   const oneOwnerPublicaAtivaEfetiva = Boolean(oneOwnerPublicaAtivaContexto || oneOwnerPublicaAtiva);
-  const emailUsuarioAtual = String(authUserAtual?.email || "")
-    .trim()
-    .toLowerCase();
   const ownerUidProjetoEfetivo = String(
-    ownerUidProjeto ||
-      localStorage.getItem("systemOwnerUid") ||
-      localStorage.getItem("systemAdminUid") ||
-      ""
+    ownerUidProjeto || obterOwnerUidConfigurado(configSistemaCacheLocal) || ""
   ).trim();
   const ownerEmailProjetoEfetivo = String(
-    ownerEmailProjeto ||
-      localStorage.getItem("systemOwnerEmail") ||
-      localStorage.getItem("systemAdminEmail") ||
-      ""
+    ownerEmailProjeto || obterOwnerEmailConfigurado(configSistemaCacheLocal) || ""
   )
     .trim()
     .toLowerCase();
@@ -544,8 +530,10 @@ export default function EspacoPage() {
   const usuarioEhOwnerProjeto = Boolean(
     currentUid &&
       (
-        (ownerUidProjetoEfetivo && currentUid === ownerUidProjetoEfetivo) ||
-        (ownerEmailProjetoEfetivo && emailUsuarioAtual === ownerEmailProjetoEfetivo) ||
+        usuarioCorrespondeOwnerConfigurado(configSistemaCacheLocal, {
+          uid: currentUid,
+          email: authUserAtual?.email,
+        }) ||
         (!ownerProjetoConfigurado && authUserAtual && seforAdm(authUserAtual))
       )
   );
@@ -2084,22 +2072,10 @@ export default function EspacoPage() {
           isOneOwnerComEntradaPublica(configFallback)
         );
         setOwnerUidProjeto(
-          String(
-            configFallback?.ownerUid ||
-              configFallback?.adminUid ||
-              localStorage.getItem("systemOwnerUid") ||
-              localStorage.getItem("systemAdminUid") ||
-              ""
-          ).trim()
+          String(obterOwnerUidConfigurado(configFallback) || "").trim()
         );
         setOwnerEmailProjeto(
-          String(
-            configFallback?.ownerEmail ||
-              configFallback?.adminEmail ||
-              localStorage.getItem("systemOwnerEmail") ||
-              localStorage.getItem("systemAdminEmail") ||
-              ""
-          )
+          String(obterOwnerEmailConfigurado(configFallback) || "")
             .trim()
             .toLowerCase()
         );

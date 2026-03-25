@@ -1,5 +1,6 @@
 const SHARED_ONEOWNER_RUNTIME_KEYS = new Set(["aly-onepages-runtime"]);
 const LOCAL_QUERY_PARAM = "firebaseProject";
+const LOCAL_CONTEXT_QUERY_PARAMS = ["projectSystemKey", "systemKey", "slug", "projectSlug"];
 const STORAGE_CONTEXT_KEYS = ["systemProjectContextKey", "firebaseProjectTarget"];
 
 function normalizeKey(value = "") {
@@ -14,13 +15,36 @@ function isLocalHost(hostname = "") {
   return host === "localhost" || host === "127.0.0.1" || host === "::1";
 }
 
-function resolveContextProjectKeyFromWindow() {
+function resolveLocalProjectSystemKeyFromSearch(search = "") {
+  try {
+    const searchParams = new URLSearchParams(search || "");
+    for (const key of LOCAL_CONTEXT_QUERY_PARAMS) {
+      const value = normalizeKey(searchParams.get(key) || "");
+      if (value) return value;
+    }
+  } catch {
+    // Ignora erro de parse da URL.
+  }
+  return "";
+}
+
+function resolveContextProjectKeyFromWindow(activeProjectKey = "") {
   if (typeof window === "undefined") return "";
 
   const hostname = normalizeKey(window.location.hostname || "");
   const localHost = isLocalHost(hostname);
+  const sharedRuntimeAtivo = SHARED_ONEOWNER_RUNTIME_KEYS.has(normalizeKey(activeProjectKey));
 
   if (localHost) {
+    const explicitProjectKey = resolveLocalProjectSystemKeyFromSearch(window.location.search || "");
+    if (explicitProjectKey) {
+      return explicitProjectKey;
+    }
+
+    if (sharedRuntimeAtivo) {
+      return "";
+    }
+
     try {
       const searchParams = new URLSearchParams(window.location.search || "");
       const keyFromQuery = normalizeKey(searchParams.get(LOCAL_QUERY_PARAM) || "");
@@ -53,7 +77,7 @@ export function resolveProjectDataNamespaceKey(activeProjectKey = "") {
   const activeKey = normalizeKey(activeProjectKey);
   if (!SHARED_ONEOWNER_RUNTIME_KEYS.has(activeKey)) return "";
 
-  const contextKey = resolveContextProjectKeyFromWindow();
+  const contextKey = resolveContextProjectKeyFromWindow(activeKey);
   if (!contextKey || contextKey === activeKey) return "";
 
   return contextKey;

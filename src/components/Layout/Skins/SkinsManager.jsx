@@ -26,6 +26,7 @@ import {
   obterOwnerUidConfigurado,
   obterConfigSistema,
   obterRotulosSkin,
+  usuarioCorrespondeOwnerConfigurado,
 } from "../Sistema/configSistema";
 import ProjectLoadingFallback from "../Geral/ProjectLoadingFallback";
 import {
@@ -195,12 +196,13 @@ const SkinsManager = () => {
   const ownerEmailProjeto = String(obterOwnerEmailConfigurado(configSistema) || "")
     .trim()
     .toLowerCase();
-  const emailUsuarioAtual = String(user?.email || "").trim().toLowerCase();
   const usuarioEhOwnerProjeto = Boolean(
     user?.uid &&
       (
-        (ownerUidProjeto && user.uid === ownerUidProjeto) ||
-        (ownerEmailProjeto && emailUsuarioAtual === ownerEmailProjeto) ||
+        usuarioCorrespondeOwnerConfigurado(configSistema, {
+          uid: user.uid,
+          email: user?.email,
+        }) ||
         (!ownerUidProjeto && !ownerEmailProjeto && isAdmin)
       )
   );

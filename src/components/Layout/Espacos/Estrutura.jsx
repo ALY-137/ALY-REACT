@@ -27,6 +27,9 @@ import {
   isOneOwnerComEntradaPublica,
   obterConfigSistema,
   obterConfigSistemaCacheLocal,
+  obterOwnerEmailConfigurado,
+  obterOwnerUidConfigurado,
+  usuarioCorrespondeOwnerConfigurado,
 } from "../Sistema/configSistema";
 import Layout from "../Temas/Layout.jsx";
 import { obterTemaSkinPadrao, resolverTemaSkinEfetivo } from "../Temas/themesRegistry";
@@ -306,22 +309,11 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
     modoAcessoProjeto,
   });
   const ownerUidProjetoConfigurado = String(
-    configSistemaAtual?.ownerUid ||
-      configSistemaAtual?.adminUid ||
-      localStorage.getItem("systemOwnerUid") ||
-      localStorage.getItem("systemAdminUid") ||
-      ""
+    obterOwnerUidConfigurado(configSistemaAtual) || ""
   ).trim();
   const ownerEmailProjetoConfigurado = String(
-    configSistemaAtual?.ownerEmail ||
-      configSistemaAtual?.adminEmail ||
-      localStorage.getItem("systemOwnerEmail") ||
-      localStorage.getItem("systemAdminEmail") ||
-      ""
+    obterOwnerEmailConfigurado(configSistemaAtual) || ""
   )
-    .trim()
-    .toLowerCase();
-  const emailUsuarioAtual = String(user?.email || "")
     .trim()
     .toLowerCase();
   const ownerProjetoConfigurado = Boolean(
@@ -330,9 +322,10 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
   const usuarioEhOwnerOneOwner = Boolean(
     user?.uid &&
       (
-        (ownerUidProjetoConfigurado && user.uid === ownerUidProjetoConfigurado) ||
-        (ownerEmailProjetoConfigurado &&
-          emailUsuarioAtual === ownerEmailProjetoConfigurado) ||
+        usuarioCorrespondeOwnerConfigurado(configSistemaAtual, {
+          uid: user.uid,
+          email: user?.email,
+        }) ||
         (!ownerProjetoConfigurado &&
           seforAdm(user))
       )
@@ -485,25 +478,20 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
         const oneOwnerPublicaProjeto =
           isOneOwnerComEntradaPublica(configSistemaProjeto);
         const ownerUidProjeto = String(
-          configSistemaProjeto?.ownerUid ||
-            configSistemaProjeto?.adminUid ||
-            localStorage.getItem("systemOwnerUid") ||
-            localStorage.getItem("systemAdminUid") ||
-            ""
+          obterOwnerUidConfigurado(configSistemaProjeto) || ""
         ).trim();
         const ownerEmailProjeto = String(
-          configSistemaProjeto?.ownerEmail || configSistemaProjeto?.adminEmail || ""
+          obterOwnerEmailConfigurado(configSistemaProjeto) || ""
         )
-          .trim()
-          .toLowerCase();
-        const emailUsuarioAtual = String(authUserAtual?.email || "")
           .trim()
           .toLowerCase();
         const ownerProjetoConfigurado = Boolean(ownerUidProjeto || ownerEmailProjeto);
         const usuarioEhOwnerOneOwner = Boolean(
           authUserAtual?.uid &&
-            ((ownerUidProjeto && authUserAtual.uid === ownerUidProjeto) ||
-              (ownerEmailProjeto && emailUsuarioAtual === ownerEmailProjeto) ||
+            (usuarioCorrespondeOwnerConfigurado(configSistemaProjeto, {
+              uid: authUserAtual?.uid,
+              email: authUserAtual?.email,
+            }) ||
               (!ownerProjetoConfigurado && seforAdm(authUserAtual)))
         );
         const ownerUidCandidates = construirOwnerCandidates(
@@ -912,22 +900,17 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
 
         if (err?.code === "permission-denied" || err?.code === "failed-precondition") {
           if (oneOwnerProjetoAtual) {
-            const ownerUidErro = String(
-              configEmErro?.ownerUid || configEmErro?.adminUid || ""
-            ).trim();
-            const ownerEmailErro = String(
-              configEmErro?.ownerEmail || configEmErro?.adminEmail || ""
-            )
-              .trim()
-              .toLowerCase();
-            const emailAtualErro = String(authUserAtual?.email || "")
+            const ownerUidErro = String(obterOwnerUidConfigurado(configEmErro) || "").trim();
+            const ownerEmailErro = String(obterOwnerEmailConfigurado(configEmErro) || "")
               .trim()
               .toLowerCase();
             const ownerConfiguradoErro = Boolean(ownerUidErro || ownerEmailErro);
             const usuarioEhOwnerOneOwnerErro = Boolean(
               authUserAtual?.uid &&
-                ((ownerUidErro && authUserAtual.uid === ownerUidErro) ||
-                  (ownerEmailErro && emailAtualErro === ownerEmailErro) ||
+                (usuarioCorrespondeOwnerConfigurado(configEmErro, {
+                  uid: authUserAtual?.uid,
+                  email: authUserAtual?.email,
+                }) ||
                   (!ownerConfiguradoErro && seforAdm(authUserAtual)))
             );
 
