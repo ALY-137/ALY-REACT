@@ -962,16 +962,21 @@ function GerenciadorProjetos() {
           />
 
           <label htmlFor="systemKey" style={{ display: "block", marginTop: 8 }}>
-            Chave do projeto (opcional)
+            Slug / identificador do projeto (opcional)
           </label>
           <input
             id="systemKey"
             type="text"
             value={form.systemKey}
             onChange={(event) => atualizarCampo("systemKey", event.target.value)}
-            placeholder={`ex: ${managerProjectLabel}`}
+            placeholder="ex: passyrela"
             style={{ width: "100%", marginTop: 6 }}
           />
+          <p style={{ marginTop: 8, opacity: 0.8 }}>
+            {normalizeTipoProjeto(form.tipoProjeto) === "oneowner"
+              ? "Esta slug identifica o projeto dentro do sistema. Em oneowner ela continua unica, mesmo usando o runtime Firebase compartilhado."
+              : "Esta slug identifica o projeto dentro do sistema e precisa ser unica."}
+          </p>
 
           <label htmlFor="preconfigKey" style={{ display: "block", marginTop: 8 }}>
             Pre-configuracao inicial
@@ -1218,7 +1223,7 @@ function GerenciadorProjetos() {
                     <p style={{ margin: 0 }}>
                       <strong>{projeto.nomeProjeto || projeto.systemKey}</strong>
                     </p>
-                    <p style={{ margin: "6px 0 0 0" }}>Key: {projeto.systemKey}</p>
+                    <p style={{ margin: "6px 0 0 0" }}>Slug: {projeto.systemKey}</p>
                     <p style={{ margin: "2px 0 0 0" }}>
                       Tipo: {rotuloTipoProjeto(tipoProjetoResolvido)}
                     </p>
@@ -1226,7 +1231,7 @@ function GerenciadorProjetos() {
                       Firebase Project: {projeto.firebaseProjectId || "-"}
                     </p>
                     <p style={{ margin: "2px 0 0 0" }}>
-                      Pre-config: {projeto.preconfigBaseName || projeto.preconfigBaseKey || "-"}
+                      Pre-configuracao: {projeto.preconfigBaseName || projeto.preconfigBaseKey || "-"}
                     </p>
                     <p style={{ margin: "2px 0 0 0" }}>
                       Dominios: {(projeto.domains || []).join(", ") || "-"}

@@ -157,6 +157,26 @@ function normalizeSystemKey(value) {
   return slug || "";
 }
 
+async function resolveAvailableSystemKey(managerDb, desiredKey = "") {
+  const keyBase = normalizeSystemKey(desiredKey);
+  if (!keyBase) return "";
+
+  const docInicial = await getDoc(doc(managerDb, MANAGER_COLLECTION, keyBase));
+  if (!docInicial.exists()) {
+    return keyBase;
+  }
+
+  for (let index = 2; index <= 500; index += 1) {
+    const candidato = `${keyBase}-${index}`;
+    const snap = await getDoc(doc(managerDb, MANAGER_COLLECTION, candidato));
+    if (!snap.exists()) {
+      return candidato;
+    }
+  }
+
+  throw new Error("Nao foi possivel gerar uma chave unica para o projeto.");
+}
+
 function isNonConfigurableManagerProject(item = {}) {
   const systemKey = normalizeText(item?.systemKey || item?.id).toLowerCase();
   return NON_CONFIGURABLE_MANAGER_SYSTEM_KEYS.has(systemKey);
@@ -904,7 +924,11 @@ export async function criarSistemaNoGerenciador({
   }
 
   const nomeNormalizado = normalizeText(nomeProjeto);
-  const keyNormalizada = normalizeSystemKey(systemKey || nomeNormalizado);
+  const systemKeyInformada = normalizeText(systemKey);
+  const keyDesejada = normalizeSystemKey(systemKeyInformada || nomeNormalizado);
+  const keyNormalizada = systemKeyInformada
+    ? keyDesejada
+    : await resolveAvailableSystemKey(managerDb, keyDesejada);
   const tipoProjetoNormalizado = normalizeProjectType(tipoProjeto);
   if (!keyNormalizada) {
     throw new Error("Nome/chave do projeto invalido.");
@@ -921,7 +945,11 @@ export async function criarSistemaNoGerenciador({
   const docRef = doc(managerDb, MANAGER_COLLECTION, keyNormalizada);
   const existente = await getDoc(docRef);
   if (existente.exists()) {
-    throw new Error("Ja existe um projeto com essa chave.");
+    throw new Error(
+      tipoProjetoNormalizado === "oneowner"
+        ? "Ja existe um projeto com essa chave de sistema. Em oneowner o runtime Firebase pode ser compartilhado, mas a chave/slug do projeto precisa ser unica."
+        : "Ja existe um projeto com essa chave de sistema."
+    );
   }
 
   const configTemplate =
