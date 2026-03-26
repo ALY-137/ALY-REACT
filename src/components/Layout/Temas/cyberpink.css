@@ -71,6 +71,21 @@ body.theme-cyberpink #navbar-menu p {
     0 0 3px #7e0eff;
 }
 
+body.theme-cyberpink #navbar-menu {
+  width: min(96vw, 1000px);
+  margin: 0 auto 12px;
+  padding: 10px 14px;
+  box-sizing: border-box;
+  border: 1px solid rgba(126, 14, 255, 0.42);
+  background:
+    linear-gradient(180deg, rgba(10, 2, 39, 0.92), rgba(5, 0, 53, 0.88));
+  box-shadow: 0 0 22px rgba(126, 14, 255, 0.12);
+}
+
+body.theme-cyberpink .menu-navbar {
+  margin-bottom: 20px;
+}
+
 body.theme-cyberpink #abas.navbar-tabs {
   gap: 8px;
 }
@@ -248,13 +263,13 @@ body.theme-cyberpink .gavetaOption.highlight, body.theme-cyberpink .gavetaOption
 
 body.theme-cyberpink .gavetaOption.highlight::before,
 body.theme-cyberpink .gavetaOption:hover::before {
-    content: 'â±';
+    content: '>';
     opacity: 1; 
 }
 
 body.theme-cyberpink .gavetaOption.highlight::after,
 body.theme-cyberpink .gavetaOption:hover::after {
-    content: 'â°';
+    content: '<';
     opacity: 1; 
 }
 

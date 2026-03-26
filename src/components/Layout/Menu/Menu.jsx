@@ -344,9 +344,10 @@ function Menu({ menuOpen }) {
   }
 
   useLayoutEffect(() => {
+    if (!configSistemaPronta) return;
     aplicarTemaNoBody(configSistema.temaPadraoSistema);
     aplicarBrandingNoDocumento(configSistema);
-  }, [configSistema]);
+  }, [configSistema, configSistemaPronta]);
 
   useEffect(() => {
     let ativo = true;

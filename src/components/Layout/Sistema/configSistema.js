@@ -26,9 +26,9 @@ const LOCALHOST_PROJECT_SYSTEM_QUERY_KEYS = [
   "projectSlug",
 ];
 const TEMAS_SISTEMA_VALIDOS = SYSTEM_THEMES.map((tema) => tema.id);
-const TEMA_SISTEMA_FALLBACK = TEMAS_SISTEMA_VALIDOS.includes("PADRAO_INICIAL")
-  ? "PADRAO_INICIAL"
-  : TEMAS_SISTEMA_VALIDOS[0] || "PADRAO_INICIAL";
+const TEMA_SISTEMA_FALLBACK = TEMAS_SISTEMA_VALIDOS.includes("CYBERPINK")
+  ? "CYBERPINK"
+  : TEMAS_SISTEMA_VALIDOS[0] || "CYBERPINK";
 const LEGACY_MAP_TEMA_SKIN_TO_SISTEMA = {
   ALY_137: "CYBERPINK",
   CYBERPINK: "CYBERPINK",
@@ -145,6 +145,7 @@ function limparProjectSystemKey(value) {
   return String(value || "")
     .trim()
     .toLowerCase()
+    .replace(/_/g, "-")
     .replace(/[^a-z0-9-_]+/g, "")
     .slice(0, 80);
 }
@@ -253,6 +254,22 @@ export function resolverDestinoPosLoginPadrao(configSistema = DEFAULT_SISTEMA_CO
   return null;
 }
 
+export function isOneOwnerHomeCentralProjeto(configSistema = DEFAULT_SISTEMA_CONFIG) {
+  const configNormalizada = normalizarConfigSistema(configSistema);
+  return (
+    isOneOwnerComEntradaPublica(configNormalizada) &&
+    configNormalizada.destinoPosLogin === "home_central_projeto"
+  );
+}
+
+export function isOneOwnerHomeSkinDoOwner(configSistema = DEFAULT_SISTEMA_CONFIG) {
+  const configNormalizada = normalizarConfigSistema(configSistema);
+  return (
+    isOneOwnerComEntradaPublica(configNormalizada) &&
+    configNormalizada.destinoPosLogin !== "home_central_projeto"
+  );
+}
+
 function obterDefaultConfigSistemaProjeto() {
   if (isManagerProjectRuntime()) {
     return {
@@ -303,12 +320,17 @@ function obterChaveCacheSistemaProjeto() {
     if (isLocalHost) {
       try {
         const queryProjectSystemKey = obterProjectSystemKeyDaQuery(window.location.search || "");
+        const contextoSalvo = limparProjectSystemKey(
+          window.localStorage.getItem(SISTEMA_PROJECT_CONTEXT_KEY) || ""
+        );
         const searchParams = new URLSearchParams(window.location.search || "");
         const queryProject = String(searchParams.get("firebaseProject") || "")
           .trim()
           .toLowerCase();
         if (queryProjectSystemKey) {
           contextoProjeto = queryProjectSystemKey;
+        } else if (contextoSalvo) {
+          contextoProjeto = contextoSalvo;
         } else if (isSharedOneownerRuntimeAtivo()) {
           contextoProjeto = `${hostname || "localhost"}:shared-runtime`;
         } else {
@@ -345,8 +367,17 @@ export function obterProjectKeyContextual() {
       return projectKeyQuery;
     }
 
+    let keySalvaLocal = "";
+    try {
+      keySalvaLocal = limparProjectSystemKey(
+        String(window.localStorage.getItem(SISTEMA_PROJECT_CONTEXT_KEY) || "")
+      );
+    } catch {
+      keySalvaLocal = "";
+    }
+
     if (isSharedOneownerRuntimeAtivo()) {
-      return "";
+      return keySalvaLocal;
     }
 
     try {
@@ -363,21 +394,9 @@ export function obterProjectKeyContextual() {
         return firebaseProjectQuery;
       }
 
-      try {
-        return String(window.localStorage.getItem(SISTEMA_PROJECT_CONTEXT_KEY) || "")
-          .trim()
-          .toLowerCase();
-      } catch {
-        return "";
-      }
+      return keySalvaLocal;
     } catch {
-      try {
-        return String(window.localStorage.getItem(SISTEMA_PROJECT_CONTEXT_KEY) || "")
-          .trim()
-          .toLowerCase();
-      } catch {
-        return "";
-      }
+      return keySalvaLocal;
     }
   }
 
@@ -404,6 +423,10 @@ export function obterProjectKeyContextual() {
 function salvarConfigSistemaCacheLocal(configNormalizada = DEFAULT_SISTEMA_CONFIG) {
   if (typeof window === "undefined") return;
   try {
+    const projectSystemKey = limparProjectSystemKey(configNormalizada?.projectSystemKey || "");
+    if (projectSystemKey) {
+      window.localStorage.setItem(SISTEMA_PROJECT_CONTEXT_KEY, projectSystemKey);
+    }
     const chaveCacheProjeto = obterChaveCacheSistemaProjeto();
     window.localStorage.setItem(
       chaveCacheProjeto,
@@ -439,9 +462,6 @@ async function sincronizarConfigSistemaRuntime(configNormalizada = DEFAULT_SISTE
 
 export function obterConfigSistemaCacheLocal() {
   if (typeof window === "undefined") return null;
-  if (exigirResolucaoEstritaPorDominio(window.location.hostname || "")) {
-    return null;
-  }
   try {
     const chaveCacheProjeto = obterChaveCacheSistemaProjeto();
     const bruto = window.localStorage.getItem(chaveCacheProjeto);

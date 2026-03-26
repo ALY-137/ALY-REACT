@@ -16,6 +16,7 @@ import {
   usandoBucketCompartilhadoCrossProject,
 } from "../../Banco/sharedBucketApi";
 import { obterStatusMercadoPago, obterStatusPixManual } from "../Pagamentos/mercadoPagoApi";
+import { normalizarTemaRegistrado } from "../Temas/themesRegistry";
 import {
   DEFAULT_SISTEMA_CONFIG,
   obterConfigSistema,
@@ -500,7 +501,9 @@ export default function CriadorBloco({
             localStorage.getItem("skinLogadoUser") ||
             localStorage.getItem("targetUsername") ||
             "",
-          theme: localStorage.getItem("selectedTheme") || "CYBERPINK",
+          theme: normalizarTemaRegistrado(
+            localStorage.getItem("selectedTheme") || "CYBERPINK"
+          ),
           visibilidade: "publico",
           updatedAt: serverTimestamp(),
         },

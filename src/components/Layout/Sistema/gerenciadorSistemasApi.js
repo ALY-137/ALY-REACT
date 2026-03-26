@@ -292,6 +292,25 @@ function sanitizePreconfigTemplate(configSistema = {}) {
   if (!configSistema || typeof configSistema !== "object") return {};
 
   const {
+    id,
+    sourceCollection,
+    systemKey,
+    systemName,
+    nomeProjeto,
+    nomePreconfig,
+    preconfigKey,
+    baseProjectSystemKey,
+    tipoProjeto,
+    firebaseProjectId,
+    projectId,
+    domains,
+    firebaseRuntimeConfig,
+    configSistema: configSistemaInterna,
+    config: configInterna,
+    criadoEm,
+    atualizadoEm,
+    criadoPorUid,
+    atualizadoPorUid,
     tituloSistema,
     ownerUid,
     ownerEmail,
@@ -305,6 +324,25 @@ function sanitizePreconfigTemplate(configSistema = {}) {
     ...resto
   } = configSistema;
 
+  void id;
+  void sourceCollection;
+  void systemKey;
+  void systemName;
+  void nomeProjeto;
+  void nomePreconfig;
+  void preconfigKey;
+  void baseProjectSystemKey;
+  void tipoProjeto;
+  void firebaseProjectId;
+  void projectId;
+  void domains;
+  void firebaseRuntimeConfig;
+  void configSistemaInterna;
+  void configInterna;
+  void criadoEm;
+  void atualizadoEm;
+  void criadoPorUid;
+  void atualizadoPorUid;
   void tituloSistema;
   void ownerUid;
   void ownerEmail;
@@ -716,6 +754,7 @@ export async function obterConfigSistemaDoGerenciador({
   if (!managerDb) return null;
 
   const keyNormalizada = normalizeText(projectKey);
+  const keySistemaNormalizada = normalizeSystemKey(projectKey);
   const projectIdNormalizado = normalizeText(projectId);
   const hostNormalizado = normalizeHost(hostname);
 
@@ -733,8 +772,11 @@ export async function obterConfigSistemaDoGerenciador({
   }
 
   // 1) Prioridade: doc por key do sistema.
-  if (keyNormalizada) {
-    const docRef = doc(managerDb, MANAGER_COLLECTION, keyNormalizada);
+  const systemKeyCandidates = Array.from(
+    new Set([keyNormalizada, keySistemaNormalizada].filter(Boolean))
+  );
+  for (const systemKeyCandidate of systemKeyCandidates) {
+    const docRef = doc(managerDb, MANAGER_COLLECTION, systemKeyCandidate);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
       return montarResultadoConfigSistema(docSnap);
@@ -761,7 +803,8 @@ export async function obterConfigSistemaDoGerenciador({
     projectIdNormalizado &&
     (
       !isSharedOneownerRuntimeProjectId(projectIdNormalizado) ||
-      Boolean(keyNormalizada || hostNormalizado)
+      Boolean(hostNormalizado) ||
+      !systemKeyCandidates.length
     );
 
   if (podeResolverPorProjectId) {
@@ -979,12 +1022,18 @@ export async function criarSistemaNoGerenciador({
     typeof preconfigNormalizada.configSistemaTemplate === "object"
       ? preconfigNormalizada.configSistemaTemplate
       : {};
+  const temaPreconfig =
+    normalizeText(
+      configTemplate?.temaPadraoSistema ||
+        preconfigNormalizada?.temaPadraoSistema ||
+        preconfigNormalizada?.configSistema?.temaPadraoSistema
+    ) || "CYBERPINK";
   const ownerUidNormalizado = normalizeText(ownerUid || configTemplate?.ownerUid);
 
   const configSistemaInicial = {
     ...configTemplate,
     tituloSistema: nomeNormalizado || keyNormalizada.toUpperCase(),
-    temaPadraoSistema: normalizeText(configTemplate?.temaPadraoSistema || "CYBERPINK") || "CYBERPINK",
+    temaPadraoSistema: temaPreconfig,
     loginPresetId: normalizeText(configTemplate?.loginPresetId || "manual") || "manual",
     destinoPosLogin:
       normalizeText(configTemplate?.destinoPosLogin || "home_skin_usuario") || "home_skin_usuario",
@@ -1053,16 +1102,20 @@ export async function listarPreconfiguracoesNoGerenciador() {
   return snap.docs
     .map((docItem) => {
       const data = docItem.data() || {};
+      const configSistemaTemplate =
+        data.configSistemaTemplate && typeof data.configSistemaTemplate === "object"
+          ? data.configSistemaTemplate
+          : {};
       return {
         id: docItem.id,
         preconfigKey: normalizeText(data.preconfigKey || docItem.id),
         nomePreconfig: normalizeText(data.nomePreconfig || data.nome || docItem.id),
         tipoProjeto: normalizeProjectType(data.tipoProjeto || data?.configSistemaTemplate?.tipoExperiencia),
         baseProjectSystemKey: normalizeText(data.baseProjectSystemKey),
-        configSistemaTemplate:
-          data.configSistemaTemplate && typeof data.configSistemaTemplate === "object"
-            ? data.configSistemaTemplate
-            : {},
+        configSistemaTemplate,
+        temaPadraoSistema: normalizeText(
+          configSistemaTemplate?.temaPadraoSistema || data.temaPadraoSistema
+        ),
         firebaseRuntimeTemplate:
           data.firebaseRuntimeTemplate && typeof data.firebaseRuntimeTemplate === "object"
             ? data.firebaseRuntimeTemplate
@@ -1104,7 +1157,34 @@ export async function salvarPreconfiguracaoProjetoNoGerenciador({
     throw new Error("Nome/chave da preconfiguracao invalido.");
   }
 
-  const configSistemaTemplate = sanitizePreconfigTemplate(projetoBase?.configSistema || {});
+  let configSistemaFonte =
+    projetoBase?.configSistema && typeof projetoBase.configSistema === "object"
+      ? projetoBase.configSistema
+      : {};
+
+  if (normalizeText(projetoBase?.systemKey)) {
+    try {
+      const configAtualGerenciador = await obterConfigSistemaDoGerenciador({
+        projectKey: projetoBase.systemKey,
+        projectId:
+          projetoBase?.firebaseProjectId ||
+          projetoBase?.projectId ||
+          projetoBase?.firebaseRuntimeConfig?.projectId ||
+          "",
+        hostname: Array.isArray(projetoBase?.domains) ? projetoBase.domains[0] || "" : "",
+      });
+      if (configAtualGerenciador && typeof configAtualGerenciador === "object") {
+        configSistemaFonte = {
+          ...configSistemaFonte,
+          ...configAtualGerenciador,
+        };
+      }
+    } catch {
+      // Mantem o objeto em memoria quando a leitura mais atual falha.
+    }
+  }
+
+  const configSistemaTemplate = sanitizePreconfigTemplate(configSistemaFonte);
   const firebaseRuntimeTemplate = sanitizeFirebaseTemplateForPreconfig(
     projetoBase?.firebaseRuntimeConfig || {},
     tipoProjeto
@@ -1119,6 +1199,7 @@ export async function salvarPreconfiguracaoProjetoNoGerenciador({
       tipoProjeto,
       baseProjectSystemKey: normalizeText(projetoBase?.systemKey),
       configSistemaTemplate,
+      temaPadraoSistema: normalizeText(configSistemaTemplate?.temaPadraoSistema),
       firebaseRuntimeTemplate,
       atualizadoPorUid: normalizeText(atualizadoPorUid) || null,
       atualizadoEm: serverTimestamp(),
@@ -1147,6 +1228,7 @@ export async function salvarPreconfiguracaoProjetoNoGerenciador({
     nomePreconfig: nomeFinal,
     tipoProjeto,
     configSistemaTemplate,
+    temaPadraoSistema: normalizeText(configSistemaTemplate?.temaPadraoSistema),
     firebaseRuntimeTemplate,
   };
 }

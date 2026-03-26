@@ -2,12 +2,12 @@
 
 body.theme-padrao {
   color: #000;
-  background-color: #000000;
+  background-color: #ffffff;
 }
 
 body.theme-padrao #login {
   background-image: none;
-  background-color: #000000;
+  background-color: #ffffff;
 }
 
 body.theme-padrao #logoTxt,

@@ -210,6 +210,10 @@ function normalizarIdTema(value) {
   return LEGACY_THEME_ID_ALIASES[temaId] || temaId;
 }
 
+export function normalizarTemaRegistrado(value) {
+  return normalizarIdTema(value);
+}
+
 function ordenarTemasFamilia(temas = []) {
   return [...temas].sort((a, b) => {
     if (!!a.isPrimary && !b.isPrimary) return -1;

@@ -44,7 +44,10 @@ import SpriteSheetLoginTransition from "./components/Projects/LoginTransitions/S
 import Navegacoes from "./components/Scripts/navegacoes/Navegacoes.jsx";
 import AnoAtualizado from "./components/Scripts/data/AnoAtualizado";
 import { seforAdm } from "./components/Scripts/verificacoes/verificaAdm";
-import { temaSistemaUsaLoginRitual } from "./components/Layout/Temas/themesRegistry";
+import {
+  normalizarTemaRegistrado,
+  temaSistemaUsaLoginRitual,
+} from "./components/Layout/Temas/themesRegistry";
 
 import "./App.css";
 import "./components/Layout/Temas/system-base-login.css";
@@ -316,7 +319,10 @@ const App = () => {
           setUsername(skin.username);
           localStorage.setItem("targetUsername", skin.username);
           localStorage.setItem("skinLogadoUser", skin.username);
-          localStorage.setItem("selectedTheme", skin.theme);
+          localStorage.setItem(
+            "selectedTheme",
+            normalizarTemaRegistrado(skin.theme || "CYBERPINK")
+          );
         }
       } catch (error) {
         if (error?.code !== "permission-denied") {
@@ -459,10 +465,9 @@ const App = () => {
   const exibindoFluxoSistema =
     !isPublicProfileRoute && (exibirHomePublica || !user || skins.length !== 1);
   const temaSistemaEfetivo =
-    isManagerProject &&
-    (!configSistema.temaPadraoSistema || configSistema.temaPadraoSistema === "PADRAO_INICIAL")
-      ? "ALY_137"
-      : configSistema.temaPadraoSistema;
+    !configSistema.temaPadraoSistema || configSistema.temaPadraoSistema === "PADRAO_INICIAL"
+      ? "CYBERPINK"
+      : normalizarTemaRegistrado(configSistema.temaPadraoSistema);
   const loginLoadingMode = String(configSistema?.loginLoadingMode || "auto")
     .trim()
     .toLowerCase();

@@ -1424,11 +1424,16 @@ function PropriedadesSistema({
                 style={{ width: "100%", marginTop: 8 }}
               >
                 <option value="home_central_projeto">Home central do projeto</option>
-                <option value="home_skin_usuario">Home skin do usuario</option>
+                <option value="home_skin_usuario">
+                  {projetoOneOwner ? "Home skin do owner" : "Home skin do usuario"}
+                </option>
               </select>
               <p style={{ marginTop: 8, opacity: 0.85 }}>
                 Home central: apos logar, abre <code>/</code> (ou <code>/home</code> em oneowner
-                publica). Home skin: mantem fluxo direto para a skin/perfil do usuario.
+                publica).{" "}
+                {projetoOneOwner
+                  ? "Home skin do owner: mantem o fluxo direto para a skin principal do owner."
+                  : "Home skin: mantem fluxo direto para a skin/perfil do usuario."}
               </p>
             </>
           ) : null}
