@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <path d="M3 9 L24 9 L43 28" stroke="#fff" stroke-width="3.8" stroke-linecap="square"/>
+  <path d="M3 21 L15 21 L34 40" stroke="#fff" stroke-width="3" stroke-linecap="square" opacity="0.92"/>
+  <path d="M13 3 L34 24" stroke="#fff" stroke-width="2.5" stroke-linecap="square" opacity="0.82"/>
+
+  <path d="M97 9 L76 9 L57 28" stroke="#fff" stroke-width="3.8" stroke-linecap="square"/>
+  <path d="M97 21 L85 21 L66 40" stroke="#fff" stroke-width="3" stroke-linecap="square" opacity="0.92"/>
+  <path d="M87 3 L66 24" stroke="#fff" stroke-width="2.5" stroke-linecap="square" opacity="0.82"/>
+
+  <path d="M3 91 L24 91 L43 72" stroke="#fff" stroke-width="3.8" stroke-linecap="square"/>
+  <path d="M3 79 L15 79 L34 60" stroke="#fff" stroke-width="3" stroke-linecap="square" opacity="0.92"/>
+  <path d="M13 97 L34 76" stroke="#fff" stroke-width="2.5" stroke-linecap="square" opacity="0.82"/>
+
+  <path d="M97 91 L76 91 L57 72" stroke="#fff" stroke-width="3.8" stroke-linecap="square"/>
+  <path d="M97 79 L85 79 L66 60" stroke="#fff" stroke-width="3" stroke-linecap="square" opacity="0.92"/>
+  <path d="M87 97 L66 76" stroke="#fff" stroke-width="2.5" stroke-linecap="square" opacity="0.82"/>
+</svg>
