@@ -1446,6 +1446,7 @@ body.theme-cyberpink .cards-bloco-thumb {
     opacity 160ms ease;
 }
 
+
 body.theme-cyberpink .cards-bloco-thumb::before,
 body.theme-cyberpink .cards-bloco-thumb::after {
   content: "";
