@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 
 import { activeFirebaseProjectId, activeFirebaseProjectKey } from "../../../../Banco/init-firebase";
 import { buildSharedFunctionsUrl } from "../../../../Banco/sharedFunctionsApi";
+import { salvarGeoAcessoCache } from "../../../Sistema/acessoGeo";
 import {
   usuarioCorrespondeOwnerConfigurado,
 } from "../../../Sistema/configSistema";
@@ -69,6 +70,15 @@ function getOrCreateVisitorHash() {
   }
 }
 
+function resolvePersistentAccessHash(user = null) {
+  const uid = normalizeText(user?.uid);
+  if (uid) {
+    return hashString(`auth:${uid}:${normalizeText(user?.email).toLowerCase()}`);
+  }
+
+  return getOrCreateVisitorHash();
+}
+
 function resolvePerfilAcesso({ user, configSistema }) {
   if (!user?.uid) return "visitante";
 
@@ -133,7 +143,8 @@ function buildAcessoPayload({ user, configSistema, location }) {
   const search = normalizeText(location?.search);
   const urlHash = normalizeText(location?.hash);
   const skinContext = resolveSkinContext(location);
-  const visitorHash = user?.uid ? null : getOrCreateVisitorHash();
+  const accessHash = resolvePersistentAccessHash(user);
+  const visitorHash = user?.uid ? null : accessHash;
 
   return {
     uid: normalizeText(user?.uid) || null,
@@ -141,7 +152,7 @@ function buildAcessoPayload({ user, configSistema, location }) {
     displayName: normalizeText(user?.displayName) || null,
     autenticado: Boolean(user?.uid),
     perfilAcesso: resolvePerfilAcesso({ user, configSistema }),
-    hash: visitorHash,
+    hash: accessHash,
     visitorHash,
 
     projectSystemKey: projectSystemKey || null,
@@ -238,7 +249,21 @@ function Acesso({ configSistema = {}, user = null }) {
         },
         body: JSON.stringify(payload),
         keepalive: true,
-      }).catch(reportarErro);
+      })
+        .then(async (response) => {
+          if (!response.ok) return null;
+          try {
+            return await response.json();
+          } catch {
+            return null;
+          }
+        })
+        .then((data) => {
+          if (data?.geo) {
+            salvarGeoAcessoCache(data.geo);
+          }
+        })
+        .catch(reportarErro);
     },
     [registrarAcessoUrl, reportarErro]
   );

@@ -1,4 +1,5 @@
-@import "./system-base.css";
+@import "../system-base.css";
+@import "./tokens.css";
 
 body.theme-padrao {
   color: #000;
@@ -40,3 +41,6 @@ body.theme-padrao #abas.navbar-tabs .navbar-tab.navbar-tab--active {
   border-color: rgba(0, 0, 0, 0.38);
   background: rgba(255, 255, 255, 1);
 }
+
+
+

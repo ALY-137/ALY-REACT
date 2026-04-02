@@ -104,13 +104,19 @@ body.layout-oneowner-header-active #cardProfile {
 .bloco-container {
   position: relative;
   margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .bloco-container__header {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
   margin-bottom: 10px;
+  width: 100%;
+  text-align: center;
 }
 
 .bloco-container__icon {
@@ -129,6 +135,10 @@ body.layout-oneowner-header-active #cardProfile {
 
 .bloco-container__content {
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
 }
 
 .fundoEstiloDev{

@@ -744,6 +744,7 @@ function Menu({ menuOpen }) {
                   skinLogadoUser={skinLogadoUser}
                   mercadoPagoHabilitado={mercadoPagoHabilitado}
                   pixManualHabilitado={pixManualHabilitado}
+                  configSistema={configSistema}
                 />
               )
             : (

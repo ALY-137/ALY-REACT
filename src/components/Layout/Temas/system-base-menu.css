@@ -23,10 +23,14 @@
 }
 
 .menu-navbar {
-  height: 40px;
+  min-height: 40px;
+  height: auto;
   position: sticky;
   top: 0;
   z-index: 1000;
+  padding-bottom: 22px;
+  display: flex;
+  flex-direction: column;
 }
 
 body.layout-navbar-tabs-sticky-disabled .menu-navbar {
@@ -59,10 +63,11 @@ body.layout-navbar-tabs-sticky-disabled .menu-navbar {
 #abas.navbar-tabs {
   width: min(96vw, 1000px);
   margin: 0 auto;
-  padding: 6px 0 8px;
+  padding: 6px 0 22px;
   display: flex;
   flex-wrap: wrap;
   align-items: stretch;
+  align-content: flex-start;
   justify-content: center;
   gap: 8px;
   box-sizing: border-box;
@@ -75,6 +80,7 @@ body.layout-navbar-tabs-sticky-disabled .menu-navbar {
   display: flex;
   align-items: center;
   justify-content: center;
+  align-self: stretch;
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.22);
   background: rgba(255, 255, 255, 0.08);
@@ -90,6 +96,7 @@ body.layout-navbar-tabs-sticky-disabled .menu-navbar {
   justify-content: center;
   gap: 8px;
   max-width: 100%;
+  min-height: 100%;
   margin: 0 auto;
 }
 

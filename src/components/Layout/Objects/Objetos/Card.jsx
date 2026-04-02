@@ -25,6 +25,7 @@ function Card({
   atividade,
   criador,
   nomeDescricao,
+  descricaoExtra,
   data,
   descricao,
   imagem,
@@ -44,10 +45,11 @@ function Card({
   const [addOns, setAddOns] = useState([]);
 
   useEffect(() => {
+    const isCyberpink = document.body?.classList?.contains("theme-cyberpink");
+
     function resizeCard() {
-      const larSreen = window.innerWidth;
-      const largura = larSreen >= 350 ? 350 - 75 : larSreen - 82;
-      const altura = largura * 1.618;
+      const largura = isCyberpink ? 275 : window.innerWidth >= 350 ? 350 - 75 : window.innerWidth - 82;
+      const altura = isCyberpink ? 445 : largura * 1.618;
 
       if (cardRef.current) {
         cardRef.current.style.width = `${largura}px`;
@@ -56,6 +58,8 @@ function Card({
     }
 
     resizeCard();
+    if (isCyberpink) return undefined;
+
     window.addEventListener("resize", resizeCard);
     return () => window.removeEventListener("resize", resizeCard);
   }, []);
@@ -136,28 +140,25 @@ function Card({
   return (
     <div id={idNome} ref={cardRef} className={cardContainerDesktop}>
       <div className={cardCabecalho}>
-        <p className={cardNome}> [ ] {nome}</p>
+        <div className="cardTituloPanel">
+          <p className={cardNome}>
+            <span className="cardNomeTicker">
+              [ ] {nome}
+              {descricaoExtra ? (
+                <span className="cardNomeTickerExtra"> [ {descricaoExtra} ]</span>
+              ) : null}
+            </span>
+          </p>
+        </div>
       </div>
       <div className={cardImagem}>
-        {typeof onImagemClick === "function" ? (
-          <button
-            type="button"
-            onClick={() => onImagemClick(imagem)}
-            style={{
-              border: "none",
-              background: "transparent",
-              padding: 0,
-              margin: 0,
-              width: "100%",
-              cursor: "zoom-in",
-            }}
-            title="Clique para ampliar"
-          >
-            <img className={imgCard} src={imagem} alt="imagem" />
-          </button>
-        ) : (
-          <img className={imgCard} src={imagem} alt="imagem" />
-        )}
+        <img
+          className={imgCard}
+          src={imagem}
+          alt="imagem"
+          draggable={false}
+          onDragStart={(event) => event.preventDefault()}
+        />
       </div>
       <div className={cardDescricao}>
         <div className={cardDescricaoDiv}>

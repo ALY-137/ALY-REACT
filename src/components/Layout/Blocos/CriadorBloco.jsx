@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../../hooks/auth/useAuth";
 import { collection, doc, serverTimestamp, setDoc } from "firebase/firestore";
 import {
@@ -23,6 +23,11 @@ import {
   obterRotulosBloco,
   obterRotulosEspaco,
 } from "../Sistema/configSistema";
+import { listarIconCollectionsNoGerenciador } from "../Sistema/gerenciadorProjetosApi";
+import {
+  filtrarColecoesIconesPermitidas,
+  parseIconSelectionValue,
+} from "../Sistema/iconCollectionsUtils";
 
 async function gerarPreviewDesfocado(file) {
   try {
@@ -107,6 +112,7 @@ const normalizarMetodosPagamentoBloco = (bloco = {}, fallback = {}) => {
 
 const criarCardVazio = () => ({
   nome: "",
+  descricaoExtra: "",
   descricao: "",
   imagem: "",
   imagemPath: "",
@@ -122,6 +128,7 @@ const normalizarCardsDoBloco = (cards = []) => {
       id: String(card?.id || `card_${baseId}_${index}`),
       ordem: Number.isFinite(card?.ordem) ? Number(card.ordem) : index,
       nome: String(card?.nome || "").trim(),
+      descricaoExtra: String(card?.descricaoExtra || "").trim(),
       descricao: String(card?.descricao || "").trim(),
       imagem: String(card?.imagem || "").trim(),
       imagemPath: String(card?.imagemPath || "").trim(),
@@ -132,6 +139,7 @@ const normalizarCardsDoBloco = (cards = []) => {
     .filter(
       (card) =>
         card.nome ||
+        card.descricaoExtra ||
         card.descricao ||
         card.imagem ||
         card.imagemPath ||
@@ -150,6 +158,8 @@ export default function CriadorBloco({
   const [statusPagamentoRefreshNonce, setStatusPagamentoRefreshNonce] = useState(0);
   const [files, setFiles] = useState([]);
   const [tipoConteudo, setTipoConteudo] = useState("imagem");
+  const [tituloBloco, setTituloBloco] = useState("");
+  const [iconeBloco, setIconeBloco] = useState("");
   const [cards, setCards] = useState([criarCardVazio()]);
   const [liveUrl, setLiveUrl] = useState("");
   const [liveInicioEm, setLiveInicioEm] = useState("");
@@ -179,6 +189,8 @@ export default function CriadorBloco({
   const [pixManualSistemaHabilitado, setPixManualSistemaHabilitado] = useState(
     DEFAULT_SISTEMA_CONFIG.pixManualHabilitado
   );
+  const [configSistemaAtual, setConfigSistemaAtual] = useState(DEFAULT_SISTEMA_CONFIG);
+  const [iconCollectionsDisponiveis, setIconCollectionsDisponiveis] = useState([]);
   const [nomeEspacoSingular, setNomeEspacoSingular] = useState(
     DEFAULT_SISTEMA_CONFIG.nomeEspacoSingular
   );
@@ -252,6 +264,9 @@ export default function CriadorBloco({
       let nomeBlocoPluralAtual = DEFAULT_SISTEMA_CONFIG.nomeBlocoPlural;
       try {
         const configSistema = await obterConfigSistema();
+        if (!cancelado) {
+          setConfigSistemaAtual(configSistema || DEFAULT_SISTEMA_CONFIG);
+        }
         moduloMercadoPagoAtivo = configSistema?.mercadoPagoHabilitado !== false;
         moduloPixManualAtivo = configSistema?.pixManualHabilitado !== false;
         cardsBlocoHabilitado = configSistema?.blocoCardsHabilitado === true;
@@ -265,6 +280,9 @@ export default function CriadorBloco({
         nomeBlocoPluralAtual = rotulosBloco?.plural || DEFAULT_SISTEMA_CONFIG.nomeBlocoPlural;
       } catch {
         // Mantem fallback local.
+        if (!cancelado) {
+          setConfigSistemaAtual(DEFAULT_SISTEMA_CONFIG);
+        }
       }
 
       if (!cancelado) {
@@ -319,6 +337,28 @@ export default function CriadorBloco({
       cancelado = true;
     };
   }, [loading, user?.uid, espacoId, podeCriar, statusPagamentoRefreshNonce]);
+
+  useEffect(() => {
+    let cancelado = false;
+
+    async function carregarColecoesIcones() {
+      try {
+        const colecoes = await listarIconCollectionsNoGerenciador();
+        if (!cancelado) {
+          setIconCollectionsDisponiveis(Array.isArray(colecoes) ? colecoes : []);
+        }
+      } catch {
+        if (!cancelado) {
+          setIconCollectionsDisponiveis([]);
+        }
+      }
+    }
+
+    carregarColecoesIcones();
+    return () => {
+      cancelado = true;
+    };
+  }, []);
 
   const metodoPagamentoCompradorDisponivel =
     mpConectado ||
@@ -394,6 +434,11 @@ export default function CriadorBloco({
   const blocoEhLive = tipoConteudo === "live" && livesHabilitadas;
   const nomeEspacoSingularCapitalizado = capitalizar(nomeEspacoSingular);
   const nomeBlocoSingularCapitalizado = capitalizar(nomeBlocoSingular);
+  const iconCollectionsFiltradas = useMemo(
+    () => filtrarColecoesIconesPermitidas(iconCollectionsDisponiveis, configSistemaAtual),
+    [configSistemaAtual, iconCollectionsDisponiveis]
+  );
+  const projetoPossuiColecoesIcones = iconCollectionsFiltradas.length > 0;
 
   const parseValorCompraEmCentavos = (valorTexto) => {
     const normalizado = String(valorTexto || "").replace(",", ".").trim();
@@ -439,6 +484,7 @@ export default function CriadorBloco({
     id: card.id,
     ordem: card.ordem,
     nome: card.nome,
+    descricaoExtra: card.descricaoExtra,
     descricao: card.descricao,
     imagem: card.imagem,
     imagemPath: card.imagemPath || "",
@@ -582,6 +628,10 @@ export default function CriadorBloco({
     setErro("");
 
     try {
+      const tituloBlocoFinal = String(tituloBloco || "").trim();
+      const iconPayload = parseIconSelectionValue(iconeBloco, iconCollectionsFiltradas);
+      const iconeBlocoFinal = String(iconPayload.iconUrl || "").trim();
+
       await garantirBasePersistenteOnePage();
 
       const blocoRef = doc(
@@ -608,6 +658,12 @@ export default function CriadorBloco({
         const blocoPayload = {
           id: blocoId,
           tipo: "live",
+          titulo: tituloBlocoFinal,
+          icone: iconeBlocoFinal,
+          iconUrl: iconeBlocoFinal,
+          iconCollectionId: iconPayload.iconCollectionId,
+          iconId: iconPayload.iconId,
+          iconLabel: iconPayload.iconLabel,
           liveUrl: String(liveUrl || "").trim(),
           liveInicioEmMs: liveInicioMs,
           liveFimEmMs: liveFimMs,
@@ -657,6 +713,8 @@ export default function CriadorBloco({
         setLiveBannerUrl("");
         setLiveBannerArquivo(null);
         setLiveBannerPreviewUrl("");
+        setTituloBloco("");
+        setIconeBloco("");
         setPermitirMercadoPagoLive(mercadoPagoDisponivelParaLive);
         setPermitirPixManualLive(pixManualDisponivelParaLive);
         setMetodosPagamentoLiveCustomizados(false);
@@ -699,6 +757,12 @@ export default function CriadorBloco({
         const blocoPayload = {
           id: blocoId,
           tipo: "cards",
+          titulo: tituloBlocoFinal,
+          icone: iconeBlocoFinal,
+          iconUrl: iconeBlocoFinal,
+          iconCollectionId: iconPayload.iconCollectionId,
+          iconId: iconPayload.iconId,
+          iconLabel: iconPayload.iconLabel,
           cards: cardsPersistidos,
           imagensPreview: [],
           imagensPreviewPaths: [],
@@ -723,6 +787,7 @@ export default function CriadorBloco({
               id: card.id,
               ordem: card.ordem,
               nome: card.nome,
+              descricaoExtra: card.descricaoExtra,
               descricao: card.descricao,
               imagem: card.imagem,
               imagemPath: card.imagemPath || "",
@@ -744,6 +809,8 @@ export default function CriadorBloco({
 
         setFiles([]);
         setCards([criarCardVazio()]);
+        setTituloBloco("");
+        setIconeBloco("");
         setValorCompra("");
         alert(`${nomeBlocoSingularCapitalizado} criado com sucesso!`);
         return;
@@ -834,6 +901,12 @@ export default function CriadorBloco({
       const blocoPayload = {
         id: blocoId,
         tipo: "imagem",
+        titulo: tituloBlocoFinal,
+        icone: iconeBlocoFinal,
+        iconUrl: iconeBlocoFinal,
+        iconCollectionId: iconPayload.iconCollectionId,
+        iconId: iconPayload.iconId,
+        iconLabel: iconPayload.iconLabel,
         imagensPreview: previewUrlsPersistidas,
         imagensPreviewPaths: previewPaths,
         imagensOriginaisPaths: originaisPaths,
@@ -869,6 +942,8 @@ export default function CriadorBloco({
       }
 
       setFiles([]);
+      setTituloBloco("");
+      setIconeBloco("");
       setValorCompra("");
       alert(`${nomeBlocoSingularCapitalizado} criado com sucesso!`);
 
@@ -888,6 +963,32 @@ export default function CriadorBloco({
           blocoEhCards ? "cards" : blocoEhLive ? "live" : "imagens"
         }`}
       </h3>
+
+      <input
+        type="text"
+        placeholder="Titulo do bloco (opcional)"
+        value={tituloBloco}
+        onChange={(e) => setTituloBloco(e.target.value)}
+      />
+
+      {projetoPossuiColecoesIcones ? (
+        <select value={iconeBloco} onChange={(e) => setIconeBloco(e.target.value)}>
+          <option value="">Sem icone</option>
+          {iconCollectionsFiltradas.map((colecao) => (
+            <optgroup key={colecao.id} label={colecao.nome}>
+              {(colecao.icons || []).map((icon) => (
+                <option key={icon.id} value={`${colecao.id}::${icon.id}`}>
+                  {icon.label}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+      ) : (
+        <p style={{ margin: "4px 0 0", fontSize: 12, color: "#666" }}>
+          Nenhuma colecao de icones permitida para este projeto/tema.
+        </p>
+      )}
 
       <select value={tipoConteudo} onChange={(e) => setTipoConteudo(e.target.value)}>
         <option value="imagem">Imagens</option>
@@ -910,6 +1011,20 @@ export default function CriadorBloco({
                   setCards((prev) =>
                     prev.map((item, itemIndex) =>
                       itemIndex === index ? { ...item, nome: event.target.value } : item
+                    )
+                  )
+                }
+              />
+              <input
+                type="text"
+                placeholder="Descricao extra do titulo"
+                value={card.descricaoExtra}
+                onChange={(event) =>
+                  setCards((prev) =>
+                    prev.map((item, itemIndex) =>
+                      itemIndex === index
+                        ? { ...item, descricaoExtra: event.target.value }
+                        : item
                     )
                   )
                 }

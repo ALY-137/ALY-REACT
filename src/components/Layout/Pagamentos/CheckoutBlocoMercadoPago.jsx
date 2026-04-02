@@ -3,6 +3,11 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { db } from "../../Banco/init-firebase";
 import { getFirstExistingProjectDocSnapshot } from "../../Banco/projectDataRefs";
 import {
+  DEFAULT_SISTEMA_CONFIG,
+  resolverBloqueioCompraAssinaturaPorLocalizacao,
+} from "../Sistema/configSistema";
+import { obterGeoAcessoAtual } from "../Sistema/acessoGeo";
+import {
   confirmarPagamentoBlocoMercadoPago,
   criarCheckoutBlocoMercadoPago,
   obterCheckoutPixManualBloco,
@@ -49,6 +54,7 @@ export default function CheckoutBlocoMercadoPago({
   skinLogadoUser,
   mercadoPagoHabilitado = true,
   pixManualHabilitado = true,
+  configSistema = DEFAULT_SISTEMA_CONFIG,
 }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -161,9 +167,28 @@ export default function CheckoutBlocoMercadoPago({
 
   const precoFormatado = formatarPreco(blocoInfo?.precoCentavos, blocoInfo?.moeda || "BRL");
 
+  const validarBloqueioRegional = async () => {
+    const geoAtual = await obterGeoAcessoAtual();
+    const bloqueio = resolverBloqueioCompraAssinaturaPorLocalizacao(
+      configSistema || DEFAULT_SISTEMA_CONFIG,
+      geoAtual || {}
+    );
+    if (!bloqueio?.bloqueado) {
+      return false;
+    }
+
+    setMensagem(
+      `Compra/assinatura bloqueada para sua localizacao (${bloqueio.valorAtual || bloqueio.valor}).`
+    );
+    return true;
+  };
+
   const abrirCheckout = async () => {
     if (!mercadoPagoCheckoutHabilitado) {
       setMensagem("Mercado Pago desativado para esta live.");
+      return;
+    }
+    if (await validarBloqueioRegional()) {
       return;
     }
     setProcessando(true);
@@ -201,6 +226,9 @@ export default function CheckoutBlocoMercadoPago({
   const abrirPixManual = async () => {
     if (!pixManualCheckoutHabilitado) {
       setMensagem("PIX manual desativado para esta live.");
+      return;
+    }
+    if (await validarBloqueioRegional()) {
       return;
     }
     setProcessandoPix(true);
@@ -249,6 +277,9 @@ export default function CheckoutBlocoMercadoPago({
   const solicitarSolicitacaoPix = async () => {
     if (!pixCheckoutInfo?.chavePix) {
       setMensagem("Carregue o PIX manual antes de enviar a solicitacao.");
+      return;
+    }
+    if (await validarBloqueioRegional()) {
       return;
     }
     setProcessandoSolicitacao(true);

@@ -1,4 +1,5 @@
-@import "./system-base.css";
+@import "../system-base.css";
+@import "./tokens.css";
 
 .theme-jornal {
   --main-color: #1f1f1f;
@@ -38,3 +39,6 @@
   border-color: rgba(33, 33, 33, 0.4);
   background: #ffffff;
 }
+
+
+

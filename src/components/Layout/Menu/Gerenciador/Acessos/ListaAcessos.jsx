@@ -13,6 +13,25 @@ function normalizeText(value) {
   return String(value || "").trim();
 }
 
+function resolveOrigemAcesso(acesso) {
+  const hostname = normalizeText(acesso?.hostname).toLowerCase();
+  if (!hostname) return "";
+  if (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "::1" ||
+    hostname.endsWith(".localhost")
+  ) {
+    return "localhost";
+  }
+  return "dominio";
+}
+
+function resolveTipoUsuario(acesso) {
+  const perfil = normalizeText(acesso?.perfilAcesso).toLowerCase();
+  return perfil === "owner" ? "owner" : "viewer";
+}
+
 function formatarData(value) {
   if (!value) return "--";
   if (typeof value?.toDate === "function") {
@@ -37,6 +56,9 @@ function ListaAcessos() {
   const [acessos, setAcessos] = useState([]);
   const [projetos, setProjetos] = useState([]);
   const [filtroProjeto, setFiltroProjeto] = useState("");
+  const [filtroOrigem, setFiltroOrigem] = useState("");
+  const [filtroTipoUsuario, setFiltroTipoUsuario] = useState("");
+  const [filtroHash, setFiltroHash] = useState("");
   const [paginaAtual, setPaginaAtual] = useState(1);
   const [erro, setErro] = useState("");
 
@@ -110,14 +132,18 @@ function ListaAcessos() {
       const projectKey = normalizeText(
         acesso?.projectSystemKey || acesso?.runtimeProjectKey
       ).toLowerCase();
+      const hashAtual = normalizeText(acesso?.visitorHash || acesso?.hash).toLowerCase();
       if (filtroProjeto && projectKey !== filtroProjeto) return false;
+      if (filtroOrigem && resolveOrigemAcesso(acesso) !== filtroOrigem) return false;
+      if (filtroTipoUsuario && resolveTipoUsuario(acesso) !== filtroTipoUsuario) return false;
+      if (filtroHash && !hashAtual.includes(filtroHash.toLowerCase())) return false;
       return true;
     });
-  }, [acessos, filtroProjeto]);
+  }, [acessos, filtroHash, filtroOrigem, filtroProjeto, filtroTipoUsuario]);
 
   useEffect(() => {
     setPaginaAtual(1);
-  }, [filtroProjeto]);
+  }, [filtroHash, filtroOrigem, filtroProjeto, filtroTipoUsuario]);
 
   const totalPaginas = Math.max(1, Math.ceil(acessosFiltrados.length / PAGE_SIZE));
   const paginaAtualSegura = Math.min(paginaAtual, totalPaginas);
@@ -143,17 +169,50 @@ function ListaAcessos() {
           </p>
         </div>
 
-        <label className="gerenciador-acessos__filter">
-          <span>Projeto</span>
-          <select value={filtroProjeto} onChange={(event) => setFiltroProjeto(event.target.value)}>
-            <option value="">Todos</option>
-            {opcoesProjeto.map((projeto) => (
-              <option key={projeto.value} value={projeto.value}>
-                {projeto.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="gerenciador-acessos__filters">
+          <label className="gerenciador-acessos__filter">
+            <span>Projeto</span>
+            <select value={filtroProjeto} onChange={(event) => setFiltroProjeto(event.target.value)}>
+              <option value="">Todos</option>
+              {opcoesProjeto.map((projeto) => (
+                <option key={projeto.value} value={projeto.value}>
+                  {projeto.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="gerenciador-acessos__filter">
+            <span>Origem</span>
+            <select value={filtroOrigem} onChange={(event) => setFiltroOrigem(event.target.value)}>
+              <option value="">Todas</option>
+              <option value="localhost">localhost</option>
+              <option value="dominio">dominios</option>
+            </select>
+          </label>
+
+          <label className="gerenciador-acessos__filter">
+            <span>Tipo de usuario</span>
+            <select
+              value={filtroTipoUsuario}
+              onChange={(event) => setFiltroTipoUsuario(event.target.value)}
+            >
+              <option value="">Todos</option>
+              <option value="owner">owners</option>
+              <option value="viewer">viewers</option>
+            </select>
+          </label>
+
+          <label className="gerenciador-acessos__filter">
+            <span>Hash</span>
+            <input
+              type="text"
+              value={filtroHash}
+              onChange={(event) => setFiltroHash(event.target.value)}
+              placeholder="Digite o hash"
+            />
+          </label>
+        </div>
       </div>
 
       <div className="gerenciador-acessos__summary">
@@ -196,6 +255,8 @@ function ListaAcessos() {
             const projeto = projetosMap.get(projectKey);
             const hashAnonimo = normalizeText(acesso?.visitorHash || acesso?.hash) || "--";
             const ipAcesso = normalizeText(acesso?.ip) || "--";
+            const origemAcesso = resolveOrigemAcesso(acesso) || "--";
+            const tipoUsuario = resolveTipoUsuario(acesso);
             return (
               <article key={acesso.id} className="gerenciador-acessos__card">
                 <div className="gerenciador-acessos__topline">
@@ -214,10 +275,15 @@ function ListaAcessos() {
                   }`}</span>
                   <span>{`Perfil: ${normalizeText(acesso?.perfilAcesso) || "--"}`}</span>
                   <span>{`Evento: ${normalizeText(acesso?.eventoTipo) || "--"}`}</span>
+                  <span>{`Origem: ${origemAcesso}`}</span>
+                  <span>{`Tipo usuario: ${tipoUsuario}`}</span>
                   <span>{`Runtime: ${normalizeText(acesso?.runtimeProjectId) || "--"}`}</span>
                   <span>{`Host: ${normalizeText(acesso?.hostname) || "--"}`}</span>
                   <span>{`IP: ${ipAcesso}`}</span>
                   <span>{`Hash: ${hashAnonimo}`}</span>
+                  <span>{`Pais: ${normalizeText(acesso?.country) || "--"}`}</span>
+                  <span>{`Regiao: ${normalizeText(acesso?.region) || acesso?.uf || "--"}`}</span>
+                  <span>{`Cidade: ${normalizeText(acesso?.city || acesso?.cidade) || "--"}`}</span>
                 </div>
                 <div className="gerenciador-acessos__path">
                   <code>{normalizeText(acesso?.fullPath || acesso?.path) || "/"}</code>

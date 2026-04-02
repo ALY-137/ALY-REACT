@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useOutletContext, useParams } from "react-router-dom";
 import {
   addDoc,
@@ -68,8 +68,16 @@ import {
   obterRotulosBloco,
   obterRotulosEspaco,
   obterRotulosSkin,
+  resolverBloqueioCompraAssinaturaPorLocalizacao,
   usuarioCorrespondeOwnerConfigurado,
 } from "../Sistema/configSistema";
+import { obterGeoAcessoAtual } from "../Sistema/acessoGeo";
+import { listarIconCollectionsNoGerenciador } from "../Sistema/gerenciadorProjetosApi";
+import {
+  buildIconSelectionValue,
+  filtrarColecoesIconesPermitidas,
+  parseIconSelectionValue,
+} from "../Sistema/iconCollectionsUtils";
 import { solicitarSolicitacaoPixManualBloco } from "../Pagamentos/mercadoPagoApi";
 import { seforAdm } from "../../Scripts/verificacoes/verificaAdm";
 import { getEspacoCompleto } from "./firebaseEspacos";
@@ -88,6 +96,18 @@ const getBlocoCardsCollectionRefs = (ownerUserId, espacoId, blocoId) =>
     "blocos",
     blocoId,
     "cards"
+  );
+const getBlocoCardDocRefs = (ownerUserId, espacoId, blocoId, cardId) =>
+  getProjectDocCandidates(
+    db,
+    "users",
+    ownerUserId,
+    "espacos",
+    espacoId,
+    "blocos",
+    blocoId,
+    "cards",
+    cardId
   );
 const getBlocoCompradorRefs = (ownerUserId, espacoId, blocoId, compradorId) =>
   getProjectDocCandidates(
@@ -141,6 +161,7 @@ const normalizarCardsDoBloco = (valor) => {
       id: String(card?.id || `card_${index}`),
       ordem: Number.isFinite(card?.ordem) ? Number(card.ordem) : index,
       nome: String(card?.nome || "").trim(),
+      descricaoExtra: String(card?.descricaoExtra || "").trim(),
       descricao: String(card?.descricao || "").trim(),
       imagem: String(card?.imagem || "").trim(),
       imagemPath: String(card?.imagemPath || "").trim(),
@@ -148,7 +169,12 @@ const normalizarCardsDoBloco = (valor) => {
     }))
     .filter(
       (card) =>
-        card.nome || card.descricao || card.imagem || card.imagemPath || card.linkExterno
+        card.nome ||
+        card.descricaoExtra ||
+        card.descricao ||
+        card.imagem ||
+        card.imagemPath ||
+        card.linkExterno
     )
     .sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
 };
@@ -199,6 +225,36 @@ const PLACEHOLDER_HOME_CONTENT = "conteudo da pagina principal";
 
 const capitalizar = (texto = "") =>
   texto ? texto.charAt(0).toUpperCase() + texto.slice(1) : "";
+
+const criarEstadoEditorCard = (overrides = {}) => ({
+  aberto: false,
+  bloco: null,
+  card: null,
+  ehNovo: false,
+  ordem: 0,
+  nome: "",
+  descricaoExtra: "",
+  descricao: "",
+  imagem: "",
+  imagemOriginal: "",
+  imagemPathOriginal: "",
+  imagemArquivo: null,
+  imagemPreviewUrl: "",
+  linkExterno: "",
+  ...overrides,
+});
+
+const criarEstadoEditorBlocoCards = (overrides = {}) => ({
+  aberto: false,
+  blocoId: "",
+  titulo: "",
+  icone: "",
+  iconeSelecao: "",
+  ...overrides,
+});
+
+const gerarIdCardTemporario = () =>
+  `card_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
 const extrairPrimeiraUrl = (texto = "") => {
   const bruto = String(texto || "").trim();
@@ -368,6 +424,10 @@ export default function EspacoPage() {
   const [reloadNonce, setReloadNonce] = useState(0);
   const [blocoEmAtualizacaoId, setBlocoEmAtualizacaoId] = useState(null);
   const [blocoEmExclusaoId, setBlocoEmExclusaoId] = useState(null);
+  const [cardEmAtualizacaoId, setCardEmAtualizacaoId] = useState(null);
+  const [cardAtivoPorBloco, setCardAtivoPorBloco] = useState({});
+  const [cardArrastePorBloco, setCardArrastePorBloco] = useState({});
+  const [dragCardInfo, setDragCardInfo] = useState({ blocoId: "", cardId: "" });
   const [erroAcaoBloco, setErroAcaoBloco] = useState("");
   const [mercadoPagoSistemaHabilitado, setMercadoPagoSistemaHabilitado] = useState(
     DEFAULT_SISTEMA_CONFIG.mercadoPagoHabilitado
@@ -382,6 +442,10 @@ export default function EspacoPage() {
   const [oneOwnerPublicaAtiva, setOneOwnerPublicaAtiva] = useState(
     isOneOwnerComEntradaPublica(configSistemaCacheLocal)
   );
+  const [configSistemaAtual, setConfigSistemaAtual] = useState(
+    configSistemaCacheLocal || DEFAULT_SISTEMA_CONFIG
+  );
+  const [iconCollectionsDisponiveis, setIconCollectionsDisponiveis] = useState([]);
   const [ownerUidProjeto, setOwnerUidProjeto] = useState(
     String(
       obterOwnerUidConfigurado(configSistemaCacheLocal) || ""
@@ -440,6 +504,10 @@ export default function EspacoPage() {
     titulo: "",
     alt: "Imagem ampliada",
   });
+  const [editorCardModal, setEditorCardModal] = useState(() => criarEstadoEditorCard());
+  const [editorBlocoCardsModal, setEditorBlocoCardsModal] = useState(() =>
+    criarEstadoEditorBlocoCards()
+  );
   const [liveModal, setLiveModal] = useState({
     aberto: false,
     blocoId: "",
@@ -471,6 +539,7 @@ export default function EspacoPage() {
   const blockedPreviewPathsRef = useRef(new Set());
   const backfilledPublicUrlsRef = useRef(new Set());
   const blocosInfiniteScrollRef = useRef(null);
+  const cardSwipeStateRef = useRef({});
   const liveChatScrollRef = useRef(null);
   const liveCameraVideoRef = useRef(null);
   const liveCameraStreamRef = useRef(null);
@@ -502,6 +571,20 @@ export default function EspacoPage() {
   );
 
   const espacosLista = Array.isArray(espacos) ? espacos : [];
+  const blocoEditorCardsAtual = useMemo(
+    () =>
+      blocos.find((item) => String(item?.id || "").trim() === editorBlocoCardsModal.blocoId) || null,
+    [blocos, editorBlocoCardsModal.blocoId]
+  );
+  const iconCollectionsFiltradas = useMemo(
+    () => filtrarColecoesIconesPermitidas(iconCollectionsDisponiveis, configSistemaAtual),
+    [configSistemaAtual, iconCollectionsDisponiveis]
+  );
+  const projetoPossuiColecoesIcones = iconCollectionsFiltradas.length > 0;
+  const cardsEditorBlocoAtual = useMemo(
+    () => normalizarCardsDoBloco(blocoEditorCardsAtual?.cards),
+    [blocoEditorCardsAtual]
+  );
 
   const persistedUid = localStorage.getItem("userId");
   const authUserAtual = user || auth.currentUser || null;
@@ -1018,6 +1101,190 @@ export default function EspacoPage() {
     });
   };
 
+  const fecharEditorCard = useCallback(() => {
+    setEditorCardModal((prev) => {
+      const previewAnterior = String(prev?.imagemPreviewUrl || "").trim();
+      if (previewAnterior.startsWith("blob:")) {
+        try {
+          URL.revokeObjectURL(previewAnterior);
+        } catch {
+          // Ignora falhas ao revogar preview temporaria.
+        }
+      }
+      return criarEstadoEditorCard();
+    });
+  }, []);
+
+  const abrirEditorCardDoBloco = useCallback((bloco, card = {}) => {
+    setErroAcaoBloco("");
+    setEditorCardModal((prev) => {
+      const previewAnterior = String(prev?.imagemPreviewUrl || "").trim();
+      if (previewAnterior.startsWith("blob:")) {
+        try {
+          URL.revokeObjectURL(previewAnterior);
+        } catch {
+          // no-op
+        }
+      }
+
+      return criarEstadoEditorCard({
+        aberto: true,
+        bloco,
+        card,
+        ehNovo: Boolean(card?.__novo),
+        ordem: Number.isFinite(card?.ordem) ? Number(card.ordem) : 0,
+        nome: String(card?.nome || "").trim(),
+        descricaoExtra: String(card?.descricaoExtra || "").trim(),
+        descricao: String(card?.descricao || "").trim(),
+        imagem: String(card?.imagem || "").trim(),
+        imagemOriginal: String(card?.imagem || "").trim(),
+        imagemPathOriginal: String(card?.imagemPath || "").trim(),
+        linkExterno: String(card?.linkExterno || "").trim(),
+      });
+    });
+  }, []);
+
+  const abrirEditorBlocoCards = useCallback((bloco = null) => {
+    setErroAcaoBloco("");
+    setEditorBlocoCardsModal(
+      criarEstadoEditorBlocoCards({
+        aberto: true,
+        blocoId: String(bloco?.id || "").trim(),
+        titulo: String(bloco?.titulo || bloco?.nome || "").trim(),
+        icone: String(bloco?.icone || bloco?.iconUrl || "").trim(),
+        iconeSelecao: buildIconSelectionValue(bloco),
+      })
+    );
+  }, []);
+
+  const fecharEditorBlocoCards = useCallback(() => {
+    setEditorBlocoCardsModal(criarEstadoEditorBlocoCards());
+  }, []);
+
+  const selecionarCardDoBloco = useCallback((blocoId, indice) => {
+    setCardAtivoPorBloco((prev) => ({
+      ...prev,
+      [blocoId]: Math.max(0, Number(indice) || 0),
+    }));
+  }, []);
+
+  const iniciarArrasteCardDoBloco = useCallback((blocoId, clientX) => {
+    if (!blocoId) return;
+
+    cardSwipeStateRef.current[blocoId] = {
+      startX: Number(clientX) || 0,
+      deltaX: 0,
+      dragging: true,
+    };
+
+    setCardArrastePorBloco((prev) => ({
+      ...prev,
+      [blocoId]: {
+        deltaX: 0,
+        dragging: true,
+      },
+    }));
+  }, []);
+
+  const atualizarArrasteCardDoBloco = useCallback((blocoId, clientX) => {
+    const estadoAtual = cardSwipeStateRef.current?.[blocoId];
+    if (!estadoAtual?.dragging) return;
+
+    const deltaXBruto = (Number(clientX) || 0) - (Number(estadoAtual.startX) || 0);
+    const deltaXLimitado = Math.max(Math.min(deltaXBruto, 140), -140);
+
+    cardSwipeStateRef.current[blocoId] = {
+      ...estadoAtual,
+      deltaX: deltaXLimitado,
+      dragging: true,
+    };
+
+    setCardArrastePorBloco((prev) => ({
+      ...prev,
+      [blocoId]: {
+        deltaX: deltaXLimitado,
+        dragging: true,
+      },
+    }));
+  }, []);
+
+  const finalizarArrasteCardDoBloco = useCallback(
+    (blocoId, indiceAtual, totalCards) => {
+      const estadoAtual = cardSwipeStateRef.current?.[blocoId];
+      if (!estadoAtual?.dragging) return;
+
+      const deltaXFinal = Number(estadoAtual.deltaX) || 0;
+      const limiarTroca = 60;
+
+      delete cardSwipeStateRef.current[blocoId];
+      setCardArrastePorBloco((prev) => ({
+        ...prev,
+        [blocoId]: {
+          deltaX: 0,
+          dragging: false,
+        },
+      }));
+
+      if (!Number.isFinite(totalCards) || totalCards <= 1) return;
+
+      if (deltaXFinal <= -limiarTroca && indiceAtual < totalCards - 1) {
+        selecionarCardDoBloco(blocoId, indiceAtual + 1);
+        return;
+      }
+
+      if (deltaXFinal >= limiarTroca && indiceAtual > 0) {
+        selecionarCardDoBloco(blocoId, indiceAtual - 1);
+      }
+    },
+    [selecionarCardDoBloco]
+  );
+
+  const reordenarCardsDoBloco = useCallback(
+    async (bloco, origemIndex, destinoIndex) => {
+      if (!bloco?.id) return false;
+      if (!podeGerenciar) return false;
+
+      const cardsAtuais = normalizarCardsDoBloco(bloco?.cards);
+      const origemSegura = Number(origemIndex);
+      const destinoSeguro = Number(destinoIndex);
+
+      if (
+        !Number.isInteger(origemSegura) ||
+        !Number.isInteger(destinoSeguro) ||
+        origemSegura < 0 ||
+        destinoSeguro < 0 ||
+        origemSegura >= cardsAtuais.length ||
+        destinoSeguro >= cardsAtuais.length ||
+        origemSegura === destinoSeguro
+      ) {
+        return false;
+      }
+
+      const cardsReordenados = [...cardsAtuais];
+      const [cardMovido] = cardsReordenados.splice(origemSegura, 1);
+      cardsReordenados.splice(destinoSeguro, 0, cardMovido);
+
+      setErroAcaoBloco("");
+      setBlocoEmAtualizacaoId(bloco.id);
+
+      try {
+        await persistirCardsDoBloco(bloco, cardsReordenados);
+        setCardAtivoPorBloco((prev) => ({
+          ...prev,
+          [bloco.id]: destinoSeguro,
+        }));
+        return true;
+      } catch (err) {
+        console.error("Erro ao reordenar cards do bloco:", err);
+        setErroAcaoBloco(err?.message || "Falha ao reordenar cards do bloco.");
+        return false;
+      } finally {
+        setBlocoEmAtualizacaoId(null);
+      }
+    },
+    [podeGerenciar]
+  );
+
   useEffect(() => {
     if (!imagemModal.aberto) return undefined;
 
@@ -1036,6 +1303,44 @@ export default function EspacoPage() {
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [imagemModal.aberto]);
+
+  useEffect(() => {
+    if (!editorCardModal.aberto) return undefined;
+
+    const overflowAnterior = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        fecharEditorCard();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = overflowAnterior;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [editorCardModal.aberto, fecharEditorCard]);
+
+  useEffect(() => {
+    if (!editorBlocoCardsModal.aberto) return undefined;
+
+    const overflowAnterior = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        fecharEditorBlocoCards();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = overflowAnterior;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [editorBlocoCardsModal.aberto, fecharEditorBlocoCards]);
 
   useEffect(() => {
     if (!liveModal.aberto) return undefined;
@@ -1838,7 +2143,7 @@ export default function EspacoPage() {
     if (!liveModal.aberto || !liveModal.contactId || !liveModal.conversationId) {
       setLiveChatMensagens([]);
       if (!currentUidAutenticado) {
-        setLiveChatErro("FaÃ§a login para participar do chat da live.");
+        setLiveChatErro("Faça login para participar do chat da live.");
       } else {
         setLiveChatErro("");
       }
@@ -1846,7 +2151,7 @@ export default function EspacoPage() {
     }
     if (!currentUidAutenticado) {
       setLiveChatMensagens([]);
-      setLiveChatErro("FaÃ§a login para participar do chat da live.");
+      setLiveChatErro("Faça login para participar do chat da live.");
       return undefined;
     }
 
@@ -1999,6 +2304,33 @@ export default function EspacoPage() {
     await deleteObject(ref(storage, path));
   };
 
+  const selecionarArquivoImagem = () =>
+    new Promise((resolve) => {
+      if (typeof document === "undefined") {
+        resolve(null);
+        return;
+      }
+
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "image/*";
+      input.style.display = "none";
+
+      input.onchange = () => {
+        const arquivo = input.files?.[0] || null;
+        input.remove();
+        resolve(arquivo);
+      };
+
+      input.oncancel = () => {
+        input.remove();
+        resolve(null);
+      };
+
+      document.body.appendChild(input);
+      input.click();
+    });
+
   useEffect(() => {
     let ativo = true;
 
@@ -2006,6 +2338,7 @@ export default function EspacoPage() {
       try {
         const config = await obterConfigSistema();
         if (!ativo) return;
+        setConfigSistemaAtual(config || DEFAULT_SISTEMA_CONFIG);
         setMercadoPagoSistemaHabilitado(config?.mercadoPagoHabilitado !== false);
         setPixManualSistemaHabilitado(config?.pixManualHabilitado !== false);
         setLivesHabilitadas(config?.livesHabilitadas === true);
@@ -2065,6 +2398,7 @@ export default function EspacoPage() {
       } catch {
         if (!ativo) return;
         const configFallback = obterConfigSistemaCacheLocal() || configSistemaCacheLocal;
+        setConfigSistemaAtual(configFallback || DEFAULT_SISTEMA_CONFIG);
         setMercadoPagoSistemaHabilitado(configFallback?.mercadoPagoHabilitado !== false);
         setPixManualSistemaHabilitado(configFallback?.pixManualHabilitado !== false);
         setLivesHabilitadas(configFallback?.livesHabilitadas === true);
@@ -2129,6 +2463,27 @@ export default function EspacoPage() {
     }
 
     carregarConfigSistema();
+
+    return () => {
+      ativo = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let ativo = true;
+
+    async function carregarColecoesIcones() {
+      try {
+        const colecoes = await listarIconCollectionsNoGerenciador();
+        if (!ativo) return;
+        setIconCollectionsDisponiveis(Array.isArray(colecoes) ? colecoes : []);
+      } catch {
+        if (!ativo) return;
+        setIconCollectionsDisponiveis([]);
+      }
+    }
+
+    carregarColecoesIcones();
 
     return () => {
       ativo = false;
@@ -2866,17 +3221,43 @@ export default function EspacoPage() {
   };
 
   const irParaAssinatura = () => {
-    const menuBase = resolverMenuBaseUsuario();
-    if (!menuBase) {
-      alert(`Selecione uma ${nomeSkinSingular} para assinar ${nomeEspacoPlural}.`);
-      return;
-    }
-    navigate(`${menuBase}/espacos`);
+    void (async () => {
+      const geoAtual = await obterGeoAcessoAtual();
+      const bloqueio = resolverBloqueioCompraAssinaturaPorLocalizacao(
+        configSistemaAtual || configSistemaCacheLocal,
+        geoAtual || {}
+      );
+      if (bloqueio?.bloqueado) {
+        alert(
+          `Compra/assinatura bloqueada para sua localizacao (${bloqueio.valorAtual || bloqueio.valor}).`
+        );
+        return;
+      }
+
+      const menuBase = resolverMenuBaseUsuario();
+      if (!menuBase) {
+        alert(`Selecione uma ${nomeSkinSingular} para assinar ${nomeEspacoPlural}.`);
+        return;
+      }
+      navigate(`${menuBase}/espacos`);
+    })();
   };
 
   const irParaCompra = async (bloco = null) => {
     if (!mercadoPagoSistemaHabilitado && !pixManualSistemaHabilitado) {
       alert("Pagamentos desativados neste projeto.");
+      return;
+    }
+
+    const geoAtual = await obterGeoAcessoAtual();
+    const bloqueio = resolverBloqueioCompraAssinaturaPorLocalizacao(
+      configSistemaAtual || configSistemaCacheLocal,
+      geoAtual || {}
+    );
+    if (bloqueio?.bloqueado) {
+      alert(
+        `Compra/assinatura bloqueada para sua localizacao (${bloqueio.valorAtual || bloqueio.valor}).`
+      );
       return;
     }
 
@@ -3056,7 +3437,7 @@ export default function EspacoPage() {
     const texto = String(liveChatMensagem || "").trim();
     if (!texto) return;
     if (!currentUidAutenticado) {
-      setLiveChatErro("FaÃ§a login para enviar mensagens na live.");
+      setLiveChatErro("Faça login para enviar mensagens na live.");
       return;
     }
 
@@ -3094,7 +3475,7 @@ export default function EspacoPage() {
       return ordenarBlocosMaisRecentesPrimeiro([...dedupe.values()]);
     });
 
-    // Reconsulta apÃ³s breve janela para pegar dados consolidados (rules/indexaÃ§Ãµes).
+    // Reconsulta após breve janela para pegar dados consolidados (rules/indexações).
     window.setTimeout(() => {
       setReloadNonce((n) => n + 1);
     }, 1200);
@@ -3104,6 +3485,134 @@ export default function EspacoPage() {
     bloco.__legacy
       ? doc(db, "blocos", bloco.id)
       : getFirstRef(getBlocoDocRefs(ownerUserId, espacoId, bloco.id));
+
+  const getBlocoCardDocRef = (bloco, cardId) =>
+    bloco.__legacy
+      ? doc(db, "blocos", bloco.id, "cards", cardId)
+      : getFirstRef(getBlocoCardDocRefs(ownerUserId, espacoId, bloco.id, cardId));
+
+  const persistirCardsDoBloco = useCallback(
+    async (bloco, cardsOrigem = []) => {
+      if (!bloco?.id) {
+        throw new Error("Bloco invalido para persistir cards.");
+      }
+
+      const blocoRef = getBlocoDocRef(bloco);
+      if (!blocoRef) {
+        throw new Error("Nao foi possivel localizar o bloco para persistir cards.");
+      }
+
+      const cardsAtualizados = normalizarCardsDoBloco(cardsOrigem).map((card, index) => ({
+        ...card,
+        ordem: index,
+      }));
+
+      await updateDoc(blocoRef, {
+        cards: cardsAtualizados,
+        updatedAt: serverTimestamp(),
+      });
+
+      await Promise.all(
+        cardsAtualizados.map((card) => {
+          const cardRef = getBlocoCardDocRef(bloco, card.id);
+          if (!cardRef) return Promise.resolve();
+          return setDoc(
+            cardRef,
+            {
+              id: card.id,
+              ordem: card.ordem,
+              nome: card.nome || "",
+              descricaoExtra: card.descricaoExtra || "",
+              descricao: card.descricao || "",
+              imagem: card.imagem || "",
+              imagemPath: card.imagemPath || "",
+              linkExterno: card.linkExterno || "",
+              blocoId: bloco.id,
+              espacoId,
+              ownerUserId,
+              updatedAt: serverTimestamp(),
+            },
+            { merge: true }
+          );
+        })
+      );
+
+      setBlocos((prev) =>
+        ordenarBlocosMaisRecentesPrimeiro(
+          prev.map((item) => (item.id === bloco.id ? { ...item, cards: cardsAtualizados } : item))
+        )
+      );
+
+      setImagensCardsPorBloco((prev) => {
+        const blocoAtual = {};
+        cardsAtualizados.forEach((card) => {
+          if (isRenderableUrl(card?.imagem)) {
+            blocoAtual[card.id] = card.imagem;
+          }
+        });
+        return {
+          ...prev,
+          [bloco.id]: blocoAtual,
+        };
+      });
+
+      return cardsAtualizados;
+    },
+    [espacoId, ownerUserId]
+  );
+
+  const atualizarMetadadosBloco = useCallback(
+    async (blocoId, updates = {}) => {
+      if (!podeGerenciar) {
+        setErroAcaoBloco(`Apenas o owner pode editar ${nomeBlocoPlural}.`);
+        return false;
+      }
+
+      const bloco = blocos.find((item) => item.id === blocoId);
+      if (!bloco?.id) return false;
+
+      const blocoRef = getBlocoDocRef(bloco);
+      if (!blocoRef) {
+        setErroAcaoBloco("Nao foi possivel localizar o bloco para edicao.");
+        return false;
+      }
+
+      const titulo = String(updates?.titulo || "").trim();
+      const icone = String(updates?.icone || updates?.iconUrl || "").trim();
+      const iconCollectionId = String(updates?.iconCollectionId || "").trim();
+      const iconId = String(updates?.iconId || "").trim();
+      const iconLabel = String(updates?.iconLabel || "").trim();
+      const payload = {
+        titulo,
+        icone,
+        iconUrl: icone,
+        iconCollectionId,
+        iconId,
+        iconLabel,
+        updatedAt: serverTimestamp(),
+      };
+
+      setErroAcaoBloco("");
+      setBlocoEmAtualizacaoId(blocoId);
+
+      try {
+        await updateDoc(blocoRef, payload);
+        setBlocos((prev) =>
+          ordenarBlocosMaisRecentesPrimeiro(
+            prev.map((item) => (item.id === blocoId ? { ...item, ...payload } : item))
+          )
+        );
+        return true;
+      } catch (err) {
+        console.error("Erro ao atualizar metadados do bloco:", err);
+        setErroAcaoBloco(err?.message || `Falha ao atualizar ${nomeBlocoSingular}.`);
+        return false;
+      } finally {
+        setBlocoEmAtualizacaoId(null);
+      }
+    },
+    [blocos, nomeBlocoPlural, nomeBlocoSingular, podeGerenciar]
+  );
 
   const atualizarBloco = async (blocoId, updates = {}) => {
     if (!podeGerenciar) {
@@ -3136,6 +3645,23 @@ export default function EspacoPage() {
         ? updates.precoCentavos
         : bloco.precoCentavos || null;
       const moedaFinal = precoCentavos ? (updates.moeda || bloco.moeda || "BRL") : null;
+      const tituloFinal = Object.prototype.hasOwnProperty.call(updates, "titulo")
+        ? String(updates?.titulo || "").trim()
+        : String(bloco?.titulo || bloco?.nome || "").trim();
+      const iconeFinal =
+        Object.prototype.hasOwnProperty.call(updates, "icone") ||
+        Object.prototype.hasOwnProperty.call(updates, "iconUrl")
+          ? String(updates?.icone || updates?.iconUrl || "").trim()
+          : String(bloco?.icone || bloco?.iconUrl || "").trim();
+      const iconCollectionIdFinal = Object.prototype.hasOwnProperty.call(updates, "iconCollectionId")
+        ? String(updates?.iconCollectionId || "").trim()
+        : String(bloco?.iconCollectionId || "").trim();
+      const iconIdFinal = Object.prototype.hasOwnProperty.call(updates, "iconId")
+        ? String(updates?.iconId || "").trim()
+        : String(bloco?.iconId || "").trim();
+      const iconLabelFinal = Object.prototype.hasOwnProperty.call(updates, "iconLabel")
+        ? String(updates?.iconLabel || "").trim()
+        : String(bloco?.iconLabel || "").trim();
 
       const pathsOriginaisAntigos = normalizarListaImagens(bloco.imagensOriginaisPaths);
       const pathsPreviewsAntigos = normalizarListaImagens(bloco.imagensPreviewPaths);
@@ -3257,6 +3783,12 @@ export default function EspacoPage() {
       }
 
       const payload = {
+        titulo: tituloFinal,
+        icone: iconeFinal,
+        iconUrl: iconeFinal,
+        iconCollectionId: iconCollectionIdFinal,
+        iconId: iconIdFinal,
+        iconLabel: iconLabelFinal,
         visibilidade: visibilidadeFinal,
         precoCentavos: precoCentavos || null,
         moeda: moedaFinal,
@@ -3308,6 +3840,227 @@ export default function EspacoPage() {
       return false;
     } finally {
       setBlocoEmAtualizacaoId(null);
+    }
+  };
+
+  const salvarEdicaoCardDoBloco = async () => {
+    const bloco = editorCardModal?.bloco;
+    const card = editorCardModal?.card || {};
+    if (!podeGerenciar) {
+      setErroAcaoBloco(`Apenas o owner pode editar ${nomeBlocoSingular}.`);
+      return false;
+    }
+
+    if (!bloco?.id || !card?.id) return false;
+
+    const cardKey = `${bloco.id}:${card.id}`;
+    const nomeNovo = String(editorCardModal?.nome || "").trim();
+    const descricaoExtraNova = String(editorCardModal?.descricaoExtra || "").trim();
+    const descricaoNova = String(editorCardModal?.descricao || "").trim();
+    const ordemNova = Number.isFinite(editorCardModal?.ordem)
+      ? Number(editorCardModal.ordem)
+      : normalizarCardsDoBloco(bloco?.cards).length;
+    const imagemAtual = String(editorCardModal?.imagemOriginal || "").trim();
+    const imagemPathAtual = String(editorCardModal?.imagemPathOriginal || "").trim();
+    const linkNovo = String(editorCardModal?.linkExterno || "").trim();
+    const ehNovoCard = Boolean(editorCardModal?.ehNovo);
+
+    const cardRef = getBlocoCardDocRef(bloco, card.id);
+    if (!cardRef) {
+      setErroAcaoBloco("Nao foi possivel localizar o card para edicao.");
+      return false;
+    }
+
+    setErroAcaoBloco("");
+    setCardEmAtualizacaoId(cardKey);
+
+    try {
+      let imagemFinal = imagemAtual;
+      let imagemPathFinal = imagemPathAtual;
+      const pathsParaExcluir = [];
+
+      if (editorCardModal?.imagemArquivo instanceof File) {
+        const arquivo = editorCardModal.imagemArquivo;
+        const nomeArquivo = gerarNomeArquivoSeguro(arquivo?.name || `${card.id}.jpg`);
+        const novoPath = `users/${ownerUserId}/espacos/${espacoId}/blocos/${bloco.id}/cards/${card.id}/${nomeArquivo}`;
+        const upload = await subirArquivoStorage(novoPath, arquivo);
+        imagemFinal = String(upload?.url || "").trim();
+
+        if (!imagemFinal) {
+          try {
+            imagemFinal = await resolverUrlArquivo(novoPath);
+          } catch (err) {
+            console.warn("Falha ao resolver URL da nova imagem do card:", err?.code, err?.message);
+          }
+        }
+
+        if (!imagemFinal) {
+          throw new Error("Falha ao carregar a nova imagem do card.");
+        }
+
+        imagemPathFinal = novoPath;
+        if (imagemPathAtual && imagemPathAtual !== novoPath) {
+          pathsParaExcluir.push(imagemPathAtual);
+        }
+      } else if (!String(editorCardModal?.imagem || "").trim()) {
+        imagemFinal = "";
+        imagemPathFinal = "";
+        if (imagemPathAtual) {
+          pathsParaExcluir.push(imagemPathAtual);
+        }
+      } else {
+        imagemFinal = String(editorCardModal?.imagem || "").trim();
+        if (imagemFinal !== imagemAtual && imagemPathAtual) {
+          pathsParaExcluir.push(imagemPathAtual);
+          imagemPathFinal = "";
+        }
+      }
+
+      const payload = {
+        id: String(card?.id || "").trim(),
+        ordem: ordemNova,
+        nome: String(nomeNovo || "").trim(),
+        descricaoExtra: String(descricaoExtraNova || "").trim(),
+        descricao: String(descricaoNova || "").trim(),
+        imagem: imagemFinal,
+        imagemPath: imagemPathFinal,
+        linkExterno: String(linkNovo || "").trim(),
+      };
+
+      const cardsAtualizadosOrigem = normalizarCardsDoBloco(
+        ehNovoCard
+          ? [...(Array.isArray(bloco?.cards) ? bloco.cards : []), payload]
+          : (Array.isArray(bloco?.cards) ? bloco.cards : []).map((cardItem) =>
+              String(cardItem?.id || "") === String(card.id) ? { ...cardItem, ...payload } : cardItem
+            )
+      );
+
+      if (ehNovoCard) {
+        await setDoc(cardRef, {
+          ...payload,
+          blocoId: bloco.id,
+          espacoId,
+          ownerUserId,
+          criadoEm: serverTimestamp(),
+        });
+      } else {
+        await updateDoc(cardRef, {
+          ...payload,
+          updatedAt: serverTimestamp(),
+        });
+      }
+
+      const cardsPersistidos = await persistirCardsDoBloco(bloco, cardsAtualizadosOrigem);
+      if (Array.isArray(cardsPersistidos) && cardsPersistidos.length) {
+        const indiceSelecionado = cardsPersistidos.findIndex(
+          (item) => String(item?.id || "") === String(payload.id || "")
+        );
+        if (indiceSelecionado >= 0) {
+          setCardAtivoPorBloco((prev) => ({
+            ...prev,
+            [bloco.id]: indiceSelecionado,
+          }));
+        }
+      }
+
+      const pathsExclusaoUnicos = [...new Set(pathsParaExcluir)].filter(
+        (path) => typeof path === "string" && path.includes("/")
+      );
+      for (const path of pathsExclusaoUnicos) {
+        try {
+          await excluirArquivoStorage(path);
+        } catch (err) {
+          if (err?.code !== "storage/object-not-found") {
+            console.warn("Falha ao excluir imagem antiga do card:", path, err?.message);
+          }
+        }
+      }
+
+      fecharEditorCard();
+
+      return true;
+    } catch (err) {
+      console.error("Erro ao editar card:", err);
+      setErroAcaoBloco(err?.message || "Falha ao editar card.");
+      return false;
+    } finally {
+      setCardEmAtualizacaoId(null);
+    }
+  };
+
+  const excluirCardDoBloco = async () => {
+    const bloco = editorCardModal?.bloco;
+    const card = editorCardModal?.card || {};
+    const ehNovoCard = Boolean(editorCardModal?.ehNovo);
+
+    if (!podeGerenciar) {
+      setErroAcaoBloco(`Apenas o owner pode editar ${nomeBlocoSingular}.`);
+      return false;
+    }
+
+    if (!bloco?.id || !card?.id) return false;
+
+    const confirmou =
+      typeof window === "undefined"
+        ? true
+        : window.confirm(
+            ehNovoCard
+              ? "Descartar este card novo?"
+              : "Excluir este card? Essa acao nao pode ser desfeita."
+          );
+    if (!confirmou) return false;
+
+    const cardKey = `${bloco.id}:${card.id}`;
+    const imagemPathAtual = String(editorCardModal?.imagemPathOriginal || "").trim();
+    const cardsRestantes = normalizarCardsDoBloco(
+      (Array.isArray(bloco?.cards) ? bloco.cards : []).filter(
+        (cardItem) => String(cardItem?.id || "") !== String(card.id)
+      )
+    );
+
+    setErroAcaoBloco("");
+    setCardEmAtualizacaoId(cardKey);
+
+    try {
+      if (!ehNovoCard) {
+        const cardRef = getBlocoCardDocRef(bloco, card.id);
+        if (cardRef) {
+          await deleteDoc(cardRef);
+        }
+      }
+
+      await persistirCardsDoBloco(bloco, cardsRestantes);
+
+      setCardAtivoPorBloco((prev) => {
+        const next = { ...prev };
+        if (!cardsRestantes.length) {
+          delete next[bloco.id];
+          return next;
+        }
+
+        const indiceAtual = Number.isFinite(prev?.[bloco.id]) ? Number(prev[bloco.id]) : 0;
+        next[bloco.id] = Math.min(indiceAtual, cardsRestantes.length - 1);
+        return next;
+      });
+
+      if (imagemPathAtual) {
+        try {
+          await excluirArquivoStorage(imagemPathAtual);
+        } catch (err) {
+          if (err?.code !== "storage/object-not-found") {
+            console.warn("Falha ao excluir imagem do card removido:", imagemPathAtual, err?.message);
+          }
+        }
+      }
+
+      fecharEditorCard();
+      return true;
+    } catch (err) {
+      console.error("Erro ao excluir card do bloco:", err);
+      setErroAcaoBloco(err?.message || "Falha ao excluir card.");
+      return false;
+    } finally {
+      setCardEmAtualizacaoId(null);
     }
   };
 
@@ -3442,6 +4195,11 @@ export default function EspacoPage() {
           const blocoEhCards = bloco?.tipo === "cards";
           const blocoEhLive = bloco?.tipo === "live";
           const cardsDoBloco = normalizarCardsDoBloco(bloco?.cards);
+          const indiceCardAtivoBruto = Number(cardAtivoPorBloco?.[bloco.id] || 0);
+          const indiceCardAtivo = cardsDoBloco.length
+            ? Math.min(Math.max(indiceCardAtivoBruto, 0), cardsDoBloco.length - 1)
+            : 0;
+          const cardAtivo = cardsDoBloco[indiceCardAtivo] || null;
           const tituloBloco = String(bloco?.titulo || bloco?.nome || "").trim();
           const iconeBloco = String(bloco?.icone || bloco?.iconUrl || "").trim();
           const visivel = podeVerBloco(bloco);
@@ -3537,6 +4295,7 @@ export default function EspacoPage() {
                       <button
                         key={`${bloco.id}-${i}`}
                         type="button"
+                        className="image-zoom-trigger"
                         onClick={() =>
                           abrirModalImagem({
                             url,
@@ -3583,6 +4342,7 @@ export default function EspacoPage() {
                     ) : (
                       <button
                         type="button"
+                        className="image-zoom-trigger"
                         onClick={() =>
                           abrirModalImagem({
                             url: liveBannerUrl,
@@ -3645,43 +4405,238 @@ export default function EspacoPage() {
               )}
 
               {blocoEhCards && !bloqueado && !!cardsDoBloco.length && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-                  {cardsDoBloco.map((card, cardIndex) => {
-                    const imagemCardResolvida =
-                      imagensCardsPorBloco?.[bloco.id]?.[card.id] || "";
-                    const imagemCardFinal = isRenderableUrl(card.imagem)
-                      ? card.imagem
-                      : imagemCardResolvida || "/logoNeon.png";
-                    return (
-                    <Card
-                      key={`${bloco.id}-card-${card.id || cardIndex}`}
-                      id={card.id || `${bloco.id}-card-${cardIndex}`}
-                      ownerUserId={ownerUserId}
-                      espacoId={espacoId}
-                      blocoId={bloco.id}
-                      nome={card.nome || `Card ${cardIndex + 1}`}
-                      nomeDescricao={card.nome || ""}
-                      descricao={card.descricao || ""}
-                      linkExterno={card.linkExterno || ""}
-                      imagem={imagemCardFinal}
-                      idNome={`${bloco.id}-card-${cardIndex}`}
-                      cardDescricaoDiv="cardDescricaoDivHome"
-                      cardNome="cardNomeHome"
-                      cardContainerDesktop="cardContainerDesktopHome"
-                      cardCabecalho="cardCabecalhoHome"
-                      cardImagem="cardImagemHome"
-                      cardDescricao="cardDescricaoHome"
-                      imgCard="imgCardHome"
-                      onImagemClick={(imagemUrl) =>
-                        abrirModalImagem({
-                          url: imagemUrl,
-                          titulo: card.nome || tituloBloco || nomeBlocoSingularCapitalizado,
-                          alt: "Imagem ampliada do card",
-                        })
-                      }
-                    />
-                    );
-                  })}
+                <div style={{ display: "grid", gap: 12, justifyItems: "center" }}>
+                  {cardAtivo ? (
+                    <div style={{ display: "grid", gap: 8, justifyItems: "center", width: "100%" }}>
+                      {(() => {
+                        const cardKey = `${bloco.id}:${cardAtivo.id || indiceCardAtivo}`;
+                        const imagemCardResolvida =
+                          imagensCardsPorBloco?.[bloco.id]?.[cardAtivo.id] || "";
+                        const imagemCardFinal = isRenderableUrl(cardAtivo.imagem)
+                          ? cardAtivo.imagem
+                          : imagemCardResolvida || "/logoNeon.png";
+                        const estadoArrasteAtual = cardArrastePorBloco?.[bloco.id] || {};
+                        const deslocamentoArraste = Number(estadoArrasteAtual.deltaX) || 0;
+                        const arrasteAtivo = Boolean(estadoArrasteAtual.dragging);
+                        return (
+                          <>
+                            <div
+                              className="cards-bloco-viewer"
+                              style={{
+                                position: "relative",
+                                width: "100%",
+                                maxWidth: 367,
+                                minHeight: 445,
+                                margin: "0 auto 18px",
+                                padding: "0 46px",
+                                boxSizing: "border-box",
+                                display: "flex",
+                                justifyContent: "center",
+                                alignItems: "flex-start",
+                              }}
+                            >
+                              {cardsDoBloco.length > 1 ? (
+                                <button
+                                  type="button"
+                                  className="cards-bloco-nav cards-bloco-nav--prev"
+                                  onClick={() =>
+                                    selecionarCardDoBloco(bloco.id, indiceCardAtivo - 1)
+                                  }
+                                  disabled={indiceCardAtivo <= 0}
+                                  aria-label="Mostrar card anterior"
+                                >
+                                  {"<<"}
+                                </button>
+                              ) : null}
+
+                              <div
+                                className="cards-bloco-stage"
+                                style={{
+                                  width: "100%",
+                                  display: "flex",
+                                  justifyContent: "center",
+                                  touchAction: "pan-y",
+                                  userSelect: "none",
+                                  cursor: cardsDoBloco.length > 1
+                                    ? arrasteAtivo
+                                      ? "grabbing"
+                                      : "grab"
+                                    : "default",
+                                }}
+                                onPointerDown={(event) => {
+                                  if (cardsDoBloco.length <= 1) return;
+                                  if (event.pointerType === "mouse" && event.button !== 0) return;
+                                  event.currentTarget.setPointerCapture?.(event.pointerId);
+                                  iniciarArrasteCardDoBloco(bloco.id, event.clientX);
+                                }}
+                                onPointerMove={(event) => {
+                                  if (cardsDoBloco.length <= 1) return;
+                                  atualizarArrasteCardDoBloco(bloco.id, event.clientX);
+                                }}
+                                onPointerUp={(event) => {
+                                  if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+                                    event.currentTarget.releasePointerCapture(event.pointerId);
+                                  }
+                                  finalizarArrasteCardDoBloco(
+                                    bloco.id,
+                                    indiceCardAtivo,
+                                    cardsDoBloco.length
+                                  );
+                                }}
+                                onPointerCancel={(event) => {
+                                  if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+                                    event.currentTarget.releasePointerCapture(event.pointerId);
+                                  }
+                                  finalizarArrasteCardDoBloco(
+                                    bloco.id,
+                                    indiceCardAtivo,
+                                    cardsDoBloco.length
+                                  );
+                                }}
+                              >
+                                <div
+                                  key={cardKey}
+                                  className="cards-bloco-card-shell"
+                                  style={{
+                                    transform: `translateX(${deslocamentoArraste}px)`,
+                                    transition: arrasteAtivo ? "none" : "transform 220ms ease",
+                                    willChange: "transform",
+                                  }}
+                                >
+                                  <Card
+                                    id={cardAtivo.id || `${bloco.id}-card-${indiceCardAtivo}`}
+                                    ownerUserId={ownerUserId}
+                                    espacoId={espacoId}
+                                    blocoId={bloco.id}
+                                    nome={cardAtivo.nome || `Card ${indiceCardAtivo + 1}`}
+                                    descricaoExtra={cardAtivo.descricaoExtra || ""}
+                                    nomeDescricao={cardAtivo.nome || ""}
+                                    descricao={cardAtivo.descricao || ""}
+                                    linkExterno={cardAtivo.linkExterno || ""}
+                                    imagem={imagemCardFinal}
+                                    idNome={`${bloco.id}-card-${indiceCardAtivo}`}
+                                    cardDescricaoDiv="cardDescricaoDivHome"
+                                    cardNome="cardNomeHome"
+                                    cardContainerDesktop="cardContainerDesktopHome"
+                                    cardCabecalho="cardCabecalhoHome"
+                                    cardImagem="cardImagemHome"
+                                    cardDescricao="cardDescricaoHome"
+                                    imgCard="imgCardHome"
+                                    onImagemClick={(imagemUrl) =>
+                                      abrirModalImagem({
+                                        url: imagemUrl,
+                                        titulo:
+                                          cardAtivo.nome || tituloBloco || nomeBlocoSingularCapitalizado,
+                                        alt: "Imagem ampliada do card",
+                                      })
+                                    }
+                                  />
+                                </div>
+                              </div>
+
+                              {cardsDoBloco.length > 1 ? (
+                                <button
+                                  type="button"
+                                  className="cards-bloco-nav cards-bloco-nav--next"
+                                  onClick={() =>
+                                    selecionarCardDoBloco(bloco.id, indiceCardAtivo + 1)
+                                  }
+                                  disabled={indiceCardAtivo >= cardsDoBloco.length - 1}
+                                  aria-label="Mostrar proximo card"
+                                >
+                                  {">>"}
+                                </button>
+                              ) : null}
+                            </div>
+                          </>
+                        );
+                      })()}
+
+                      {cardsDoBloco.length > 1 ? (
+                        <div className="cards-bloco-thumbs">
+                          {cardsDoBloco.map((card, cardIndex) => {
+                            const imagemCardResolvida =
+                              imagensCardsPorBloco?.[bloco.id]?.[card.id] || "";
+                            const imagemCardFinal = isRenderableUrl(card.imagem)
+                              ? card.imagem
+                              : imagemCardResolvida || "/logoNeon.png";
+                            const ativo = cardIndex === indiceCardAtivo;
+                            const cardThumbKey = `${bloco.id}:${card.id || cardIndex}`;
+                            return (
+                              <div
+                                key={`${bloco.id}-thumb-${card.id || cardIndex}`}
+                                className={`cards-bloco-thumb-slot${ativo ? " is-active" : ""}`}
+                              >
+                                <button
+                                  type="button"
+                                  className={`cards-bloco-thumb${ativo ? " is-active" : ""}`}
+                                  onClick={() => selecionarCardDoBloco(bloco.id, cardIndex)}
+                                  title={card.nome || `Card ${cardIndex + 1}`}
+                                >
+                                  <span className="cards-bloco-thumb-inner">
+                                    <span className="cards-bloco-thumb-header">
+                                      <span className="cards-bloco-thumb-title">
+                                        {card.nome || `Card ${cardIndex + 1}`}
+                                      </span>
+                                    </span>
+                                    <span className="cards-bloco-thumb-media">
+                                      <img
+                                        src={imagemCardFinal}
+                                        alt=""
+                                        className="cards-bloco-thumb-image"
+                                      />
+                                    </span>
+                                  </span>
+                                </button>
+
+                                {ativo && podeGerenciar ? (
+                                  <button
+                                    type="button"
+                                    className="cards-bloco-thumb-edit"
+                                    onClick={() => {
+                                      abrirEditorCardDoBloco(bloco, card);
+                                    }}
+                                    disabled={cardEmAtualizacaoId === cardThumbKey}
+                                  >
+                                    {cardEmAtualizacaoId === cardThumbKey
+                                      ? "Salvando..."
+                                      : "Editar"}
+                                  </button>
+                                ) : null}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+
+                      {cardsDoBloco.length > 1 ? (
+                        <div className="cards-bloco-count">
+                          <span className="cards-bloco-count-text">
+                            {`Card ${indiceCardAtivo + 1} de ${cardsDoBloco.length}`}
+                          </span>
+                        </div>
+                      ) : null}
+
+                      {cardAtivo && podeGerenciar && cardsDoBloco.length <= 1 ? (
+                        <button
+                          type="button"
+                          className="cards-bloco-thumb-edit cards-bloco-thumb-edit--solo"
+                          onClick={() => {
+                            abrirEditorCardDoBloco(bloco, cardAtivo);
+                          }}
+                          disabled={
+                            cardEmAtualizacaoId ===
+                            `${bloco.id}:${cardAtivo.id || indiceCardAtivo}`
+                          }
+                        >
+                          {cardEmAtualizacaoId ===
+                          `${bloco.id}:${cardAtivo.id || indiceCardAtivo}`
+                            ? "Salvando..."
+                            : "Editar"}
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               )}
 
@@ -3737,6 +4692,15 @@ export default function EspacoPage() {
 
               {podeGerenciar && (blocoEhCards || blocoEhLive) && (
                 <div style={{ marginTop: 8 }}>
+                  {(blocoEhCards || blocoEhLive) ? (
+                    <button
+                      type="button"
+                      onClick={() => abrirEditorBlocoCards(bloco)}
+                      style={{ marginRight: 8 }}
+                    >
+                      Editar bloco
+                    </button>
+                  ) : null}
                   <button
                     onClick={() => excluirBloco(bloco.id)}
                     disabled={blocoEmExclusaoId === bloco.id}
@@ -3804,6 +4768,527 @@ export default function EspacoPage() {
         setLiveChatMensagem={setLiveChatMensagem}
         enviarMensagemLive={enviarMensagemLive}
       />
+
+      {editorBlocoCardsModal.aberto && blocoEditorCardsAtual ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={fecharEditorBlocoCards}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 99997,
+            background: "rgba(0, 0, 0, 0.8)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+        >
+          <div
+            className="menuContentArea"
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              width: "min(96vw, 760px)",
+              maxHeight: "92vh",
+              overflowY: "auto",
+              border: "1px solid rgba(255,255,255,0.16)",
+              background: "rgba(10, 6, 22, 0.96)",
+              padding: 18,
+              display: "grid",
+              gap: 14,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+              <div>
+                <strong>Editar bloco</strong>
+                <p style={{ margin: "4px 0 0", opacity: 0.72, fontSize: 12 }}>
+                  Gerencie os cards deste bloco e adicione novos itens.
+                </p>
+              </div>
+              <button type="button" onClick={fecharEditorBlocoCards}>
+                Fechar
+              </button>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+              {blocoEditorCardsAtual?.tipo === "cards" ? (
+                <>
+                  <span style={{ fontSize: 12, opacity: 0.78 }}>
+                    {`Cards no bloco: ${cardsEditorBlocoAtual.length}`}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      abrirEditorCardDoBloco(blocoEditorCardsAtual, {
+                        id: gerarIdCardTemporario(),
+                        ordem: cardsEditorBlocoAtual.length,
+                        __novo: true,
+                        nome: "",
+                        descricaoExtra: "",
+                        descricao: "",
+                        imagem: "",
+                        imagemPath: "",
+                        linkExterno: "",
+                      })
+                    }
+                  >
+                    Adicionar card
+                  </button>
+                </>
+              ) : (
+                <span style={{ fontSize: 12, opacity: 0.78 }}>
+                  Ajuste o cabecalho deste bloco.
+                </span>
+              )}
+            </div>
+
+            <div style={{ display: "grid", gap: 10 }}>
+              <label style={{ display: "grid", gap: 6 }}>
+                <span>Titulo do bloco</span>
+                <input
+                  type="text"
+                  value={editorBlocoCardsModal.titulo}
+                  onChange={(event) =>
+                    setEditorBlocoCardsModal((prev) => ({
+                      ...prev,
+                      titulo: event.target.value,
+                    }))
+                  }
+                  placeholder="Opcional"
+                  disabled={blocoEmAtualizacaoId === blocoEditorCardsAtual.id}
+                />
+              </label>
+
+              <label style={{ display: "grid", gap: 6 }}>
+                <span>Icone do bloco</span>
+                {projetoPossuiColecoesIcones ? (
+                  <select
+                    value={editorBlocoCardsModal.iconeSelecao}
+                    onChange={(event) => {
+                      const valor = event.target.value;
+                      const iconPayload = parseIconSelectionValue(valor, iconCollectionsFiltradas);
+                      setEditorBlocoCardsModal((prev) => ({
+                        ...prev,
+                        iconeSelecao: valor,
+                        icone: iconPayload.iconUrl,
+                      }));
+                    }}
+                    disabled={blocoEmAtualizacaoId === blocoEditorCardsAtual.id}
+                  >
+                    <option value="">Sem icone</option>
+                    {iconCollectionsFiltradas.map((colecao) => (
+                      <optgroup key={colecao.id} label={colecao.nome}>
+                        {(colecao.icons || []).map((icon) => (
+                          <option key={icon.id} value={`${colecao.id}::${icon.id}`}>
+                            {icon.label}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                ) : (
+                  <p style={{ margin: 0, fontSize: 12, opacity: 0.72 }}>
+                    Nenhuma colecao de icones permitida para este projeto/tema.
+                  </p>
+                )}
+              </label>
+
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const iconPayload = projetoPossuiColecoesIcones
+                      ? parseIconSelectionValue(
+                          editorBlocoCardsModal.iconeSelecao,
+                          iconCollectionsFiltradas
+                        )
+                      : {
+                          iconCollectionId: String(blocoEditorCardsAtual?.iconCollectionId || "").trim(),
+                          iconId: String(blocoEditorCardsAtual?.iconId || "").trim(),
+                          iconUrl: String(blocoEditorCardsAtual?.icone || blocoEditorCardsAtual?.iconUrl || "").trim(),
+                          iconLabel: String(blocoEditorCardsAtual?.iconLabel || "").trim(),
+                        };
+                    atualizarMetadadosBloco(blocoEditorCardsAtual.id, {
+                      titulo: editorBlocoCardsModal.titulo,
+                      icone: iconPayload.iconUrl,
+                      iconUrl: iconPayload.iconUrl,
+                      iconCollectionId: iconPayload.iconCollectionId,
+                      iconId: iconPayload.iconId,
+                      iconLabel: iconPayload.iconLabel,
+                    });
+                  }}
+                  disabled={blocoEmAtualizacaoId === blocoEditorCardsAtual.id}
+                >
+                  {blocoEmAtualizacaoId === blocoEditorCardsAtual.id
+                    ? "Salvando bloco..."
+                    : "Salvar cabecalho"}
+                </button>
+              </div>
+            </div>
+
+            {blocoEditorCardsAtual?.tipo === "cards" ? (
+              <div style={{ display: "grid", gap: 10 }}>
+                {cardsEditorBlocoAtual.length ? (
+                <>
+                  <p style={{ margin: 0, fontSize: 12, opacity: 0.72 }}>
+                    Arraste as miniaturas para reordenar os cards do bloco.
+                  </p>
+                  {cardsEditorBlocoAtual.map((card, index) => {
+                  const imagemCardResolvida =
+                    imagensCardsPorBloco?.[blocoEditorCardsAtual.id]?.[card.id] || "";
+                  const imagemCardFinal = isRenderableUrl(card.imagem)
+                    ? card.imagem
+                    : imagemCardResolvida || "/logoNeon.png";
+                  return (
+                    <div
+                      key={`editor-bloco-card-${card.id || index}`}
+                      draggable={blocoEmAtualizacaoId !== blocoEditorCardsAtual.id}
+                      onDragStart={() =>
+                        setDragCardInfo({
+                          blocoId: blocoEditorCardsAtual.id,
+                          cardId: String(card.id || ""),
+                        })
+                      }
+                      onDragEnd={() => setDragCardInfo({ blocoId: "", cardId: "" })}
+                      onDragOver={(event) => {
+                        event.preventDefault();
+                      }}
+                      onDrop={async (event) => {
+                        event.preventDefault();
+                        const origemIndex = cardsEditorBlocoAtual.findIndex(
+                          (item) =>
+                            String(item?.id || "") === String(dragCardInfo?.cardId || "")
+                        );
+                        if (
+                          dragCardInfo?.blocoId !== blocoEditorCardsAtual.id ||
+                          origemIndex < 0
+                        ) {
+                          return;
+                        }
+                        await reordenarCardsDoBloco(blocoEditorCardsAtual, origemIndex, index);
+                        setDragCardInfo({ blocoId: "", cardId: "" });
+                      }}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "64px minmax(0, 1fr) auto",
+                        gap: 10,
+                        alignItems: "center",
+                        border:
+                          dragCardInfo?.blocoId === blocoEditorCardsAtual.id &&
+                          dragCardInfo?.cardId === String(card.id || "")
+                            ? "1px solid rgba(255,255,255,0.5)"
+                            : "1px solid rgba(255,255,255,0.1)",
+                        padding: 10,
+                        background: "rgba(255,255,255,0.03)",
+                        cursor: "grab",
+                        opacity:
+                          dragCardInfo?.blocoId === blocoEditorCardsAtual.id &&
+                          dragCardInfo?.cardId === String(card.id || "")
+                            ? 0.72
+                            : 1,
+                      }}
+                    >
+                      <img
+                        src={imagemCardFinal}
+                        alt=""
+                        style={{
+                          width: 64,
+                          height: 64,
+                          objectFit: "cover",
+                          border: "1px solid rgba(255,255,255,0.16)",
+                          background: "rgba(0,0,0,0.25)",
+                        }}
+                      />
+                      <div style={{ minWidth: 0 }}>
+                        <strong style={{ display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {card.nome || `Card ${index + 1}`}
+                        </strong>
+                        <p style={{ margin: "4px 0 0", fontSize: 11, opacity: 0.56 }}>
+                          {`Posicao ${index + 1}`}
+                        </p>
+                        {!!card.descricaoExtra && (
+                          <p style={{ margin: "4px 0 0", fontSize: 12, opacity: 0.78 }}>
+                            {card.descricaoExtra}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => abrirEditorCardDoBloco(blocoEditorCardsAtual, card)}
+                        disabled={cardEmAtualizacaoId === `${blocoEditorCardsAtual.id}:${card.id}`}
+                      >
+                        {cardEmAtualizacaoId === `${blocoEditorCardsAtual.id}:${card.id}`
+                          ? "Salvando..."
+                          : "Editar"}
+                      </button>
+                    </div>
+                  );
+                })}
+                </>
+              ) : (
+                <p style={{ margin: 0, opacity: 0.76 }}>
+                  Nenhum card cadastrado ainda.
+                </p>
+                )}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {editorCardModal.aberto ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={fecharEditorCard}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 99998,
+            background: "rgba(0, 0, 0, 0.82)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+        >
+          <div
+            className="menuContentArea"
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              width: "min(96vw, 720px)",
+              maxHeight: "92vh",
+              overflowY: "auto",
+              border: "1px solid rgba(255,255,255,0.16)",
+              background: "rgba(10, 6, 22, 0.96)",
+              padding: 18,
+              display: "grid",
+              gap: 12,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+              <div>
+                <strong>Editar card</strong>
+                <p style={{ margin: "4px 0 0", opacity: 0.72, fontSize: 12 }}>
+                  Ajuste titulo, descricao, imagem e link do card.
+                </p>
+              </div>
+              <button type="button" onClick={fecharEditorCard}>
+                Fechar
+              </button>
+            </div>
+
+            <label style={{ display: "grid", gap: 6 }}>
+              <span>Titulo</span>
+              <input
+                type="text"
+                value={editorCardModal.nome}
+                onChange={(event) =>
+                  setEditorCardModal((prev) => ({
+                    ...prev,
+                    nome: event.target.value,
+                  }))
+                }
+                placeholder="Titulo do card"
+              />
+            </label>
+
+            <label style={{ display: "grid", gap: 6 }}>
+              <span>Descricao extra do titulo</span>
+              <input
+                type="text"
+                value={editorCardModal.descricaoExtra}
+                onChange={(event) =>
+                  setEditorCardModal((prev) => ({
+                    ...prev,
+                    descricaoExtra: event.target.value,
+                  }))
+                }
+                placeholder="Ex.: 22.000 instalacoes"
+              />
+            </label>
+
+            <label style={{ display: "grid", gap: 6 }}>
+              <span>Descricao</span>
+              <textarea
+                value={editorCardModal.descricao}
+                onChange={(event) =>
+                  setEditorCardModal((prev) => ({
+                    ...prev,
+                    descricao: event.target.value,
+                  }))
+                }
+                placeholder="Descricao do card"
+                rows={6}
+              />
+            </label>
+
+            <label style={{ display: "grid", gap: 6 }}>
+              <span>URL da imagem</span>
+              <input
+                type="text"
+                value={editorCardModal.imagem}
+                onChange={(event) =>
+                  setEditorCardModal((prev) => {
+                    const previewAnterior = String(prev?.imagemPreviewUrl || "").trim();
+                    if (previewAnterior.startsWith("blob:")) {
+                      try {
+                        URL.revokeObjectURL(previewAnterior);
+                      } catch {
+                        // no-op
+                      }
+                    }
+                    return {
+                      ...prev,
+                      imagem: event.target.value,
+                      imagemArquivo: null,
+                      imagemPreviewUrl: "",
+                    };
+                  })
+                }
+                placeholder="https://..."
+              />
+            </label>
+
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <button
+                type="button"
+                onClick={async () => {
+                  const arquivo = await selecionarArquivoImagem();
+                  if (!arquivo) return;
+                  const previewUrl = URL.createObjectURL(arquivo);
+                  setEditorCardModal((prev) => {
+                    const previewAnterior = String(prev?.imagemPreviewUrl || "").trim();
+                    if (previewAnterior.startsWith("blob:")) {
+                      try {
+                        URL.revokeObjectURL(previewAnterior);
+                      } catch {
+                        // no-op
+                      }
+                    }
+                    return {
+                      ...prev,
+                      imagemArquivo: arquivo,
+                      imagemPreviewUrl: previewUrl,
+                    };
+                  });
+                }}
+              >
+                Escolher arquivo
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setEditorCardModal((prev) => {
+                    const previewAnterior = String(prev?.imagemPreviewUrl || "").trim();
+                    if (previewAnterior.startsWith("blob:")) {
+                      try {
+                        URL.revokeObjectURL(previewAnterior);
+                      } catch {
+                        // no-op
+                      }
+                    }
+                    return {
+                      ...prev,
+                      imagem: "",
+                      imagemArquivo: null,
+                      imagemPreviewUrl: "",
+                    };
+                  })
+                }
+              >
+                Remover imagem
+              </button>
+
+              {editorCardModal.imagemArquivo ? (
+                <span style={{ fontSize: 12, opacity: 0.78 }}>
+                  {`Arquivo: ${editorCardModal.imagemArquivo.name}`}
+                </span>
+              ) : null}
+            </div>
+
+            {(editorCardModal.imagemPreviewUrl || editorCardModal.imagem) ? (
+              <div style={{ display: "grid", gap: 6 }}>
+                <span style={{ fontSize: 12, opacity: 0.78 }}>Preview da imagem</span>
+                <img
+                  src={editorCardModal.imagemPreviewUrl || editorCardModal.imagem}
+                  alt="Preview do card"
+                  style={{
+                    width: "min(100%, 260px)",
+                    aspectRatio: "1 / 1",
+                    objectFit: "cover",
+                    border: "1px solid rgba(255,255,255,0.18)",
+                    background: "rgba(255,255,255,0.04)",
+                  }}
+                />
+              </div>
+            ) : null}
+
+            <label style={{ display: "grid", gap: 6 }}>
+              <span>Link externo</span>
+              <input
+                type="text"
+                value={editorCardModal.linkExterno}
+                onChange={(event) =>
+                  setEditorCardModal((prev) => ({
+                    ...prev,
+                    linkExterno: event.target.value,
+                  }))
+                }
+                placeholder="https://..."
+              />
+            </label>
+
+            {!!erroAcaoBloco && (
+              <p style={{ margin: 0, color: "#ff8fb8" }}>{erroAcaoBloco}</p>
+            )}
+
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+              <div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void excluirCardDoBloco();
+                  }}
+                  disabled={
+                    cardEmAtualizacaoId ===
+                    `${editorCardModal?.bloco?.id || ""}:${editorCardModal?.card?.id || ""}`
+                  }
+                  style={{
+                    borderColor: "rgba(255, 120, 176, 0.42)",
+                    color: "#ff9bc9",
+                  }}
+                >
+                  {editorCardModal?.ehNovo ? "Descartar card" : "Excluir card"}
+                </button>
+              </div>
+
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <button type="button" onClick={fecharEditorCard}>
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  void salvarEdicaoCardDoBloco();
+                }}
+                disabled={
+                  cardEmAtualizacaoId ===
+                  `${editorCardModal?.bloco?.id || ""}:${editorCardModal?.card?.id || ""}`
+                }
+              >
+                {cardEmAtualizacaoId ===
+                `${editorCardModal?.bloco?.id || ""}:${editorCardModal?.card?.id || ""}`
+                  ? "Salvando card..."
+                  : "Salvar card"}
+              </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {imagemModal.aberto && imagemModal.url ? (
         <div

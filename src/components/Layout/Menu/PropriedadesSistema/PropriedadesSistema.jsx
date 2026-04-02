@@ -2028,6 +2028,86 @@ function PropriedadesSistema({
             />
             Habilitar conteudo de bloco tipo Card
           </label>
+
+          <div style={{ marginTop: 18, display: "grid", gap: 10 }}>
+            <strong>Bloqueio regional para compra/assinatura</strong>
+            <p style={{ margin: 0, opacity: 0.8, fontSize: 12 }}>
+              Informe um item por linha. O bloqueio vale para compra de blocos e para a entrada em
+              fluxos de assinatura.
+            </p>
+
+            <label style={{ display: "grid", gap: 6 }}>
+              <span>Paises bloqueados</span>
+              <textarea
+                rows={3}
+                value={(config.compraAssinaturaPaisesBloqueados || []).join("\n")}
+                onChange={(event) =>
+                  setConfig((prev) => ({
+                    ...prev,
+                    compraAssinaturaPaisesBloqueados: event.target.value
+                      .split(/\r?\n|,|;/)
+                      .map((item) => item.trim())
+                      .filter(Boolean),
+                  }))
+                }
+                placeholder={"Brasil\nArgentina"}
+              />
+            </label>
+
+            <label style={{ display: "grid", gap: 6 }}>
+              <span>Regioes/estados bloqueados</span>
+              <textarea
+                rows={3}
+                value={(config.compraAssinaturaRegioesBloqueadas || []).join("\n")}
+                onChange={(event) =>
+                  setConfig((prev) => ({
+                    ...prev,
+                    compraAssinaturaRegioesBloqueadas: event.target.value
+                      .split(/\r?\n|,|;/)
+                      .map((item) => item.trim())
+                      .filter(Boolean),
+                  }))
+                }
+                placeholder={"Sao Paulo\nCalifornia"}
+              />
+            </label>
+
+            <label style={{ display: "grid", gap: 6 }}>
+              <span>UFs bloqueadas</span>
+              <textarea
+                rows={2}
+                value={(config.compraAssinaturaUfsBloqueadas || []).join("\n")}
+                onChange={(event) =>
+                  setConfig((prev) => ({
+                    ...prev,
+                    compraAssinaturaUfsBloqueadas: event.target.value
+                      .split(/\r?\n|,|;/)
+                      .map((item) => item.trim())
+                      .filter(Boolean),
+                  }))
+                }
+                placeholder={"SP\nRJ"}
+              />
+            </label>
+
+            <label style={{ display: "grid", gap: 6 }}>
+              <span>Cidades bloqueadas</span>
+              <textarea
+                rows={3}
+                value={(config.compraAssinaturaCidadesBloqueadas || []).join("\n")}
+                onChange={(event) =>
+                  setConfig((prev) => ({
+                    ...prev,
+                    compraAssinaturaCidadesBloqueadas: event.target.value
+                      .split(/\r?\n|,|;/)
+                      .map((item) => item.trim())
+                      .filter(Boolean),
+                  }))
+                }
+                placeholder={"Sao Paulo\nCampinas"}
+              />
+            </label>
+          </div>
         </div>
       ) : null}
 

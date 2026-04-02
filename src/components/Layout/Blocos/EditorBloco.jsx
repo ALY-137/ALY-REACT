@@ -5,6 +5,12 @@ import {
   obterConfigSistema,
   obterRotulosBloco,
 } from "../Sistema/configSistema";
+import { listarIconCollectionsNoGerenciador } from "../Sistema/gerenciadorProjetosApi";
+import {
+  buildIconSelectionValue,
+  filtrarColecoesIconesPermitidas,
+  parseIconSelectionValue,
+} from "../Sistema/iconCollectionsUtils";
 
 const OPCOES_VISIBILIDADE = [
   { value: "publico", label: "Publico" },
@@ -40,6 +46,8 @@ export default function EditorBloco({
   excluindo = false,
 }) {
   const [aberto, setAberto] = useState(false);
+  const [tituloBloco, setTituloBloco] = useState(String(bloco?.titulo || bloco?.nome || "").trim());
+  const [iconeBloco, setIconeBloco] = useState(buildIconSelectionValue(bloco));
   const [visibilidade, setVisibilidade] = useState(bloco?.visibilidade || "publico");
   const [valorCompra, setValorCompra] = useState(
     bloco?.precoCentavos ? (Number(bloco.precoCentavos) / 100).toFixed(2) : ""
@@ -61,14 +69,23 @@ export default function EditorBloco({
   const [pixManualSistemaHabilitado, setPixManualSistemaHabilitado] = useState(
     DEFAULT_SISTEMA_CONFIG.pixManualHabilitado
   );
+  const [configSistemaAtual, setConfigSistemaAtual] = useState(DEFAULT_SISTEMA_CONFIG);
+  const [iconCollectionsDisponiveis, setIconCollectionsDisponiveis] = useState([]);
   const [nomeBlocoSingular, setNomeBlocoSingular] = useState(
     DEFAULT_SISTEMA_CONFIG.nomeBlocoSingular
   );
   const [nomeBlocoPlural, setNomeBlocoPlural] = useState(
     DEFAULT_SISTEMA_CONFIG.nomeBlocoPlural
   );
+  const iconCollectionsFiltradas = useMemo(
+    () => filtrarColecoesIconesPermitidas(iconCollectionsDisponiveis, configSistemaAtual),
+    [configSistemaAtual, iconCollectionsDisponiveis]
+  );
+  const projetoPossuiColecoesIcones = iconCollectionsFiltradas.length > 0;
 
   useEffect(() => {
+    setTituloBloco(String(bloco?.titulo || bloco?.nome || "").trim());
+    setIconeBloco(buildIconSelectionValue(bloco));
     setVisibilidade(bloco?.visibilidade || "publico");
     setValorCompra(bloco?.precoCentavos ? (Number(bloco.precoCentavos) / 100).toFixed(2) : "");
     const metodosPagamento = normalizarMetodosPagamentoBloco(bloco, {
@@ -90,17 +107,41 @@ export default function EditorBloco({
       try {
         const configSistema = await obterConfigSistema();
         if (cancelado) return;
+        setConfigSistemaAtual(configSistema || DEFAULT_SISTEMA_CONFIG);
         const rotulosBloco = obterRotulosBloco(configSistema);
         setNomeBlocoSingular(rotulosBloco?.singular || DEFAULT_SISTEMA_CONFIG.nomeBlocoSingular);
         setNomeBlocoPlural(rotulosBloco?.plural || DEFAULT_SISTEMA_CONFIG.nomeBlocoPlural);
       } catch {
         if (cancelado) return;
+        setConfigSistemaAtual(DEFAULT_SISTEMA_CONFIG);
         setNomeBlocoSingular(DEFAULT_SISTEMA_CONFIG.nomeBlocoSingular);
         setNomeBlocoPlural(DEFAULT_SISTEMA_CONFIG.nomeBlocoPlural);
       }
     }
 
     carregarNomenclatura();
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelado = false;
+
+    async function carregarColecoesIcones() {
+      try {
+        const colecoes = await listarIconCollectionsNoGerenciador();
+        if (!cancelado) {
+          setIconCollectionsDisponiveis(Array.isArray(colecoes) ? colecoes : []);
+        }
+      } catch {
+        if (!cancelado) {
+          setIconCollectionsDisponiveis([]);
+        }
+      }
+    }
+
+    carregarColecoesIcones();
     return () => {
       cancelado = true;
     };
@@ -289,6 +330,14 @@ export default function EditorBloco({
   );
 
   const handleSalvar = async () => {
+    const iconPayload = projetoPossuiColecoesIcones
+      ? parseIconSelectionValue(iconeBloco, iconCollectionsFiltradas)
+      : {
+          iconCollectionId: String(bloco?.iconCollectionId || "").trim(),
+          iconId: String(bloco?.iconId || "").trim(),
+          iconUrl: String(bloco?.icone || bloco?.iconUrl || "").trim(),
+          iconLabel: String(bloco?.iconLabel || "").trim(),
+        };
     const precoCentavos = isExclusivoComprador
       ? usarValoresPixManual
         ? Number(valorCompra) || null
@@ -316,6 +365,12 @@ export default function EditorBloco({
     }
 
     const salvou = await onSalvar({
+      titulo: String(tituloBloco || "").trim(),
+      icone: String(iconPayload.iconUrl || "").trim(),
+      iconUrl: String(iconPayload.iconUrl || "").trim(),
+      iconCollectionId: iconPayload.iconCollectionId,
+      iconId: iconPayload.iconId,
+      iconLabel: iconPayload.iconLabel,
       visibilidade,
       precoCentavos: precoCentavos || null,
       moeda: precoCentavos ? "BRL" : null,
@@ -343,6 +398,8 @@ export default function EditorBloco({
   };
 
   const handleCancelar = () => {
+    setTituloBloco(String(bloco?.titulo || bloco?.nome || "").trim());
+    setIconeBloco(buildIconSelectionValue(bloco));
     setVisibilidade(bloco?.visibilidade || "publico");
     setValorCompra(bloco?.precoCentavos ? (Number(bloco.precoCentavos) / 100).toFixed(2) : "");
     const metodosPagamento = normalizarMetodosPagamentoBloco(bloco, {
@@ -359,13 +416,44 @@ export default function EditorBloco({
   const bloqueado = salvando || excluindo;
 
   return (
-    <div style={{ marginTop: 8, borderTop: "1px solid #ddd", paddingTop: 8 }}>
+    <div style={{ marginTop: 8, paddingTop: 8 }}>
       {!aberto ? (
         <button onClick={() => setAberto(true)} disabled={bloqueado}>
           {`Editar ${nomeBlocoSingular}`}
         </button>
       ) : (
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <input
+            type="text"
+            placeholder={`Titulo do ${nomeBlocoSingular}`}
+            value={tituloBloco}
+            onChange={(event) => setTituloBloco(event.target.value)}
+            disabled={bloqueado}
+          />
+
+          {projetoPossuiColecoesIcones ? (
+            <select
+              value={iconeBloco}
+              onChange={(event) => setIconeBloco(event.target.value)}
+              disabled={bloqueado}
+            >
+              <option value="">Sem icone</option>
+              {iconCollectionsFiltradas.map((colecao) => (
+                <optgroup key={colecao.id} label={colecao.nome}>
+                  {(colecao.icons || []).map((icon) => (
+                    <option key={icon.id} value={`${colecao.id}::${icon.id}`}>
+                      {icon.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          ) : (
+            <p style={{ margin: "4px 0", fontSize: 12, color: "#666", width: "100%" }}>
+              Nenhuma colecao de icones permitida para este projeto/tema.
+            </p>
+          )}
+
           <select
             value={visibilidade}
             onChange={(event) => setVisibilidade(event.target.value)}

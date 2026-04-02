@@ -589,6 +589,220 @@ function extractClientIp(req) {
   return "";
 }
 
+function normalizeGeoCompareValue(value = "") {
+  return sanitizeString(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function normalizeStringList(value = []) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.map((item) => sanitizeString(item)).filter(Boolean))];
+}
+
+function isPrivateOrLocalIp(ip = "") {
+  const value = sanitizeString(ip).toLowerCase();
+  if (!value) return true;
+
+  const normalized = value.replace(/^::ffff:/, "");
+  if (
+    normalized === "::1" ||
+    normalized === "localhost" ||
+    normalized === "127.0.0.1" ||
+    normalized.startsWith("10.") ||
+    normalized.startsWith("192.168.") ||
+    normalized.startsWith("169.254.") ||
+    normalized.startsWith("fc") ||
+    normalized.startsWith("fd") ||
+    normalized.startsWith("fe80:")
+  ) {
+    return true;
+  }
+
+  if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(normalized)) {
+    return true;
+  }
+
+  return false;
+}
+
+async function fetchGeoByIp(ip = "") {
+  const normalizedIp = sanitizeString(ip).replace(/^::ffff:/, "");
+  if (!normalizedIp || isPrivateOrLocalIp(normalizedIp)) {
+    return {
+      ip: normalizedIp || null,
+      country: null,
+      region: null,
+      city: null,
+      uf: null,
+      regionCode: null,
+      org: null,
+      cep: null,
+      latitude: null,
+      longitude: null,
+      resolvedAt: Date.now(),
+    };
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 2500);
+
+  try {
+    const response = await fetch(`https://ipwho.is/${encodeURIComponent(normalizedIp)}`, {
+      signal: controller.signal,
+      headers: {
+        Accept: "application/json",
+      },
+    });
+    const payload = await response.json().catch(() => ({}));
+
+    return {
+      ip: normalizedIp,
+      country: sanitizeString(payload?.country) || null,
+      region: sanitizeString(payload?.region) || null,
+      city: sanitizeString(payload?.city) || null,
+      uf: sanitizeString(payload?.region_code) || null,
+      regionCode: sanitizeString(payload?.region_code) || null,
+      org: sanitizeString(payload?.connection?.org || payload?.org) || null,
+      cep: sanitizeString(payload?.postal) || null,
+      latitude:
+        Number.isFinite(Number(payload?.latitude)) ? Number(payload.latitude) : null,
+      longitude:
+        Number.isFinite(Number(payload?.longitude)) ? Number(payload.longitude) : null,
+      resolvedAt: Date.now(),
+    };
+  } catch {
+    return {
+      ip: normalizedIp,
+      country: null,
+      region: null,
+      city: null,
+      uf: null,
+      regionCode: null,
+      org: null,
+      cep: null,
+      latitude: null,
+      longitude: null,
+      resolvedAt: Date.now(),
+    };
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function resolveGeoDataFromRequest(req, fallback = {}) {
+  const clientIp = sanitizeString(fallback?.ip) || extractClientIp(req) || null;
+  const geoByIp = await fetchGeoByIp(clientIp);
+
+  return {
+    ip: geoByIp.ip || clientIp || null,
+    country: geoByIp.country || sanitizeString(fallback?.country) || null,
+    region: geoByIp.region || sanitizeString(fallback?.region) || null,
+    city:
+      geoByIp.city ||
+      sanitizeString(fallback?.city) ||
+      sanitizeString(fallback?.cidade) ||
+      null,
+    uf:
+      geoByIp.uf ||
+      sanitizeString(fallback?.uf) ||
+      sanitizeString(fallback?.regionCode) ||
+      null,
+    regionCode:
+      geoByIp.regionCode ||
+      sanitizeString(fallback?.regionCode) ||
+      sanitizeString(fallback?.uf) ||
+      null,
+    org: geoByIp.org || sanitizeString(fallback?.org) || null,
+    cep: geoByIp.cep || sanitizeString(fallback?.cep) || null,
+    logradouro: sanitizeString(fallback?.logradouro) || null,
+    bairro: sanitizeString(fallback?.bairro) || null,
+    cidade: sanitizeString(fallback?.cidade) || geoByIp.city || null,
+    latitude: geoByIp.latitude,
+    longitude: geoByIp.longitude,
+    resolvedAt: geoByIp.resolvedAt || Date.now(),
+  };
+}
+
+async function getProjectSystemConfigSnapshot(firestoreDb = db) {
+  try {
+    const snap = await firestoreDb.doc("add_ons/sistema_config").get();
+    return snap.exists ? snap.data() || {} : {};
+  } catch {
+    return {};
+  }
+}
+
+function resolveCompraAssinaturaLocationBlock(config = {}, geo = {}) {
+  const rules = [
+    {
+      field: "country",
+      values: normalizeStringList(config?.compraAssinaturaPaisesBloqueados),
+      label: "pais",
+      currentValue: geo?.country,
+    },
+    {
+      field: "region",
+      values: normalizeStringList(config?.compraAssinaturaRegioesBloqueadas),
+      label: "regiao",
+      currentValue: geo?.region,
+    },
+    {
+      field: "uf",
+      values: normalizeStringList(config?.compraAssinaturaUfsBloqueadas),
+      label: "UF",
+      currentValue: geo?.uf || geo?.regionCode,
+    },
+    {
+      field: "city",
+      values: normalizeStringList(config?.compraAssinaturaCidadesBloqueadas),
+      label: "cidade",
+      currentValue: geo?.city || geo?.cidade,
+    },
+  ];
+
+  for (const rule of rules) {
+    const currentNormalized = normalizeGeoCompareValue(rule.currentValue);
+    if (!currentNormalized) continue;
+
+    const matched = rule.values.find(
+      (item) => normalizeGeoCompareValue(item) === currentNormalized
+    );
+    if (matched) {
+      return {
+        blocked: true,
+        field: rule.field,
+        label: rule.label,
+        value: matched,
+        currentValue: rule.currentValue,
+      };
+    }
+  }
+
+  return {
+    blocked: false,
+    field: "",
+    label: "",
+    value: "",
+    currentValue: "",
+  };
+}
+
+async function assertCompraAssinaturaPermitidaPorLocalizacao({
+  firestoreDb = db,
+  geo = {},
+}) {
+  const config = await getProjectSystemConfigSnapshot(firestoreDb);
+  const block = resolveCompraAssinaturaLocationBlock(config, geo);
+  if (!block.blocked) return;
+
+  throw new HttpsError(
+    "permission-denied",
+    `Compra/assinatura bloqueada para sua localizacao (${block.currentValue || block.value}).`
+  );
+}
+
 function isLocalhostUrl(urlValue) {
   try {
     const parsed = new URL(urlValue);
@@ -1013,6 +1227,7 @@ async function criarCheckoutBlocoMercadoPagoCore({
   firestoreDb = db,
   targetProjectId = CURRENT_PROJECT_ID,
   projectSystemKey = "",
+  clientGeo = null,
   compradorUid,
   authEmail = "",
   ownerUserId,
@@ -1033,6 +1248,11 @@ async function criarCheckoutBlocoMercadoPagoCore({
     isLocalhostUrl(normalizedBaseUrl)
       ? normalizeBaseUrl(fallbackBaseUrl || defaultHostedBaseUrl)
       : normalizedBaseUrl;
+
+  await assertCompraAssinaturaPermitidaPorLocalizacao({
+    firestoreDb,
+    geo: clientGeo || {},
+  });
 
   if (ownerUserIdNormalizado === compradorUid) {
     throw new HttpsError(
@@ -1785,9 +2005,11 @@ exports.limparEnvsProjetoNoVercelHttp = onRequest(
 
 exports.criarCheckoutBlocoMercadoPago = onCall(CALLABLE_OPTIONS, async (request) => {
   const compradorUid = ensureAuth(request);
+  const clientGeo = await resolveGeoDataFromRequest(request.rawRequest || {}, {});
   return criarCheckoutBlocoMercadoPagoCore({
     firestoreDb: db,
     targetProjectId: CURRENT_PROJECT_ID,
+    clientGeo,
     compradorUid,
     authEmail: request?.auth?.token?.email,
     ownerUserId: request.data?.ownerUserId,
@@ -1903,10 +2125,12 @@ exports.mercadoPagoCriarCheckoutHttp = onRequest(
     try {
       const { body, decoded, targetProjectId, projectSystemKey, firestoreDb } =
         await getUnifiedMercadoPagoHttpContext(req);
+      const clientGeo = await resolveGeoDataFromRequest(req, body || {});
       const result = await criarCheckoutBlocoMercadoPagoCore({
         firestoreDb,
         targetProjectId,
         projectSystemKey,
+        clientGeo,
         compradorUid: decoded.uid,
         authEmail: decoded.email,
         ownerUserId: body?.ownerUserId,
@@ -2066,7 +2290,8 @@ exports.registrarAcessoPublico = onRequest(
       const body = normalizeRequestBody(req);
       const hostname = normalizeHostValue(body?.hostname);
       const fullPath = sanitizeString(body?.fullPath || body?.path || "/").slice(0, 300);
-      const clientIp = sanitizeString(body?.ip) || extractClientIp(req) || null;
+      const geo = await resolveGeoDataFromRequest(req, body || {});
+      const clientIp = sanitizeString(geo?.ip) || null;
       const managerDb = getSystemManagerDb();
 
       await managerDb.collection("acessos").add({
@@ -2104,15 +2329,17 @@ exports.registrarAcessoPublico = onRequest(
         duracaoMs: Number.isFinite(Number(body?.duracaoMs)) ? Number(body?.duracaoMs) : null,
 
         ip: clientIp,
-        country: sanitizeString(body?.country) || null,
-        region: sanitizeString(body?.region) || null,
-        city: sanitizeString(body?.city) || null,
-        org: sanitizeString(body?.org) || null,
-        cep: sanitizeString(body?.cep) || null,
-        logradouro: sanitizeString(body?.logradouro) || null,
-        bairro: sanitizeString(body?.bairro) || null,
-        cidade: sanitizeString(body?.cidade) || null,
-        uf: sanitizeString(body?.uf) || null,
+        country: sanitizeString(geo?.country) || null,
+        region: sanitizeString(geo?.region) || null,
+        city: sanitizeString(geo?.city) || null,
+        org: sanitizeString(geo?.org) || null,
+        cep: sanitizeString(geo?.cep) || null,
+        logradouro: sanitizeString(geo?.logradouro) || null,
+        bairro: sanitizeString(geo?.bairro) || null,
+        cidade: sanitizeString(geo?.cidade) || null,
+        uf: sanitizeString(geo?.uf) || null,
+        latitude: Number.isFinite(Number(geo?.latitude)) ? Number(geo.latitude) : null,
+        longitude: Number.isFinite(Number(geo?.longitude)) ? Number(geo.longitude) : null,
 
         visto: false,
         origem: "cliente-web",
@@ -2120,7 +2347,25 @@ exports.registrarAcessoPublico = onRequest(
         criadoEm: serverTimestamp(),
       });
 
-      res.json({ ok: true });
+      res.json({ ok: true, geo });
+    } catch (error) {
+      sendHttpError(res, error);
+    }
+  }
+);
+
+exports.resolverGeoAcessoPublico = onRequest(
+  HTTP_OPTIONS,
+  async (req, res) => {
+    try {
+      if (req.method !== "POST") {
+        res.status(405).json({ ok: false, error: "Metodo nao permitido." });
+        return;
+      }
+
+      const body = normalizeRequestBody(req);
+      const geo = await resolveGeoDataFromRequest(req, body || {});
+      res.json({ ok: true, geo });
     } catch (error) {
       sendHttpError(res, error);
     }

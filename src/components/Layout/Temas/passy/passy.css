@@ -1,4 +1,5 @@
-﻿@import "./system-base.css";
+@import "../system-base.css";
+@import "./tokens.css";
 @import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap");
 
 body.theme-passy {
@@ -661,4 +662,7 @@ body.theme-passy .txtDescricao {
   color: #ff3694;
   font-family: "Space Grotesk", "Manrope", sans-serif;
 }
+
+
+
 

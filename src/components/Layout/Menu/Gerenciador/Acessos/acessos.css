@@ -31,12 +31,20 @@
   min-width: 220px;
 }
 
+.gerenciador-acessos__filters {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .gerenciador-acessos__filter span {
   font-size: 12px;
   font-weight: 600;
 }
 
-.gerenciador-acessos__filter select {
+.gerenciador-acessos__filter select,
+.gerenciador-acessos__filter input {
   min-height: 36px;
   padding: 8px 10px;
   border-radius: 10px;
@@ -122,5 +130,15 @@
 @media (max-width: 768px) {
   .gerenciador-acessos {
     margin-top: 24px;
+  }
+
+  .gerenciador-acessos__filters {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .gerenciador-acessos__filter {
+    min-width: min(220px, 100%);
+    flex: 1 1 180px;
   }
 }

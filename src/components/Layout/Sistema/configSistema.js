@@ -59,6 +59,16 @@ const LOGIN_PRESET_IDS_VALIDOS = Array.isArray(APPLYABLE_LOGIN_PRESET_IDS)
   ? APPLYABLE_LOGIN_PRESET_IDS
   : ["manual", "aly137"];
 const LOGIN_LOADING_MODE_VALIDOS = ["auto", "simple", "ritual", "obeydom", "sprite_sheet"];
+const THEME_CSS_LOADERS = {
+  padrao: () => import("../Temas/padrao/index.css"),
+  cyberpink: () => import("../Temas/cyberpink/index.css"),
+  lojaderoupas: () => import("../Temas/lojaderoupas/index.css"),
+  jornal: () => import("../Temas/jornal/index.css"),
+  obeydom: () => import("../Temas/obeydom/index.css"),
+  passy: () => import("../Temas/passy/index.css"),
+  sunshine: () => import("../Temas/sunshine/index.css"),
+  pura: () => import("../Temas/pura/index.css"),
+};
 
 function obterSistemaConfigRefsComFallback() {
   const caminhos = buildProjectDataPathCandidates(["add_ons", "sistema_config"], {
@@ -132,6 +142,10 @@ export const DEFAULT_SISTEMA_CONFIG = {
   mercadoPagoHabilitado: true,
   pixManualHabilitado: true,
   blocoCardsHabilitado: false,
+  compraAssinaturaPaisesBloqueados: [],
+  compraAssinaturaRegioesBloqueadas: [],
+  compraAssinaturaUfsBloqueadas: [],
+  compraAssinaturaCidadesBloqueadas: [],
   ownerUid: "",
   ownerEmail: "",
   adminUid: "",
@@ -700,6 +714,85 @@ function normalizarListaString(value = []) {
   );
 }
 
+function normalizarTextoComparacaoLocalizacao(value = "") {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function resolverValorGeoComparacao(localizacao = {}, campo = "") {
+  switch (campo) {
+    case "pais":
+      return localizacao?.country;
+    case "regiao":
+      return localizacao?.region;
+    case "uf":
+      return localizacao?.uf || localizacao?.regionCode;
+    case "cidade":
+      return localizacao?.cidade || localizacao?.city;
+    default:
+      return "";
+  }
+}
+
+export function resolverBloqueioCompraAssinaturaPorLocalizacao(
+  configSistema = DEFAULT_SISTEMA_CONFIG,
+  localizacao = {}
+) {
+  const regras = [
+    {
+      campo: "pais",
+      valores: normalizarListaString(configSistema?.compraAssinaturaPaisesBloqueados),
+      rotulo: "pais",
+    },
+    {
+      campo: "regiao",
+      valores: normalizarListaString(configSistema?.compraAssinaturaRegioesBloqueadas),
+      rotulo: "regiao",
+    },
+    {
+      campo: "uf",
+      valores: normalizarListaString(configSistema?.compraAssinaturaUfsBloqueadas),
+      rotulo: "UF",
+    },
+    {
+      campo: "cidade",
+      valores: normalizarListaString(configSistema?.compraAssinaturaCidadesBloqueadas),
+      rotulo: "cidade",
+    },
+  ];
+
+  for (const regra of regras) {
+    const valorAtual = normalizarTextoComparacaoLocalizacao(
+      resolverValorGeoComparacao(localizacao, regra.campo)
+    );
+    if (!valorAtual) continue;
+
+    const match = regra.valores.find(
+      (item) => normalizarTextoComparacaoLocalizacao(item) === valorAtual
+    );
+    if (match) {
+      return {
+        bloqueado: true,
+        campo: regra.campo,
+        campoLabel: regra.rotulo,
+        valor: String(match),
+        valorAtual: resolverValorGeoComparacao(localizacao, regra.campo),
+      };
+    }
+  }
+
+  return {
+    bloqueado: false,
+    campo: "",
+    campoLabel: "",
+    valor: "",
+    valorAtual: "",
+  };
+}
+
 function extrairPrimeiraUrl(value = "") {
   const bruto = String(value || "").trim();
   if (!bruto) return "";
@@ -1058,6 +1151,18 @@ export function normalizarConfigSistema(data = {}) {
       data.blocoCardsHabilitado,
       DEFAULT_SISTEMA_CONFIG.blocoCardsHabilitado
     ),
+    compraAssinaturaPaisesBloqueados: normalizarListaString(
+      data.compraAssinaturaPaisesBloqueados
+    ),
+    compraAssinaturaRegioesBloqueadas: normalizarListaString(
+      data.compraAssinaturaRegioesBloqueadas
+    ),
+    compraAssinaturaUfsBloqueadas: normalizarListaString(
+      data.compraAssinaturaUfsBloqueadas
+    ),
+    compraAssinaturaCidadesBloqueadas: normalizarListaString(
+      data.compraAssinaturaCidadesBloqueadas
+    ),
     ownerUid: ownerUidNormalizado,
     ownerEmail: ownerEmailNormalizado,
     // Compatibilidade retroativa.
@@ -1247,6 +1352,9 @@ export function aplicarTemaNoBody(themeId) {
   if (typeof document === "undefined") return;
 
   const { layoutTheme, wallpaper } = resolveSystemThemeDefinition(themeId);
+  const themeKey = String(layoutTheme || "")
+    .trim()
+    .toLowerCase();
   const body = document.body;
   const root = document.documentElement;
 
@@ -1261,7 +1369,7 @@ export function aplicarTemaNoBody(themeId) {
   } else {
     root.style.removeProperty("--system-wallpaper");
   }
-  body.classList.add(`theme-${layoutTheme.toLowerCase()}`);
-  import(`../Temas/${layoutTheme.toLowerCase()}.css`).catch(() => {});
+  body.classList.add(`theme-${themeKey}`);
+  THEME_CSS_LOADERS[themeKey]?.().catch(() => {});
 }
 

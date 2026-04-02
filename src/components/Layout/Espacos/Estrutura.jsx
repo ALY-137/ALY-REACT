@@ -128,7 +128,9 @@ const filtrarEspacosFallbackPorSkin = ({
       if (skinOwner && skinOwner === skinIdNormalizado) return true;
       if (skinsRelacionadas.length && skinsRelacionadas.includes(skinIdNormalizado)) return true;
 
-      return !skinOwner && !skinsRelacionadas.length;
+      // No fallback por skin especifica, so entram espacos explicitamente vinculados
+      // a essa skin. Sem isso, espacos desrelacionados continuam aparecendo.
+      return false;
     })
     .sort((a, b) => (Number(a?.ordem) || 0) - (Number(b?.ordem) || 0));
 };

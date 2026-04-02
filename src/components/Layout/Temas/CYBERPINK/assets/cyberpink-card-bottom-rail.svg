@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg
+  version="1.1"
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 275 14"
+  aria-hidden="true"
+>
+  <polygon
+    fill="#25006B"
+    points="0,0 18,14 103,14 117,4 157,4 171,14 257,14 275,0 257,0 243,10 160,10 146,0 129,0 115,10 32,10 18,0"
+  />
+</svg>
