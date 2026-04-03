@@ -4,10 +4,13 @@
 
 
 /////////////////////////////////////////////
-
-import { primeiroNomeCap } from "../../App";
 const largura = window.innerWidth;
 const altura = window.innerHeight;
+
+const MATRIX_HOME_DEFAULT_HEADLINE = "BOAS-VINDAS";
+const MATRIX_HOME_DEFAULT_SUBHEADLINE = "ALY";
+let matrixHomeHeadline = MATRIX_HOME_DEFAULT_HEADLINE;
+let matrixHomeSubheadlineOverride = "";
 
 //Essas variáveis foram criadas para obter os valores em pixels das dimensões de tela qual o usuário está utilizando.
 
@@ -34,6 +37,7 @@ return resultado;
 
 function centralizaNome() {
     var elemento = document.getElementById('chuvaHome3');
+    if (!elemento) return;
     elemento.style.marginLeft = '10px'; 
   }
 
@@ -96,7 +100,7 @@ var sequenciaemVChuva0 = [];
 var guarda = 0;
 //Essa variável guarda o valor da primeira posição da sequência.
 
-const MensBV = ["B","O","A","S","-","V","I","N","D","A","S"];
+var MensBV = MATRIX_HOME_DEFAULT_HEADLINE.split("");
 var numMensBV = MensBV.length;
 const mensagem0 = [];
 const sequenciaemV = [];
@@ -127,15 +131,114 @@ const wait = ms => new Promise(resolve => setInterval(resolve, ms));
 
 export var contAnimatrix = 0;
 
+function normalizaMensagemMatrix(value = "", fallback = "") {
+    const texto = String(value || fallback || "")
+      .trim()
+      .toUpperCase();
+    return texto || String(fallback || "").trim().toUpperCase();
+}
+
+function resolveMatrixHomeSubheadline() {
+    const fromOverride = normalizaMensagemMatrix(
+      matrixHomeSubheadlineOverride,
+      ""
+    );
+    if (fromOverride) return fromOverride;
+
+    const fromStorage = normalizaMensagemMatrix(
+      localStorage.getItem('primeiroNomeCap'),
+      ""
+    );
+    if (fromStorage) return fromStorage;
+
+    return normalizaMensagemMatrix("", MATRIX_HOME_DEFAULT_SUBHEADLINE);
+}
+
+function applyMatrixHomeMessages() {
+    const headline = normalizaMensagemMatrix(matrixHomeHeadline, MATRIX_HOME_DEFAULT_HEADLINE);
+    MensBV = headline.split("");
+    numMensBV = MensBV.length;
+}
+
+function resetArray(arrayRef) {
+    arrayRef.length = 0;
+}
+
+export function configureMatrixHomeMessage({
+    headline = MATRIX_HOME_DEFAULT_HEADLINE,
+    subheadline = "",
+} = {}) {
+    matrixHomeHeadline = normalizaMensagemMatrix(headline, MATRIX_HOME_DEFAULT_HEADLINE);
+    matrixHomeSubheadlineOverride = normalizaMensagemMatrix(subheadline, "");
+    applyMatrixHomeMessages();
+}
+
+export function resetMatrixHomeScene() {
+    clearInterval(tempAnima1);
+    clearInterval(tempAnima2);
+    clearInterval(tempAnima3);
+
+    contAnimatrix = 0;
+    resultado = 0;
+    nome = "";
+    numNome = 0;
+    ref1 = 0;
+    posj3 = [];
+    prox1 = 0;
+    meio = 0;
+    meio1 = 0;
+    guarda = 0;
+    comeco = 0;
+    cont = 0;
+
+    resetArray(caseHome);
+    resetArray(matrix);
+    resetArray(chuvas);
+    resetArray(comprimento0);
+    resetArray(MensBVNome);
+    resetArray(mensagem1);
+    resetArray(sequenciaemV1);
+    resetArray(comprimento3);
+    resetArray(sequenciaemVChuva0);
+    resetArray(mensagem0);
+    resetArray(sequenciaemV);
+    resetArray(comprimento2);
+    resetArray(aLi1);
+    resetArray(aLi2);
+    resetArray(aLi3);
+    resetArray(aLf1);
+    resetArray(aLf2);
+    resetArray(aLf3);
+    resetArray(temporizadorI1);
+    resetArray(temporizadorI2);
+    resetArray(temporizadorI3);
+    resetArray(temporizadorF1);
+    resetArray(temporizadorF2);
+    resetArray(temporizadorF3);
+
+    applyMatrixHomeMessages();
+
+    const root = document.getElementById('MatrixHome');
+    if (root) {
+      root.innerHTML = "";
+      root.style.height = "0px";
+      root.style.width = "0px";
+    }
+}
+
 
 
 
 function theMatrixHome(altura,largura){
+    if(!document.getElementById('MatrixHome')){
+        return;
+    }
 
 
 
     if(contAnimatrix===0){
         contAnimatrix=1; 
+        applyMatrixHomeMessages();
 
         
 
@@ -176,10 +279,14 @@ function theMatrixHome(altura,largura){
 
 
 function criachuvas(){
+    const root = document.getElementById('MatrixHome');
+    if(!root){
+        return;
+    }
     for(i=0;i<4;i++){
         chuvas[i] = document.createElement("div");
         chuvas[i].setAttribute('id', `chuvaHome${i}`);
-        document.getElementById('MatrixHome').appendChild(chuvas[i]);
+        root.appendChild(chuvas[i]);
     }
 }
 
@@ -350,7 +457,7 @@ function trocador(d) {
 
 function enviaNome(){ 
 
-    nome =  localStorage.getItem('primeiroNomeCap');
+    nome = resolveMatrixHomeSubheadline();
 
    
 

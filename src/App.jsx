@@ -38,6 +38,7 @@ import LoginGoogle from "./components/Layout/Geral/LoginGoogle.jsx";
 import LoginTwitter from "./components/Layout/Geral/LoginTwitter.jsx";
 import LoginCadastroEmail from "./components/Layout/Geral/LoginCadastroEmail.jsx";
 import FirebaseProjectBadge from "./components/Layout/Geral/FirebaseProjectBadge.jsx";
+import ProjectMaintenanceScreen from "./components/Layout/Geral/ProjectMaintenanceScreen.jsx";
 import Acesso from "./components/Layout/Menu/Gerenciador/Acessos/Acesso";
 import RitualLoaderSymbol from "./components/Projects/LoginTransitions/RitualLoaderSymbol";
 import RitualLoginTransition from "./components/Projects/LoginTransitions/RitualLoginTransition";
@@ -49,6 +50,7 @@ import {
   normalizarTemaRegistrado,
   temaSistemaUsaLoginRitual,
 } from "./components/Layout/Temas/themesRegistry";
+import { isProjectInMaintenance } from "./components/Layout/Sistema/projectStatus";
 
 import "./App.css";
 import "./components/Layout/Temas/system-base-login.css";
@@ -94,6 +96,8 @@ const App = () => {
   const solicitacoesVistasRef = useRef(new Set());
 
   const location = useLocation();
+  const hostnameAtual =
+    typeof window !== "undefined" ? String(window.location.hostname || "") : "";
   const isManagerProject = isManagerProjectRuntime(configSistema);
 
 
@@ -531,6 +535,11 @@ const App = () => {
     !configSistema.temaPadraoSistema || configSistema.temaPadraoSistema === "PADRAO_INICIAL"
       ? "CYBERPINK"
       : normalizarTemaRegistrado(configSistema.temaPadraoSistema);
+  const exibirTelaManutencaoProjeto =
+    !isManagerProject &&
+    configSistemaPronta &&
+    !isLocalHostRuntime(hostnameAtual) &&
+    isProjectInMaintenance(configSistema);
   const loginLoadingMode = String(configSistema?.loginLoadingMode || "auto")
     .trim()
     .toLowerCase();
@@ -612,9 +621,9 @@ const App = () => {
   ]);
 
   useLayoutEffect(() => {
-    if (!exibindoFluxoSistema) return;
+    if (!exibindoFluxoSistema && !exibirTelaManutencaoProjeto) return;
     aplicarTemaNoBody(temaSistemaEfetivo);
-  }, [exibindoFluxoSistema, temaSistemaEfetivo]);
+  }, [exibindoFluxoSistema, exibirTelaManutencaoProjeto, temaSistemaEfetivo]);
 
   const logoLoginSrc = String(
     configSistema.logoLoginUrl || DEFAULT_SISTEMA_CONFIG.logoLoginUrl || ""
@@ -794,6 +803,19 @@ const App = () => {
 
   if (exibindoFluxoSistema && !configSistemaPronta && !isAuthHandlerRoute) {
     return renderTelaCarregamento();
+  }
+
+  if (exibirTelaManutencaoProjeto) {
+    return (
+      <div>
+        <Acesso configSistema={configSistema} user={user} />
+        {exibirBadgeProjetoFirebase ? <FirebaseProjectBadge /> : null}
+        <ProjectMaintenanceScreen
+          configSistema={configSistema}
+          themeId={temaSistemaEfetivo}
+        />
+      </div>
+    );
   }
 
   if (precisaSplashEntradaPublica && !splashEntradaPublicaConcluida) {

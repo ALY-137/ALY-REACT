@@ -15,6 +15,7 @@ import {
 } from "./gerenciadorProjetosApi";
 import { APPLYABLE_LOGIN_PRESET_IDS } from "./loginPresets";
 import { buildProjectDataPathCandidates } from "../../Banco/projectDataNamespace";
+import { PROJECT_STATUS_ACTIVE, normalizeProjectStatus } from "./projectStatus";
 
 const SISTEMA_CONFIG_CACHE_KEY_BASE = "sistemaConfigCacheV1";
 const SISTEMA_PROJECT_CONTEXT_KEY = "systemProjectContextKey";
@@ -126,6 +127,7 @@ export const DEFAULT_SISTEMA_CONFIG = {
   loginPresetId: "manual",
   tipoExperiencia: "multiowner",
   modoAcessoProjeto: "privado_com_login",
+  statusProjeto: PROJECT_STATUS_ACTIVE,
   destinoPosLogin: "home_skin_usuario",
   limiteSkinsPorUsuario: "ilimitado",
   nomeSkinSingular: "skin",
@@ -301,6 +303,13 @@ function aplicarDefaultsPorProjeto(configSistema = DEFAULT_SISTEMA_CONFIG) {
   const config = {
     ...configSistema,
   };
+  config.statusProjeto = normalizeProjectStatus(config.statusProjeto, {
+    projectSystemKey: config.projectSystemKey,
+    firebaseProjectId: config.firebaseProjectId,
+    systemKey: config.systemKey,
+    nomeProjeto: config.nomeProjeto,
+    tituloSistema: config.tituloSistema,
+  });
   if (isManagerProjectRuntime(config)) {
     if (
       !config.temaPadraoSistema ||
@@ -989,6 +998,14 @@ export function normalizarConfigSistema(data = {}) {
           : "");
   const tipoExperienciaNormalizado = normalizarTipoExperiencia(data.tipoExperiencia);
   const modoAcessoProjetoNormalizado = normalizarModoAcessoProjeto(data.modoAcessoProjeto);
+  const statusProjetoNormalizado = normalizeProjectStatus(data.statusProjeto, {
+    projectSystemKey: projectSystemKeyNormalizado,
+    firebaseProjectId:
+      data.firebaseProjectId || data.projectId || data?.firebaseRuntimeConfig?.projectId,
+    systemKey: data.systemKey,
+    nomeProjeto: data.nomeProjeto,
+    tituloSistema: tituloSistemaNormalizado,
+  });
   const destinoPosLoginNormalizado = normalizarDestinoPosLogin(data.destinoPosLogin);
   const layoutTemaNormalizado = normalizarConfiguracaoLayoutTema({
     ...(data.layoutTema && typeof data.layoutTema === "object" ? data.layoutTema : {}),
@@ -1091,6 +1108,7 @@ export function normalizarConfigSistema(data = {}) {
     loginPresetId: normalizarLoginPresetId(data.loginPresetId),
     tipoExperiencia: tipoExperienciaNormalizado,
     modoAcessoProjeto: modoAcessoProjetoNormalizado,
+    statusProjeto: statusProjetoNormalizado,
     destinoPosLogin: destinoPosLoginNormalizado,
     limiteSkinsPorUsuario: limiteSkinsNormalizado,
     nomeSkinSingular: normalizarNomeSkin(

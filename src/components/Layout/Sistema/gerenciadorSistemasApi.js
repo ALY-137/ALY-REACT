@@ -18,6 +18,7 @@ import {
   db as dbProjetoAtivo,
 } from "../../Banco/init-firebase";
 import { postSharedFunctionJson } from "../../Banco/sharedFunctionsApi";
+import { PROJECT_STATUS_ACTIVE, normalizeProjectStatus } from "./projectStatus";
 
 const MANAGER_APP_NAME = "system-manager-app";
 const MANAGER_COLLECTION = "systems";
@@ -316,6 +317,7 @@ function sanitizePreconfigTemplate(configSistema = {}) {
     ownerEmail,
     adminUid,
     adminEmail,
+    statusProjeto,
     projectSystemKey,
     projectOwnerUid,
     projectLastEditorUid,
@@ -348,6 +350,7 @@ function sanitizePreconfigTemplate(configSistema = {}) {
   void ownerEmail;
   void adminUid;
   void adminEmail;
+  void statusProjeto;
   void projectSystemKey;
   void projectOwnerUid;
   void projectLastEditorUid;
@@ -575,9 +578,24 @@ function montarResultadoConfigSistema(docSnap) {
   if (!docSnap?.exists?.()) return null;
   const data = docSnap.data() || {};
   const configBase = extrairConfigSistemaDoDocumento(data);
+  const statusProjeto = normalizeProjectStatus(
+    configBase?.statusProjeto || data?.statusProjeto,
+    {
+      projectSystemKey: configBase?.projectSystemKey || data?.systemKey || docSnap.id,
+      firebaseProjectId:
+        configBase?.firebaseProjectId ||
+        data?.firebaseProjectId ||
+        data?.projectId ||
+        data?.firebaseRuntimeConfig?.projectId,
+      systemKey: data?.systemKey || docSnap.id,
+      nomeProjeto: data?.nomeProjeto || configBase?.nomeProjeto,
+      tituloSistema: configBase?.tituloSistema || data?.tituloSistema,
+    }
+  );
   return {
     ...configBase,
     systemKey: normalizeText(data.systemKey || docSnap.id),
+    statusProjeto,
   };
 }
 
@@ -872,6 +890,23 @@ export async function salvarConfigSistemaNoGerenciador({
     projectId,
     firebaseConfig,
   });
+  const statusProjetoFinal = normalizeProjectStatus(
+    configSistemaFinal?.statusProjeto || dataAtual?.statusProjeto,
+    {
+      projectSystemKey:
+        configSistemaFinal?.projectSystemKey || dataAtual?.systemKey || keyNormalizada,
+      firebaseProjectId:
+        runtimeConfigFinal?.projectId ||
+        projectId ||
+        dataAtual?.firebaseProjectId ||
+        dataAtual?.projectId ||
+        dataAtual?.firebaseRuntimeConfig?.projectId,
+      systemKey: dataAtual?.systemKey || keyNormalizada,
+      nomeProjeto: dataAtual?.nomeProjeto,
+      tituloSistema: configSistemaFinal?.tituloSistema,
+      fallback: PROJECT_STATUS_ACTIVE,
+    }
+  );
   const projectSystemKeyFinal = normalizeText(
     configSistemaFinal?.projectSystemKey || keyNormalizada
   );
@@ -881,11 +916,13 @@ export async function salvarConfigSistemaNoGerenciador({
     {
       systemKey: keyNormalizada,
       tipoProjeto: tipoProjetoFinal,
+      statusProjeto: statusProjetoFinal,
       firebaseProjectId: normalizeText(runtimeConfigFinal?.projectId || projectId),
       domains: Array.from(domainsSet),
       firebaseRuntimeConfig: runtimeConfigFinal,
       configSistema: {
         ...configSistemaFinal,
+        statusProjeto: statusProjetoFinal,
         projectSystemKey: projectSystemKeyFinal || keyNormalizada,
       },
       preconfigBaseKey: normalizeText(preconfigBaseKey || dataAtual?.preconfigBaseKey || ""),
@@ -901,10 +938,12 @@ export async function salvarConfigSistemaNoGerenciador({
     ok: true,
     systemKey: keyNormalizada,
     tipoProjeto: tipoProjetoFinal,
+    statusProjeto: statusProjetoFinal,
     firebaseProjectId: normalizeText(runtimeConfigFinal?.projectId || projectId),
     firebaseRuntimeConfig: runtimeConfigFinal,
     configSistema: {
       ...configSistemaFinal,
+      statusProjeto: statusProjetoFinal,
       projectSystemKey: projectSystemKeyFinal || keyNormalizada,
     },
     preconfigBaseKey: normalizeText(preconfigBaseKey || dataAtual?.preconfigBaseKey || ""),
@@ -938,6 +977,17 @@ export async function listarSistemasNoGerenciador() {
             data.firebaseRuntimeConfig && typeof data.firebaseRuntimeConfig === "object"
               ? data.firebaseRuntimeConfig
               : {},
+          statusProjeto: normalizeProjectStatus(
+            data?.configSistema?.statusProjeto || data?.statusProjeto,
+            {
+              projectSystemKey: data.systemKey || docItem.id,
+              firebaseProjectId:
+                data.firebaseProjectId || data.projectId || data?.firebaseRuntimeConfig?.projectId,
+              systemKey: data.systemKey || docItem.id,
+              nomeProjeto: data.nomeProjeto,
+              tituloSistema: data?.configSistema?.tituloSistema,
+            }
+          ),
           preconfigBaseKey: normalizeText(data.preconfigBaseKey),
           preconfigBaseName: normalizeText(data.preconfigBaseName),
           configSistema:
@@ -1034,6 +1084,14 @@ export async function criarSistemaNoGerenciador({
     ...configTemplate,
     tituloSistema: nomeNormalizado || keyNormalizada.toUpperCase(),
     temaPadraoSistema: temaPreconfig,
+    statusProjeto: normalizeProjectStatus(configTemplate?.statusProjeto, {
+      projectSystemKey: keyNormalizada,
+      firebaseProjectId: payloadFirebase.projectId,
+      systemKey: keyNormalizada,
+      nomeProjeto: nomeNormalizado || keyNormalizada,
+      tituloSistema: nomeNormalizado || keyNormalizada.toUpperCase(),
+      fallback: PROJECT_STATUS_ACTIVE,
+    }),
     loginPresetId: normalizeText(configTemplate?.loginPresetId || "manual") || "manual",
     destinoPosLogin:
       normalizeText(configTemplate?.destinoPosLogin || "home_skin_usuario") || "home_skin_usuario",
@@ -1068,6 +1126,7 @@ export async function criarSistemaNoGerenciador({
       systemKey: keyNormalizada,
       nomeProjeto: nomeNormalizado || keyNormalizada,
       tipoProjeto: tipoProjetoNormalizado,
+      statusProjeto: configSistemaInicial.statusProjeto,
       firebaseProjectId: payloadFirebase.projectId,
       domains: domainsNorm,
       firebaseRuntimeConfig: payloadFirebase,
@@ -1086,6 +1145,7 @@ export async function criarSistemaNoGerenciador({
     systemKey: keyNormalizada,
     nomeProjeto: nomeNormalizado || keyNormalizada,
     tipoProjeto: tipoProjetoNormalizado,
+    statusProjeto: configSistemaInicial.statusProjeto,
     domains: domainsNorm,
     firebaseRuntimeConfig: payloadFirebase,
     configSistema: configSistemaInicial,

@@ -1,0 +1,532 @@
+.project-maintenance {
+  min-height: 100vh;
+  width: 100%;
+  display: grid;
+  place-items: center;
+  padding: 40px 20px;
+  box-sizing: border-box;
+}
+
+.project-maintenance__shell {
+  width: min(1080px, 100%);
+  display: grid;
+  grid-template-columns: minmax(280px, 1.15fr) minmax(260px, 0.85fr);
+  gap: 32px;
+  align-items: center;
+  padding: 28px;
+  border-radius: 28px;
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(12px);
+}
+
+.project-maintenance__shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.9;
+}
+
+.project-maintenance__copy,
+.project-maintenance__visual {
+  position: relative;
+  z-index: 1;
+}
+
+.project-maintenance__eyebrow {
+  margin: 0 0 10px;
+  font-size: 0.82rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+.project-maintenance__title {
+  margin: 0;
+  font-size: clamp(2.2rem, 5vw, 4.6rem);
+  line-height: 0.96;
+  text-transform: uppercase;
+}
+
+.project-maintenance__text {
+  margin: 18px 0 0;
+  max-width: 54ch;
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+.project-maintenance__meta {
+  margin-top: 22px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.project-maintenance__meta-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.project-maintenance__visual {
+  min-height: 280px;
+  display: grid;
+  place-items: center;
+}
+
+.project-maintenance__scene,
+.project-maintenance__matrix-frame {
+  position: relative;
+  width: min(100%, 380px);
+  height: 280px;
+  border-radius: 24px;
+  overflow: hidden;
+}
+
+.project-maintenance__matrix-frame {
+  display: grid;
+  place-items: center;
+}
+
+.project-maintenance__matrix-frame #MatrixHome {
+  transform: scale(0.9);
+}
+
+.project-maintenance__scene--passy {
+  display: grid;
+  place-items: center;
+}
+
+.project-maintenance__passy-orb {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(2px);
+  animation: maintenance-passy-float 4.8s ease-in-out infinite;
+}
+
+.project-maintenance__passy-orb--a {
+  width: 180px;
+  height: 180px;
+  left: 48px;
+  top: 42px;
+  animation-delay: 0s;
+}
+
+.project-maintenance__passy-orb--b {
+  width: 110px;
+  height: 110px;
+  right: 54px;
+  top: 68px;
+  animation-delay: 0.9s;
+}
+
+.project-maintenance__passy-orb--c {
+  width: 140px;
+  height: 140px;
+  right: 88px;
+  bottom: 28px;
+  animation-delay: 1.8s;
+}
+
+.project-maintenance__scene--obeydom {
+  display: grid;
+  place-items: center;
+}
+
+.project-maintenance__obeydom-ring,
+.project-maintenance__obeydom-core {
+  position: absolute;
+  border-radius: 999px;
+}
+
+.project-maintenance__obeydom-ring--outer {
+  inset: 24px;
+  animation: maintenance-spin 14s linear infinite;
+}
+
+.project-maintenance__obeydom-ring--mid {
+  inset: 68px;
+  animation: maintenance-spin-reverse 9s linear infinite;
+}
+
+.project-maintenance__obeydom-core {
+  width: 94px;
+  height: 94px;
+  animation: maintenance-core-pulse 2.6s ease-in-out infinite;
+}
+
+.project-maintenance__scene--jornal {
+  display: grid;
+  align-content: center;
+  gap: 20px;
+  padding: 32px;
+}
+
+.project-maintenance__jornal-strip {
+  display: block;
+  height: 24px;
+  border-radius: 999px;
+  position: relative;
+  overflow: hidden;
+}
+
+.project-maintenance__jornal-strip::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  animation: maintenance-scan 3.8s linear infinite;
+}
+
+.project-maintenance__jornal-strip--a {
+  width: 82%;
+}
+
+.project-maintenance__jornal-strip--b {
+  width: 96%;
+  animation-delay: 0.4s;
+}
+
+.project-maintenance__jornal-strip--c {
+  width: 68%;
+  animation-delay: 0.8s;
+}
+
+.project-maintenance__scene--loja {
+  display: grid;
+  place-items: center;
+}
+
+.project-maintenance__loja-card {
+  position: absolute;
+  width: 126px;
+  height: 176px;
+  border-radius: 22px;
+  animation: maintenance-card-bob 3.8s ease-in-out infinite;
+}
+
+.project-maintenance__loja-card--left {
+  left: 34px;
+  bottom: 28px;
+  transform: rotate(-10deg);
+  animation-delay: 0s;
+}
+
+.project-maintenance__loja-card--center {
+  width: 144px;
+  height: 198px;
+  z-index: 2;
+  animation-delay: 0.5s;
+}
+
+.project-maintenance__loja-card--right {
+  right: 34px;
+  bottom: 28px;
+  transform: rotate(10deg);
+  animation-delay: 1s;
+}
+
+.project-maintenance__scene--default {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 18px;
+}
+
+.project-maintenance__default-bar {
+  display: block;
+  width: 74%;
+  height: 18px;
+  border-radius: 999px;
+  animation: maintenance-breathe 2.8s ease-in-out infinite;
+}
+
+.project-maintenance__default-bar--b {
+  width: 58%;
+  animation-delay: 0.45s;
+}
+
+.project-maintenance__default-bar--c {
+  width: 40%;
+  animation-delay: 0.9s;
+}
+
+body.theme-cyberpink .project-maintenance__shell {
+  background: linear-gradient(145deg, rgba(18, 8, 48, 0.88), rgba(12, 6, 30, 0.92));
+  border: 1px solid rgba(190, 146, 255, 0.36);
+  box-shadow:
+    0 0 22px rgba(126, 14, 255, 0.18),
+    inset 0 0 0 1px rgba(229, 210, 255, 0.08);
+}
+
+body.theme-cyberpink .project-maintenance__shell::before {
+  background:
+    radial-gradient(circle at top left, rgba(255, 0, 153, 0.14), transparent 34%),
+    linear-gradient(135deg, rgba(126, 14, 255, 0.12), transparent 70%);
+}
+
+body.theme-cyberpink .project-maintenance__eyebrow,
+body.theme-cyberpink .project-maintenance__text,
+body.theme-cyberpink .project-maintenance__meta-chip {
+  color: #e2cbff;
+}
+
+body.theme-cyberpink .project-maintenance__title {
+  color: #f4e6ff;
+  text-shadow: 0 0 14px rgba(126, 14, 255, 0.36);
+}
+
+body.theme-cyberpink .project-maintenance__meta-chip,
+body.theme-cyberpink .project-maintenance__matrix-frame {
+  background: rgba(40, 16, 92, 0.68);
+  border: 1px solid rgba(206, 176, 255, 0.26);
+}
+
+body.theme-passy .project-maintenance__shell {
+  background: linear-gradient(145deg, rgba(255, 248, 254, 0.86), rgba(248, 238, 255, 0.94));
+  border: 1px solid rgba(213, 170, 255, 0.38);
+  box-shadow: 0 24px 60px rgba(175, 112, 255, 0.18);
+}
+
+body.theme-passy .project-maintenance__shell::before {
+  background:
+    radial-gradient(circle at top right, rgba(255, 173, 214, 0.26), transparent 30%),
+    radial-gradient(circle at bottom left, rgba(173, 206, 255, 0.24), transparent 28%);
+}
+
+body.theme-passy .project-maintenance__eyebrow,
+body.theme-passy .project-maintenance__text {
+  color: #7f599a;
+}
+
+body.theme-passy .project-maintenance__title {
+  color: #734e95;
+}
+
+body.theme-passy .project-maintenance__meta-chip {
+  background: rgba(255, 255, 255, 0.66);
+  color: #7f599a;
+  border: 1px solid rgba(213, 170, 255, 0.34);
+}
+
+body.theme-passy .project-maintenance__scene--passy {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(245, 230, 255, 0.82));
+  border: 1px solid rgba(213, 170, 255, 0.3);
+}
+
+body.theme-passy .project-maintenance__passy-orb--a {
+  background: rgba(255, 190, 222, 0.82);
+}
+
+body.theme-passy .project-maintenance__passy-orb--b {
+  background: rgba(197, 202, 255, 0.78);
+}
+
+body.theme-passy .project-maintenance__passy-orb--c {
+  background: rgba(218, 184, 255, 0.78);
+}
+
+body.theme-obeydom .project-maintenance__shell {
+  background: linear-gradient(145deg, rgba(16, 10, 16, 0.92), rgba(32, 17, 25, 0.94));
+  border: 1px solid rgba(154, 87, 103, 0.34);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.36);
+}
+
+body.theme-obeydom .project-maintenance__shell::before {
+  background:
+    radial-gradient(circle at top right, rgba(139, 32, 72, 0.28), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 66%);
+}
+
+body.theme-obeydom .project-maintenance__eyebrow,
+body.theme-obeydom .project-maintenance__text,
+body.theme-obeydom .project-maintenance__meta-chip {
+  color: #e0c7cf;
+}
+
+body.theme-obeydom .project-maintenance__title {
+  color: #fff3f5;
+}
+
+body.theme-obeydom .project-maintenance__meta-chip,
+body.theme-obeydom .project-maintenance__scene--obeydom {
+  background: rgba(47, 23, 31, 0.72);
+  border: 1px solid rgba(154, 87, 103, 0.3);
+}
+
+body.theme-obeydom .project-maintenance__obeydom-ring--outer {
+  border: 1px solid rgba(194, 112, 131, 0.34);
+}
+
+body.theme-obeydom .project-maintenance__obeydom-ring--mid {
+  border: 1px solid rgba(244, 214, 221, 0.42);
+}
+
+body.theme-obeydom .project-maintenance__obeydom-core {
+  background: radial-gradient(circle, rgba(255, 240, 244, 0.92), rgba(143, 51, 81, 0.58));
+  box-shadow: 0 0 28px rgba(143, 51, 81, 0.36);
+}
+
+body.theme-jornal .project-maintenance__shell {
+  background: linear-gradient(180deg, rgba(250, 245, 235, 0.96), rgba(242, 234, 218, 0.98));
+  border: 1px solid rgba(88, 70, 50, 0.24);
+  box-shadow: 0 24px 60px rgba(69, 48, 27, 0.14);
+}
+
+body.theme-jornal .project-maintenance__shell::before {
+  background:
+    linear-gradient(90deg, rgba(120, 92, 64, 0.06), transparent 36%),
+    radial-gradient(circle at top left, rgba(196, 163, 108, 0.14), transparent 32%);
+}
+
+body.theme-jornal .project-maintenance__eyebrow,
+body.theme-jornal .project-maintenance__text,
+body.theme-jornal .project-maintenance__meta-chip {
+  color: #5a4733;
+}
+
+body.theme-jornal .project-maintenance__title {
+  color: #231b13;
+}
+
+body.theme-jornal .project-maintenance__meta-chip,
+body.theme-jornal .project-maintenance__scene--jornal {
+  background: rgba(255, 251, 243, 0.72);
+  border: 1px solid rgba(120, 92, 64, 0.24);
+}
+
+body.theme-jornal .project-maintenance__jornal-strip {
+  background: rgba(107, 80, 51, 0.14);
+}
+
+body.theme-jornal .project-maintenance__jornal-strip::after {
+  background: linear-gradient(90deg, transparent, rgba(107, 80, 51, 0.42), transparent);
+}
+
+body.theme-lojaderoupas .project-maintenance__shell {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(248, 242, 236, 0.96));
+  border: 1px solid rgba(97, 78, 53, 0.2);
+  box-shadow: 0 24px 64px rgba(88, 67, 42, 0.14);
+}
+
+body.theme-lojaderoupas .project-maintenance__shell::before {
+  background:
+    radial-gradient(circle at top center, rgba(214, 187, 145, 0.26), transparent 30%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.32), transparent 64%);
+}
+
+body.theme-lojaderoupas .project-maintenance__eyebrow,
+body.theme-lojaderoupas .project-maintenance__text,
+body.theme-lojaderoupas .project-maintenance__meta-chip {
+  color: #6f563a;
+}
+
+body.theme-lojaderoupas .project-maintenance__title {
+  color: #2e2014;
+}
+
+body.theme-lojaderoupas .project-maintenance__meta-chip,
+body.theme-lojaderoupas .project-maintenance__scene--loja {
+  background: rgba(255, 255, 255, 0.74);
+  border: 1px solid rgba(110, 87, 58, 0.22);
+}
+
+body.theme-lojaderoupas .project-maintenance__loja-card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(231, 218, 203, 0.92));
+  border: 1px solid rgba(110, 87, 58, 0.18);
+  box-shadow: 0 18px 28px rgba(110, 87, 58, 0.16);
+}
+
+@keyframes maintenance-passy-float {
+  0%,
+  100% {
+    transform: translateY(0px) scale(1);
+  }
+  50% {
+    transform: translateY(-16px) scale(1.04);
+  }
+}
+
+@keyframes maintenance-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes maintenance-spin-reverse {
+  from {
+    transform: rotate(360deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes maintenance-core-pulse {
+  0%,
+  100% {
+    transform: scale(0.96);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+}
+
+@keyframes maintenance-scan {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(180%);
+  }
+}
+
+@keyframes maintenance-card-bob {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+@keyframes maintenance-breathe {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scaleX(0.98);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+@media (max-width: 840px) {
+  .project-maintenance__shell {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    padding: 22px;
+  }
+
+  .project-maintenance__visual {
+    min-height: 240px;
+  }
+
+  .project-maintenance__scene,
+  .project-maintenance__matrix-frame {
+    width: min(100%, 420px);
+    height: 240px;
+  }
+}

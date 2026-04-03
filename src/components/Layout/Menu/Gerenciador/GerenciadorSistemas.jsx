@@ -15,6 +15,11 @@ import {
   obterManagerProjectIdConfigurado,
   obterManagerProjectLabel,
 } from "../../Sistema/configSistema";
+import {
+  getProjectStatusLabel,
+  normalizeProjectStatus,
+  PROJECT_STATUS_OPTIONS,
+} from "../../Sistema/projectStatus";
 import { listConfiguredFirebaseProjects } from "../../../../config/firebaseProjects";
 import PropriedadesSistema from "./PropriedadesSistema/PropriedadesSistema";
 import ProjectLoadingFallback from "../../Geral/ProjectLoadingFallback";
@@ -325,6 +330,21 @@ function projetoComCamposPadrao(projeto = {}) {
   const keyNormalizada = normalizeText(projeto.systemKey || projeto.key || projeto.id).toLowerCase();
   const nomeProjeto = normalizeText(projeto.nomeProjeto || nomeProjetoFallback(keyNormalizada));
   const tipoProjeto = resolveTipoProjetoProjeto(projeto);
+  const statusProjeto = normalizeProjectStatus(
+    projeto?.configSistema?.statusProjeto || projeto?.statusProjeto,
+    {
+      projectSystemKey:
+        projeto?.configSistema?.projectSystemKey || projeto.systemKey || projeto.key || projeto.id,
+      firebaseProjectId:
+        projeto.firebaseProjectId ||
+        projeto.projectId ||
+        projeto?.firebaseRuntimeConfig?.projectId ||
+        projeto?.configSistema?.firebaseProjectId,
+      systemKey: projeto.systemKey || projeto.key || projeto.id,
+      nomeProjeto,
+      tituloSistema: projeto?.configSistema?.tituloSistema,
+    }
+  );
   const domainsNormalizados = Array.isArray(projeto.domains)
     ? projeto.domains.map((domain) => normalizeHost(domain)).filter(Boolean)
     : [];
@@ -335,6 +355,7 @@ function projetoComCamposPadrao(projeto = {}) {
     systemKey: keyNormalizada,
     nomeProjeto,
     tipoProjeto,
+    statusProjeto,
     firebaseProjectId: normalizeText(
       projeto.firebaseProjectId ||
         projeto.projectId ||
@@ -349,7 +370,12 @@ function projetoComCamposPadrao(projeto = {}) {
     preconfigBaseKey: normalizeText(projeto.preconfigBaseKey),
     preconfigBaseName: normalizeText(projeto.preconfigBaseName),
     configSistema:
-      projeto.configSistema && typeof projeto.configSistema === "object" ? projeto.configSistema : {},
+      projeto.configSistema && typeof projeto.configSistema === "object"
+        ? {
+            ...projeto.configSistema,
+            statusProjeto,
+          }
+        : { statusProjeto },
   };
 }
 
@@ -437,6 +463,7 @@ function GerenciadorProjetos() {
   const [projetoEmGerenciamento, setProjetoEmGerenciamento] = useState(null);
   const [filtroTipoProjeto, setFiltroTipoProjeto] = useState("todos");
   const [domainsProjetoEdicao, setDomainsProjetoEdicao] = useState("");
+  const [statusProjetoEdicao, setStatusProjetoEdicao] = useState("ativo");
   const [salvandoDomainsProjeto, setSalvandoDomainsProjeto] = useState(false);
   const [limpandoEnvSystemKey, setLimpandoEnvSystemKey] = useState("");
   const [removendoProjetoSystemKey, setRemovendoProjetoSystemKey] = useState("");
@@ -543,10 +570,22 @@ function GerenciadorProjetos() {
   useEffect(() => {
     if (!projetoEmGerenciamento) {
       setDomainsProjetoEdicao("");
+      setStatusProjetoEdicao("ativo");
       return;
     }
 
     setDomainsProjetoEdicao((projetoEmGerenciamento.domains || []).join(", "));
+    setStatusProjetoEdicao(
+      normalizeProjectStatus(projetoEmGerenciamento?.statusProjeto, {
+        projectSystemKey:
+          projetoEmGerenciamento?.configSistema?.projectSystemKey ||
+          projetoEmGerenciamento?.systemKey,
+        firebaseProjectId: projetoEmGerenciamento?.firebaseProjectId,
+        systemKey: projetoEmGerenciamento?.systemKey,
+        nomeProjeto: projetoEmGerenciamento?.nomeProjeto,
+        tituloSistema: projetoEmGerenciamento?.configSistema?.tituloSistema,
+      })
+    );
   }, [projetoEmGerenciamento]);
 
   const atualizarCampo = (campo, valor) => {
@@ -870,13 +909,21 @@ function GerenciadorProjetos() {
         projectKey: projeto.systemKey,
         projectId: projeto.firebaseProjectId || projeto.firebaseRuntimeConfig?.projectId || "",
         domains: domainsNormalizados,
-        configSistema: projeto.configSistema || {},
+        configSistema: {
+          ...(projeto.configSistema || {}),
+          statusProjeto: statusProjetoEdicao,
+        },
         atualizadoPorUid: user?.uid || null,
       });
 
       const projetoAtualizado = {
         ...projeto,
         domains: domainsNormalizados,
+        statusProjeto: statusProjetoEdicao,
+        configSistema: {
+          ...(projeto.configSistema || {}),
+          statusProjeto: statusProjetoEdicao,
+        },
       };
 
       setProjetoEmGerenciamento(projetoAtualizado);
@@ -890,7 +937,9 @@ function GerenciadorProjetos() {
             : item
         )
       );
-      setMensagem(`Dominios atualizados para ${projeto.nomeProjeto || projeto.systemKey}.`);
+      setMensagem(
+        `Dominios e status atualizados para ${projeto.nomeProjeto || projeto.systemKey}.`
+      );
     } catch (error) {
       setErro(error?.message || "Falha ao salvar dominios do projeto.");
     } finally {
@@ -1231,6 +1280,9 @@ function GerenciadorProjetos() {
                       Firebase Project: {projeto.firebaseProjectId || "-"}
                     </p>
                     <p style={{ margin: "2px 0 0 0" }}>
+                      Status: {getProjectStatusLabel(projeto.statusProjeto)}
+                    </p>
+                    <p style={{ margin: "2px 0 0 0" }}>
                       Pre-configuracao: {projeto.preconfigBaseName || projeto.preconfigBaseKey || "-"}
                     </p>
                     <p style={{ margin: "2px 0 0 0" }}>
@@ -1331,9 +1383,27 @@ function GerenciadorProjetos() {
               placeholder="ex: nome.vercel.app, novodominio.com"
               style={{ width: "100%", marginBottom: 10 }}
             />
+            <label
+              htmlFor="statusProjetoEdicao"
+              style={{ display: "block", marginBottom: 6 }}
+            >
+              Status publico do projeto
+            </label>
+            <select
+              id="statusProjetoEdicao"
+              value={statusProjetoEdicao}
+              onChange={(event) => setStatusProjetoEdicao(event.target.value)}
+              style={{ width: "100%", marginBottom: 10 }}
+            >
+              {PROJECT_STATUS_OPTIONS.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button type="button" onClick={salvarDomainsProjeto} disabled={salvandoDomainsProjeto}>
-                {salvandoDomainsProjeto ? "Salvando dominios..." : "Salvar dominios"}
+                {salvandoDomainsProjeto ? "Salvando projeto..." : "Salvar dominios e status"}
               </button>
               <button
                 type="button"
@@ -1366,6 +1436,14 @@ function GerenciadorProjetos() {
                         tipoProjeto: normalizeTipoProjeto(
                           configSalva?.tipoExperiencia || item.tipoProjeto
                         ),
+                        statusProjeto: normalizeProjectStatus(configSalva?.statusProjeto, {
+                          projectSystemKey: configSalva?.projectSystemKey || item.systemKey,
+                          firebaseProjectId:
+                            resultadoProjetoSalvo?.firebaseProjectId || item.firebaseProjectId,
+                          systemKey: item.systemKey,
+                          nomeProjeto: configSalva?.tituloSistema || item.nomeProjeto,
+                          tituloSistema: configSalva?.tituloSistema,
+                        }),
                         firebaseProjectId:
                           resultadoProjetoSalvo?.firebaseProjectId || item.firebaseProjectId,
                         firebaseRuntimeConfig:
@@ -1387,6 +1465,14 @@ function GerenciadorProjetos() {
                       tipoProjeto: normalizeTipoProjeto(
                         configSalva?.tipoExperiencia || atual.tipoProjeto
                       ),
+                      statusProjeto: normalizeProjectStatus(configSalva?.statusProjeto, {
+                        projectSystemKey: configSalva?.projectSystemKey || atual.systemKey,
+                        firebaseProjectId:
+                          resultadoProjetoSalvo?.firebaseProjectId || atual.firebaseProjectId,
+                        systemKey: atual.systemKey,
+                        nomeProjeto: configSalva?.tituloSistema || atual.nomeProjeto,
+                        tituloSistema: configSalva?.tituloSistema,
+                      }),
                       firebaseProjectId:
                         resultadoProjetoSalvo?.firebaseProjectId || atual.firebaseProjectId,
                       firebaseRuntimeConfig:

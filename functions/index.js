@@ -2309,6 +2309,7 @@ exports.registrarAcessoPublico = onRequest(
         runtimeProjectId: sanitizeString(body?.runtimeProjectId) || null,
         tipoExperiencia: sanitizeString(body?.tipoExperiencia) || null,
         modoAcessoProjeto: sanitizeString(body?.modoAcessoProjeto) || null,
+        statusProjeto: sanitizeString(body?.statusProjeto) || null,
         skinUsername: sanitizeString(body?.skinUsername) || null,
         skinId: sanitizeString(body?.skinId) || null,
         skinUsernameRota: sanitizeString(body?.skinUsernameRota) || null,

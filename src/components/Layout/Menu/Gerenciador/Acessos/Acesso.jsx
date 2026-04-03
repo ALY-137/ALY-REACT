@@ -12,6 +12,7 @@ import {
   usuarioCorrespondeOwnerConfigurado,
 } from "../../../Sistema/configSistema";
 import { seforAdm } from "../../../../Scripts/verificacoes/verificaAdm";
+import { normalizeProjectStatus } from "../../../Sistema/projectStatus";
 
 const UX_VISITOR_HASH_STORAGE_KEY = "uxVisitorHash";
 const UX_DEDUPE_WINDOW_MS = 1500;
@@ -149,6 +150,13 @@ function buildAcessoPayload({ user, configSistema, location }) {
   const skinContext = resolveSkinContext(location);
   const accessHash = resolvePersistentAccessHash(user);
   const visitorHash = user?.uid ? null : accessHash;
+  const statusProjeto = normalizeProjectStatus(configSistema?.statusProjeto, {
+    projectSystemKey: projectSystemKey,
+    firebaseProjectId: activeFirebaseProjectId,
+    systemKey: projectSystemKey,
+    nomeProjeto: configSistema?.nomeProjeto,
+    tituloSistema: configSistema?.tituloSistema,
+  });
 
   return {
     uid: normalizeText(user?.uid) || null,
@@ -166,6 +174,7 @@ function buildAcessoPayload({ user, configSistema, location }) {
     runtimeProjectId: normalizeText(activeFirebaseProjectId) || null,
     tipoExperiencia: normalizeText(configSistema?.tipoExperiencia) || null,
     modoAcessoProjeto: normalizeText(configSistema?.modoAcessoProjeto) || null,
+    statusProjeto,
 
     skinUsername: skinContext.skinUsername,
     skinId: skinContext.skinId,
@@ -348,7 +357,12 @@ function Acesso({ configSistema = {}, user = null }) {
   useEffect(() => {
     const basePayload = buildAcessoPayload({ user, configSistema, location });
     const fullPath = basePayload.fullPath || "/";
-    const currentSignature = `${normalizeText(location?.key) || "sem-key"}|${fullPath}`;
+    const currentSignature = [
+      normalizeText(location?.key) || "sem-key",
+      fullPath,
+      basePayload.projectSystemKey || basePayload.runtimeProjectKey || "sem-projeto",
+      basePayload.statusProjeto || "sem-status",
+    ].join("|");
 
     if (pageSessionRef.current && pageSessionRef.current.signature !== currentSignature) {
       registrarSaidaPagina("route_change");
