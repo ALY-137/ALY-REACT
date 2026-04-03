@@ -1,5 +1,9 @@
 ﻿import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { obterConfigLayoutTemaSkin, obterCssTemaSkin } from "./themesRegistry";
+import {
+  obterConfigLayoutTemaSkin,
+  obterCssTemaSkin,
+  obterTemaSistemaDefinicao,
+} from "./themesRegistry";
 import {
   DEFAULT_SISTEMA_CONFIG,
   isOneOwnerComEntradaPublica,
@@ -33,6 +37,12 @@ export default function Layout({
     () => (theme ? obterCssTemaSkin(theme) : ""),
     [theme]
   );
+  const wallpaperTemaSistema = useMemo(() => {
+    const temaSistemaId = String(
+      configSistemaEfetiva?.temaPadraoSistema || theme || ""
+    ).trim();
+    return String(obterTemaSistemaDefinicao(temaSistemaId)?.wallpaper || "").trim();
+  }, [configSistemaEfetiva?.temaPadraoSistema, theme]);
   const dimensoesCardProfileEfetivas = useMemo(() => {
     const larguraOverride = Number(cardProfileDimensionsOverride?.width || 0);
     const alturaOverride = Number(cardProfileDimensionsOverride?.height || 0);
@@ -94,7 +104,7 @@ export default function Layout({
       onThemeReadyChange(false);
     }
 
-    import(`./${cssTheme.toLowerCase()}.css`)
+    import(`./${cssTheme.toLowerCase()}/index.css`)
       .catch(console.error)
       .finally(() => {
         if (!ativo) return;
@@ -190,6 +200,11 @@ export default function Layout({
       "layout-oneowner-header-active",
       oneOwnerPublicaAtiva && layoutConfig.headerVisible
     );
+    if (wallpaperTemaSistema) {
+      root.style.setProperty("--system-wallpaper", `url('${wallpaperTemaSistema}')`);
+    } else {
+      root.style.removeProperty("--system-wallpaper");
+    }
     root.style.setProperty("--layout-header-height", `${alturaCabecalhoEfetiva}px`);
     root.style.setProperty(
       "--layout-card-profile-radius",
@@ -223,6 +238,7 @@ export default function Layout({
     dimensoesCardProfileEfetivas.width,
     alturaCabecalhoEfetiva,
     oneOwnerPublicaAtiva,
+    wallpaperTemaSistema,
   ]);
 
   return (

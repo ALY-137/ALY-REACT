@@ -3,7 +3,11 @@ import { useLocation } from "react-router-dom";
 
 import { activeFirebaseProjectId, activeFirebaseProjectKey } from "../../../../Banco/init-firebase";
 import { buildSharedFunctionsUrl } from "../../../../Banco/sharedFunctionsApi";
-import { salvarGeoAcessoCache } from "../../../Sistema/acessoGeo";
+import {
+  lerGeoAcessoCache,
+  obterGeoAcessoAtual,
+  salvarGeoAcessoCache,
+} from "../../../Sistema/acessoGeo";
 import {
   usuarioCorrespondeOwnerConfigurado,
 } from "../../../Sistema/configSistema";
@@ -178,6 +182,27 @@ function buildAcessoPayload({ user, configSistema, location }) {
   };
 }
 
+function buildGeoFallbackPayload(geo = null) {
+  if (!geo || typeof geo !== "object") {
+    return {};
+  }
+
+  return {
+    country: normalizeText(geo.country) || null,
+    region: normalizeText(geo.region) || null,
+    city: normalizeText(geo.city || geo.cidade) || null,
+    regionCode: normalizeText(geo.regionCode || geo.uf) || null,
+    uf: normalizeText(geo.uf || geo.regionCode) || null,
+    org: normalizeText(geo.org) || null,
+    cep: normalizeText(geo.cep) || null,
+    logradouro: normalizeText(geo.logradouro) || null,
+    bairro: normalizeText(geo.bairro) || null,
+    cidade: normalizeText(geo.cidade || geo.city) || null,
+    latitude: Number.isFinite(Number(geo.latitude)) ? Number(geo.latitude) : null,
+    longitude: Number.isFinite(Number(geo.longitude)) ? Number(geo.longitude) : null,
+  };
+}
+
 function buildPageSessionId(basePayload, location) {
   return [
     basePayload.projectSystemKey || basePayload.runtimeProjectKey || "sem-projeto",
@@ -228,6 +253,7 @@ function Acesso({ configSistema = {}, user = null }) {
     []
   );
   const pageSessionRef = useRef(null);
+  const geoRef = useRef(lerGeoAcessoCache());
 
   const reportarErro = useCallback((error) => {
     if (typeof window !== "undefined" && window.location.hostname === "localhost") {
@@ -240,6 +266,8 @@ function Acesso({ configSistema = {}, user = null }) {
       if (!registrarAcessoUrl || !payload) return;
       if (dedupeKey && isDuplicateEvent(dedupeKey)) return;
 
+      const geoPayload = buildGeoFallbackPayload(geoRef.current);
+
       fetch(registrarAcessoUrl, {
         method: "POST",
         mode: "cors",
@@ -247,7 +275,10 @@ function Acesso({ configSistema = {}, user = null }) {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          ...geoPayload,
+          ...payload,
+        }),
         keepalive: true,
       })
         .then(async (response) => {
@@ -260,13 +291,36 @@ function Acesso({ configSistema = {}, user = null }) {
         })
         .then((data) => {
           if (data?.geo) {
-            salvarGeoAcessoCache(data.geo);
+            const geoSalvo = salvarGeoAcessoCache(data.geo);
+            if (geoSalvo) {
+              geoRef.current = geoSalvo;
+            }
           }
         })
         .catch(reportarErro);
     },
     [registrarAcessoUrl, reportarErro]
   );
+
+  useEffect(() => {
+    let ativo = true;
+
+    const geoCache = lerGeoAcessoCache();
+    if (geoCache) {
+      geoRef.current = geoCache;
+    }
+
+    obterGeoAcessoAtual()
+      .then((geoAtual) => {
+        if (!ativo || !geoAtual) return;
+        geoRef.current = geoAtual;
+      })
+      .catch(() => {});
+
+    return () => {
+      ativo = false;
+    };
+  }, []);
 
   const registrarSaidaPagina = useCallback(
     (motivo = "route_change") => {

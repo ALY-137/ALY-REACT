@@ -13,6 +13,15 @@ function normalizeText(value) {
   return String(value || "").trim();
 }
 
+function resolveGeoText(acesso, ...candidates) {
+  for (const candidate of candidates) {
+    const value = normalizeText(candidate);
+    if (value) return value;
+  }
+
+  return "--";
+}
+
 function resolveOrigemAcesso(acesso) {
   const hostname = normalizeText(acesso?.hostname).toLowerCase();
   if (!hostname) return "";
@@ -257,6 +266,29 @@ function ListaAcessos() {
             const ipAcesso = normalizeText(acesso?.ip) || "--";
             const origemAcesso = resolveOrigemAcesso(acesso) || "--";
             const tipoUsuario = resolveTipoUsuario(acesso);
+            const paisAcesso = resolveGeoText(
+              acesso,
+              acesso?.country,
+              acesso?.pais,
+              acesso?.geo?.country,
+              acesso?.geo?.pais
+            );
+            const regiaoAcesso = resolveGeoText(
+              acesso,
+              acesso?.region,
+              acesso?.regiao,
+              acesso?.uf,
+              acesso?.geo?.region,
+              acesso?.geo?.regiao,
+              acesso?.geo?.uf
+            );
+            const cidadeAcesso = resolveGeoText(
+              acesso,
+              acesso?.city,
+              acesso?.cidade,
+              acesso?.geo?.city,
+              acesso?.geo?.cidade
+            );
             return (
               <article key={acesso.id} className="gerenciador-acessos__card">
                 <div className="gerenciador-acessos__topline">
@@ -281,9 +313,9 @@ function ListaAcessos() {
                   <span>{`Host: ${normalizeText(acesso?.hostname) || "--"}`}</span>
                   <span>{`IP: ${ipAcesso}`}</span>
                   <span>{`Hash: ${hashAnonimo}`}</span>
-                  <span>{`Pais: ${normalizeText(acesso?.country) || "--"}`}</span>
-                  <span>{`Regiao: ${normalizeText(acesso?.region) || acesso?.uf || "--"}`}</span>
-                  <span>{`Cidade: ${normalizeText(acesso?.city || acesso?.cidade) || "--"}`}</span>
+                  <span>{`Pais: ${paisAcesso}`}</span>
+                  <span>{`Regiao: ${regiaoAcesso}`}</span>
+                  <span>{`Cidade: ${cidadeAcesso}`}</span>
                 </div>
                 <div className="gerenciador-acessos__path">
                   <code>{normalizeText(acesso?.fullPath || acesso?.path) || "/"}</code>

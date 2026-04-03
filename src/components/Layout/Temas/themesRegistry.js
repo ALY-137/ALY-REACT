@@ -214,6 +214,13 @@ export function normalizarTemaRegistrado(value) {
   return normalizarIdTema(value);
 }
 
+export function obterTemaSistemaDefinicao(temaSistemaId) {
+  const temaSistema = normalizarIdTema(temaSistemaId);
+  return (
+    SYSTEM_THEMES.find((theme) => normalizarIdTema(theme.id) === temaSistema) || null
+  );
+}
+
 function ordenarTemasFamilia(temas = []) {
   return [...temas].sort((a, b) => {
     if (!!a.isPrimary && !b.isPrimary) return -1;
