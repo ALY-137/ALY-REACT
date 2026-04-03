@@ -4,6 +4,7 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 import { collection, doc, getDocs, onSnapshot, query, where } from "firebase/firestore";
 
 import {
+  activeFirebaseProjectKey,
   auth,
   db,
 } from "./components/Banco/init-firebase";
@@ -61,6 +62,13 @@ const POST_LOGIN_REDIRECT_KEY = "postLoginRedirectPath";
 const LOGIN_REVEAL_DELAY_DEFAULT_MS = 1000;
 const LOGIN_REVEAL_DELAY_RITUAL_MS = 6200;
 const LOGIN_REVEAL_DELAY_SPRITE_MS = 1200;
+const LOCAL_FIREBASE_QUERY_PARAM = "firebaseProject";
+const LOCAL_PROJECT_SYSTEM_QUERY_PARAM = "projectSystemKey";
+
+const isLocalHostRuntime = (hostname = "") => {
+  const host = String(hostname || "").trim().toLowerCase();
+  return host === "localhost" || host === "127.0.0.1" || host === "::1";
+};
 
 const App = () => {
   const [user, setUser] = useState(null);
@@ -148,6 +156,57 @@ const App = () => {
       ativo = false;
     };
   }, [user?.uid]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!configSistemaPronta || erroResolucaoProjeto) return;
+    if (isManagerProject) return;
+
+    const hostnameAtual = String(window.location.hostname || "").trim().toLowerCase();
+    if (!isLocalHostRuntime(hostnameAtual)) return;
+
+    const sharedRuntimeKey = String(
+      process.env.REACT_APP_FIREBASE_ALY_ONEPAGES_RUNTIME_KEY || ""
+    )
+      .trim()
+      .toLowerCase();
+    const projectSystemKey = String(configSistema?.projectSystemKey || "")
+      .trim()
+      .toLowerCase();
+
+    if (!sharedRuntimeKey || !projectSystemKey) return;
+    if (activeFirebaseProjectKey === sharedRuntimeKey) return;
+
+    const urlAtual = new URL(window.location.href);
+    const explicitTarget = String(
+      urlAtual.searchParams.get(LOCAL_FIREBASE_QUERY_PARAM) || ""
+    )
+      .trim()
+      .toLowerCase();
+    const explicitSystemKey = String(
+      urlAtual.searchParams.get(LOCAL_PROJECT_SYSTEM_QUERY_PARAM) || ""
+    )
+      .trim()
+      .toLowerCase();
+
+    if (explicitTarget || explicitSystemKey) return;
+
+    try {
+      window.localStorage.setItem("firebaseProjectTarget", sharedRuntimeKey);
+      window.localStorage.setItem("systemProjectContextKey", projectSystemKey);
+    } catch {
+      // Segue com redirect mesmo sem storage local.
+    }
+
+    urlAtual.searchParams.set(LOCAL_FIREBASE_QUERY_PARAM, sharedRuntimeKey);
+    urlAtual.searchParams.set(LOCAL_PROJECT_SYSTEM_QUERY_PARAM, projectSystemKey);
+    window.location.replace(`${urlAtual.pathname}${urlAtual.search}${urlAtual.hash}`);
+  }, [
+    configSistema,
+    configSistemaPronta,
+    erroResolucaoProjeto,
+    isManagerProject,
+  ]);
 
   useEffect(() => {
     const handleConfigSistemaAtualizada = (event) => {

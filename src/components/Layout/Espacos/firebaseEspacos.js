@@ -13,13 +13,16 @@ import {
   arrayRemove,
 } from "firebase/firestore";
 
-import { db } from "../../Banco/init-firebase";
+import { activeFirebaseProjectKey, db } from "../../Banco/init-firebase";
 import {
   getFirstExistingProjectDocSnapshot,
+  getLegacyProjectCollection,
+  getLegacyProjectDoc,
   getPrimaryProjectCollection,
   getProjectCollectionCandidates,
   getProjectDocCandidates,
 } from "../../Banco/projectDataRefs";
+import { isProjectDataNamespaced } from "../../Banco/projectDataNamespace";
 
 const VISIBILIDADES_ESPACO_AUTENTICADO = [
   "publico",
@@ -31,14 +34,82 @@ const getEstruturaPublicaEspacosRefs = (userId) =>
   getProjectCollectionCandidates(db, "users", userId, "espacos_publicos");
 const getEstruturaPublicaEspacosRef = (userId) =>
   getPrimaryProjectCollection(db, "users", userId, "espacos_publicos");
+const getLegacyEstruturaPublicaEspacosRef = (userId) =>
+  getLegacyProjectCollection(db, "users", userId, "espacos_publicos");
 const getEspacosRefs = (userId) =>
   getProjectCollectionCandidates(db, "users", userId, "espacos");
+const getLegacyEspacosRef = (userId) =>
+  getLegacyProjectCollection(db, "users", userId, "espacos");
 const getEspacoDocRefs = (userId, espacoId) =>
   getProjectDocCandidates(db, "users", userId, "espacos", espacoId);
+const getLegacyEspacoDocRef = (userId, espacoId) =>
+  getLegacyProjectDoc(db, "users", userId, "espacos", espacoId);
 const getSkinsRefs = (userId) =>
   getProjectCollectionCandidates(db, "users", userId, "skins");
 const getSkinDocRefs = (userId, skinId) =>
   getProjectDocCandidates(db, "users", userId, "skins", skinId);
+
+const namespaceAtivo = () => isProjectDataNamespaced(activeFirebaseProjectKey);
+
+async function migrarEstruturaPublicaLegadaParaNamespace(userId, docs = []) {
+  const userIdNormalizado = String(userId || "").trim();
+  if (!userIdNormalizado || !namespaceAtivo() || !Array.isArray(docs) || !docs.length) {
+    return false;
+  }
+
+  const destino = getEstruturaPublicaEspacosRef(userIdNormalizado);
+  let migrou = false;
+
+  for (const docSnap of docs) {
+    const data = docSnap?.data?.() || {};
+    const idEspaco = String(docSnap?.id || data?.id || data?.id_espaco || "").trim();
+    if (!idEspaco) continue;
+
+    await setDoc(
+      doc(destino, idEspaco),
+      {
+        ...data,
+        id_espaco: idEspaco,
+        ownerUserId: String(data?.ownerUserId || userIdNormalizado).trim() || userIdNormalizado,
+        atualizadoEm: serverTimestamp(),
+      },
+      { merge: true }
+    );
+    migrou = true;
+  }
+
+  return migrou;
+}
+
+async function migrarEspacosLegadosParaNamespace(userId, docs = []) {
+  const userIdNormalizado = String(userId || "").trim();
+  if (!userIdNormalizado || !namespaceAtivo() || !Array.isArray(docs) || !docs.length) {
+    return false;
+  }
+
+  const destino = getPrimaryProjectCollection(db, "users", userIdNormalizado, "espacos");
+  let migrou = false;
+
+  for (const docSnap of docs) {
+    const data = docSnap?.data?.() || {};
+    const idEspaco = String(docSnap?.id || data?.id || data?.id_espaco || "").trim();
+    if (!idEspaco) continue;
+
+    const payload = {
+      ...data,
+      id: idEspaco,
+      id_espaco: idEspaco,
+      ownerUserId: String(data?.ownerUserId || userIdNormalizado).trim() || userIdNormalizado,
+      atualizadoEm: serverTimestamp(),
+    };
+
+    await setDoc(doc(destino, idEspaco), payload, { merge: true });
+    await sincronizarEstruturaPublicaEspaco(userIdNormalizado, payload);
+    migrou = true;
+  }
+
+  return migrou;
+}
 
 export function construirEstruturaPublicaEspaco(espaco = {}, userId = "") {
   const ownerUserId = String(espaco?.ownerUserId || userId || "").trim();
@@ -124,7 +195,17 @@ export async function getEspacosEstruturaPublica(userId) {
     }
     if (snapAtual.docs.length) break;
   }
-  if (!snapshot) return [];
+  if ((!snapshot || snapshot.empty) && namespaceAtivo()) {
+    const legacySnap = await getDocs(query(getLegacyEstruturaPublicaEspacosRef(userIdNormalizado)));
+    if (legacySnap.docs.length) {
+      snapshot = legacySnap;
+      await migrarEstruturaPublicaLegadaParaNamespace(userIdNormalizado, legacySnap.docs);
+    }
+  }
+  if (!snapshot && !namespaceAtivo()) return [];
+  if (!snapshot) {
+    snapshot = { empty: true, docs: [] };
+  }
 
   return snapshot.docs
     .map((docSnap) => {
@@ -150,7 +231,20 @@ export async function getEspacoCompleto(userId, espacoId) {
     "espacos",
     espacoIdNormalizado
   );
-  if (!snap?.exists?.()) return null;
+  if (!snap?.exists?.()) {
+    if (!namespaceAtivo()) return null;
+
+    const legacySnap = await getDoc(getLegacyEspacoDocRef(userIdNormalizado, espacoIdNormalizado));
+    if (!legacySnap.exists()) return null;
+
+    await migrarEspacosLegadosParaNamespace(userIdNormalizado, [legacySnap]);
+
+    return {
+      id: legacySnap.id,
+      ownerUserId: legacySnap.data()?.ownerUserId || userIdNormalizado,
+      ...legacySnap.data(),
+    };
+  }
 
   return {
     id: snap.id,
@@ -208,7 +302,10 @@ export async function getEspacosDaSkin({ userId, skinId, viewerUserId = null }) 
     }
     if (!compatSnap.empty) break;
   }
-  if (!snapshot) return [];
+  if (!snapshot && !namespaceAtivo()) return [];
+  if (!snapshot) {
+    snapshot = { empty: true, docs: [] };
+  }
 
   // Fallback para esquema legado: documentos sem skins_relacionadas, mas com skinOwner.
   if (snapshot.empty) {
@@ -251,6 +348,29 @@ export async function getEspacosDaSkin({ userId, skinId, viewerUserId = null }) 
         snapshot = compatLegacySnap;
       }
       if (!compatLegacySnap.empty) break;
+    }
+  }
+
+  if (snapshot.empty && namespaceAtivo()) {
+    const legacyEspacosRef = getLegacyEspacosRef(userId);
+    const consultasLegadas = [];
+
+    consultasLegadas.push(query(legacyEspacosRef, where("skins_relacionadas", "array-contains", skinId)));
+    consultasLegadas.push(query(legacyEspacosRef, where("skinOwner", "==", skinId)));
+
+    for (const consulta of consultasLegadas) {
+      try {
+        const legacySnap = await getDocs(consulta);
+        if (!legacySnap.empty) {
+          snapshot = legacySnap;
+          await migrarEspacosLegadosParaNamespace(userId, legacySnap.docs);
+          break;
+        }
+      } catch (err) {
+        if (err?.code !== "permission-denied" && err?.code !== "failed-precondition") {
+          throw err;
+        }
+      }
     }
   }
 
@@ -366,6 +486,20 @@ export async function getEspacosDoOwner({
         if (!nullSnap.empty) break;
       } catch (err) {
         if (err?.code !== "permission-denied") throw err;
+      }
+    }
+  }
+
+  if (snapshot.empty && namespaceAtivo()) {
+    try {
+      const legacySnap = await getDocs(query(getLegacyEspacosRef(userId)));
+      if (!legacySnap.empty) {
+        snapshot = legacySnap;
+        await migrarEspacosLegadosParaNamespace(userId, legacySnap.docs);
+      }
+    } catch (err) {
+      if (err?.code !== "permission-denied" && err?.code !== "failed-precondition") {
+        throw err;
       }
     }
   }

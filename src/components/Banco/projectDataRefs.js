@@ -13,6 +13,10 @@ function resolvePathCandidates(segments = []) {
   });
 }
 
+function resolveLegacyPath(segments = []) {
+  return normalizeSegments(segments);
+}
+
 export function getProjectDocCandidates(db, ...segments) {
   return resolvePathCandidates(segments).map((path) => doc(db, ...path));
 }
@@ -36,4 +40,12 @@ export async function getFirstExistingProjectDocSnapshot(db, ...segments) {
     if (snap.exists()) return snap;
   }
   return null;
+}
+
+export function getLegacyProjectDoc(db, ...segments) {
+  return doc(db, ...resolveLegacyPath(segments));
+}
+
+export function getLegacyProjectCollection(db, ...segments) {
+  return collection(db, ...resolveLegacyPath(segments));
 }

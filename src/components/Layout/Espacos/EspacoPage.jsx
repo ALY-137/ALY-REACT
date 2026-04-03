@@ -47,11 +47,18 @@ import {
   getLiveRtcSessionCollectionRefs,
   getLiveRtcSessionDocRefs,
 } from "./live/liveRefs";
-import { auth, db, storage } from "../../Banco/init-firebase";
 import {
+  activeFirebaseProjectKey,
+  auth,
+  db,
+  storage,
+} from "../../Banco/init-firebase";
+import {
+  getLegacyProjectCollection,
   getProjectCollectionCandidates,
   getProjectDocCandidates,
 } from "../../Banco/projectDataRefs";
+import { isProjectDataNamespaced } from "../../Banco/projectDataNamespace";
 import {
   excluirArquivoNoBucketCompartilhado,
   obterUrlArquivoNoBucketCompartilhado,
@@ -84,10 +91,23 @@ import { getEspacoCompleto } from "./firebaseEspacos";
 
 const getBlocosCollectionRefs = (ownerUserId, espacoId) =>
   getProjectCollectionCandidates(db, "users", ownerUserId, "espacos", espacoId, "blocos");
+const getLegacyBlocosCollectionRef = (ownerUserId, espacoId) =>
+  getLegacyProjectCollection(db, "users", ownerUserId, "espacos", espacoId, "blocos");
 const getBlocoDocRefs = (ownerUserId, espacoId, blocoId) =>
   getProjectDocCandidates(db, "users", ownerUserId, "espacos", espacoId, "blocos", blocoId);
 const getBlocoCardsCollectionRefs = (ownerUserId, espacoId, blocoId) =>
   getProjectCollectionCandidates(
+    db,
+    "users",
+    ownerUserId,
+    "espacos",
+    espacoId,
+    "blocos",
+    blocoId,
+    "cards"
+  );
+const getLegacyBlocoCardsCollectionRef = (ownerUserId, espacoId, blocoId) =>
+  getLegacyProjectCollection(
     db,
     "users",
     ownerUserId,
@@ -255,6 +275,86 @@ const criarEstadoEditorBlocoCards = (overrides = {}) => ({
 
 const gerarIdCardTemporario = () =>
   `card_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+const namespaceAtivoProjeto = () => isProjectDataNamespaced(activeFirebaseProjectKey);
+
+async function carregarCardsLegadosRaiz(ownerUserId, espacoId, blocoId) {
+  try {
+    const cardsSnap = await getDocs(getLegacyBlocoCardsCollectionRef(ownerUserId, espacoId, blocoId));
+    return cardsSnap.docs;
+  } catch (err) {
+    if (err?.code === "permission-denied" || err?.code === "failed-precondition") {
+      return [];
+    }
+    throw err;
+  }
+}
+
+async function migrarBlocosLegadosRaizParaNamespace(ownerUserId, espacoId, blocoDocs = []) {
+  if (!namespaceAtivoProjeto() || !Array.isArray(blocoDocs) || !blocoDocs.length) {
+    return false;
+  }
+
+  let migrou = false;
+
+  for (const blocoDoc of blocoDocs) {
+    const blocoId = String(blocoDoc?.id || "").trim();
+    const blocoData = blocoDoc?.data?.() || {};
+    if (!blocoId) continue;
+
+    const cardsLegadosDocs = await carregarCardsLegadosRaiz(ownerUserId, espacoId, blocoId);
+    const cardsLegados = normalizarCardsDoBloco(
+      cardsLegadosDocs.map((cardDoc) => ({
+        id: cardDoc.id,
+        ...cardDoc.data(),
+      }))
+    );
+    const cardsFinal = normalizarCardsDoBloco(
+      Array.isArray(blocoData?.cards) && blocoData.cards.length ? blocoData.cards : cardsLegados
+    );
+
+    const blocoRef = getBlocoDocRefs(ownerUserId, espacoId, blocoId)[0];
+    await setDoc(
+      blocoRef,
+      {
+        ...blocoData,
+        id: blocoId,
+        ownerUserId: String(blocoData?.ownerUserId || ownerUserId).trim() || ownerUserId,
+        espacoId: String(blocoData?.espacoId || espacoId).trim() || espacoId,
+        cards: cardsFinal,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    await Promise.all(
+      cardsFinal.map((card) =>
+        setDoc(
+          getBlocoCardDocRefs(ownerUserId, espacoId, blocoId, card.id)[0],
+          {
+            id: card.id,
+            ordem: card.ordem,
+            nome: card.nome || "",
+            descricaoExtra: card.descricaoExtra || "",
+            descricao: card.descricao || "",
+            imagem: card.imagem || "",
+            imagemPath: card.imagemPath || "",
+            linkExterno: card.linkExterno || "",
+            blocoId,
+            espacoId,
+            ownerUserId,
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        )
+      )
+    );
+
+    migrou = true;
+  }
+
+  return migrou;
+}
 
 const extrairPrimeiraUrl = (texto = "") => {
   const bruto = String(texto || "").trim();
@@ -2676,6 +2776,50 @@ export default function EspacoPage() {
         }
 
         if (!docs.length) {
+          if (namespaceAtivoProjeto()) {
+            const legacyRootRef = getLegacyBlocosCollectionRef(ownerUserId, espacoId);
+            const consultasLegadas = visitanteOneOwnerPublico
+              ? [
+                  query(legacyRootRef, where("visibilidade", "==", "publico")),
+                  query(legacyRootRef, where("visibilidade", "==", null)),
+                ]
+              : [
+                  query(legacyRootRef, where("visibilidade", "==", "publico")),
+                  query(legacyRootRef, where("visibilidade", "==", "publico_restritivo")),
+                  query(legacyRootRef, where("visibilidade", "==", "privado")),
+                  query(legacyRootRef, where("visibilidade", "==", "exclusivo_assinante")),
+                  query(legacyRootRef, where("visibilidade", "==", "exclusivo_comprador")),
+                  query(legacyRootRef, where("visibilidade", "==", "comprado")),
+                  query(legacyRootRef, where("visibilidade", "==", null)),
+                ];
+
+            for (const consultaLegada of consultasLegadas) {
+              try {
+                const legacyRootSnap = await getDocs(consultaLegada);
+                if (legacyRootSnap.docs.length) {
+                  await migrarBlocosLegadosRaizParaNamespace(
+                    ownerUserId,
+                    espacoId,
+                    legacyRootSnap.docs
+                  );
+                  docs.push(
+                    ...legacyRootSnap.docs.map((d) => ({ __legacy: false, docSnap: d }))
+                  );
+                  break;
+                }
+              } catch (legacyRootErr) {
+                if (
+                  legacyRootErr?.code !== "permission-denied" &&
+                  legacyRootErr?.code !== "failed-precondition"
+                ) {
+                  throw legacyRootErr;
+                }
+              }
+            }
+          }
+        }
+
+        if (!docs.length) {
           const legacyQuery = query(
             collection(db, "blocos"),
             where("espacoId", "==", espacoId)
@@ -2746,6 +2890,25 @@ export default function EspacoPage() {
             const cardsSnap = await getDocs(cardsRef);
             cardsDocs.push(...cardsSnap.docs);
             if (cardsSnap.docs.length) break;
+          }
+          if (!cardsDocs.length && !bloco?.__legacy && namespaceAtivoProjeto()) {
+            const legacyRootCards = await carregarCardsLegadosRaiz(
+              ownerUserId,
+              espacoId,
+              bloco.id
+            );
+            if (legacyRootCards.length) {
+              await migrarBlocosLegadosRaizParaNamespace(ownerUserId, espacoId, [
+                {
+                  id: bloco.id,
+                  data: () => ({
+                    ...bloco,
+                    id: bloco.id,
+                  }),
+                },
+              ]);
+              cardsDocs.push(...legacyRootCards);
+            }
           }
           const cards = normalizarCardsDoBloco(
             cardsDocs.map((cardDoc) => ({
