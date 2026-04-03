@@ -150,6 +150,15 @@ body.layout-navbar-tabs-sticky-disabled .menu-navbar {
   font-family: "Courier New", Courier, monospace;
   letter-spacing: 0;
   pointer-events: none;
+  display: grid;
+  gap: 2px;
+  max-width: min(92vw, 420px);
+  white-space: normal;
+  word-break: break-word;
+}
+
+.firebaseProjectBadge__path {
+  overflow-wrap: anywhere;
 }
 
 #MenuContainer {
