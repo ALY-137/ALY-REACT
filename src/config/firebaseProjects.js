@@ -273,6 +273,15 @@ function safeReadLocalProjectFromStorage() {
   }
 }
 
+function safeReadLocalSystemContextFromStorage() {
+  if (typeof window === "undefined") return "";
+  try {
+    return (localStorage.getItem("systemProjectContextKey") || "").trim();
+  } catch {
+    return "";
+  }
+}
+
 function safeReadProjectAliasesFromStorage() {
   if (typeof window === "undefined") return {};
   try {
@@ -527,6 +536,7 @@ function resolveRequestedProjectKeySync(projects, hostProjectMap) {
   if (localHost) {
     const queryTarget = safeReadLocalProjectFromUrl();
     const queryTargetAlias = resolveStaticProjectAlias(queryTarget);
+    const oneownerRuntimeKey = getOneownerRuntimeProjectKey(projects);
     if (queryTargetAlias && projects[queryTargetAlias]) {
       safeWriteLocalProjectToStorage(queryTargetAlias);
       return queryTargetAlias;
@@ -556,7 +566,6 @@ function resolveRequestedProjectKeySync(projects, hostProjectMap) {
         }
       }
 
-      const oneownerRuntimeKey = getOneownerRuntimeProjectKey(projects);
       if (oneownerRuntimeKey && isProbablySystemKey(queryTargetAlias)) {
         safeWriteProjectAliasToStorage(queryTargetAlias, oneownerRuntimeKey);
         safeWriteLocalProjectToStorage(oneownerRuntimeKey);
@@ -574,6 +583,21 @@ function resolveRequestedProjectKeySync(projects, hostProjectMap) {
       if (storageByProjectId) {
         return storageByProjectId;
       }
+    }
+
+    const storageSystemContext = resolveStaticProjectAlias(
+      safeReadLocalSystemContextFromStorage()
+    );
+    if (
+      oneownerRuntimeKey &&
+      storageSystemContext &&
+      (!storageTargetAlias ||
+        storageTargetAlias === "teste-aa015" ||
+        storageTargetAlias === oneownerRuntimeKey)
+    ) {
+      safeWriteProjectAliasToStorage(storageSystemContext, oneownerRuntimeKey);
+      safeWriteLocalProjectToStorage(oneownerRuntimeKey);
+      return oneownerRuntimeKey;
     }
 
     return "teste-aa015";

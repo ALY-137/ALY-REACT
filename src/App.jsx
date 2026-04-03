@@ -170,9 +170,13 @@ const App = () => {
     )
       .trim()
       .toLowerCase();
-    const projectSystemKey = String(configSistema?.projectSystemKey || "")
-      .trim()
-      .toLowerCase();
+    const projectSystemKey =
+      String(configSistema?.projectSystemKey || "")
+        .trim()
+        .toLowerCase() ||
+      String(window.localStorage.getItem("systemProjectContextKey") || "")
+        .trim()
+        .toLowerCase();
 
     if (!sharedRuntimeKey || !projectSystemKey) return;
     if (activeFirebaseProjectKey === sharedRuntimeKey) return;

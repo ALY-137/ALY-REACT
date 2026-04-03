@@ -42,18 +42,16 @@ function resolveContextProjectKeyFromWindow(activeProjectKey = "") {
       return explicitProjectKey;
     }
 
-    if (sharedRuntimeAtivo) {
-      return "";
-    }
-
-    try {
-      const searchParams = new URLSearchParams(window.location.search || "");
-      const keyFromQuery = normalizeKey(searchParams.get(LOCAL_QUERY_PARAM) || "");
-      if (keyFromQuery) {
-        return keyFromQuery;
+    if (!sharedRuntimeAtivo) {
+      try {
+        const searchParams = new URLSearchParams(window.location.search || "");
+        const keyFromQuery = normalizeKey(searchParams.get(LOCAL_QUERY_PARAM) || "");
+        if (keyFromQuery) {
+          return keyFromQuery;
+        }
+      } catch {
+        // Ignora erro de parse da URL.
       }
-    } catch {
-      // Ignora erro de parse da URL.
     }
   }
 
