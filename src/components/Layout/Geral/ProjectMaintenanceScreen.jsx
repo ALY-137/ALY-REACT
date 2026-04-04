@@ -54,8 +54,13 @@ function CyberpinkMaintenanceAnimation() {
     });
     resetMatrixHomeScene();
 
-    const height = Math.min(Math.max(window.innerHeight * 0.34, 180), 320);
-    const width = Math.min(Math.max(window.innerWidth * 0.55, 260), 620);
+    const isMobile = window.matchMedia("(max-width: 640px)").matches;
+    const width = isMobile
+      ? Math.min(Math.max(window.innerWidth - 40, 240), 310)
+      : 420;
+    const height = isMobile
+      ? Math.max(Math.round(width * 0.74), 180)
+      : 252;
     const raf = window.requestAnimationFrame(() => {
       theMatrixHome(height, width);
     });
@@ -71,7 +76,10 @@ function CyberpinkMaintenanceAnimation() {
   }, []);
 
   return (
-    <div className="project-maintenance__matrix-frame" aria-hidden="true">
+    <div
+      className="project-maintenance__matrix-frame project-maintenance__matrix-frame--cyberpink"
+      aria-hidden="true"
+    >
       <div id="MatrixHome" />
     </div>
   );

@@ -75,12 +75,7 @@ function getOrCreateVisitorHash() {
   }
 }
 
-function resolvePersistentAccessHash(user = null) {
-  const uid = normalizeText(user?.uid);
-  if (uid) {
-    return hashString(`auth:${uid}:${normalizeText(user?.email).toLowerCase()}`);
-  }
-
+function resolvePersistentAccessHash() {
   return getOrCreateVisitorHash();
 }
 
@@ -148,8 +143,8 @@ function buildAcessoPayload({ user, configSistema, location }) {
   const search = normalizeText(location?.search);
   const urlHash = normalizeText(location?.hash);
   const skinContext = resolveSkinContext(location);
-  const accessHash = resolvePersistentAccessHash(user);
-  const visitorHash = user?.uid ? null : accessHash;
+  const accessHash = resolvePersistentAccessHash();
+  const visitorHash = accessHash;
   const statusProjeto = normalizeProjectStatus(configSistema?.statusProjeto, {
     projectSystemKey: projectSystemKey,
     firebaseProjectId: activeFirebaseProjectId,
