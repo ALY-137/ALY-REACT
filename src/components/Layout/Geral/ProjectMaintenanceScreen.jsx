@@ -49,18 +49,13 @@ function CyberpinkMaintenanceAnimation() {
     if (typeof window === "undefined") return undefined;
 
     configureMatrixHomeMessage({
-      headline: "EM",
-      subheadline: "CRIA\u00c7\u00c3O",
+      text: "EM CRIA\u00c7\u00c3O",
     });
     resetMatrixHomeScene();
 
     const isMobile = window.matchMedia("(max-width: 640px)").matches;
-    const width = isMobile
-      ? Math.min(Math.max(window.innerWidth - 40, 240), 310)
-      : 420;
-    const height = isMobile
-      ? Math.max(Math.round(width * 0.74), 180)
-      : 252;
+    const width = isMobile ? window.innerWidth : 420;
+    const height = isMobile ? window.innerHeight : 252;
     const raf = window.requestAnimationFrame(() => {
       theMatrixHome(height, width);
     });

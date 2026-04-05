@@ -9,8 +9,11 @@ const altura = window.innerHeight;
 
 const MATRIX_HOME_DEFAULT_HEADLINE = "BOAS-VINDAS";
 const MATRIX_HOME_DEFAULT_SUBHEADLINE = "ALY";
+const MATRIX_HOME_LINE_BREAK_LIMIT = 12;
 let matrixHomeHeadline = MATRIX_HOME_DEFAULT_HEADLINE;
 let matrixHomeSubheadlineOverride = "";
+let matrixHomeMessageText = "";
+let matrixHomeResolvedSubheadline = MATRIX_HOME_DEFAULT_SUBHEADLINE;
 
 //Essas variáveis foram criadas para obter os valores em pixels das dimensões de tela qual o usuário está utilizando.
 
@@ -18,29 +21,6 @@ let matrixHomeSubheadlineOverride = "";
 var i;
 
 var resultado;
-
-
-
-
-function realocaChuvasTxt(altura){
-
-    if(altura<400){
-        resultado = (altura/100) * 58;
-        resultado = -(alyAlt - resultado);
-    }else{
-        resultado = (altura/100) * 28;
-        resultado = -(alyAlt - resultado);
-    }
-
-return resultado;    
-}
-
-function centralizaNome() {
-    var elemento = document.getElementById('chuvaHome3');
-    if (!elemento) return;
-    elemento.style.marginLeft = '10px'; 
-  }
-
 
 
 var alyAlt = altura;
@@ -133,12 +113,13 @@ export var contAnimatrix = 0;
 
 function normalizaMensagemMatrix(value = "", fallback = "") {
     const texto = String(value || fallback || "")
+      .replace(/\s+/g, " ")
       .trim()
       .toUpperCase();
     return texto || String(fallback || "").trim().toUpperCase();
 }
 
-function resolveMatrixHomeSubheadline() {
+function resolveLegacyMatrixHomeSubheadline() {
     const fromOverride = normalizaMensagemMatrix(
       matrixHomeSubheadlineOverride,
       ""
@@ -154,10 +135,106 @@ function resolveMatrixHomeSubheadline() {
     return normalizaMensagemMatrix("", MATRIX_HOME_DEFAULT_SUBHEADLINE);
 }
 
+function splitMatrixHomeMessage(text = "", limit = MATRIX_HOME_LINE_BREAK_LIMIT) {
+    const normalized = normalizaMensagemMatrix(text, "");
+    if (!normalized) {
+        return {
+            headline: MATRIX_HOME_DEFAULT_HEADLINE,
+            subheadline: MATRIX_HOME_DEFAULT_SUBHEADLINE,
+        };
+    }
+
+    if (normalized.length <= limit) {
+        return {
+            headline: normalized,
+            subheadline: "",
+        };
+    }
+
+    const midpoint = Math.ceil(normalized.length / 2);
+    const candidates = [];
+
+    for (let index = 1; index < normalized.length - 1; index += 1) {
+        if (normalized[index] !== " ") continue;
+
+        const headline = normalized.slice(0, index).trim();
+        const subheadline = normalized.slice(index + 1).trim();
+
+        if (!headline || !subheadline) continue;
+
+        candidates.push({
+            headline,
+            subheadline,
+            overLimit:
+                Math.max(headline.length - limit, 0) +
+                Math.max(subheadline.length - limit, 0),
+            balance: Math.abs(headline.length - subheadline.length),
+            midpointDistance: Math.abs(index - midpoint),
+        });
+    }
+
+    if (candidates.length > 0) {
+        candidates.sort((left, right) => {
+            if (left.overLimit !== right.overLimit) {
+                return left.overLimit - right.overLimit;
+            }
+            if (left.balance !== right.balance) {
+                return left.balance - right.balance;
+            }
+            return left.midpointDistance - right.midpointDistance;
+        });
+
+        return {
+            headline: candidates[0].headline,
+            subheadline: candidates[0].subheadline,
+        };
+    }
+
+    const splitIndex =
+        normalized.length <= limit * 2 ? Math.ceil(normalized.length / 2) : limit;
+
+    return {
+        headline: normalized.slice(0, splitIndex).trim(),
+        subheadline: normalized.slice(splitIndex).trim(),
+    };
+}
+
+function resolveMatrixHomeCenteredColumns(length = 0, centerColumn = 0) {
+    const columns = [];
+
+    for (let index = 0; index < length; index += 1) {
+        if (index === 0) {
+            columns[index] = centerColumn;
+            continue;
+        }
+
+        if (index % 2 === 1) {
+            columns[index] = centerColumn - Math.ceil(index / 2);
+        } else {
+            columns[index] = centerColumn + Math.ceil(index / 2);
+        }
+    }
+
+    return columns;
+}
+
 function applyMatrixHomeMessages() {
-    const headline = normalizaMensagemMatrix(matrixHomeHeadline, MATRIX_HOME_DEFAULT_HEADLINE);
+    const configuredText = normalizaMensagemMatrix(matrixHomeMessageText, "");
+    if (configuredText) {
+        const { headline, subheadline } = splitMatrixHomeMessage(configuredText);
+        MensBV = headline.split("");
+        numMensBV = MensBV.length;
+        matrixHomeResolvedSubheadline = subheadline;
+        return;
+    }
+
+    const headline = normalizaMensagemMatrix(
+      matrixHomeHeadline,
+      MATRIX_HOME_DEFAULT_HEADLINE
+    );
     MensBV = headline.split("");
     numMensBV = MensBV.length;
+    matrixHomeResolvedSubheadline = resolveLegacyMatrixHomeSubheadline();
 }
 
 function resetArray(arrayRef) {
@@ -165,9 +242,11 @@ function resetArray(arrayRef) {
 }
 
 export function configureMatrixHomeMessage({
+    text = "",
     headline = MATRIX_HOME_DEFAULT_HEADLINE,
     subheadline = "",
 } = {}) {
+    matrixHomeMessageText = normalizaMensagemMatrix(text, "");
     matrixHomeHeadline = normalizaMensagemMatrix(headline, MATRIX_HOME_DEFAULT_HEADLINE);
     matrixHomeSubheadlineOverride = normalizaMensagemMatrix(subheadline, "");
     applyMatrixHomeMessages();
@@ -178,6 +257,7 @@ export function resetMatrixHomeScene() {
     clearInterval(tempAnima2);
     clearInterval(tempAnima3);
 
+    matrixHomeResolvedSubheadline = MATRIX_HOME_DEFAULT_SUBHEADLINE;
     contAnimatrix = 0;
     resultado = 0;
     nome = "";
@@ -393,32 +473,17 @@ function construVetMens(){
 }
 
 function caiemV(vetor,tamanho){
-    var ref = 0;
-    for(i= 0;i<tamanho;i++){
-        if(i===0){
-        vetor[i]= meio;
+    const centeredColumns = resolveMatrixHomeCenteredColumns(tamanho, Math.trunc(numCol / 2));
+    resetArray(vetor);
 
-        }else{
-        if(ref===0){
-            meio= meio-i;
-
-            ref += 1;
-        }else{
-            meio= meio+i;
-
-            ref -= 1;
-        }
-        vetor[i]=meio;
-        }
+    for(i = 0; i < centeredColumns.length; i += 1){
+        vetor[i] = centeredColumns[i];
     }
 }
 
 function comecoMBV(){
-    if(numMensBV%2===0){
-    comeco = sequenciaemV[numMensBV-1];
-    }else{
-    comeco = sequenciaemV[numMensBV-2];
-    };
+    const activeColumns = sequenciaemV.slice(0, numMensBV);
+    comeco = activeColumns.length ? Math.min(...activeColumns) : 0;
 }
 
 function preencheZeros(){
@@ -457,68 +522,45 @@ function trocador(d) {
 
 function enviaNome(){ 
 
-    nome = resolveMatrixHomeSubheadline();
+    nome = matrixHomeResolvedSubheadline || "";
 
    
 
     nome = nome.toUpperCase(); // DEIXA NOME SEMPRE EM MAIÚSCULO
     numNome = nome.length;
     MensBVNome = nome.split('');
-    
-        for(i=0;i<numCol;i++){
-            mensagem1[i]= i;
-        }
 
-        for(i= 0;i<numNome;i++){
-            if(i===0){
-                sequenciaemV1[i]= meio1;
+    resetArray(sequenciaemV1);
+    resetArray(posj3);
+    resetArray(comprimento3);
 
-            }else{
-                if(ref1===0){
-                    meio1= meio1-i;
+    for(i = 0; i < numCol; i += 1){
+        mensagem1[i] = 0;
+    }
 
-                    ref1 += 1;
-                }else{
-                    meio1= meio1+i;
+    if(numNome === 0){
+        return;
+    }
 
-                    ref1 -= 1;
-                }
-                sequenciaemV1[i]=meio1;
-            }
+    const centeredColumns = resolveMatrixHomeCenteredColumns(
+        numNome,
+        Math.trunc(numCol / 2)
+    );
 
-        }
+    for(i = 0; i < numNome; i += 1){
+        sequenciaemV1[i] = centeredColumns[i];
+        posj3[i] = centeredColumns[i];
+    }
 
+    const comeco1 = Math.min(...centeredColumns);
 
-        for(i=0;i<numNome;i++){
-                posj3[i]= sequenciaemV1[i];
-        }
+    for(i = 0; i < numNome; i += 1){
+        mensagem1[comeco1 + i] = MensBVNome[i];
+    }
 
-        var comeco1 ;
-
-        if(numNome%2===0){
-            comeco1 = sequenciaemV1[numNome-1];
-            
-            centralizaNome();
-
-        }else{
-            comeco1 = sequenciaemV1[numNome-2];
-        };
-
-
-        var cont1=0;
-        for( i =0 ;i<numCol;i++){
-            if(i<comeco1){
-                mensagem1[i]=0;
-            }else{
-                mensagem1[i]=MensBVNome[cont1];
-                cont1 +=1;
-            };
-        }
-
-        for (i = 0; i < numNome; i++) {
-            comprimento3[i] = random((numLin/2)+1 , numLin );
-        }
-                
+    for (i = 0; i < numNome; i += 1) {
+        comprimento3[i] = random((numLin/2)+1 , numLin );
+    }
 
 }
 
@@ -570,7 +612,9 @@ async function anima1() {
             if (prox1 === 1){
                 if(contAnimatrix===1){
                     start2();
-                    start3();
+                    if(numNome > 0){
+                        start3();
+                    }
                 
                 }
                 
@@ -746,11 +790,7 @@ export function anima3() {
 
                    
 
-                    var recebe = document.getElementById("chuvaHome2");
-                    recebe.style.marginTop = `${realocaChuvasTxt(altura, largura)}px`;
-                    recebe = document.getElementById("chuvaHome3");
-                    recebe.style.marginTop = `${realocaChuvasTxt(altura, largura)}px`;
-
+        
                     console.log("Animação terminada");
                    
                     resolve(true); 
