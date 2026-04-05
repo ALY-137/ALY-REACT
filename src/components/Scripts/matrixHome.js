@@ -199,19 +199,59 @@ function splitMatrixHomeMessage(text = "", limit = MATRIX_HOME_LINE_BREAK_LIMIT)
     };
 }
 
-function resolveMatrixHomeCenteredColumns(length = 0, centerColumn = 0) {
-    const columns = [];
+function resolveMatrixHomeMessageCharacterCount() {
+    const configuredText = normalizaMensagemMatrix(matrixHomeMessageText, "");
+    if (configuredText) {
+        return configuredText.length;
+    }
 
-    for (let index = 0; index < length; index += 1) {
-        if (index === 0) {
-            columns[index] = centerColumn;
-            continue;
+    const headline = normalizaMensagemMatrix(
+      matrixHomeHeadline,
+      MATRIX_HOME_DEFAULT_HEADLINE
+    );
+    const subheadline = matrixHomeResolvedSubheadline || resolveLegacyMatrixHomeSubheadline();
+    const completeMessage = subheadline
+      ? `${headline} ${subheadline}`.trim()
+      : headline;
+
+    return completeMessage.length;
+}
+
+function resolveMatrixHomeLineColumns(length = 0) {
+    if (!length || numCol <= 0) return [];
+
+    const safeLength = Math.min(length, numCol);
+    const startColumn = Math.max(Math.floor((numCol - safeLength) / 2), 0);
+
+    return Array.from({ length: safeLength }, (_, index) => startColumn + index);
+}
+
+function resolveMatrixHomeCenteredColumns(length = 0) {
+    const lineColumns = resolveMatrixHomeLineColumns(length);
+    if (lineColumns.length <= 1) {
+        return lineColumns;
+    }
+
+    const columns = [];
+    const middleLeftIndex = Math.floor((lineColumns.length - 1) / 2);
+    const middleRightIndex = Math.ceil((lineColumns.length - 1) / 2);
+
+    columns.push(lineColumns[middleLeftIndex]);
+
+    if (middleRightIndex !== middleLeftIndex) {
+        columns.push(lineColumns[middleRightIndex]);
+    }
+
+    for (let offset = 1; columns.length < lineColumns.length; offset += 1) {
+        const leftIndex = middleLeftIndex - offset;
+        const rightIndex = middleRightIndex + offset;
+
+        if (leftIndex >= 0) {
+            columns.push(lineColumns[leftIndex]);
         }
 
-        if (index % 2 === 1) {
-            columns[index] = centerColumn - Math.ceil(index / 2);
-        } else {
-            columns[index] = centerColumn + Math.ceil(index / 2);
+        if (rightIndex < lineColumns.length) {
+            columns.push(lineColumns[rightIndex]);
         }
     }
 
@@ -325,12 +365,24 @@ function theMatrixHome(altura,largura){
 
 
         numLin = Math.trunc(((altura) / 20)-1);
-        numCol = Math.trunc(((largura) / 20)-1);
-        if(numCol%2===0){
-        numCol = numCol -1;
+        numCol = Math.max(Math.trunc(largura / 20), 1);
+
+        const requiredParity = resolveMatrixHomeMessageCharacterCount() % 2;
+        const minimumColumns = Math.max(numMensBV, matrixHomeResolvedSubheadline.length, 1);
+
+        if(numCol < minimumColumns){
+        numCol = minimumColumns;
+        }
+
+        if(numCol % 2 !== requiredParity){
+            if(numCol > minimumColumns){
+                numCol = numCol - 1;
+            }else{
+                numCol = numCol + 1;
+            }
         }
         //Limita número de linhas e colunas.
-        //A fim de obter uma centralização para a frase de BOAS-VINDAS o número de colunas passa a ser impar.
+        //A fim de manter a frase inteira centralizada, a malha acompanha a paridade do texto.
         
 
         criachuvas(); // Essas divs são criadas para armazenar separamente cada sessão de chuva da animação da matrix.
@@ -473,7 +525,7 @@ function construVetMens(){
 }
 
 function caiemV(vetor,tamanho){
-    const centeredColumns = resolveMatrixHomeCenteredColumns(tamanho, Math.trunc(numCol / 2));
+    const centeredColumns = resolveMatrixHomeCenteredColumns(tamanho);
     resetArray(vetor);
 
     for(i = 0; i < centeredColumns.length; i += 1){
@@ -542,10 +594,7 @@ function enviaNome(){
         return;
     }
 
-    const centeredColumns = resolveMatrixHomeCenteredColumns(
-        numNome,
-        Math.trunc(numCol / 2)
-    );
+    const centeredColumns = resolveMatrixHomeCenteredColumns(numNome);
 
     for(i = 0; i < numNome; i += 1){
         sequenciaemV1[i] = centeredColumns[i];
