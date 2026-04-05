@@ -4354,7 +4354,7 @@ export default function EspacoPage() {
 
       {acessoEspacoResolvido &&
         podeVerEspaco &&
-        blocosVisiveis.map((bloco) => {
+        blocosVisiveis.map((bloco, blocoIndex) => {
           const blocoEhCards = bloco?.tipo === "cards";
           const blocoEhLive = bloco?.tipo === "live";
           const cardsDoBloco = normalizarCardsDoBloco(bloco?.cards);
@@ -4436,7 +4436,11 @@ export default function EspacoPage() {
               titulo={tituloBloco}
               iconUrl={iconeBloco}
               variante="home"
-              className="bloco-imagem"
+              className={`bloco-imagem${
+                !podeGerenciar && blocoIndex === 0
+                  ? " bloco-imagem--first-without-creator"
+                  : ""
+              }`}
             >
               {!!imagensParaExibir.length && (
                 <div
@@ -4716,6 +4720,14 @@ export default function EspacoPage() {
                       })()}
 
                       {cardsDoBloco.length > 1 ? (
+                        <div className="cards-bloco-count">
+                          <span className="cards-bloco-count-text">
+                            {`Card ${indiceCardAtivo + 1} de ${cardsDoBloco.length}`}
+                          </span>
+                        </div>
+                      ) : null}
+
+                      {cardsDoBloco.length > 1 ? (
                         <div className="cards-bloco-thumbs">
                           {cardsDoBloco.map((card, cardIndex) => {
                             const imagemCardResolvida =
@@ -4769,14 +4781,6 @@ export default function EspacoPage() {
                               </div>
                             );
                           })}
-                        </div>
-                      ) : null}
-
-                      {cardsDoBloco.length > 1 ? (
-                        <div className="cards-bloco-count">
-                          <span className="cards-bloco-count-text">
-                            {`Card ${indiceCardAtivo + 1} de ${cardsDoBloco.length}`}
-                          </span>
                         </div>
                       ) : null}
 

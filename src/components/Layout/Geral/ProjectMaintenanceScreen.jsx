@@ -140,19 +140,22 @@ function ProjectMaintenanceScreen({ configSistema = {}, themeId = "CYBERPINK" })
   const tituloSistema = String(
     configSistema?.tituloSistema || configSistema?.nomeProjeto || "Projeto"
   ).trim();
+  const isCyberpink = temaNormalizado === "CYBERPINK";
 
   return (
     <section className={`project-maintenance project-maintenance--${temaNormalizado.toLowerCase()}`}>
       <div className="project-maintenance__shell">
-        <div className="project-maintenance__copy">
-          <p className="project-maintenance__eyebrow">{copy.eyebrow}</p>
-          <h1 className="project-maintenance__title">{copy.title}</h1>
-          <p className="project-maintenance__text">{copy.description}</p>
-          <div className="project-maintenance__meta">
-            <span className="project-maintenance__meta-chip">{tituloSistema}</span>
-            <span className="project-maintenance__meta-chip">Acesso via dominio pausado</span>
+        {!isCyberpink ? (
+          <div className="project-maintenance__copy">
+            <p className="project-maintenance__eyebrow">{copy.eyebrow}</p>
+            <h1 className="project-maintenance__title">{copy.title}</h1>
+            <p className="project-maintenance__text">{copy.description}</p>
+            <div className="project-maintenance__meta">
+              <span className="project-maintenance__meta-chip">{tituloSistema}</span>
+              <span className="project-maintenance__meta-chip">Acesso via dominio pausado</span>
+            </div>
           </div>
-        </div>
+        ) : null}
         <div className="project-maintenance__visual">
           <ThemeMaintenanceAnimation themeId={temaNormalizado} />
         </div>

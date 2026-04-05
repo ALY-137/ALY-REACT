@@ -630,6 +630,10 @@ function isPrivateOrLocalIp(ip = "") {
 async function fetchGeoByIp(ip = "") {
   const normalizedIp = sanitizeString(ip).replace(/^::ffff:/, "");
   if (!normalizedIp || isPrivateOrLocalIp(normalizedIp)) {
+    console.info("[geo] skip lookup for private/local ip", {
+      ip: normalizedIp || null,
+      reason: !normalizedIp ? "missing_ip" : "private_or_local_ip",
+    });
     return {
       ip: normalizedIp || null,
       country: null,
@@ -642,6 +646,8 @@ async function fetchGeoByIp(ip = "") {
       latitude: null,
       longitude: null,
       resolvedAt: Date.now(),
+      _geoSource: !normalizedIp ? "missing_ip" : "private_or_local_ip",
+      _geoError: null,
     };
   }
 
@@ -657,6 +663,17 @@ async function fetchGeoByIp(ip = "") {
     });
     const payload = await response.json().catch(() => ({}));
 
+    console.info("[geo] ipwho.is lookup result", {
+      ip: normalizedIp,
+      ok: Boolean(response?.ok),
+      status: Number(response?.status) || null,
+      success: payload?.success !== false,
+      country: sanitizeString(payload?.country) || null,
+      region: sanitizeString(payload?.region) || null,
+      city: sanitizeString(payload?.city) || null,
+      regionCode: sanitizeString(payload?.region_code) || null,
+    });
+
     return {
       ip: normalizedIp,
       country: sanitizeString(payload?.country) || null,
@@ -671,8 +688,15 @@ async function fetchGeoByIp(ip = "") {
       longitude:
         Number.isFinite(Number(payload?.longitude)) ? Number(payload.longitude) : null,
       resolvedAt: Date.now(),
+      _geoSource: "ipwho.is",
+      _geoError: null,
     };
-  } catch {
+  } catch (error) {
+    console.warn("[geo] ipwho.is lookup failed", {
+      ip: normalizedIp,
+      errorName: sanitizeString(error?.name) || null,
+      errorMessage: sanitizeString(error?.message) || null,
+    });
     return {
       ip: normalizedIp,
       country: null,
@@ -685,6 +709,8 @@ async function fetchGeoByIp(ip = "") {
       latitude: null,
       longitude: null,
       resolvedAt: Date.now(),
+      _geoSource: "lookup_error",
+      _geoError: sanitizeString(error?.message) || sanitizeString(error?.name) || null,
     };
   } finally {
     clearTimeout(timeoutId);
@@ -694,8 +720,7 @@ async function fetchGeoByIp(ip = "") {
 async function resolveGeoDataFromRequest(req, fallback = {}) {
   const clientIp = sanitizeString(fallback?.ip) || extractClientIp(req) || null;
   const geoByIp = await fetchGeoByIp(clientIp);
-
-  return {
+  const resolvedGeo = {
     ip: geoByIp.ip || clientIp || null,
     country: geoByIp.country || sanitizeString(fallback?.country) || null,
     region: geoByIp.region || sanitizeString(fallback?.region) || null,
@@ -722,7 +747,21 @@ async function resolveGeoDataFromRequest(req, fallback = {}) {
     latitude: geoByIp.latitude,
     longitude: geoByIp.longitude,
     resolvedAt: geoByIp.resolvedAt || Date.now(),
+    _geoSource: sanitizeString(geoByIp?._geoSource) || "unknown",
+    _geoError: sanitizeString(geoByIp?._geoError) || null,
   };
+
+  console.info("[geo] resolved request geo", {
+    ip: resolvedGeo.ip,
+    source: resolvedGeo._geoSource,
+    error: resolvedGeo._geoError,
+    country: resolvedGeo.country,
+    region: resolvedGeo.region,
+    city: resolvedGeo.city,
+    uf: resolvedGeo.uf,
+  });
+
+  return resolvedGeo;
 }
 
 async function getProjectSystemConfigSnapshot(firestoreDb = db) {
