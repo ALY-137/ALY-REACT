@@ -6,6 +6,7 @@ function Container({
   variante = "home",
   className = "",
   contentClassName = "",
+  style = undefined,
   children,
 }) {
   const possuiCabecalho = Boolean(titulo || iconUrl);
@@ -17,7 +18,7 @@ function Container({
     .join(" ");
 
   return (
-    <section className={classesContainer}>
+    <section className={classesContainer} style={style}>
       {possuiCabecalho && (
         <header className="bloco-container__header">
           {!!iconUrl && (

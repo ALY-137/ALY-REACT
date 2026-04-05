@@ -4436,6 +4436,11 @@ export default function EspacoPage() {
               titulo={tituloBloco}
               iconUrl={iconeBloco}
               variante="home"
+              style={
+                !podeGerenciar && blocoIndex === 0
+                  ? { marginTop: tituloBloco || iconeBloco ? 96 : 64 }
+                  : undefined
+              }
               className={`bloco-imagem${
                 !podeGerenciar && blocoIndex === 0
                   ? " bloco-imagem--first-without-creator"

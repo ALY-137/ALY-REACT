@@ -93,7 +93,7 @@ function ListaAcessos() {
 
     const carregarAcessos = async () => {
       try {
-        const lista = await listarAcessosNoGerenciador();
+        const lista = await listarAcessosNoGerenciador({ limit: 500 });
         if (!ativo) return;
         setErro("");
         setAcessos(Array.isArray(lista) ? lista : []);

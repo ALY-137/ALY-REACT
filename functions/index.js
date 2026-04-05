@@ -2540,7 +2540,7 @@ exports.listarAcessosGerenciadorHttp = onRequest(
         email: decoded?.email,
       });
 
-      const maxItems = Math.min(Math.max(Number(body?.limit) || 3000, 1), 8000);
+      const maxItems = Math.min(Math.max(Number(body?.limit) || 500, 1), 2000);
       const projectSystemKey = sanitizeString(body?.projectSystemKey).toLowerCase();
       const managerDb = getSystemManagerDb();
       let ref = managerDb.collection("acessos");

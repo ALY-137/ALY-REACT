@@ -6,6 +6,7 @@ import {
   getDoc,
   getDocs,
   limit,
+  orderBy,
   query,
   serverTimestamp,
   setDoc,
@@ -62,10 +63,14 @@ function shouldFallbackToDirectManagerRead(error) {
   if (error instanceof TypeError) return true;
   if (code === "failed-precondition") return true;
   if (code === "unavailable") return true;
+  if (code === "resource-exhausted") return true;
+  if (code === "http-429") return true;
   if (code === "http-404") return true;
   if (code === "http-500") return true;
   if (message.includes("failed to fetch")) return true;
   if (message.includes("cors")) return true;
+  if (message.includes("quota exceeded")) return true;
+  if (message.includes("resource_exhausted")) return true;
   if (message.includes("backend compartilhado")) return true;
   if (message.includes("nao configurado")) return true;
 
@@ -514,7 +519,7 @@ export async function listarUsuariosEspelhadosNoGerenciador({ limit: maxItems = 
 }
 
 export async function listarAcessosNoGerenciador({
-  limit: maxItems = 3000,
+  limit: maxItems = 500,
   projectSystemKey = "",
 } = {}) {
   const managerDb = getManagerDb();
@@ -537,19 +542,19 @@ export async function listarAcessosNoGerenciador({
     }
   }
 
-  const snap = await getDocs(collection(managerDb, "acessos"));
+  const constraints = [];
+  if (projectSystemKeyNormalizado) {
+    constraints.push(where("projectSystemKey", "==", projectSystemKeyNormalizado));
+  }
+  constraints.push(orderBy("data", "desc"));
+  constraints.push(limit(maxItems));
+
+  const snap = await getDocs(query(collection(managerDb, "acessos"), ...constraints));
   return snap.docs
     .map((docItem) => ({
       id: docItem.id,
       ...(docItem.data() || {}),
     }))
-    .filter((item) => {
-      if (!projectSystemKeyNormalizado) return true;
-      const keyAtual = normalizeText(
-        item?.projectSystemKey || item?.runtimeProjectKey
-      ).toLowerCase();
-      return keyAtual === projectSystemKeyNormalizado;
-    })
     .sort((a, b) => {
       const dataA = a?.data?.seconds || 0;
       const dataB = b?.data?.seconds || 0;
