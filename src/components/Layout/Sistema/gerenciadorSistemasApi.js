@@ -487,11 +487,6 @@ export function obterFirestoreDoGerenciador() {
 
 export async function listarUsuariosEspelhadosNoGerenciador({ limit: maxItems = 1500 } = {}) {
   const managerDb = getManagerDb();
-  const managerProjectId = getManagerProjectIdNormalized();
-  const managerAtivo =
-    managerDb &&
-    managerProjectId &&
-    normalizeText(activeFirebaseProjectId).toLowerCase() === managerProjectId;
 
   try {
     const response = await callSharedManagerRead("listarUsuariosGerenciadorHttp", {
@@ -499,7 +494,7 @@ export async function listarUsuariosEspelhadosNoGerenciador({ limit: maxItems = 
     });
     return Array.isArray(response?.items) ? response.items : [];
   } catch (error) {
-    if (!managerAtivo || !shouldFallbackToDirectManagerRead(error)) {
+    if (!managerDb || !shouldFallbackToDirectManagerRead(error)) {
       throw error;
     }
   }
@@ -523,11 +518,6 @@ export async function listarAcessosNoGerenciador({
   projectSystemKey = "",
 } = {}) {
   const managerDb = getManagerDb();
-  const managerProjectId = getManagerProjectIdNormalized();
-  const managerAtivo =
-    managerDb &&
-    managerProjectId &&
-    normalizeText(activeFirebaseProjectId).toLowerCase() === managerProjectId;
   const projectSystemKeyNormalizado = normalizeText(projectSystemKey).toLowerCase();
 
   try {
@@ -537,7 +527,7 @@ export async function listarAcessosNoGerenciador({
     });
     return Array.isArray(response?.items) ? response.items : [];
   } catch (error) {
-    if (!managerAtivo || !shouldFallbackToDirectManagerRead(error)) {
+    if (!managerDb || !shouldFallbackToDirectManagerRead(error)) {
       throw error;
     }
   }
