@@ -282,6 +282,7 @@ function Acesso({ configSistema = {}, user = null }) {
         body: JSON.stringify({
           ...geoPayload,
           ...payload,
+          geo: geoPayload,
         }),
         keepalive: true,
       })

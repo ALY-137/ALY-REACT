@@ -562,27 +562,55 @@ function normalizeBaseUrl(baseUrl) {
 }
 
 function extractClientIp(req) {
-  const forwarded = sanitizeString(
-    req?.headers?.["x-forwarded-for"] || req?.headers?.["X-Forwarded-For"] || ""
-  );
-  if (forwarded) {
-    const firstForwarded = forwarded
-      .split(",")
-      .map((item) => sanitizeString(item))
-      .find(Boolean);
-    if (firstForwarded) {
-      return firstForwarded;
+  const splitCandidates = (value) => {
+    if (Array.isArray(value)) {
+      return value
+        .flatMap((item) => splitCandidates(item))
+        .map((item) => sanitizeString(item).replace(/^::ffff:/, ""))
+        .filter(Boolean);
     }
-  }
+
+    return String(value || "")
+      .split(",")
+      .map((item) => sanitizeString(item).replace(/^::ffff:/, ""))
+      .filter(Boolean);
+  };
+
+  const headerCandidates = [
+    req?.headers?.["x-forwarded-for"],
+    req?.headers?.["X-Forwarded-For"],
+    req?.headers?.["x-real-ip"],
+    req?.headers?.["X-Real-IP"],
+    req?.headers?.["true-client-ip"],
+    req?.headers?.["True-Client-IP"],
+    req?.headers?.["cf-connecting-ip"],
+    req?.headers?.["CF-Connecting-IP"],
+    req?.headers?.["fastly-client-ip"],
+    req?.headers?.["Fastly-Client-IP"],
+    req?.headers?.["x-client-ip"],
+    req?.headers?.["X-Client-IP"],
+    req?.headers?.["x-appengine-user-ip"],
+    req?.headers?.["X-Appengine-User-Ip"],
+    req?.headers?.["x-vercel-forwarded-for"],
+    req?.headers?.["X-Vercel-Forwarded-For"],
+  ].flatMap((value) => splitCandidates(value));
 
   const candidates = [
+    ...headerCandidates,
     req?.ip,
     req?.socket?.remoteAddress,
     req?.connection?.remoteAddress,
-  ];
+  ]
+    .map((candidate) => sanitizeString(candidate).replace(/^::ffff:/, ""))
+    .filter(Boolean);
+
+  const publicCandidate = candidates.find((candidate) => !isPrivateOrLocalIp(candidate));
+  if (publicCandidate) {
+    return publicCandidate;
+  }
 
   for (const candidate of candidates) {
-    const normalized = sanitizeString(candidate);
+    const normalized = sanitizeString(candidate).replace(/^::ffff:/, "");
     if (normalized) return normalized;
   }
 
@@ -718,34 +746,48 @@ async function fetchGeoByIp(ip = "") {
 }
 
 async function resolveGeoDataFromRequest(req, fallback = {}) {
-  const clientIp = sanitizeString(fallback?.ip) || extractClientIp(req) || null;
+  const fallbackGeo =
+    fallback?.geo && typeof fallback.geo === "object" ? fallback.geo : {};
+  const fallbackPayload = {
+    ...fallbackGeo,
+    ...fallback,
+  };
+  const clientIp = sanitizeString(fallbackPayload?.ip) || extractClientIp(req) || null;
   const geoByIp = await fetchGeoByIp(clientIp);
   const resolvedGeo = {
     ip: geoByIp.ip || clientIp || null,
-    country: geoByIp.country || sanitizeString(fallback?.country) || null,
-    region: geoByIp.region || sanitizeString(fallback?.region) || null,
+    country: geoByIp.country || sanitizeString(fallbackPayload?.country) || null,
+    region: geoByIp.region || sanitizeString(fallbackPayload?.region) || null,
     city:
       geoByIp.city ||
-      sanitizeString(fallback?.city) ||
-      sanitizeString(fallback?.cidade) ||
+      sanitizeString(fallbackPayload?.city) ||
+      sanitizeString(fallbackPayload?.cidade) ||
       null,
     uf:
       geoByIp.uf ||
-      sanitizeString(fallback?.uf) ||
-      sanitizeString(fallback?.regionCode) ||
+      sanitizeString(fallbackPayload?.uf) ||
+      sanitizeString(fallbackPayload?.regionCode) ||
       null,
     regionCode:
       geoByIp.regionCode ||
-      sanitizeString(fallback?.regionCode) ||
-      sanitizeString(fallback?.uf) ||
+      sanitizeString(fallbackPayload?.regionCode) ||
+      sanitizeString(fallbackPayload?.uf) ||
       null,
-    org: geoByIp.org || sanitizeString(fallback?.org) || null,
-    cep: geoByIp.cep || sanitizeString(fallback?.cep) || null,
-    logradouro: sanitizeString(fallback?.logradouro) || null,
-    bairro: sanitizeString(fallback?.bairro) || null,
-    cidade: sanitizeString(fallback?.cidade) || geoByIp.city || null,
-    latitude: geoByIp.latitude,
-    longitude: geoByIp.longitude,
+    org: geoByIp.org || sanitizeString(fallbackPayload?.org) || null,
+    cep: geoByIp.cep || sanitizeString(fallbackPayload?.cep) || null,
+    logradouro: sanitizeString(fallbackPayload?.logradouro) || null,
+    bairro: sanitizeString(fallbackPayload?.bairro) || null,
+    cidade: sanitizeString(fallbackPayload?.cidade) || geoByIp.city || null,
+    latitude:
+      geoByIp.latitude ??
+      (Number.isFinite(Number(fallbackPayload?.latitude))
+        ? Number(fallbackPayload.latitude)
+        : null),
+    longitude:
+      geoByIp.longitude ??
+      (Number.isFinite(Number(fallbackPayload?.longitude))
+        ? Number(fallbackPayload.longitude)
+        : null),
     resolvedAt: geoByIp.resolvedAt || Date.now(),
     _geoSource: sanitizeString(geoByIp?._geoSource) || "unknown",
     _geoError: sanitizeString(geoByIp?._geoError) || null,
@@ -2332,6 +2374,24 @@ exports.registrarAcessoPublico = onRequest(
       const geo = await resolveGeoDataFromRequest(req, body || {});
       const clientIp = sanitizeString(geo?.ip) || null;
       const managerDb = getSystemManagerDb();
+      const geoPayload = {
+        ip: clientIp,
+        country: sanitizeString(geo?.country) || null,
+        region: sanitizeString(geo?.region) || null,
+        city: sanitizeString(geo?.city) || null,
+        org: sanitizeString(geo?.org) || null,
+        cep: sanitizeString(geo?.cep) || null,
+        logradouro: sanitizeString(geo?.logradouro) || null,
+        bairro: sanitizeString(geo?.bairro) || null,
+        cidade: sanitizeString(geo?.cidade) || null,
+        uf: sanitizeString(geo?.uf) || null,
+        regionCode: sanitizeString(geo?.regionCode || geo?.uf) || null,
+        latitude: Number.isFinite(Number(geo?.latitude)) ? Number(geo.latitude) : null,
+        longitude: Number.isFinite(Number(geo?.longitude)) ? Number(geo.longitude) : null,
+        resolvedAt: Number.isFinite(Number(geo?.resolvedAt)) ? Number(geo.resolvedAt) : null,
+        source: sanitizeString(geo?._geoSource) || null,
+        error: sanitizeString(geo?._geoError) || null,
+      };
 
       await managerDb.collection("acessos").add({
         uid: sanitizeString(body?.uid) || null,
@@ -2368,18 +2428,21 @@ exports.registrarAcessoPublico = onRequest(
         elementoHref: sanitizeString(body?.elementoHref) || null,
         duracaoMs: Number.isFinite(Number(body?.duracaoMs)) ? Number(body?.duracaoMs) : null,
 
-        ip: clientIp,
-        country: sanitizeString(geo?.country) || null,
-        region: sanitizeString(geo?.region) || null,
-        city: sanitizeString(geo?.city) || null,
-        org: sanitizeString(geo?.org) || null,
-        cep: sanitizeString(geo?.cep) || null,
-        logradouro: sanitizeString(geo?.logradouro) || null,
-        bairro: sanitizeString(geo?.bairro) || null,
-        cidade: sanitizeString(geo?.cidade) || null,
-        uf: sanitizeString(geo?.uf) || null,
-        latitude: Number.isFinite(Number(geo?.latitude)) ? Number(geo.latitude) : null,
-        longitude: Number.isFinite(Number(geo?.longitude)) ? Number(geo.longitude) : null,
+        ip: geoPayload.ip,
+        country: geoPayload.country,
+        region: geoPayload.region,
+        city: geoPayload.city,
+        org: geoPayload.org,
+        cep: geoPayload.cep,
+        logradouro: geoPayload.logradouro,
+        bairro: geoPayload.bairro,
+        cidade: geoPayload.cidade,
+        uf: geoPayload.uf,
+        latitude: geoPayload.latitude,
+        longitude: geoPayload.longitude,
+        geoSource: geoPayload.source,
+        geoError: geoPayload.error,
+        geo: geoPayload,
 
         visto: false,
         origem: "cliente-web",

@@ -1130,71 +1130,76 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
     navigate(proximoMenuAberto ? destinoMenu : destinoFechar);
   };
 
-  const profileJSX = (
-    <>
-      <div id="navbar-menu" style={{ textAlign: "center" }}>
-        {!user ? (
-          <LoginButton />
-        ) : !oneOwnerPublicaAtiva || usuarioPodeAbrirMenuOneOwner ? (
-          <p onClick={toggleMenu} style={{ cursor: "pointer" }}>
-            ☰
-          </p>
-        ) : null}
-      </div>
-
-      <div
-        id="cardProfile"
-        style={
-          oneOwnerPublicaAtiva && configSistemaAtual?.layoutTema?.headerVisible !== false
-            ? {
-                display: menuOpen ? "none" : "block",
-                position: "relative",
-                right: "auto",
-                top: "auto",
-                margin: "0 auto",
-                transform: "none",
-                pointerEvents: "none",
-              }
-            : { display: menuOpen ? "none" : "block" }
-        }
-      >
-        <Navegacoes />
-        {cardProfileUrlEfetiva ? (
-          <img
-            src={cardProfileUrlEfetiva}
-            id="imgBustoHome"
-            alt="imagem"
-            onLoad={(event) => {
-              const larguraNatural = Number(event.currentTarget.naturalWidth || 0);
-              const alturaNatural = Number(event.currentTarget.naturalHeight || 0);
-              if (!larguraNatural || !alturaNatural) {
-                setCardProfileNaturalDimensions(null);
-                return;
-              }
-              setCardProfileNaturalDimensions({
-                width: larguraNatural,
-                height: alturaNatural,
-              });
-            }}
-            style={
-              oneOwnerPublicaAtiva && configSistemaAtual?.layoutTema?.headerVisible !== false
-                ? {
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "contain",
-                    left: "0",
-                    right: "0",
-                    margin: "0 auto",
-                  }
-                : undefined
-            }
-          />
-        ) : null}
-      </div>
-    </>
+  const navbarMenuJSX = (
+    <div id="navbar-menu" style={{ textAlign: "center" }}>
+      {!user ? (
+        <LoginButton />
+      ) : !oneOwnerPublicaAtiva || usuarioPodeAbrirMenuOneOwner ? (
+        <p onClick={toggleMenu} style={{ cursor: "pointer" }}>
+          ☰
+        </p>
+      ) : null}
+    </div>
   );
 
-  const navigationJSX = <Navbar pages={espacos} username={username} />;
+  const profileJSX = (
+    <div
+      id="cardProfile"
+      style={
+        oneOwnerPublicaAtiva && configSistemaAtual?.layoutTema?.headerVisible !== false
+          ? {
+              display: menuOpen ? "none" : "block",
+              position: "relative",
+              right: "auto",
+              top: "auto",
+              margin: "0 auto",
+              transform: "none",
+              pointerEvents: "none",
+            }
+          : { display: menuOpen ? "none" : "block" }
+      }
+    >
+      <Navegacoes />
+      {cardProfileUrlEfetiva ? (
+        <img
+          src={cardProfileUrlEfetiva}
+          id="imgBustoHome"
+          alt="imagem"
+          onLoad={(event) => {
+            const larguraNatural = Number(event.currentTarget.naturalWidth || 0);
+            const alturaNatural = Number(event.currentTarget.naturalHeight || 0);
+            if (!larguraNatural || !alturaNatural) {
+              setCardProfileNaturalDimensions(null);
+              return;
+            }
+            setCardProfileNaturalDimensions({
+              width: larguraNatural,
+              height: alturaNatural,
+            });
+          }}
+          style={
+            oneOwnerPublicaAtiva && configSistemaAtual?.layoutTema?.headerVisible !== false
+              ? {
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "contain",
+                  left: "0",
+                  right: "0",
+                  margin: "0 auto",
+                }
+              : undefined
+          }
+        />
+      ) : null}
+    </div>
+  );
+
+  const navigationJSX = (
+    <>
+      {navbarMenuJSX}
+      <Navbar pages={espacos} username={username} />
+    </>
+  );
   const loginLoadingMode = String(configSistemaAtual?.loginLoadingMode || "")
     .trim()
     .toLowerCase();

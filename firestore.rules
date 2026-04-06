@@ -31,6 +31,7 @@ service cloud.firestore {
     function isAdmin() {
       return signedIn() && (
         request.auth.uid == "WnGJjmU6btgKmMMFAQq5Hpupsap1" ||
+        request.auth.token.email == "savannapassarela@gmail.com" ||
         isAdminDinamico()
       );
     }

@@ -38,6 +38,12 @@
   justify-content: flex-end;
 }
 
+.gerenciador-acessos__filter-pair {
+  display: flex;
+  gap: 12px;
+  flex-wrap: nowrap;
+}
+
 .gerenciador-acessos__filter span {
   font-size: 12px;
   font-weight: 600;
@@ -51,6 +57,10 @@
   border: 1px solid rgba(255, 255, 255, 0.25);
   background: rgba(0, 0, 0, 0.15);
   color: inherit;
+}
+
+.gerenciador-acessos__filter--compact {
+  min-width: 170px;
 }
 
 .gerenciador-acessos__summary,
@@ -137,8 +147,17 @@
     justify-content: stretch;
   }
 
+  .gerenciador-acessos__filter-pair {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
   .gerenciador-acessos__filter {
     min-width: min(220px, 100%);
     flex: 1 1 180px;
+  }
+
+  .gerenciador-acessos__filter--compact {
+    min-width: min(180px, 100%);
   }
 }

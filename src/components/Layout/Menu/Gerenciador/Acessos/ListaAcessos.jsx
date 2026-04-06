@@ -42,22 +42,28 @@ function resolveTipoUsuario(acesso) {
 }
 
 function formatarData(value) {
-  if (!value) return "--";
+  const timestampMs = resolveDataTimestampMs(value);
+  if (!Number.isFinite(timestampMs) || timestampMs <= 0) return "--";
+  return new Date(timestampMs).toLocaleString("pt-BR");
+}
+
+function resolveDataTimestampMs(value) {
+  if (!value) return NaN;
   if (typeof value?.toDate === "function") {
-    return value.toDate().toLocaleString("pt-BR");
+    return value.toDate().getTime();
   }
   if (typeof value?.seconds === "number") {
-    return new Date(value.seconds * 1000).toLocaleString("pt-BR");
+    return new Date(value.seconds * 1000).getTime();
   }
   if (typeof value?._seconds === "number") {
-    return new Date(value._seconds * 1000).toLocaleString("pt-BR");
+    return new Date(value._seconds * 1000).getTime();
   }
   const timestampMs =
     value instanceof Date
       ? value.getTime()
       : (typeof value === "number" && Number.isFinite(value) ? value : new Date(value).getTime());
-  if (!Number.isFinite(timestampMs) || timestampMs <= 0) return "--";
-  return new Date(timestampMs).toLocaleString("pt-BR");
+  if (!Number.isFinite(timestampMs) || timestampMs <= 0) return NaN;
+  return timestampMs;
 }
 
 function ListaAcessos() {
@@ -68,6 +74,9 @@ function ListaAcessos() {
   const [filtroOrigem, setFiltroOrigem] = useState("");
   const [filtroTipoUsuario, setFiltroTipoUsuario] = useState("");
   const [filtroHash, setFiltroHash] = useState("");
+  const [filtroIp, setFiltroIp] = useState("");
+  const [filtroDataInicio, setFiltroDataInicio] = useState("");
+  const [filtroDataFim, setFiltroDataFim] = useState("");
   const [paginaAtual, setPaginaAtual] = useState(1);
   const [erro, setErro] = useState("");
 
@@ -142,17 +151,45 @@ function ListaAcessos() {
         acesso?.projectSystemKey || acesso?.runtimeProjectKey
       ).toLowerCase();
       const hashAtual = normalizeText(acesso?.visitorHash || acesso?.hash).toLowerCase();
+      const ipAtual = normalizeText(acesso?.ip).toLowerCase();
+      const acessoTimestamp = resolveDataTimestampMs(acesso?.data || acesso?.criadoEm);
       if (filtroProjeto && projectKey !== filtroProjeto) return false;
       if (filtroOrigem && resolveOrigemAcesso(acesso) !== filtroOrigem) return false;
       if (filtroTipoUsuario && resolveTipoUsuario(acesso) !== filtroTipoUsuario) return false;
       if (filtroHash && !hashAtual.includes(filtroHash.toLowerCase())) return false;
+      if (filtroIp && !ipAtual.includes(filtroIp.toLowerCase())) return false;
+      if (filtroDataInicio) {
+        const dataInicio = new Date(`${filtroDataInicio}T00:00:00`).getTime();
+        if (!Number.isFinite(acessoTimestamp) || acessoTimestamp < dataInicio) return false;
+      }
+      if (filtroDataFim) {
+        const dataFim = new Date(`${filtroDataFim}T23:59:59.999`).getTime();
+        if (!Number.isFinite(acessoTimestamp) || acessoTimestamp > dataFim) return false;
+      }
       return true;
     });
-  }, [acessos, filtroHash, filtroOrigem, filtroProjeto, filtroTipoUsuario]);
+  }, [
+    acessos,
+    filtroDataFim,
+    filtroDataInicio,
+    filtroHash,
+    filtroIp,
+    filtroOrigem,
+    filtroProjeto,
+    filtroTipoUsuario,
+  ]);
 
   useEffect(() => {
     setPaginaAtual(1);
-  }, [filtroHash, filtroOrigem, filtroProjeto, filtroTipoUsuario]);
+  }, [
+    filtroDataFim,
+    filtroDataInicio,
+    filtroHash,
+    filtroIp,
+    filtroOrigem,
+    filtroProjeto,
+    filtroTipoUsuario,
+  ]);
 
   const totalPaginas = Math.max(1, Math.ceil(acessosFiltrados.length / PAGE_SIZE));
   const paginaAtualSegura = Math.min(paginaAtual, totalPaginas);
@@ -212,13 +249,45 @@ function ListaAcessos() {
             </select>
           </label>
 
+          <div className="gerenciador-acessos__filter-pair">
+            <label className="gerenciador-acessos__filter gerenciador-acessos__filter--compact">
+              <span>Hash</span>
+              <input
+                type="text"
+                value={filtroHash}
+                onChange={(event) => setFiltroHash(event.target.value)}
+                placeholder="Digite o hash"
+              />
+            </label>
+
+            <label className="gerenciador-acessos__filter gerenciador-acessos__filter--compact">
+              <span>IP</span>
+              <input
+                type="text"
+                value={filtroIp}
+                onChange={(event) => setFiltroIp(event.target.value)}
+                placeholder="Digite o IP"
+              />
+            </label>
+          </div>
+
           <label className="gerenciador-acessos__filter">
-            <span>Hash</span>
+            <span>Data inicial</span>
             <input
-              type="text"
-              value={filtroHash}
-              onChange={(event) => setFiltroHash(event.target.value)}
-              placeholder="Digite o hash"
+              type="date"
+              value={filtroDataInicio}
+              max={filtroDataFim || undefined}
+              onChange={(event) => setFiltroDataInicio(event.target.value)}
+            />
+          </label>
+
+          <label className="gerenciador-acessos__filter">
+            <span>Data final</span>
+            <input
+              type="date"
+              value={filtroDataFim}
+              min={filtroDataInicio || undefined}
+              onChange={(event) => setFiltroDataFim(event.target.value)}
             />
           </label>
         </div>
