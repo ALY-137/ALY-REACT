@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   listarAcessosNoGerenciador,
@@ -8,6 +8,7 @@ import { obterManagerProjectLabel } from "../../../Sistema/configSistema";
 import "./acessos.css";
 
 const PAGE_SIZE = 24;
+const ACCESS_QUERY_LIMIT = 100;
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -68,6 +69,7 @@ function resolveDataTimestampMs(value) {
 
 function ListaAcessos() {
   const managerProjectLabel = obterManagerProjectLabel();
+  const mountedRef = useRef(true);
   const [acessos, setAcessos] = useState([]);
   const [projetos, setProjetos] = useState([]);
   const [filtroProjeto, setFiltroProjeto] = useState("");
@@ -79,6 +81,15 @@ function ListaAcessos() {
   const [filtroDataFim, setFiltroDataFim] = useState("");
   const [paginaAtual, setPaginaAtual] = useState(1);
   const [erro, setErro] = useState("");
+  const [carregando, setCarregando] = useState(false);
+  const [ultimaAtualizacao, setUltimaAtualizacao] = useState(null);
+
+  useEffect(
+    () => () => {
+      mountedRef.current = false;
+    },
+    []
+  );
 
   useEffect(() => {
     let ativo = true;
@@ -97,31 +108,35 @@ function ListaAcessos() {
     };
   }, []);
 
-  useEffect(() => {
-    let ativo = true;
+  const carregarAcessos = useCallback(async () => {
+    setCarregando(true);
 
-    const carregarAcessos = async () => {
-      try {
-        const lista = await listarAcessosNoGerenciador({ limit: 500 });
-        if (!ativo) return;
-        setErro("");
-        setAcessos(Array.isArray(lista) ? lista : []);
-      } catch (error) {
-        if (!ativo) return;
-        console.error("Erro ao carregar acessos do gerenciador:", error);
-        setErro("Nao foi possivel carregar os acessos.");
-        setAcessos([]);
+    try {
+      const lista = await listarAcessosNoGerenciador({
+        limit: ACCESS_QUERY_LIMIT,
+        projectSystemKey: filtroProjeto,
+        startDate: filtroDataInicio,
+        endDate: filtroDataFim,
+      });
+      if (!mountedRef.current) return;
+      setErro("");
+      setAcessos(Array.isArray(lista) ? lista : []);
+      setUltimaAtualizacao(Date.now());
+    } catch (error) {
+      if (!mountedRef.current) return;
+      console.error("Erro ao carregar acessos do gerenciador:", error);
+      setErro("Nao foi possivel carregar os acessos.");
+      setAcessos([]);
+    } finally {
+      if (mountedRef.current) {
+        setCarregando(false);
       }
-    };
+    }
+  }, [filtroDataFim, filtroDataInicio, filtroProjeto]);
 
-    carregarAcessos();
-    const timerId = window.setInterval(carregarAcessos, 30000);
-
-    return () => {
-      ativo = false;
-      window.clearInterval(timerId);
-    };
-  }, []);
+  useEffect(() => {
+    void carregarAcessos();
+  }, [carregarAcessos]);
 
   const projetosMap = useMemo(() => {
     const mapa = new Map();
@@ -296,6 +311,18 @@ function ListaAcessos() {
       <div className="gerenciador-acessos__summary">
         <span>{`Total exibido: ${acessosFiltrados.length}`}</span>
         <span>{`Pagina: ${paginaAtualSegura}/${totalPaginas}`}</span>
+        <span>{`Consulta: ultimos ${ACCESS_QUERY_LIMIT} registros`}</span>
+        <span>{`Atualizado: ${formatarData(ultimaAtualizacao)}`}</span>
+        <button
+          type="button"
+          className="gerenciador-acessos__refresh"
+          onClick={() => {
+            void carregarAcessos();
+          }}
+          disabled={carregando}
+        >
+          {carregando ? "Atualizando..." : "Atualizar"}
+        </button>
       </div>
 
       {totalPaginas > 1 ? (

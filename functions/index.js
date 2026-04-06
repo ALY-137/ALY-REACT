@@ -2603,13 +2603,31 @@ exports.listarAcessosGerenciadorHttp = onRequest(
         email: decoded?.email,
       });
 
-      const maxItems = Math.min(Math.max(Number(body?.limit) || 500, 1), 2000);
+      const maxItems = Math.min(Math.max(Number(body?.limit) || 100, 1), 500);
       const projectSystemKey = sanitizeString(body?.projectSystemKey).toLowerCase();
+      const startDate = sanitizeString(body?.startDate);
+      const endDate = sanitizeString(body?.endDate);
+      const startDateObject = startDate ? new Date(`${startDate}T00:00:00.000`) : null;
+      const endDateObject = endDate ? new Date(`${endDate}T23:59:59.999`) : null;
+      const startAt =
+        startDateObject && !Number.isNaN(startDateObject.getTime())
+          ? admin.firestore.Timestamp.fromDate(startDateObject)
+          : null;
+      const endAt =
+        endDateObject && !Number.isNaN(endDateObject.getTime())
+          ? admin.firestore.Timestamp.fromDate(endDateObject)
+          : null;
       const managerDb = getSystemManagerDb();
       let ref = managerDb.collection("acessos");
 
       if (projectSystemKey) {
         ref = ref.where("projectSystemKey", "==", projectSystemKey);
+      }
+      if (startAt) {
+        ref = ref.where("data", ">=", startAt);
+      }
+      if (endAt) {
+        ref = ref.where("data", "<=", endAt);
       }
 
       const snap = await ref.orderBy("data", "desc").limit(maxItems).get();

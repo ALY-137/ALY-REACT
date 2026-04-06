@@ -548,7 +548,7 @@ function Users() {
 
     const carregarUsuarios = async () => {
       try {
-        const lista = await listarUsuariosEspelhadosNoGerenciador();
+        const lista = await listarUsuariosEspelhadosNoGerenciador({ limit: 300 });
         if (!ativo) return;
         setErro("");
         setUsuariosEspelhados(Array.isArray(lista) ? lista : []);
@@ -561,11 +561,9 @@ function Users() {
     };
 
     carregarUsuarios();
-    const timerId = window.setInterval(carregarUsuarios, 30000);
 
     return () => {
       ativo = false;
-      window.clearInterval(timerId);
     };
   }, []);
 
@@ -574,7 +572,7 @@ function Users() {
 
     const carregarAcessos = async () => {
       try {
-        const lista = await listarAcessosNoGerenciador({ limit: 300 });
+        const lista = await listarAcessosNoGerenciador({ limit: 100 });
         if (!ativo) return;
         setErro("");
         setAcessos(Array.isArray(lista) ? lista : []);
@@ -587,11 +585,9 @@ function Users() {
     };
 
     carregarAcessos();
-    const timerId = window.setInterval(carregarAcessos, 30000);
 
     return () => {
       ativo = false;
-      window.clearInterval(timerId);
     };
   }, []);
 

@@ -81,6 +81,63 @@ function normalizeText(value) {
   return String(value || "").trim();
 }
 
+function buildAccessRangeStart(startDate = "") {
+  const normalized = normalizeText(startDate);
+  if (!normalized) return null;
+  const timestamp = new Date(`${normalized}T00:00:00.000`);
+  return Number.isNaN(timestamp.getTime()) ? null : timestamp;
+}
+
+function buildAccessRangeEnd(endDate = "") {
+  const normalized = normalizeText(endDate);
+  if (!normalized) return null;
+  const timestamp = new Date(`${normalized}T23:59:59.999`);
+  return Number.isNaN(timestamp.getTime()) ? null : timestamp;
+}
+
+function getAccessTimestampMs(item = {}) {
+  const value = item?.data || item?.criadoEm;
+  if (!value) return NaN;
+  if (typeof value?.toDate === "function") {
+    return value.toDate().getTime();
+  }
+  if (typeof value?.seconds === "number") {
+    return value.seconds * 1000;
+  }
+  if (typeof value?._seconds === "number") {
+    return value._seconds * 1000;
+  }
+  if (value instanceof Date) {
+    return value.getTime();
+  }
+  const timestamp = Number.isFinite(Number(value)) ? Number(value) : new Date(value).getTime();
+  return Number.isFinite(timestamp) ? timestamp : NaN;
+}
+
+function filterAccessItemsByQuery(items = [], { projectSystemKey = "", startDate = "", endDate = "" } = {}) {
+  const projectSystemKeyNormalizado = normalizeText(projectSystemKey).toLowerCase();
+  const startAt = buildAccessRangeStart(startDate);
+  const endAt = buildAccessRangeEnd(endDate);
+
+  return (Array.isArray(items) ? items : []).filter((item) => {
+    const itemProjectKey = normalizeText(
+      item?.projectSystemKey || item?.runtimeProjectKey
+    ).toLowerCase();
+    const itemTimestamp = getAccessTimestampMs(item);
+
+    if (projectSystemKeyNormalizado && itemProjectKey !== projectSystemKeyNormalizado) {
+      return false;
+    }
+    if (startAt && (!Number.isFinite(itemTimestamp) || itemTimestamp < startAt.getTime())) {
+      return false;
+    }
+    if (endAt && (!Number.isFinite(itemTimestamp) || itemTimestamp > endAt.getTime())) {
+      return false;
+    }
+    return true;
+  });
+}
+
 function normalizeHost(value) {
   return normalizeText(value).toLowerCase().replace(/^https?:\/\//i, "").split("/")[0];
 }
@@ -485,7 +542,7 @@ export function obterFirestoreDoGerenciador() {
   return getManagerDb();
 }
 
-export async function listarUsuariosEspelhadosNoGerenciador({ limit: maxItems = 1500 } = {}) {
+export async function listarUsuariosEspelhadosNoGerenciador({ limit: maxItems = 300 } = {}) {
   const managerDb = getManagerDb();
 
   try {
@@ -514,16 +571,22 @@ export async function listarUsuariosEspelhadosNoGerenciador({ limit: maxItems = 
 }
 
 export async function listarAcessosNoGerenciador({
-  limit: maxItems = 500,
+  limit: maxItems = 100,
   projectSystemKey = "",
+  startDate = "",
+  endDate = "",
 } = {}) {
   const managerDb = getManagerDb();
   const projectSystemKeyNormalizado = normalizeText(projectSystemKey).toLowerCase();
+  const startAt = buildAccessRangeStart(startDate);
+  const endAt = buildAccessRangeEnd(endDate);
 
   try {
     const response = await callSharedManagerRead("listarAcessosGerenciadorHttp", {
       limit: maxItems,
       projectSystemKey: projectSystemKeyNormalizado || null,
+      startDate: normalizeText(startDate) || null,
+      endDate: normalizeText(endDate) || null,
     });
     return Array.isArray(response?.items) ? response.items : [];
   } catch (error) {
@@ -536,21 +599,49 @@ export async function listarAcessosNoGerenciador({
   if (projectSystemKeyNormalizado) {
     constraints.push(where("projectSystemKey", "==", projectSystemKeyNormalizado));
   }
+  if (startAt) {
+    constraints.push(where("data", ">=", startAt));
+  }
+  if (endAt) {
+    constraints.push(where("data", "<=", endAt));
+  }
   constraints.push(orderBy("data", "desc"));
   constraints.push(limit(maxItems));
 
-  const snap = await getDocs(query(collection(managerDb, "acessos"), ...constraints));
-  return snap.docs
-    .map((docItem) => ({
-      id: docItem.id,
-      ...(docItem.data() || {}),
-    }))
-    .sort((a, b) => {
-      const dataA = a?.data?.seconds || 0;
-      const dataB = b?.data?.seconds || 0;
-      return dataB - dataA;
-    })
-    .slice(0, maxItems);
+  try {
+    const snap = await getDocs(query(collection(managerDb, "acessos"), ...constraints));
+    return snap.docs
+      .map((docItem) => ({
+        id: docItem.id,
+        ...(docItem.data() || {}),
+      }))
+      .sort((a, b) => {
+        const dataA = a?.data?.seconds || 0;
+        const dataB = b?.data?.seconds || 0;
+        return dataB - dataA;
+      })
+      .slice(0, maxItems);
+  } catch (error) {
+    if (error?.code !== "failed-precondition") {
+      throw error;
+    }
+
+    const fallbackSnap = await getDocs(
+      query(collection(managerDb, "acessos"), orderBy("data", "desc"), limit(maxItems))
+    );
+
+    return filterAccessItemsByQuery(
+      fallbackSnap.docs.map((docItem) => ({
+        id: docItem.id,
+        ...(docItem.data() || {}),
+      })),
+      {
+        projectSystemKey: projectSystemKeyNormalizado,
+        startDate,
+        endDate,
+      }
+    ).slice(0, maxItems);
+  }
 }
 
 function extrairConfigSistemaDoDocumento(data = {}) {
