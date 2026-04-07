@@ -21,6 +21,11 @@ import {
 import ProjectLoadingFallback from "../Geral/ProjectLoadingFallback";
 import { obterStatusMercadoPago, obterStatusPixManual } from "../Pagamentos/mercadoPagoApi";
 import {
+  CYBERPINK_SUBTHEMES,
+  getCyberpinkSubthemeLabel,
+  normalizeCyberpinkSubtheme,
+} from "../Temas/cyberpink/subthemes";
+import {
   DEFAULT_SISTEMA_CONFIG,
   isOneOwnerComEntradaPublica,
   obterConfigSistema,
@@ -51,6 +56,7 @@ const LABEL_VISIBILIDADE_ESPACO = {
   privado: "Privado (autenticado)",
   exclusivo_assinante: "Exclusivo assinante",
 };
+const CYBERPINK_THEME_KEY = "CYBERPINK";
 
 const buildIconSelectionValue = (espaco = {}) => {
   const collectionId = String(espaco?.iconCollectionId || "").trim();
@@ -101,8 +107,11 @@ export default function EspacoManager() {
   const [editingNome, setEditingNome] = useState("");
   const [editingVisibilidade, setEditingVisibilidade] = useState("privado");
   const [editingIconSelection, setEditingIconSelection] = useState("");
+  const [editingSubtema, setEditingSubtema] = useState(normalizeCyberpinkSubtheme());
   const [novaSelecaoIcone, setNovaSelecaoIcone] = useState("");
+  const [novoSubtema, setNovoSubtema] = useState(normalizeCyberpinkSubtheme());
   const [homeIconSelection, setHomeIconSelection] = useState("");
+  const [homeSubtemaSelection, setHomeSubtemaSelection] = useState(normalizeCyberpinkSubtheme());
   const [nomeEspacoSingular, setNomeEspacoSingular] = useState(
     DEFAULT_SISTEMA_CONFIG.nomeEspacoSingular
   );
@@ -134,6 +143,7 @@ export default function EspacoManager() {
   const temaProjeto = String(
     configSistemaAtual?.temaPadraoSistema || DEFAULT_SISTEMA_CONFIG.temaPadraoSistema
   ).trim();
+  const projetoUsaSubtemasCyberpink = temaProjeto.toUpperCase() === CYBERPINK_THEME_KEY;
   const colecoesIconesPermitidas = Array.isArray(configSistemaAtual?.iconCollectionIds)
     ? configSistemaAtual.iconCollectionIds
     : [];
@@ -155,6 +165,10 @@ export default function EspacoManager() {
   useEffect(() => {
     if (userId && skinIdAtual) carregarEspacos();
   }, [userId, skinIdAtual]);
+
+  useEffect(() => {
+    setHomeSubtemaSelection(normalizeCyberpinkSubtheme(homeDaSkin?.subtema));
+  }, [homeDaSkin?.subtema]);
 
   useEffect(() => {
     let ativo = true;
@@ -414,6 +428,7 @@ export default function EspacoManager() {
       skins_relacionadas: [skinIdAtual],
       skinOwner: skinIdAtual,
       visibilidade: novaVisibilidade || "privado",
+      subtema: normalizeCyberpinkSubtheme(novoSubtema),
       ...iconPayload,
       createdAt: serverTimestamp(),
       isHome: false,
@@ -428,6 +443,7 @@ export default function EspacoManager() {
     setNovoNome("");
     setNovaVisibilidade("privado");
     setNovaSelecaoIcone("");
+    setNovoSubtema(normalizeCyberpinkSubtheme());
     carregarEspacos();
   };
 
@@ -436,6 +452,7 @@ export default function EspacoManager() {
     setEditingNome(espaco.nome || "");
     setEditingVisibilidade(espaco.visibilidade || "publico");
     setEditingIconSelection(buildIconSelectionValue(espaco));
+    setEditingSubtema(normalizeCyberpinkSubtheme(espaco?.subtema));
   };
 
   const cancelarEdicao = () => {
@@ -443,6 +460,7 @@ export default function EspacoManager() {
     setEditingNome("");
     setEditingVisibilidade("privado");
     setEditingIconSelection("");
+    setEditingSubtema(normalizeCyberpinkSubtheme());
   };
 
   const salvarEdicao = async (espacoId) => {
@@ -456,6 +474,7 @@ export default function EspacoManager() {
       id_espaco: espacoId,
       nome: editingNome.trim(),
       visibilidade: editingVisibilidade || "publico",
+      subtema: normalizeCyberpinkSubtheme(editingSubtema),
       ...iconPayload,
       ownerUserId: espacoExistente?.ownerUserId || userId,
     };
@@ -463,6 +482,7 @@ export default function EspacoManager() {
     await updateDoc(getPrimaryProjectDoc(db, "users", userId, "espacos", espacoId), {
       nome: editingNome.trim(),
       visibilidade: editingVisibilidade || "publico",
+      subtema: normalizeCyberpinkSubtheme(editingSubtema),
       ...iconPayload,
     });
     await sincronizarEstruturaPublicaEspaco(userId, espacoAtualizado);
@@ -582,116 +602,43 @@ export default function EspacoManager() {
   }
 
   return (
-    <div>
-      <h2>Home da Skin</h2>
-
-      {homeDaSkin ? (
-        <div style={{ marginBottom: 12 }}>
-          <strong>{homeDaSkin.nome}</strong>{" "}
-          <small>{`(${LABEL_VISIBILIDADE_ESPACO[homeDaSkin.visibilidade || "publico"] || "Publico"})`}</small>
-          <div style={{ marginTop: 8 }}>
-            <select
-              value={homeDaSkin.visibilidade || "publico"}
-              onChange={(event) => salvarHome({ visibilidade: event.target.value || "publico" })}
-            >
-              {opcoesVisibilidadeEspaco.map((opcao) => (
-                <option key={opcao.value} value={opcao.value}>
-                  {opcao.label}
-                </option>
-              ))}
-            </select>
-            {projetoPossuiColecoesIcones ? (
-              <select
-                value={homeIconSelection || buildIconSelectionValue(homeDaSkin)}
-                onChange={(event) => {
-                  const valor = event.target.value;
-                  setHomeIconSelection(valor);
-                  salvarHome(parseIconSelectionValue(valor, iconCollectionsFiltradas));
-                }}
-                style={{ marginLeft: 8 }}
-              >
-                <option value="">Sem icone</option>
-                {iconCollectionsFiltradas.map((colecao) => (
-                  <optgroup key={colecao.id} label={colecao.nome}>
-                    {(colecao.icons || []).map((icon) => (
-                      <option key={icon.id} value={`${colecao.id}::${icon.id}`}>
-                        {icon.label}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-            ) : null}
-          </div>
+    <div className="espaco-manager">
+      <section className="espaco-manager__section">
+        <div className="espaco-manager__section-header">
+          <h2 className="espaco-manager__title">Home da Skin</h2>
         </div>
-      ) : (
-        <p>Home nao encontrada.</p>
-      )}
 
-      <hr />
-
-      <h3>{`${nomeEspacoPluralCapitalizado} Relacionados`}</h3>
-      {loading ? <ProjectLoadingFallback text="Carregando..." inline /> : null}
-
-      {!loading && espacosRelacionados.length === 0 && (
-        <p>{`Nenhum ${nomeEspacoSingular} relacionado.`}</p>
-      )}
-
-      {espacosRelacionados.map((e) => (
-        <div key={e.id} style={{ marginBottom: 12 }}>
-          <strong>{e.nome}</strong>{" "}
-          <small>
-            {`(ordem: ${e.ordem ?? "-"} | ${
-              LABEL_VISIBILIDADE_ESPACO[e.visibilidade || "publico"] || "Publico"
-            })`}
-          </small>
-          {String(e.iconUrl || "").trim() ? (
-            <div style={{ marginTop: 6 }}>
-              <img
-                src={e.iconUrl}
-                alt={e.iconLabel || e.nome}
-                style={{ width: 20, height: 20, objectFit: "contain" }}
-              />
+        {homeDaSkin ? (
+          <div className="espaco-manager__item espaco-manager__item--home">
+            <div className="espaco-manager__item-header">
+              <div className="espaco-manager__item-title-line">
+                <strong className="espaco-manager__item-title">{homeDaSkin.nome}</strong>
+                <small className="espaco-manager__meta">
+                  {LABEL_VISIBILIDADE_ESPACO[homeDaSkin.visibilidade || "publico"] || "Publico"}
+                </small>
+              </div>
             </div>
-          ) : null}
 
-          <div>
-            <button onClick={() => remover(e.id)}>Remover</button>{" "}
-            <button onClick={() => moverEspaco(e.id, -1)} title="Mover para cima">
-              Subir
-            </button>{" "}
-            <button onClick={() => moverEspaco(e.id, 1)} title="Mover para baixo">
-              Descer
-            </button>{" "}
-            <button onClick={() => iniciarEdicao(e)}>Editar</button>{" "}
-            <button onClick={() => excluirEspaco(e)} style={{ color: "red" }}>
-              Excluir
-            </button>
-          </div>
-
-          {editingEspacoId === e.id && (
-            <div style={{ marginTop: 8 }}>
-              <input
-                value={editingNome}
-                onChange={(event) => setEditingNome(event.target.value)}
-                placeholder={`Novo nome do ${nomeEspacoSingular}`}
-              />
+            <div className="espaco-manager__controls">
               <select
-                value={editingVisibilidade}
-                onChange={(event) => setEditingVisibilidade(event.target.value)}
-                style={{ marginLeft: 8 }}
+                value={homeDaSkin.visibilidade || "publico"}
+                onChange={(event) => salvarHome({ visibilidade: event.target.value || "publico" })}
               >
                 {opcoesVisibilidadeEspaco.map((opcao) => (
                   <option key={opcao.value} value={opcao.value}>
                     {opcao.label}
                   </option>
                 ))}
-              </select>{" "}
+              </select>
+
               {projetoPossuiColecoesIcones ? (
                 <select
-                  value={editingIconSelection}
-                  onChange={(event) => setEditingIconSelection(event.target.value)}
-                  style={{ marginLeft: 8 }}
+                  value={homeIconSelection || buildIconSelectionValue(homeDaSkin)}
+                  onChange={(event) => {
+                    const valor = event.target.value;
+                    setHomeIconSelection(valor);
+                    salvarHome(parseIconSelectionValue(valor, iconCollectionsFiltradas));
+                  }}
                 >
                   <option value="">Sem icone</option>
                   {iconCollectionsFiltradas.map((colecao) => (
@@ -705,74 +652,233 @@ export default function EspacoManager() {
                   ))}
                 </select>
               ) : null}
-              <button onClick={() => salvarEdicao(e.id)}>{`Salvar ${nomeEspacoSingular}`}</button>{" "}
-              <button onClick={cancelarEdicao}>Cancelar</button>
+
+              {projetoUsaSubtemasCyberpink ? (
+                <select
+                  value={homeSubtemaSelection || normalizeCyberpinkSubtheme(homeDaSkin?.subtema)}
+                  onChange={(event) => {
+                    const valor = normalizeCyberpinkSubtheme(event.target.value);
+                    setHomeSubtemaSelection(valor);
+                    salvarHome({ subtema: valor });
+                  }}
+                >
+                  {CYBERPINK_SUBTHEMES.map((subtema) => (
+                    <option key={subtema.value} value={subtema.value}>
+                      {`Subtema: ${subtema.label}`}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
             </div>
-          )}
+          </div>
+        ) : (
+          <p className="espaco-manager__empty">Home nao encontrada.</p>
+        )}
+      </section>
+
+      <section className="espaco-manager__section">
+        <div className="espaco-manager__section-header">
+          <h3 className="espaco-manager__title">{`${nomeEspacoPluralCapitalizado} Relacionados`}</h3>
         </div>
-      ))}
 
-      <hr />
+        {loading ? <ProjectLoadingFallback text="Carregando..." inline /> : null}
 
-      <h3>{`Relacionar ${nomeEspacoPluralCapitalizado}`}</h3>
-      {espacosRelacionaveis.map((e) => (
-        <button key={e.id} onClick={() => relacionar(e.id)}>
-          {`Relacionar ${nomeEspacoSingular}: ${e.nome}`}
-        </button>
-      ))}
+        {!loading && espacosRelacionados.length === 0 ? (
+          <p className="espaco-manager__empty">{`Nenhum ${nomeEspacoSingular} relacionado.`}</p>
+        ) : null}
 
-      <hr />
+        <div className="espaco-manager__list">
+          {espacosRelacionados.map((e) => (
+            <article key={e.id} className="espaco-manager__item">
+              <div className="espaco-manager__item-header">
+                <div className="espaco-manager__item-title-line">
+                  <strong className="espaco-manager__item-title">{e.nome}</strong>
+                  <small className="espaco-manager__meta">
+                    {`Ordem ${e.ordem ?? "-"} | ${
+                      LABEL_VISIBILIDADE_ESPACO[e.visibilidade || "publico"] || "Publico"
+                    }${
+                      projetoUsaSubtemasCyberpink
+                        ? ` | ${getCyberpinkSubthemeLabel(e?.subtema)}`
+                        : ""
+                    }`}
+                  </small>
+                </div>
+              </div>
 
-      <h3>{`Criar ${nomeEspacoSingularCapitalizado} Adicional`}</h3>
-      <input
-        value={novoNome}
-        onChange={(e) => setNovoNome(e.target.value)}
-        placeholder={`Nome do ${nomeEspacoSingular}`}
-      />
-      <select
-        value={novaVisibilidade}
-        onChange={(event) => setNovaVisibilidade(event.target.value)}
-        style={{ marginLeft: 8 }}
-      >
-        {opcoesVisibilidadeEspaco.map((opcao) => (
-          <option key={opcao.value} value={opcao.value}>
-            {opcao.label}
-          </option>
-        ))}
-      </select>{" "}
-      {projetoPossuiColecoesIcones ? (
-        <select
-          value={novaSelecaoIcone}
-          onChange={(event) => setNovaSelecaoIcone(event.target.value)}
-          style={{ marginLeft: 8 }}
-        >
-          <option value="">Sem icone</option>
-          {iconCollectionsFiltradas.map((colecao) => (
-            <optgroup key={colecao.id} label={colecao.nome}>
-              {(colecao.icons || []).map((icon) => (
-                <option key={icon.id} value={`${colecao.id}::${icon.id}`}>
-                  {icon.label}
+              {String(e.iconUrl || "").trim() ? (
+                <div className="espaco-manager__icon-preview">
+                  <img
+                    src={e.iconUrl}
+                    alt={e.iconLabel || e.nome}
+                    className="espaco-manager__icon"
+                  />
+                </div>
+              ) : null}
+
+              <div className="espaco-manager__actions">
+                <button onClick={() => remover(e.id)}>Remover</button>
+                <button onClick={() => moverEspaco(e.id, -1)} title="Mover para cima">
+                  Subir
+                </button>
+                <button onClick={() => moverEspaco(e.id, 1)} title="Mover para baixo">
+                  Descer
+                </button>
+                <button onClick={() => iniciarEdicao(e)}>Editar</button>
+                <button onClick={() => excluirEspaco(e)} className="espaco-manager__danger">
+                  Excluir
+                </button>
+              </div>
+
+              {editingEspacoId === e.id ? (
+                <div className="espaco-manager__editor">
+                  <div className="espaco-manager__controls">
+                    <input
+                      value={editingNome}
+                      onChange={(event) => setEditingNome(event.target.value)}
+                      placeholder={`Novo nome do ${nomeEspacoSingular}`}
+                    />
+                    <select
+                      value={editingVisibilidade}
+                      onChange={(event) => setEditingVisibilidade(event.target.value)}
+                    >
+                      {opcoesVisibilidadeEspaco.map((opcao) => (
+                        <option key={opcao.value} value={opcao.value}>
+                          {opcao.label}
+                        </option>
+                      ))}
+                    </select>
+
+                    {projetoPossuiColecoesIcones ? (
+                      <select
+                        value={editingIconSelection}
+                        onChange={(event) => setEditingIconSelection(event.target.value)}
+                      >
+                        <option value="">Sem icone</option>
+                        {iconCollectionsFiltradas.map((colecao) => (
+                          <optgroup key={colecao.id} label={colecao.nome}>
+                            {(colecao.icons || []).map((icon) => (
+                              <option key={icon.id} value={`${colecao.id}::${icon.id}`}>
+                                {icon.label}
+                              </option>
+                            ))}
+                          </optgroup>
+                        ))}
+                      </select>
+                    ) : null}
+
+                    {projetoUsaSubtemasCyberpink ? (
+                      <select
+                        value={editingSubtema}
+                        onChange={(event) =>
+                          setEditingSubtema(normalizeCyberpinkSubtheme(event.target.value))
+                        }
+                      >
+                        {CYBERPINK_SUBTHEMES.map((subtema) => (
+                          <option key={subtema.value} value={subtema.value}>
+                            {`Subtema: ${subtema.label}`}
+                          </option>
+                        ))}
+                      </select>
+                    ) : null}
+                  </div>
+
+                  <div className="espaco-manager__actions">
+                    <button onClick={() => salvarEdicao(e.id)}>{`Salvar ${nomeEspacoSingular}`}</button>
+                    <button onClick={cancelarEdicao}>Cancelar</button>
+                  </div>
+                </div>
+              ) : null}
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="espaco-manager__section">
+        <div className="espaco-manager__section-header">
+          <h3 className="espaco-manager__title">{`Relacionar ${nomeEspacoPluralCapitalizado}`}</h3>
+        </div>
+
+        <div className="espaco-manager__actions">
+          {espacosRelacionaveis.map((e) => (
+            <button key={e.id} onClick={() => relacionar(e.id)}>
+              {`Relacionar ${nomeEspacoSingular}: ${e.nome}`}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="espaco-manager__section">
+        <div className="espaco-manager__section-header">
+          <h3 className="espaco-manager__title">{`Criar ${nomeEspacoSingularCapitalizado} Adicional`}</h3>
+        </div>
+
+        <div className="espaco-manager__controls">
+          <input
+            value={novoNome}
+            onChange={(e) => setNovoNome(e.target.value)}
+            placeholder={`Nome do ${nomeEspacoSingular}`}
+          />
+          <select
+            value={novaVisibilidade}
+            onChange={(event) => setNovaVisibilidade(event.target.value)}
+          >
+            {opcoesVisibilidadeEspaco.map((opcao) => (
+              <option key={opcao.value} value={opcao.value}>
+                {opcao.label}
+              </option>
+            ))}
+          </select>
+
+          {projetoPossuiColecoesIcones ? (
+            <select
+              value={novaSelecaoIcone}
+              onChange={(event) => setNovaSelecaoIcone(event.target.value)}
+            >
+              <option value="">Sem icone</option>
+              {iconCollectionsFiltradas.map((colecao) => (
+                <optgroup key={colecao.id} label={colecao.nome}>
+                  {(colecao.icons || []).map((icon) => (
+                    <option key={icon.id} value={`${colecao.id}::${icon.id}`}>
+                      {icon.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          ) : null}
+
+          {projetoUsaSubtemasCyberpink ? (
+            <select
+              value={novoSubtema}
+              onChange={(event) => setNovoSubtema(normalizeCyberpinkSubtheme(event.target.value))}
+            >
+              {CYBERPINK_SUBTHEMES.map((subtema) => (
+                <option key={subtema.value} value={subtema.value}>
+                  {`Subtema: ${subtema.label}`}
                 </option>
               ))}
-            </optgroup>
-          ))}
-        </select>
-      ) : null}
-      <button onClick={criarEspaco}>{`Criar ${nomeEspacoSingularCapitalizado}`}</button>
+            </select>
+          ) : null}
+        </div>
 
-      {!mercadoPagoSistemaHabilitado && !pixManualSistemaHabilitado ? (
-        <p style={{ margin: "8px 0 0", fontSize: 12, color: "#666" }}>
-          Metodos de pagamento desativados em PROPRIEDADES DO SISTEMA.
-        </p>
-      ) : !metodoPagamentoAssinaturaDisponivel ? (
-        <p style={{ margin: "8px 0 0", fontSize: 12, color: "#666" }}>
-          {`Conecte o Mercado Pago ou configure PIX manual para habilitar visibilidade exclusiva para assinantes de ${nomeEspacoPlural}.`}
-        </p>
-      ) : !projetoPossuiColecoesIcones ? (
-        <p style={{ margin: "8px 0 0", fontSize: 12, color: "#666" }}>
-          Nenhuma colecao de icones permitida para este projeto/tema.
-        </p>
-      ) : null}
+        <div className="espaco-manager__actions">
+          <button onClick={criarEspaco}>{`Criar ${nomeEspacoSingularCapitalizado}`}</button>
+        </div>
+
+        {!mercadoPagoSistemaHabilitado && !pixManualSistemaHabilitado ? (
+          <p className="espaco-manager__note">
+            Metodos de pagamento desativados em PROPRIEDADES DO SISTEMA.
+          </p>
+        ) : !metodoPagamentoAssinaturaDisponivel ? (
+          <p className="espaco-manager__note">
+            {`Conecte o Mercado Pago ou configure PIX manual para habilitar visibilidade exclusiva para assinantes de ${nomeEspacoPlural}.`}
+          </p>
+        ) : !projetoPossuiColecoesIcones ? (
+          <p className="espaco-manager__note">
+            Nenhuma colecao de icones permitida para este projeto/tema.
+          </p>
+        ) : null}
+      </section>
     </div>
   );
 }

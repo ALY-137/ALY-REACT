@@ -12,6 +12,10 @@ export {
   criarIconCollectionNoGerenciador,
   salvarIconCollectionNoGerenciador,
   removerIconCollectionNoGerenciador,
+  listarAddOnsNoGerenciador,
+  criarAddOnNoGerenciador,
+  salvarAddOnNoGerenciador,
+  removerAddOnNoGerenciador,
 } from "./gerenciadorSistemasApi";
 
 // Compatibilidade temporaria: alguns fluxos ainda usam nomes antigos.

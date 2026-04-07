@@ -153,6 +153,7 @@ export const DEFAULT_SISTEMA_CONFIG = {
   adminUid: "",
   adminEmail: "",
   iconCollectionIds: [],
+  addOnIdsDisponiveis: [],
   projectOwnerUid: "",
   projectLastEditorUid: "",
 };
@@ -1187,6 +1188,7 @@ export function normalizarConfigSistema(data = {}) {
     adminUid: ownerUidNormalizado,
     adminEmail: ownerEmailNormalizado,
     iconCollectionIds: normalizarListaString(data.iconCollectionIds),
+    addOnIdsDisponiveis: normalizarListaString(data.addOnIdsDisponiveis),
     projectOwnerUid: projectOwnerUidNormalizado,
     projectLastEditorUid: projectLastEditorUidNormalizado,
   };

@@ -1,2 +1,199 @@
-/* Tokens visuais do tema. Use este arquivo para custom properties, mapas de cor e presets automatizados. */
+/* Tokens visuais do tema CYBERPINK e seus subtemas por espaco. */
 
+body.theme-cyberpink {
+  --cyberpink-subtheme-primary: #7e0eff;
+  --cyberpink-subtheme-secondary: #9335ff;
+  --cyberpink-subtheme-soft: #bf87ff;
+  --cyberpink-subtheme-soft-inner: rgba(191, 135, 255, 0.26);
+  --cyberpink-subtheme-soft-glow: rgba(191, 135, 255, 0.28);
+  --cyberpink-subtheme-soft-muted: #c592ff;
+  --cyberpink-subtheme-navbar-text: #a75aff;
+  --cyberpink-subtheme-text: #e8d4ff;
+  --cyberpink-subtheme-text-soft: #ecd9ff;
+  --cyberpink-subtheme-text-strong: #f3e7ff;
+  --cyberpink-subtheme-compact: #7e0eff9a;
+  --cyberpink-subtheme-frame-stroke: rgba(126, 14, 255, 0.94);
+  --cyberpink-subtheme-frame-inner: rgba(176, 128, 255, 0.432);
+  --cyberpink-subtheme-frame-glow: rgba(126, 14, 255, 0.42);
+  --cyberpink-subtheme-holo-top: rgba(145, 108, 255, 0.096);
+  --cyberpink-subtheme-holo-edge: rgba(123, 86, 255, 0.308);
+  --cyberpink-subtheme-card-frame: #2b006b;
+  --cyberpink-subtheme-card-frame-bright: #7e0eff;
+  --cyberpink-subtheme-card-glow: rgba(126, 14, 255, 0.3);
+  --cyberpink-subtheme-card-inner-stroke: rgba(216, 181, 255, 0.16);
+  --cyberpink-subtheme-card-surface: #2d006f;
+  --cyberpink-subtheme-card-surface-shadow: #240058;
+  --cyberpink-subtheme-header-surface: rgb(20, 4, 59);
+  --cyberpink-subtheme-button-glow: rgba(126, 14, 255, 0.12);
+  --cyberpink-subtheme-button-focus: rgba(126, 14, 255, 0.26);
+  --cyberpink-subtheme-button-text-glow: rgba(126, 14, 255, 0.42);
+  --cyberpink-subtheme-focus-border: #d7a8ff;
+  --cyberpink-subtheme-select-arrow: #f0ccff;
+  --cyberpink-subtheme-surface-a: rgba(19, 1, 53, 0.62);
+  --cyberpink-subtheme-surface-b: rgba(19, 1, 53, 0.62);
+}
+
+body.theme-cyberpink[data-cyberpink-subtheme="red"] {
+  --cyberpink-subtheme-primary: #ff3d65;
+  --cyberpink-subtheme-secondary: #ff5677;
+  --cyberpink-subtheme-soft: #ff8fab;
+  --cyberpink-subtheme-soft-inner: rgba(255, 143, 171, 0.26);
+  --cyberpink-subtheme-soft-glow: rgba(255, 143, 171, 0.28);
+  --cyberpink-subtheme-soft-muted: #ffc2d0;
+  --cyberpink-subtheme-navbar-text: #ff7398;
+  --cyberpink-subtheme-text: #ffe8ef;
+  --cyberpink-subtheme-text-soft: #ffe1ea;
+  --cyberpink-subtheme-text-strong: #fff1f5;
+  --cyberpink-subtheme-compact: rgba(255, 61, 101, 0.62);
+  --cyberpink-subtheme-frame-stroke: rgba(255, 61, 101, 0.94);
+  --cyberpink-subtheme-frame-inner: rgba(255, 174, 189, 0.43);
+  --cyberpink-subtheme-frame-glow: rgba(255, 61, 101, 0.42);
+  --cyberpink-subtheme-holo-top: rgba(255, 111, 145, 0.11);
+  --cyberpink-subtheme-holo-edge: rgba(255, 86, 119, 0.31);
+  --cyberpink-subtheme-card-frame: #6c0a26;
+  --cyberpink-subtheme-card-frame-bright: #ff3d65;
+  --cyberpink-subtheme-card-glow: rgba(255, 61, 101, 0.3);
+  --cyberpink-subtheme-card-inner-stroke: rgba(255, 208, 220, 0.16);
+  --cyberpink-subtheme-card-surface: #761032;
+  --cyberpink-subtheme-card-surface-shadow: #5b0b26;
+  --cyberpink-subtheme-header-surface: #5a0c25;
+  --cyberpink-subtheme-button-glow: rgba(255, 61, 101, 0.12);
+  --cyberpink-subtheme-button-focus: rgba(255, 61, 101, 0.26);
+  --cyberpink-subtheme-button-text-glow: rgba(255, 61, 101, 0.42);
+  --cyberpink-subtheme-focus-border: #ffb1c4;
+  --cyberpink-subtheme-select-arrow: #ffd6e1;
+  --cyberpink-subtheme-surface-a: rgba(53, 8, 22, 0.62);
+  --cyberpink-subtheme-surface-b: rgba(53, 8, 22, 0.62);
+}
+
+body.theme-cyberpink[data-cyberpink-subtheme="orange"] {
+  --cyberpink-subtheme-primary: #ff8f1f;
+  --cyberpink-subtheme-secondary: #ffa333;
+  --cyberpink-subtheme-soft: #ffc06f;
+  --cyberpink-subtheme-soft-inner: rgba(255, 192, 111, 0.26);
+  --cyberpink-subtheme-soft-glow: rgba(255, 192, 111, 0.28);
+  --cyberpink-subtheme-soft-muted: #ffdca8;
+  --cyberpink-subtheme-navbar-text: #ffb347;
+  --cyberpink-subtheme-text: #fff1df;
+  --cyberpink-subtheme-text-soft: #ffebda;
+  --cyberpink-subtheme-text-strong: #fff7ed;
+  --cyberpink-subtheme-compact: rgba(255, 143, 31, 0.62);
+  --cyberpink-subtheme-frame-stroke: rgba(255, 143, 31, 0.94);
+  --cyberpink-subtheme-frame-inner: rgba(255, 207, 145, 0.43);
+  --cyberpink-subtheme-frame-glow: rgba(255, 143, 31, 0.42);
+  --cyberpink-subtheme-holo-top: rgba(255, 176, 92, 0.11);
+  --cyberpink-subtheme-holo-edge: rgba(255, 163, 51, 0.31);
+  --cyberpink-subtheme-card-frame: #6d3200;
+  --cyberpink-subtheme-card-frame-bright: #ff8f1f;
+  --cyberpink-subtheme-card-glow: rgba(255, 143, 31, 0.3);
+  --cyberpink-subtheme-card-inner-stroke: rgba(255, 225, 188, 0.16);
+  --cyberpink-subtheme-card-surface: #6f3600;
+  --cyberpink-subtheme-card-surface-shadow: #582900;
+  --cyberpink-subtheme-header-surface: #592700;
+  --cyberpink-subtheme-button-glow: rgba(255, 143, 31, 0.12);
+  --cyberpink-subtheme-button-focus: rgba(255, 143, 31, 0.26);
+  --cyberpink-subtheme-button-text-glow: rgba(255, 143, 31, 0.42);
+  --cyberpink-subtheme-focus-border: #ffd09d;
+  --cyberpink-subtheme-select-arrow: #ffe1ba;
+  --cyberpink-subtheme-surface-a: rgba(53, 25, 6, 0.62);
+  --cyberpink-subtheme-surface-b: rgba(53, 25, 6, 0.62);
+}
+
+body.theme-cyberpink[data-cyberpink-subtheme="green"] {
+  --cyberpink-subtheme-primary: #14d26e;
+  --cyberpink-subtheme-secondary: #27e07b;
+  --cyberpink-subtheme-soft: #79f1ad;
+  --cyberpink-subtheme-soft-inner: rgba(121, 241, 173, 0.26);
+  --cyberpink-subtheme-soft-glow: rgba(121, 241, 173, 0.28);
+  --cyberpink-subtheme-soft-muted: #b6ffd2;
+  --cyberpink-subtheme-navbar-text: #55e49a;
+  --cyberpink-subtheme-text: #e8fff1;
+  --cyberpink-subtheme-text-soft: #e3ffec;
+  --cyberpink-subtheme-text-strong: #f2fff7;
+  --cyberpink-subtheme-compact: rgba(20, 210, 110, 0.62);
+  --cyberpink-subtheme-frame-stroke: rgba(20, 210, 110, 0.94);
+  --cyberpink-subtheme-frame-inner: rgba(144, 243, 185, 0.43);
+  --cyberpink-subtheme-frame-glow: rgba(20, 210, 110, 0.42);
+  --cyberpink-subtheme-holo-top: rgba(88, 234, 150, 0.11);
+  --cyberpink-subtheme-holo-edge: rgba(39, 224, 123, 0.31);
+  --cyberpink-subtheme-card-frame: #0a6a35;
+  --cyberpink-subtheme-card-frame-bright: #14d26e;
+  --cyberpink-subtheme-card-glow: rgba(20, 210, 110, 0.3);
+  --cyberpink-subtheme-card-inner-stroke: rgba(201, 255, 220, 0.16);
+  --cyberpink-subtheme-card-surface: #0b6f39;
+  --cyberpink-subtheme-card-surface-shadow: #08562d;
+  --cyberpink-subtheme-header-surface: #0b582d;
+  --cyberpink-subtheme-button-glow: rgba(20, 210, 110, 0.12);
+  --cyberpink-subtheme-button-focus: rgba(20, 210, 110, 0.26);
+  --cyberpink-subtheme-button-text-glow: rgba(20, 210, 110, 0.42);
+  --cyberpink-subtheme-focus-border: #9df2c0;
+  --cyberpink-subtheme-select-arrow: #caffdc;
+  --cyberpink-subtheme-surface-a: rgba(7, 38, 18, 0.62);
+  --cyberpink-subtheme-surface-b: rgba(7, 38, 18, 0.62);
+}
+
+body.theme-cyberpink[data-cyberpink-subtheme="blue"] {
+  --cyberpink-subtheme-primary: #2e8cff;
+  --cyberpink-subtheme-secondary: #46a0ff;
+  --cyberpink-subtheme-soft: #87c2ff;
+  --cyberpink-subtheme-soft-inner: rgba(135, 194, 255, 0.26);
+  --cyberpink-subtheme-soft-glow: rgba(135, 194, 255, 0.28);
+  --cyberpink-subtheme-soft-muted: #bfdfff;
+  --cyberpink-subtheme-navbar-text: #69aeff;
+  --cyberpink-subtheme-text: #e7f3ff;
+  --cyberpink-subtheme-text-soft: #dfedff;
+  --cyberpink-subtheme-text-strong: #f1f7ff;
+  --cyberpink-subtheme-compact: rgba(46, 140, 255, 0.62);
+  --cyberpink-subtheme-frame-stroke: rgba(46, 140, 255, 0.94);
+  --cyberpink-subtheme-frame-inner: rgba(157, 208, 255, 0.43);
+  --cyberpink-subtheme-frame-glow: rgba(46, 140, 255, 0.42);
+  --cyberpink-subtheme-holo-top: rgba(102, 180, 255, 0.11);
+  --cyberpink-subtheme-holo-edge: rgba(70, 160, 255, 0.31);
+  --cyberpink-subtheme-card-frame: #003c6f;
+  --cyberpink-subtheme-card-frame-bright: #2e8cff;
+  --cyberpink-subtheme-card-glow: rgba(46, 140, 255, 0.3);
+  --cyberpink-subtheme-card-inner-stroke: rgba(205, 228, 255, 0.16);
+  --cyberpink-subtheme-card-surface: #00406f;
+  --cyberpink-subtheme-card-surface-shadow: #003258;
+  --cyberpink-subtheme-header-surface: #003257;
+  --cyberpink-subtheme-button-glow: rgba(46, 140, 255, 0.12);
+  --cyberpink-subtheme-button-focus: rgba(46, 140, 255, 0.26);
+  --cyberpink-subtheme-button-text-glow: rgba(46, 140, 255, 0.42);
+  --cyberpink-subtheme-focus-border: #a4d0ff;
+  --cyberpink-subtheme-select-arrow: #cee5ff;
+  --cyberpink-subtheme-surface-a: rgba(6, 24, 48, 0.62);
+  --cyberpink-subtheme-surface-b: rgba(6, 24, 48, 0.62);
+}
+
+body.theme-cyberpink[data-cyberpink-subtheme="pink"] {
+  --cyberpink-subtheme-primary: #fb008a;
+  --cyberpink-subtheme-secondary: #ff3fab;
+  --cyberpink-subtheme-soft: #ff8fd0;
+  --cyberpink-subtheme-soft-inner: rgba(255, 143, 208, 0.26);
+  --cyberpink-subtheme-soft-glow: rgba(255, 143, 208, 0.28);
+  --cyberpink-subtheme-soft-muted: #ffc3e6;
+  --cyberpink-subtheme-navbar-text: #ff69c4;
+  --cyberpink-subtheme-text: #ffe8f6;
+  --cyberpink-subtheme-text-soft: #ffe2f3;
+  --cyberpink-subtheme-text-strong: #fff0fa;
+  --cyberpink-subtheme-compact: rgba(251, 0, 138, 0.62);
+  --cyberpink-subtheme-frame-stroke: rgba(251, 0, 138, 0.94);
+  --cyberpink-subtheme-frame-inner: rgba(255, 183, 226, 0.43);
+  --cyberpink-subtheme-frame-glow: rgba(251, 0, 138, 0.42);
+  --cyberpink-subtheme-holo-top: rgba(255, 108, 188, 0.11);
+  --cyberpink-subtheme-holo-edge: rgba(255, 63, 171, 0.31);
+  --cyberpink-subtheme-card-frame: #6d003d;
+  --cyberpink-subtheme-card-frame-bright: #fb008a;
+  --cyberpink-subtheme-card-glow: rgba(251, 0, 138, 0.3);
+  --cyberpink-subtheme-card-inner-stroke: rgba(255, 209, 236, 0.16);
+  --cyberpink-subtheme-card-surface: #700042;
+  --cyberpink-subtheme-card-surface-shadow: #540031;
+  --cyberpink-subtheme-header-surface: #590034;
+  --cyberpink-subtheme-button-glow: rgba(251, 0, 138, 0.12);
+  --cyberpink-subtheme-button-focus: rgba(251, 0, 138, 0.26);
+  --cyberpink-subtheme-button-text-glow: rgba(251, 0, 138, 0.42);
+  --cyberpink-subtheme-focus-border: #ffb0dd;
+  --cyberpink-subtheme-select-arrow: #ffd0ea;
+  --cyberpink-subtheme-surface-a: rgba(48, 6, 30, 0.62);
+  --cyberpink-subtheme-surface-b: rgba(48, 6, 30, 0.62);
+}

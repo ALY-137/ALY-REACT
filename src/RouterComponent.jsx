@@ -30,6 +30,7 @@ import EspacoPage from "./components/Layout/Espacos/EspacoPage";
 import PropriedadesSistema from "./components/Layout/Menu/Gerenciador/PropriedadesSistema/PropriedadesSistema";
 import GerenciadorProjetos from "./components/Layout/Menu/Gerenciador/GerenciadorProjetos";
 import GerenciadorIcones from "./components/Layout/Menu/Gerenciador/GerenciadorIcones";
+import GerenciadorAddOns from "./components/Layout/Menu/Gerenciador/GerenciadorAddOns";
 import SolicitacoesPixManual from "./components/Layout/Pagamentos/SolicitacoesPixManual";
 
 function RedirectOneOwnerLegacyPath() {
@@ -91,6 +92,7 @@ export default function RouterComponent() {
         { path: "users", element: <Users /> },
         { path: "acessos", element: <ListaAcessos /> },
         { path: "gerenciador-icones", element: <GerenciadorIcones /> },
+        { path: "gerenciador-addons", element: <GerenciadorAddOns /> },
         { path: "gerenciador-projetos", element: <GerenciadorProjetos /> },
       ]
     : [

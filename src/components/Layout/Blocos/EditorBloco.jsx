@@ -623,15 +623,17 @@ export default function EditorBloco({
             )}
           </div>
 
-          <button onClick={handleSalvar} disabled={bloqueado}>
-            {salvando ? "Salvando..." : "Salvar"}
-          </button>
-          <button onClick={handleCancelar} disabled={bloqueado}>
-            Cancelar
-          </button>
-          <button onClick={onExcluir} disabled={bloqueado} style={{ color: "red" }}>
-            {excluindo ? "Excluindo..." : `Excluir ${nomeBlocoSingularCapitalizado}`}
-          </button>
+          <div className="editor-bloco-acoes">
+            <button onClick={handleSalvar} disabled={bloqueado}>
+              {salvando ? "Salvando..." : "Salvar"}
+            </button>
+            <button onClick={handleCancelar} disabled={bloqueado}>
+              Cancelar
+            </button>
+            <button onClick={onExcluir} disabled={bloqueado} style={{ color: "red" }}>
+              {excluindo ? "Excluindo..." : `Excluir ${nomeBlocoSingularCapitalizado}`}
+            </button>
+          </div>
         </div>
       )}
     </div>

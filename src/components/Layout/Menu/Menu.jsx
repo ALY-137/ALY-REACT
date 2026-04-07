@@ -32,6 +32,10 @@ import {
 } from "../Sistema/configSistema";
 import FirebaseProjectBadge from "../Geral/FirebaseProjectBadge";
 import ProjectLoadingFallback from "../Geral/ProjectLoadingFallback";
+import {
+  CYBERPINK_SUBTHEME_STORAGE_KEY,
+  normalizeCyberpinkSubtheme,
+} from "../Temas/cyberpink/subthemes";
 
 const SEGMENTOS_RESERVADOS_MENU = new Set([
   "contatos",
@@ -45,6 +49,7 @@ const SEGMENTOS_RESERVADOS_MENU = new Set([
   "espacos",
   "configuracoes-gerenciador",
   "gerenciador-icones",
+  "gerenciador-addons",
   "gerenciador-projetos",
 ]);
 
@@ -286,6 +291,10 @@ function Menu({ menuOpen }) {
     navigateIfChanged(`/menu/${menuTargetUser}/gerenciador-icones`);
   }
 
+  function abrirGerenciadorAddOns() {
+    navigateIfChanged(`/menu/${menuTargetUser}/gerenciador-addons`);
+  }
+
   function abrirGerenciadoProjetos() {
     navigateIfChanged(`/menu/${menuTargetUser}/gerenciador-projetos`);
   }
@@ -347,7 +356,19 @@ function Menu({ menuOpen }) {
     if (!configSistemaPronta) return;
     aplicarTemaNoBody(configSistema.temaPadraoSistema);
     aplicarBrandingNoDocumento(configSistema);
-  }, [configSistema, configSistemaPronta]);
+    const body = document.body;
+    const temaSistema = String(configSistema?.temaPadraoSistema || "")
+      .trim()
+      .toUpperCase();
+    if (temaSistema === "CYBERPINK" && !isManagerProject) {
+      const subtemaSalvo = normalizeCyberpinkSubtheme(
+        localStorage.getItem(CYBERPINK_SUBTHEME_STORAGE_KEY)
+      );
+      body.dataset.cyberpinkSubtheme = subtemaSalvo;
+      return;
+    }
+    delete body.dataset.cyberpinkSubtheme;
+  }, [configSistema, configSistemaPronta, isManagerProject]);
 
   useEffect(() => {
     let ativo = true;
@@ -456,6 +477,10 @@ function Menu({ menuOpen }) {
             setBackAction(() => returnMenu);
           } else if (path.endsWith("/gerenciador-icones")) {
           setAtualTxt("GERENCIADOR DE ICONES");
+          setBackText("MENU");
+          setBackAction(() => returnMenu);
+        } else if (path.endsWith("/gerenciador-addons")) {
+          setAtualTxt("ADD-ONS");
           setBackText("MENU");
           setBackAction(() => returnMenu);
         } else if (path.endsWith("/gerenciador-projetos")) {
@@ -693,6 +718,9 @@ function Menu({ menuOpen }) {
             </div>
             <div onClick={abrirGerenciadorIcones} className="gavetaOption">
               GERENCIADOR DE ICONES
+            </div>
+            <div onClick={abrirGerenciadorAddOns} className="gavetaOption">
+              ADD-ONS
             </div>
             <div onClick={abrirGerenciadoProjetos} className="gavetaOption">
               GERENCIADO DE PROJETOS

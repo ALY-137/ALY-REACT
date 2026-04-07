@@ -10,6 +10,8 @@ const Navbar = ({ pages = [] }) => {
   const tabNodesRef = useRef(new Map());
   const previousRectsRef = useRef(new Map());
   const previousStatesRef = useRef(new Map());
+  const tabFlipAnimationsRef = useRef(new Map());
+  const tabOpeningTimersRef = useRef(new Map());
   const targetUsername = localStorage.getItem("targetUsername");
   const configSistema = obterConfigSistemaCacheLocal() || DEFAULT_SISTEMA_CONFIG;
   const oneOwnerPublicaAtiva = isOneOwnerComEntradaPublica(configSistema);
@@ -56,6 +58,27 @@ const Navbar = ({ pages = [] }) => {
         .join("|"),
     [menu, activeItem]
   );
+
+  const triggerCyberpinkTabOpen = (node, tabId) => {
+    if (!node || typeof window === "undefined") return;
+
+    const previousTimer = tabOpeningTimersRef.current.get(tabId);
+    if (previousTimer) {
+      window.clearTimeout(previousTimer);
+    }
+
+    node.classList.remove("navbar-tab--opening");
+    void node.offsetWidth;
+    node.classList.add("navbar-tab--opening");
+
+    const timerId = window.setTimeout(() => {
+      const currentNode = tabNodesRef.current.get(tabId);
+      currentNode?.classList.remove("navbar-tab--opening");
+      tabOpeningTimersRef.current.delete(tabId);
+    }, 420);
+
+    tabOpeningTimersRef.current.set(tabId, timerId);
+  };
 
   useLayoutEffect(() => {
     if (!navbarCyberpinkEspecial || typeof window === "undefined") return;
@@ -109,8 +132,14 @@ const Navbar = ({ pages = [] }) => {
       const midScaleX = becameActive ? 1.04 : becameInactive ? 0.96 : 1;
       const midScaleY = becameActive ? 1.03 : becameInactive ? 0.97 : 1;
 
-      node.getAnimations?.().forEach((animation) => animation.cancel());
-      node.animate(
+      const previousFlipAnimation = tabFlipAnimationsRef.current.get(tabId);
+      previousFlipAnimation?.cancel();
+
+      if (becameActive) {
+        triggerCyberpinkTabOpen(node, tabId);
+      }
+
+      const flipAnimation = node.animate(
         [
           {
             transform: `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`,
@@ -134,11 +163,22 @@ const Navbar = ({ pages = [] }) => {
           fill: "both",
         }
       );
+      tabFlipAnimationsRef.current.set(tabId, flipAnimation);
     });
 
     previousRectsRef.current = currentRects;
     previousStatesRef.current = currentStates;
   }, [navbarAnimationSignature, navbarCyberpinkEspecial]);
+
+  useLayoutEffect(
+    () => () => {
+      tabFlipAnimationsRef.current.forEach((animation) => animation?.cancel());
+      tabFlipAnimationsRef.current.clear();
+      tabOpeningTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
+      tabOpeningTimersRef.current.clear();
+    },
+    []
+  );
 
   const setTabNode = (tabId, node) => {
     if (node) {

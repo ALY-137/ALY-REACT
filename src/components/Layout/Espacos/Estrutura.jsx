@@ -1,4 +1,4 @@
-﻿import React, { Suspense, useEffect, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   collection,
@@ -34,6 +34,10 @@ import {
   usuarioCorrespondeOwnerConfigurado,
 } from "../Sistema/configSistema";
 import Layout from "../Temas/Layout.jsx";
+import {
+  CYBERPINK_SUBTHEME_STORAGE_KEY,
+  normalizeCyberpinkSubtheme,
+} from "../Temas/cyberpink/subthemes";
 import { obterTemaSkinPadrao, resolverTemaSkinEfetivo } from "../Temas/themesRegistry";
 import { findSkinByUsernameAcrossProject } from "../Skins/skinLookup";
 import {
@@ -47,6 +51,7 @@ const ONEOWNER_OWNER_USERNAME_KEY = "oneOwnerOwnerUsername";
 const ONEOWNER_CARDPROFILE_MAX_WIDTH = 420;
 const ONEOWNER_CARDPROFILE_MAX_HEIGHT = 420;
 const ONEOWNER_CARDPROFILE_VIEWPORT_PADDING = 48;
+const CYBERPINK_THEME_KEY = "CYBERPINK";
 
 const limparUsername = (valor = "") =>
   String(valor || "")
@@ -246,6 +251,7 @@ const criarSkinUnicaOneOwner = async ({
         skinOwner: skinId,
         coCriadoresUids: [],
         visibilidade: "publico",
+        subtema: normalizeCyberpinkSubtheme(),
         createdAt: serverTimestamp(),
         isHome: true,
         skins_relacionadas: [skinId],
@@ -260,6 +266,7 @@ const criarSkinUnicaOneOwner = async ({
       ownerUserId: uid,
       skinOwner: skinId,
       visibilidade: "publico",
+      subtema: normalizeCyberpinkSubtheme(),
       isHome: true,
       skins_relacionadas: [skinId],
     });
@@ -354,6 +361,29 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
   const cardProfileUrlEfetiva = String(
     configSistemaAtual?.cardProfileUrl || skins?.[0]?.cardProfileUrl || ""
   ).trim();
+  const espacoAtivoTema = useMemo(
+    () =>
+      espacos.find((pagina) => String(pagina?.nome || "").trim() === nomeEspacoAtualRota) ||
+      espacos.find((pagina) => pagina.isHome === true) ||
+      espacos[0] ||
+      null,
+    [espacos, nomeEspacoAtualRota]
+  );
+  const subtemaCyberpinkAtivo = useMemo(() => {
+    const temaSistema = String(configSistemaAtual?.temaPadraoSistema || "")
+      .trim()
+      .toUpperCase();
+    if (temaSistema !== CYBERPINK_THEME_KEY) return "";
+    return normalizeCyberpinkSubtheme(espacoAtivoTema?.subtema);
+  }, [configSistemaAtual?.temaPadraoSistema, espacoAtivoTema?.subtema]);
+
+  useEffect(() => {
+    if (subtemaCyberpinkAtivo) {
+      localStorage.setItem(CYBERPINK_SUBTHEME_STORAGE_KEY, subtemaCyberpinkAtivo);
+      return;
+    }
+    localStorage.removeItem(CYBERPINK_SUBTHEME_STORAGE_KEY);
+  }, [subtemaCyberpinkAtivo]);
 
   useEffect(() => {
     if (cardProfileUrlEfetiva) return;
@@ -428,6 +458,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
         ownerUserId: ownerUid,
         skinOwner: localStorage.getItem("skinIdAtual") || null,
         visibilidade: "publico",
+        subtema: normalizeCyberpinkSubtheme(),
         isHome: true,
       },
     ];
@@ -1136,7 +1167,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
         <LoginButton />
       ) : !oneOwnerPublicaAtiva || usuarioPodeAbrirMenuOneOwner ? (
         <p onClick={toggleMenu} style={{ cursor: "pointer" }}>
-          ☰
+          ?
         </p>
       ) : null}
     </div>
@@ -1262,6 +1293,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
           profile={profileJSX}
           navigation={navigationJSX}
           content={contentJSX}
+          spaceSubtheme={subtemaCyberpinkAtivo}
           configSistemaOverride={configSistemaAtual}
           cardProfileDimensionsOverride={cardProfileDimensions}
           onThemeReadyChange={setLayoutThemeReady}
@@ -1273,3 +1305,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
 }
 
 export default Estrutura;
+
+
+
+

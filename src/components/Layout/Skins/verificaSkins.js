@@ -11,6 +11,7 @@ import {
 
 import { db } from "../../Banco/init-firebase";
 import { sincronizarEstruturaPublicaEspaco } from "../Espacos/firebaseEspacos";
+import { normalizeCyberpinkSubtheme } from "../Temas/cyberpink/subthemes";
 import {
   getProjectCollectionCandidates,
   getProjectDocCandidates,
@@ -129,6 +130,7 @@ export const verificarESalvarskins = async (
       skinOwner: id_skin,
       coCriadoresUids: [],
       visibilidade: "publico",
+      subtema: normalizeCyberpinkSubtheme(),
       createdAt: serverTimestamp(),
       isHome: true,
       skins_relacionadas: [id_skin],

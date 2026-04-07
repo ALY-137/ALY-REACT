@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { db } from "../../../Banco/init-firebase";
 import { getDoc, getDocs } from "firebase/firestore";
 import {
@@ -14,6 +14,17 @@ async function getFirstExistingDoc(refs = []) {
   return null;
 }
 
+function normalizarAddOnIds(value) {
+  if (!Array.isArray(value)) return [];
+  return Array.from(
+    new Set(
+      value
+        .map((item) => String(item || "").trim())
+        .filter(Boolean)
+    )
+  );
+}
+
 function Card({
   id,
   id_user,
@@ -22,6 +33,9 @@ function Card({
   ownerUserId,
   espacoId,
   blocoId,
+  addOnIds,
+  addOns: addOnsProp = [],
+  usaAddOnsGerenciador = false,
   atividade,
   criador,
   nomeDescricao,
@@ -43,6 +57,11 @@ function Card({
 }) {
   const cardRef = useRef(null);
   const [addOns, setAddOns] = useState([]);
+  const addOnIdsNormalizados = useMemo(() => normalizarAddOnIds(addOnIds), [addOnIds]);
+  const addOnsPropNormalizados = useMemo(
+    () => (Array.isArray(addOnsProp) ? addOnsProp.filter(Boolean) : []),
+    [addOnsProp]
+  );
 
   useEffect(() => {
     const isCyberpink = document.body?.classList?.contains("theme-cyberpink");
@@ -65,6 +84,11 @@ function Card({
   }, []);
 
   useEffect(() => {
+    if (usaAddOnsGerenciador) {
+      setAddOns(addOnsPropNormalizados);
+      return undefined;
+    }
+
     const fetchAddOns = async () => {
       try {
         let addOnsRefsCols = [];
@@ -133,9 +157,20 @@ function Card({
       (ownerUserId && espacoId && blocoId && id) ||
       (id_user && id_skin && id_container && id)
     ) {
-      fetchAddOns();
+      void fetchAddOns();
     }
-  }, [ownerUserId, espacoId, blocoId, id_user, id_skin, id_container, id]);
+  }, [
+    usaAddOnsGerenciador,
+    addOnIdsNormalizados,
+    addOnsPropNormalizados,
+    ownerUserId,
+    espacoId,
+    blocoId,
+    id_user,
+    id_skin,
+    id_container,
+    id,
+  ]);
 
   return (
     <div id={idNome} ref={cardRef} className={cardContainerDesktop}>

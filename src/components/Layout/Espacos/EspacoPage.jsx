@@ -79,7 +79,10 @@ import {
   usuarioCorrespondeOwnerConfigurado,
 } from "../Sistema/configSistema";
 import { obterGeoAcessoAtual } from "../Sistema/acessoGeo";
-import { listarIconCollectionsNoGerenciador } from "../Sistema/gerenciadorProjetosApi";
+import {
+  listarAddOnsNoGerenciador,
+  listarIconCollectionsNoGerenciador,
+} from "../Sistema/gerenciadorProjetosApi";
 import {
   buildIconSelectionValue,
   filtrarColecoesIconesPermitidas,
@@ -173,20 +176,39 @@ const normalizarListaImagens = (valor) => {
   return [];
 };
 
+const normalizarAddOnIds = (value) => {
+  if (!Array.isArray(value)) return [];
+  return Array.from(
+    new Set(
+      value
+        .map((item) => String(item || "").trim())
+        .filter(Boolean)
+    )
+  );
+};
+
 const normalizarCardsDoBloco = (valor) => {
   if (!Array.isArray(valor)) return [];
 
   return valor
-    .map((card, index) => ({
-      id: String(card?.id || `card_${index}`),
-      ordem: Number.isFinite(card?.ordem) ? Number(card.ordem) : index,
-      nome: String(card?.nome || "").trim(),
-      descricaoExtra: String(card?.descricaoExtra || "").trim(),
-      descricao: String(card?.descricao || "").trim(),
-      imagem: String(card?.imagem || "").trim(),
-      imagemPath: String(card?.imagemPath || "").trim(),
-      linkExterno: String(card?.linkExterno || "").trim(),
-    }))
+    .map((card, index) => {
+      const possuiCampoAddOns =
+        Array.isArray(card?.addOnIds) ||
+        Array.isArray(card?.addOnsIds) ||
+        Array.isArray(card?.addons);
+      return {
+        id: String(card?.id || `card_${index}`),
+        ordem: Number.isFinite(card?.ordem) ? Number(card.ordem) : index,
+        nome: String(card?.nome || "").trim(),
+        descricaoExtra: String(card?.descricaoExtra || "").trim(),
+        descricao: String(card?.descricao || "").trim(),
+        imagem: String(card?.imagem || "").trim(),
+        imagemPath: String(card?.imagemPath || "").trim(),
+        linkExterno: String(card?.linkExterno || "").trim(),
+        addOnIds: normalizarAddOnIds(card?.addOnIds || card?.addOnsIds || card?.addons),
+        usaAddOnsGerenciador: possuiCampoAddOns,
+      };
+    })
     .filter(
       (card) =>
         card.nome ||
@@ -194,7 +216,8 @@ const normalizarCardsDoBloco = (valor) => {
         card.descricao ||
         card.imagem ||
         card.imagemPath ||
-        card.linkExterno
+        card.linkExterno ||
+        card.addOnIds.length
     )
     .sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
 };
@@ -261,6 +284,7 @@ const criarEstadoEditorCard = (overrides = {}) => ({
   imagemArquivo: null,
   imagemPreviewUrl: "",
   linkExterno: "",
+  addOnIds: [],
   ...overrides,
 });
 
@@ -546,6 +570,9 @@ export default function EspacoPage() {
     configSistemaCacheLocal || DEFAULT_SISTEMA_CONFIG
   );
   const [iconCollectionsDisponiveis, setIconCollectionsDisponiveis] = useState([]);
+  const [addOnsDisponiveisGerenciador, setAddOnsDisponiveisGerenciador] = useState([]);
+  const [erroAddOnsGerenciador, setErroAddOnsGerenciador] = useState("");
+  const [buscaAddOnEditor, setBuscaAddOnEditor] = useState("");
   const [ownerUidProjeto, setOwnerUidProjeto] = useState(
     String(
       obterOwnerUidConfigurado(configSistemaCacheLocal) || ""
@@ -680,6 +707,28 @@ export default function EspacoPage() {
     () => filtrarColecoesIconesPermitidas(iconCollectionsDisponiveis, configSistemaAtual),
     [configSistemaAtual, iconCollectionsDisponiveis]
   );
+  const addOnsDisponiveisProjeto = useMemo(() => {
+    const permitidos = new Set(
+      normalizarAddOnIds(configSistemaAtual?.addOnIdsDisponiveis)
+    );
+    if (!permitidos.size) return [];
+    return addOnsDisponiveisGerenciador.filter((item) => permitidos.has(item.id));
+  }, [configSistemaAtual, addOnsDisponiveisGerenciador]);
+  const addOnsDisponiveisProjetoPorId = useMemo(
+    () =>
+      addOnsDisponiveisProjeto.reduce((acc, item) => {
+        acc[item.id] = item;
+        return acc;
+      }, {}),
+    [addOnsDisponiveisProjeto]
+  );
+  const addOnsEditorFiltrados = useMemo(() => {
+    const buscaNormalizada = String(buscaAddOnEditor || "").trim().toLowerCase();
+    return addOnsDisponiveisProjeto.filter((item) => {
+      if (!buscaNormalizada) return true;
+      return String(item?.nome || "").toLowerCase().includes(buscaNormalizada);
+    });
+  }, [addOnsDisponiveisProjeto, buscaAddOnEditor]);
   const projetoPossuiColecoesIcones = iconCollectionsFiltradas.length > 0;
   const cardsEditorBlocoAtual = useMemo(
     () => normalizarCardsDoBloco(blocoEditorCardsAtual?.cards),
@@ -1202,6 +1251,7 @@ export default function EspacoPage() {
   };
 
   const fecharEditorCard = useCallback(() => {
+    setBuscaAddOnEditor("");
     setEditorCardModal((prev) => {
       const previewAnterior = String(prev?.imagemPreviewUrl || "").trim();
       if (previewAnterior.startsWith("blob:")) {
@@ -1240,8 +1290,10 @@ export default function EspacoPage() {
         imagemOriginal: String(card?.imagem || "").trim(),
         imagemPathOriginal: String(card?.imagemPath || "").trim(),
         linkExterno: String(card?.linkExterno || "").trim(),
+        addOnIds: normalizarAddOnIds(card?.addOnIds),
       });
     });
+    setBuscaAddOnEditor("");
   }, []);
 
   const abrirEditorBlocoCards = useCallback((bloco = null) => {
@@ -2591,6 +2643,29 @@ export default function EspacoPage() {
   }, []);
 
   useEffect(() => {
+    let ativo = true;
+
+    async function carregarAddOnsGerenciador() {
+      try {
+        const lista = await listarAddOnsNoGerenciador({ onlyActive: true });
+        if (!ativo) return;
+        setAddOnsDisponiveisGerenciador(Array.isArray(lista) ? lista : []);
+        setErroAddOnsGerenciador("");
+      } catch (error) {
+        if (!ativo) return;
+        setAddOnsDisponiveisGerenciador([]);
+        setErroAddOnsGerenciador(error?.message || "Falha ao carregar add-ons.");
+      }
+    }
+
+    void carregarAddOnsGerenciador();
+
+    return () => {
+      ativo = false;
+    };
+  }, []);
+
+  useEffect(() => {
     carregarGoogleFontsNoDocumento(googleFontsUrlsProjeto);
   }, [googleFontsUrlsProjeto]);
 
@@ -3690,6 +3765,7 @@ export default function EspacoPage() {
               imagem: card.imagem || "",
               imagemPath: card.imagemPath || "",
               linkExterno: card.linkExterno || "",
+              addOnIds: normalizarAddOnIds(card.addOnIds),
               blocoId: bloco.id,
               espacoId,
               ownerUserId,
@@ -4026,6 +4102,7 @@ export default function EspacoPage() {
     const imagemAtual = String(editorCardModal?.imagemOriginal || "").trim();
     const imagemPathAtual = String(editorCardModal?.imagemPathOriginal || "").trim();
     const linkNovo = String(editorCardModal?.linkExterno || "").trim();
+    const addOnIdsNovos = normalizarAddOnIds(editorCardModal?.addOnIds);
     const ehNovoCard = Boolean(editorCardModal?.ehNovo);
 
     const cardRef = getBlocoCardDocRef(bloco, card.id);
@@ -4088,6 +4165,8 @@ export default function EspacoPage() {
         imagem: imagemFinal,
         imagemPath: imagemPathFinal,
         linkExterno: String(linkNovo || "").trim(),
+        addOnIds: addOnIdsNovos,
+        usaAddOnsGerenciador: true,
       };
 
       const cardsAtualizadosOrigem = normalizarCardsDoBloco(
@@ -4680,6 +4759,11 @@ export default function EspacoPage() {
                                     ownerUserId={ownerUserId}
                                     espacoId={espacoId}
                                     blocoId={bloco.id}
+                                    addOnIds={normalizarAddOnIds(cardAtivo.addOnIds)}
+                                    usaAddOnsGerenciador={cardAtivo?.usaAddOnsGerenciador === true}
+                                    addOns={normalizarAddOnIds(cardAtivo.addOnIds)
+                                      .map((addOnId) => addOnsDisponiveisProjetoPorId[addOnId])
+                                      .filter(Boolean)}
                                     nome={cardAtivo.nome || `Card ${indiceCardAtivo + 1}`}
                                     descricaoExtra={cardAtivo.descricaoExtra || ""}
                                     nomeDescricao={cardAtivo.nome || ""}
@@ -4863,12 +4947,11 @@ export default function EspacoPage() {
               )}
 
               {podeGerenciar && (blocoEhCards || blocoEhLive) && (
-                <div style={{ marginTop: 8 }}>
+                <div className="bloco-acoes">
                   {(blocoEhCards || blocoEhLive) ? (
                     <button
                       type="button"
                       onClick={() => abrirEditorBlocoCards(bloco)}
-                      style={{ marginRight: 8 }}
                     >
                       Editar bloco
                     </button>
@@ -5295,6 +5378,102 @@ export default function EspacoPage() {
                 rows={6}
               />
             </label>
+
+            <div style={{ display: "grid", gap: 8 }}>
+              <strong>Add-ons do card</strong>
+              <input
+                type="search"
+                value={buscaAddOnEditor}
+                onChange={(event) => setBuscaAddOnEditor(event.target.value)}
+                placeholder="Pesquisar add-on por nome"
+              />
+              <div
+                style={{
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  borderRadius: 8,
+                  padding: 10,
+                  maxHeight: 220,
+                  overflowY: "auto",
+                  display: "grid",
+                  gap: 8,
+                }}
+              >
+                {erroAddOnsGerenciador ? (
+                  <p style={{ margin: 0, color: "#ff9db0" }}>{erroAddOnsGerenciador}</p>
+                ) : !normalizarAddOnIds(configSistemaAtual?.addOnIdsDisponiveis).length ? (
+                  <p style={{ margin: 0, opacity: 0.76 }}>
+                    Este projeto ainda nao liberou add-ons para cards.
+                  </p>
+                ) : !addOnsEditorFiltrados.length ? (
+                  <p style={{ margin: 0, opacity: 0.76 }}>
+                    Nenhum add-on encontrado para este filtro.
+                  </p>
+                ) : (
+                  addOnsEditorFiltrados.map((item) => {
+                    const marcado = normalizarAddOnIds(editorCardModal.addOnIds).includes(item.id);
+                    return (
+                      <label
+                        key={item.id}
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "20px 34px minmax(0, 1fr)",
+                          gap: 10,
+                          alignItems: "center",
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={marcado}
+                          onChange={() =>
+                            setEditorCardModal((prev) => {
+                              const atuais = normalizarAddOnIds(prev?.addOnIds);
+                              return {
+                                ...prev,
+                                addOnIds: atuais.includes(item.id)
+                                  ? atuais.filter((id) => id !== item.id)
+                                  : [...atuais, item.id],
+                              };
+                            })
+                          }
+                        />
+                        <span
+                          style={{
+                            width: 34,
+                            height: 34,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            border: "1px solid rgba(255,255,255,0.12)",
+                            borderRadius: 8,
+                            overflow: "hidden",
+                            background: "rgba(255,255,255,0.04)",
+                          }}
+                        >
+                          {item?.url_img ? (
+                            <img
+                              src={item.url_img}
+                              alt={item.nome || "Add-on"}
+                              style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                            />
+                          ) : null}
+                        </span>
+                        <span style={{ minWidth: 0 }}>
+                          <strong>{item.nome}</strong>
+                          {item?.descricao ? (
+                            <span style={{ display: "block", fontSize: 12, opacity: 0.74 }}>
+                              {item.descricao}
+                            </span>
+                          ) : null}
+                        </span>
+                      </label>
+                    );
+                  })
+                )}
+              </div>
+              <span style={{ fontSize: 12, opacity: 0.78 }}>
+                {`${normalizarAddOnIds(editorCardModal.addOnIds).length} add-on(s) selecionado(s).`}
+              </span>
+            </div>
 
             <label style={{ display: "grid", gap: 6 }}>
               <span>URL da imagem</span>

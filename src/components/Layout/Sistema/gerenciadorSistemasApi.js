@@ -25,6 +25,7 @@ const MANAGER_APP_NAME = "system-manager-app";
 const MANAGER_COLLECTION = "systems";
 const PRECONFIG_COLLECTION = "systemPreconfigs";
 const ICON_COLLECTION = "iconCollections";
+const ADDON_COLLECTION = "add_ons";
 const MANAGER_COLLECTIONS_READ = ["systems"];
 const MANAGER_COLLECTIONS_DELETE = ["systems", "sistemas"];
 const FORCED_SHARED_STORAGE_BUCKET = "teste-aa015.appspot.com";
@@ -222,6 +223,21 @@ function normalizeIconItems(value) {
       path: normalizeText(item?.path || item?.iconPath || ""),
     }))
     .filter((item) => item.id && item.label && item.url);
+}
+
+function normalizeAddOnItem(data = {}, fallbackId = "") {
+  const nome = normalizeText(data?.nome || data?.label || data?.nomeAddOn || fallbackId);
+  return {
+    id: normalizeText(data?.id || fallbackId),
+    nome,
+    nomeBusca: normalizeText(data?.nomeBusca || nome).toLowerCase(),
+    url_img: normalizeText(data?.url_img || data?.imageUrl || data?.url || ""),
+    path_img: normalizeText(data?.path_img || data?.imagePath || data?.path || ""),
+    descricao: normalizeText(data?.descricao || ""),
+    ativo: typeof data?.ativo === "boolean" ? data.ativo : true,
+    criadoPorUid: normalizeText(data?.criadoPorUid),
+    atualizadoPorUid: normalizeText(data?.atualizadoPorUid),
+  };
 }
 
 function normalizeSystemKey(value) {
@@ -707,6 +723,140 @@ export async function listarIconCollectionsNoGerenciador() {
       };
     })
     .sort((a, b) => a.nome.localeCompare(b.nome));
+}
+
+export async function listarAddOnsNoGerenciador({
+  search = "",
+  onlyActive = false,
+} = {}) {
+  const managerDb = getManagerDb();
+  if (!managerDb) return [];
+
+  const buscaNormalizada = normalizeText(search).toLowerCase();
+  const snap = await getDocs(collection(managerDb, ADDON_COLLECTION));
+
+  return snap.docs
+    .map((docItem) => normalizeAddOnItem(docItem.data() || {}, docItem.id))
+    .filter((item) => item.id && item.id !== "sistema_config")
+    .filter((item) => (onlyActive ? item.ativo !== false : true))
+    .filter((item) => {
+      if (!buscaNormalizada) return true;
+      return (
+        item.nome.toLowerCase().includes(buscaNormalizada) ||
+        item.nomeBusca.includes(buscaNormalizada)
+      );
+    })
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+}
+
+export async function criarAddOnNoGerenciador({
+  nome = "",
+  descricao = "",
+  criadoPorUid = null,
+} = {}) {
+  const managerDb = getManagerDb();
+  if (!managerDb) {
+    throw new Error("Gerenciador de projetos nao configurado.");
+  }
+
+  const nomeNormalizado = normalizeText(nome);
+  if (!nomeNormalizado) {
+    throw new Error("Informe o nome do add-on.");
+  }
+
+  const docRef = doc(collection(managerDb, ADDON_COLLECTION));
+  await setDoc(
+    docRef,
+    {
+      nome: nomeNormalizado,
+      nomeBusca: nomeNormalizado.toLowerCase(),
+      descricao: normalizeText(descricao),
+      url_img: "",
+      path_img: "",
+      ativo: true,
+      criadoPorUid: normalizeText(criadoPorUid),
+      atualizadoPorUid: normalizeText(criadoPorUid),
+      criadoEm: serverTimestamp(),
+      atualizadoEm: serverTimestamp(),
+    },
+    { merge: true }
+  );
+
+  return {
+    id: docRef.id,
+    nome: nomeNormalizado,
+    nomeBusca: nomeNormalizado.toLowerCase(),
+    descricao: normalizeText(descricao),
+    url_img: "",
+    path_img: "",
+    ativo: true,
+  };
+}
+
+export async function salvarAddOnNoGerenciador({
+  addOnId = "",
+  nome,
+  descricao,
+  url_img,
+  path_img,
+  ativo,
+  atualizadoPorUid = null,
+} = {}) {
+  const managerDb = getManagerDb();
+  if (!managerDb) {
+    throw new Error("Gerenciador de projetos nao configurado.");
+  }
+
+  const addOnIdNormalizado = normalizeText(addOnId);
+  if (!addOnIdNormalizado || addOnIdNormalizado === "sistema_config") {
+    throw new Error("Add-on invalido.");
+  }
+
+  const payload = {
+    atualizadoPorUid: normalizeText(atualizadoPorUid),
+    atualizadoEm: serverTimestamp(),
+  };
+
+  if (typeof nome !== "undefined") {
+    const nomeNormalizado = normalizeText(nome);
+    payload.nome = nomeNormalizado;
+    payload.nomeBusca = nomeNormalizado.toLowerCase();
+  }
+  if (typeof descricao !== "undefined") {
+    payload.descricao = normalizeText(descricao);
+  }
+  if (typeof url_img !== "undefined") {
+    payload.url_img = normalizeText(url_img);
+  }
+  if (typeof path_img !== "undefined") {
+    payload.path_img = normalizeText(path_img);
+  }
+  if (typeof ativo === "boolean") {
+    payload.ativo = ativo;
+  }
+
+  await setDoc(doc(managerDb, ADDON_COLLECTION, addOnIdNormalizado), payload, {
+    merge: true,
+  });
+
+  return true;
+}
+
+export async function removerAddOnNoGerenciador({
+  addOnId = "",
+} = {}) {
+  const managerDb = getManagerDb();
+  if (!managerDb) {
+    throw new Error("Gerenciador de projetos nao configurado.");
+  }
+
+  const addOnIdNormalizado = normalizeText(addOnId);
+  if (!addOnIdNormalizado || addOnIdNormalizado === "sistema_config") {
+    throw new Error("Add-on invalido.");
+  }
+
+  await deleteDoc(doc(managerDb, ADDON_COLLECTION, addOnIdNormalizado));
+  return true;
 }
 
 export async function criarIconCollectionNoGerenciador({

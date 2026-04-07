@@ -23,6 +23,7 @@ import {
   getProjectDocCandidates,
 } from "../../Banco/projectDataRefs";
 import { isProjectDataNamespaced } from "../../Banco/projectDataNamespace";
+import { normalizeCyberpinkSubtheme } from "../Temas/cyberpink/subthemes";
 
 const VISIBILIDADES_ESPACO_AUTENTICADO = [
   "publico",
@@ -126,6 +127,7 @@ export function construirEstruturaPublicaEspaco(espaco = {}, userId = "") {
     iconId: String(espaco?.iconId || "").trim(),
     iconUrl: String(espaco?.iconUrl || "").trim(),
     iconLabel: String(espaco?.iconLabel || "").trim(),
+    subtema: normalizeCyberpinkSubtheme(espaco?.subtema),
     isHome: espaco?.isHome === true,
     skins_relacionadas: Array.isArray(espaco?.skins_relacionadas)
       ? espaco.skins_relacionadas.filter(Boolean)

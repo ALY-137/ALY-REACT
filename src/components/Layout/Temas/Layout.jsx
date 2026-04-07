@@ -17,6 +17,7 @@ export default function Layout({
   navigation = null,
   content,
   theme,
+  spaceSubtheme = "",
   configSistemaOverride = null,
   cardProfileDimensionsOverride = null,
   onThemeReadyChange = null,
@@ -200,6 +201,11 @@ export default function Layout({
       "layout-oneowner-header-active",
       oneOwnerPublicaAtiva && layoutConfig.headerVisible
     );
+    if (cssTheme.toLowerCase() === "cyberpink" && spaceSubtheme) {
+      body.dataset.cyberpinkSubtheme = String(spaceSubtheme || "").trim().toLowerCase();
+    } else {
+      delete body.dataset.cyberpinkSubtheme;
+    }
     if (wallpaperTemaSistema) {
       root.style.setProperty("--system-wallpaper", `url('${wallpaperTemaSistema}')`);
     } else {
@@ -238,6 +244,7 @@ export default function Layout({
     dimensoesCardProfileEfetivas.width,
     alturaCabecalhoEfetiva,
     oneOwnerPublicaAtiva,
+    spaceSubtheme,
     wallpaperTemaSistema,
   ]);
 
