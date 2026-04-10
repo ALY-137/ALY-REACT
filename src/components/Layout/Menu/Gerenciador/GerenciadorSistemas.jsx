@@ -596,15 +596,19 @@ function GerenciadorProjetos() {
 
     setDomainsProjetoEdicao((projetoEmGerenciamento.domains || []).join(", "));
     setStatusProjetoEdicao(
-      normalizeProjectStatus(projetoEmGerenciamento?.statusProjeto, {
-        projectSystemKey:
-          projetoEmGerenciamento?.configSistema?.projectSystemKey ||
-          projetoEmGerenciamento?.systemKey,
-        firebaseProjectId: projetoEmGerenciamento?.firebaseProjectId,
-        systemKey: projetoEmGerenciamento?.systemKey,
-        nomeProjeto: projetoEmGerenciamento?.nomeProjeto,
-        tituloSistema: projetoEmGerenciamento?.configSistema?.tituloSistema,
-      })
+      normalizeProjectStatus(
+        projetoEmGerenciamento?.configSistema?.statusProjeto ||
+          projetoEmGerenciamento?.statusProjeto,
+        {
+          projectSystemKey:
+            projetoEmGerenciamento?.configSistema?.projectSystemKey ||
+            projetoEmGerenciamento?.systemKey,
+          firebaseProjectId: projetoEmGerenciamento?.firebaseProjectId,
+          systemKey: projetoEmGerenciamento?.systemKey,
+          nomeProjeto: projetoEmGerenciamento?.nomeProjeto,
+          tituloSistema: projetoEmGerenciamento?.configSistema?.tituloSistema,
+        }
+      )
     );
     setAddOnIdsProjetoEdicao(
       Array.isArray(projetoEmGerenciamento?.configSistema?.addOnIdsDisponiveis)
@@ -1557,33 +1561,55 @@ function GerenciadorProjetos() {
             </p>
           </div>
 
-          <PropriedadesSistema
-            tituloSecao={`GERENCIAMENTO DO PROJETO: ${
-              projetoEmGerenciamento.nomeProjeto || projetoEmGerenciamento.systemKey
-            }`}
-            projetoGerenciado={projetoEmGerenciamento}
-            onConfigSalva={(configSalva, resultadoProjetoSalvo) => {
-              setProjetos((prev) =>
-                prev.map((item) =>
-                  item.systemKey === projetoEmGerenciamento.systemKey
-                    ? {
-                        ...item,
-                        configSistema: configSalva,
-                        nomeProjeto: configSalva?.tituloSistema || item.nomeProjeto,
-                        tipoProjeto: normalizeTipoProjeto(
-                          configSalva?.tipoExperiencia || item.tipoProjeto
-                        ),
-                        statusProjeto: normalizeProjectStatus(configSalva?.statusProjeto, {
-                          projectSystemKey: configSalva?.projectSystemKey || item.systemKey,
+            <PropriedadesSistema
+              tituloSecao={`GERENCIAMENTO DO PROJETO: ${
+                projetoEmGerenciamento.nomeProjeto || projetoEmGerenciamento.systemKey
+              }`}
+              projetoGerenciado={projetoEmGerenciamento}
+              statusProjetoAtual={statusProjetoEdicao}
+              addOnIdsDisponiveisAtual={addOnIdsProjetoEdicao}
+              onConfigSalva={(configSalva, resultadoProjetoSalvo) => {
+                const statusProjetoAtualizado = normalizeProjectStatus(
+                  resultadoProjetoSalvo?.statusProjeto ||
+                    configSalva?.statusProjeto ||
+                    projetoEmGerenciamento?.configSistema?.statusProjeto ||
+                    projetoEmGerenciamento?.statusProjeto,
+                  {
+                    projectSystemKey:
+                      configSalva?.projectSystemKey ||
+                      projetoEmGerenciamento?.configSistema?.projectSystemKey ||
+                      projetoEmGerenciamento?.systemKey,
+                    firebaseProjectId:
+                      resultadoProjetoSalvo?.firebaseProjectId ||
+                      projetoEmGerenciamento?.firebaseProjectId,
+                    systemKey: projetoEmGerenciamento?.systemKey,
+                    nomeProjeto:
+                      configSalva?.tituloSistema || projetoEmGerenciamento?.nomeProjeto,
+                    tituloSistema: configSalva?.tituloSistema,
+                  }
+                );
+                const addOnIdsAtualizados = Array.isArray(configSalva?.addOnIdsDisponiveis)
+                  ? configSalva.addOnIdsDisponiveis
+                  : addOnIdsProjetoEdicao;
+                const configSistemaAtualizada = {
+                  ...configSalva,
+                  statusProjeto: statusProjetoAtualizado,
+                  addOnIdsDisponiveis: addOnIdsAtualizados,
+                };
+                setProjetos((prev) =>
+                  prev.map((item) =>
+                    item.systemKey === projetoEmGerenciamento.systemKey
+                      ? {
+                          ...item,
+                          configSistema: configSistemaAtualizada,
+                          nomeProjeto: configSalva?.tituloSistema || item.nomeProjeto,
+                          tipoProjeto: normalizeTipoProjeto(
+                            configSalva?.tipoExperiencia || item.tipoProjeto
+                          ),
+                          statusProjeto: statusProjetoAtualizado,
                           firebaseProjectId:
                             resultadoProjetoSalvo?.firebaseProjectId || item.firebaseProjectId,
-                          systemKey: item.systemKey,
-                          nomeProjeto: configSalva?.tituloSistema || item.nomeProjeto,
-                          tituloSistema: configSalva?.tituloSistema,
-                        }),
-                        firebaseProjectId:
-                          resultadoProjetoSalvo?.firebaseProjectId || item.firebaseProjectId,
-                        firebaseRuntimeConfig:
+                          firebaseRuntimeConfig:
                           resultadoProjetoSalvo?.firebaseRuntimeConfig || item.firebaseRuntimeConfig,
                         preconfigBaseKey:
                           resultadoProjetoSalvo?.preconfigBaseKey || item.preconfigBaseKey,
@@ -1593,26 +1619,19 @@ function GerenciadorProjetos() {
                     : item
                 )
               );
-              setProjetoEmGerenciamento((atual) =>
-                atual
-                  ? {
-                      ...atual,
-                      configSistema: configSalva,
-                      nomeProjeto: configSalva?.tituloSistema || atual.nomeProjeto,
-                      tipoProjeto: normalizeTipoProjeto(
-                        configSalva?.tipoExperiencia || atual.tipoProjeto
-                      ),
-                      statusProjeto: normalizeProjectStatus(configSalva?.statusProjeto, {
-                        projectSystemKey: configSalva?.projectSystemKey || atual.systemKey,
+                setProjetoEmGerenciamento((atual) =>
+                  atual
+                    ? {
+                        ...atual,
+                        configSistema: configSistemaAtualizada,
+                        nomeProjeto: configSalva?.tituloSistema || atual.nomeProjeto,
+                        tipoProjeto: normalizeTipoProjeto(
+                          configSalva?.tipoExperiencia || atual.tipoProjeto
+                        ),
+                        statusProjeto: statusProjetoAtualizado,
                         firebaseProjectId:
                           resultadoProjetoSalvo?.firebaseProjectId || atual.firebaseProjectId,
-                        systemKey: atual.systemKey,
-                        nomeProjeto: configSalva?.tituloSistema || atual.nomeProjeto,
-                        tituloSistema: configSalva?.tituloSistema,
-                      }),
-                      firebaseProjectId:
-                        resultadoProjetoSalvo?.firebaseProjectId || atual.firebaseProjectId,
-                      firebaseRuntimeConfig:
+                        firebaseRuntimeConfig:
                         resultadoProjetoSalvo?.firebaseRuntimeConfig || atual.firebaseRuntimeConfig,
                       preconfigBaseKey:
                         resultadoProjetoSalvo?.preconfigBaseKey || atual.preconfigBaseKey,

@@ -22,6 +22,10 @@ import {
   applyLoginPresetToConfig,
   getLoginPresetById,
 } from "../../../Sistema/loginPresets";
+import {
+  normalizeProjectStatus,
+  PROJECT_STATUS_ACTIVE,
+} from "../../../Sistema/projectStatus";
 import ProjectLoadingFallback from "../../../Geral/ProjectLoadingFallback";
 import {
   listarIconCollectionsNoGerenciador,
@@ -172,6 +176,8 @@ function PropriedadesSistema({
   modoBootstrap = false,
   tituloSecao = "PROPRIEDADES DO SISTEMA",
   projetoGerenciado = null,
+  statusProjetoAtual = null,
+  addOnIdsDisponiveisAtual = null,
 }) {
   const { user, loading } = useAuth();
   const managerProjectId = obterManagerProjectIdConfigurado();
@@ -404,25 +410,55 @@ function PropriedadesSistema({
     );
   };
 
-  const salvar = async () => {
-    setSalvando(true);
-    setMensagem("");
-    setErro("");
+    const salvar = async () => {
+      setSalvando(true);
+      setMensagem("");
+      setErro("");
 
     try {
-      let configSalva = null;
-      let resultadoProjetoSalvo = null;
-      const urlsGoogleFontsValidadas = normalizarGoogleFontsUrlsTexto(googleFontsUrlsInput);
-      const configParaSalvar = {
-        ...config,
-        googleFontsUrls: urlsGoogleFontsValidadas,
-      };
+        let configSalva = null;
+        let resultadoProjetoSalvo = null;
+        const urlsGoogleFontsValidadas = normalizarGoogleFontsUrlsTexto(googleFontsUrlsInput);
+        const configParaSalvar = {
+          ...config,
+          googleFontsUrls: urlsGoogleFontsValidadas,
+        };
 
-      if (editandoProjetoExterno) {
-        const configNormalizada = normalizarConfigSistema(configParaSalvar);
-        const hostnameProjeto = Array.isArray(projetoGerenciado?.domains)
-          ? String(projetoGerenciado.domains[0] || "")
-          : "";
+        if (editandoProjetoExterno) {
+          const statusProjetoNormalizado = normalizeProjectStatus(
+            statusProjetoAtual ||
+              projetoGerenciado?.configSistema?.statusProjeto ||
+              projetoGerenciado?.statusProjeto,
+            {
+              projectSystemKey:
+                projetoGerenciado?.configSistema?.projectSystemKey ||
+                projetoGerenciado?.systemKey,
+              firebaseProjectId: projetoGerenciado?.firebaseProjectId,
+              systemKey: projetoGerenciado?.systemKey,
+              nomeProjeto: configParaSalvar?.tituloSistema || projetoGerenciado?.nomeProjeto,
+              tituloSistema: configParaSalvar?.tituloSistema,
+              fallback: PROJECT_STATUS_ACTIVE,
+            }
+          );
+          const addOnIdsNormalizados = Array.isArray(addOnIdsDisponiveisAtual)
+            ? Array.from(
+                new Set(
+                  addOnIdsDisponiveisAtual
+                    .map((item) => String(item || "").trim())
+                    .filter(Boolean)
+                )
+              )
+            : undefined;
+
+          configParaSalvar.statusProjeto = statusProjetoNormalizado;
+          if (Array.isArray(addOnIdsNormalizados)) {
+            configParaSalvar.addOnIdsDisponiveis = addOnIdsNormalizados;
+          }
+
+          const configNormalizada = normalizarConfigSistema(configParaSalvar);
+          const hostnameProjeto = Array.isArray(projetoGerenciado?.domains)
+            ? String(projetoGerenciado.domains[0] || "")
+            : "";
 
         try {
           resultadoProjetoSalvo = await salvarConfigProjetoNoGerenciador({
@@ -454,9 +490,9 @@ function PropriedadesSistema({
           });
         }
 
-        configSalva = configNormalizada;
-        setMensagem("Configuracoes do projeto salvas com sucesso.");
-      } else {
+          configSalva = configNormalizada;
+          setMensagem("Configuracoes do projeto salvas com sucesso.");
+        } else {
         configSalva = await salvarConfigSistemaAdmin({
           ...configParaSalvar,
           ownerUid: user?.uid || null,
@@ -2135,10 +2171,19 @@ function PropriedadesSistema({
         </div>
       ) : null}
 
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <button onClick={salvar} disabled={salvando}>
-          {salvando ? "Salvando..." : "Salvar configuracoes"}
-        </button>
+        <div
+          className={`propriedades-sistema__acoes${
+            editandoProjetoExterno ? " propriedades-sistema__acoes--sticky" : ""
+          }`}
+          style={{
+            display: "flex",
+            gap: 8,
+            flexWrap: "wrap",
+          }}
+        >
+          <button onClick={salvar} disabled={salvando}>
+            {salvando ? "Salvando..." : "Salvar configuracoes"}
+          </button>
         <button onClick={restaurarPadrao} disabled={salvando}>
           Restaurar padrao
         </button>
