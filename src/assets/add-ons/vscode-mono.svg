@@ -1,0 +1,36 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <title>VS Code Monochrome Icon</title>
+  <path
+    d="M84 20L108 32V96L84 108L44 76V52L84 20Z"
+    stroke="#94A3B8"
+    stroke-width="6"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M44 52L62 38"
+    stroke="#94A3B8"
+    stroke-width="6"
+    stroke-linecap="round"
+  />
+  <path
+    d="M44 76L62 90"
+    stroke="#94A3B8"
+    stroke-width="6"
+    stroke-linecap="round"
+  />
+  <path
+    d="M20 42L44 64L20 86"
+    stroke="#94A3B8"
+    stroke-width="8"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M84 36L56 64L84 92"
+    stroke="#94A3B8"
+    stroke-width="8"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>

@@ -252,12 +252,14 @@ function GerenciadorIcones() {
   }
 
   return (
-    <div>
-      <h2>GERENCIADOR DE ICONES</h2>
-      <p>Crie colecoes de icones, vincule temas e alimente os icones disponiveis.</p>
+    <div className="menu-panel-stack icon-manager">
+      <h2 className="menu-panel-main-title">GERENCIADOR DE ICONES</h2>
+      <p className="menu-panel-note">
+        Crie colecoes de icones, vincule temas e alimente os icones disponiveis.
+      </p>
 
-      <div style={{ border: "1px solid #999", borderRadius: 8, padding: 12, marginBottom: 12 }}>
-        <h3 style={{ marginTop: 0 }}>Nova colecao</h3>
+      <div className="menu-panel-block icon-manager__create">
+        <h3 className="menu-panel-title">Nova colecao</h3>
         <label htmlFor="novaColecaoNome">Nome da colecao</label>
         <input
           id="novaColecaoNome"
@@ -296,7 +298,7 @@ function GerenciadorIcones() {
         return (
           <div
             key={colecao.id}
-            style={{ border: "1px solid #999", borderRadius: 8, padding: 12, marginBottom: 12 }}
+            className="menu-panel-block icon-manager__collection"
           >
             <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
               <strong>{colecao.nome}</strong>
@@ -353,13 +355,15 @@ function GerenciadorIcones() {
             <div style={{ marginTop: 12 }}>
               <strong>Icones ({(colecao.icons || []).length})</strong>
               {(colecao.icons || []).length ? (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 10, marginTop: 10 }}>
+                <div
+                  className="icon-manager__tile-grid"
+                  style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 10, marginTop: 10 }}
+                >
                   {colecao.icons.map((icon) => (
                     <div
                       key={icon.id}
+                      className="menu-panel-item icon-manager__tile"
                       style={{
-                        border: "1px solid #666",
-                        borderRadius: 8,
                         padding: 8,
                         display: "flex",
                         flexDirection: "column",

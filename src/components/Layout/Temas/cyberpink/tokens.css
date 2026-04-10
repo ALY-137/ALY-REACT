@@ -8,9 +8,9 @@ body.theme-cyberpink {
   --cyberpink-subtheme-soft-glow: rgba(191, 135, 255, 0.28);
   --cyberpink-subtheme-soft-muted: #c592ff;
   --cyberpink-subtheme-navbar-text: #a75aff;
-  --cyberpink-subtheme-text: #e8d4ff;
-  --cyberpink-subtheme-text-soft: #ecd9ff;
-  --cyberpink-subtheme-text-strong: #f3e7ff;
+  --cyberpink-subtheme-text: #ddb1ff;
+  --cyberpink-subtheme-text-soft: #d39cff;
+  --cyberpink-subtheme-text-strong: #e8c6ff;
   --cyberpink-subtheme-compact: #7e0eff9a;
   --cyberpink-subtheme-frame-stroke: rgba(126, 14, 255, 0.94);
   --cyberpink-subtheme-frame-inner: rgba(176, 128, 255, 0.432);
@@ -31,6 +31,7 @@ body.theme-cyberpink {
   --cyberpink-subtheme-select-arrow: #f0ccff;
   --cyberpink-subtheme-surface-a: rgba(19, 1, 53, 0.62);
   --cyberpink-subtheme-surface-b: rgba(19, 1, 53, 0.62);
+  --cyberpink-subtheme-icon-filter: brightness(0) saturate(100%) invert(22%) sepia(88%) saturate(4416%) hue-rotate(266deg) brightness(101%) contrast(103%);
 }
 
 body.theme-cyberpink[data-cyberpink-subtheme="red"] {
@@ -41,9 +42,9 @@ body.theme-cyberpink[data-cyberpink-subtheme="red"] {
   --cyberpink-subtheme-soft-glow: rgba(255, 143, 171, 0.28);
   --cyberpink-subtheme-soft-muted: #ffc2d0;
   --cyberpink-subtheme-navbar-text: #ff7398;
-  --cyberpink-subtheme-text: #ffe8ef;
-  --cyberpink-subtheme-text-soft: #ffe1ea;
-  --cyberpink-subtheme-text-strong: #fff1f5;
+  --cyberpink-subtheme-text: #ffb7c8;
+  --cyberpink-subtheme-text-soft: #ffa6bc;
+  --cyberpink-subtheme-text-strong: #ffcddd;
   --cyberpink-subtheme-compact: rgba(255, 61, 101, 0.62);
   --cyberpink-subtheme-frame-stroke: rgba(255, 61, 101, 0.94);
   --cyberpink-subtheme-frame-inner: rgba(255, 174, 189, 0.43);
@@ -64,6 +65,7 @@ body.theme-cyberpink[data-cyberpink-subtheme="red"] {
   --cyberpink-subtheme-select-arrow: #ffd6e1;
   --cyberpink-subtheme-surface-a: rgba(53, 8, 22, 0.62);
   --cyberpink-subtheme-surface-b: rgba(53, 8, 22, 0.62);
+  --cyberpink-subtheme-icon-filter: brightness(0) saturate(100%) invert(42%) sepia(89%) saturate(2505%) hue-rotate(317deg) brightness(104%) contrast(101%);
 }
 
 body.theme-cyberpink[data-cyberpink-subtheme="orange"] {
@@ -74,9 +76,9 @@ body.theme-cyberpink[data-cyberpink-subtheme="orange"] {
   --cyberpink-subtheme-soft-glow: rgba(255, 192, 111, 0.28);
   --cyberpink-subtheme-soft-muted: #ffdca8;
   --cyberpink-subtheme-navbar-text: #ffb347;
-  --cyberpink-subtheme-text: #fff1df;
-  --cyberpink-subtheme-text-soft: #ffebda;
-  --cyberpink-subtheme-text-strong: #fff7ed;
+  --cyberpink-subtheme-text: #ffca86;
+  --cyberpink-subtheme-text-soft: #ffbd67;
+  --cyberpink-subtheme-text-strong: #ffd8a8;
   --cyberpink-subtheme-compact: rgba(255, 143, 31, 0.62);
   --cyberpink-subtheme-frame-stroke: rgba(255, 143, 31, 0.94);
   --cyberpink-subtheme-frame-inner: rgba(255, 207, 145, 0.43);
@@ -97,6 +99,7 @@ body.theme-cyberpink[data-cyberpink-subtheme="orange"] {
   --cyberpink-subtheme-select-arrow: #ffe1ba;
   --cyberpink-subtheme-surface-a: rgba(53, 25, 6, 0.62);
   --cyberpink-subtheme-surface-b: rgba(53, 25, 6, 0.62);
+  --cyberpink-subtheme-icon-filter: brightness(0) saturate(100%) invert(62%) sepia(93%) saturate(1257%) hue-rotate(348deg) brightness(104%) contrast(103%);
 }
 
 body.theme-cyberpink[data-cyberpink-subtheme="green"] {
@@ -107,9 +110,9 @@ body.theme-cyberpink[data-cyberpink-subtheme="green"] {
   --cyberpink-subtheme-soft-glow: rgba(121, 241, 173, 0.28);
   --cyberpink-subtheme-soft-muted: #b6ffd2;
   --cyberpink-subtheme-navbar-text: #55e49a;
-  --cyberpink-subtheme-text: #e8fff1;
-  --cyberpink-subtheme-text-soft: #e3ffec;
-  --cyberpink-subtheme-text-strong: #f2fff7;
+  --cyberpink-subtheme-text: #9df1c2;
+  --cyberpink-subtheme-text-soft: #84e7b0;
+  --cyberpink-subtheme-text-strong: #b8f8d2;
   --cyberpink-subtheme-compact: rgba(20, 210, 110, 0.62);
   --cyberpink-subtheme-frame-stroke: rgba(20, 210, 110, 0.94);
   --cyberpink-subtheme-frame-inner: rgba(144, 243, 185, 0.43);
@@ -130,6 +133,7 @@ body.theme-cyberpink[data-cyberpink-subtheme="green"] {
   --cyberpink-subtheme-select-arrow: #caffdc;
   --cyberpink-subtheme-surface-a: rgba(7, 38, 18, 0.62);
   --cyberpink-subtheme-surface-b: rgba(7, 38, 18, 0.62);
+  --cyberpink-subtheme-icon-filter: brightness(0) saturate(100%) invert(67%) sepia(65%) saturate(1003%) hue-rotate(91deg) brightness(96%) contrast(97%);
 }
 
 body.theme-cyberpink[data-cyberpink-subtheme="blue"] {
@@ -140,9 +144,9 @@ body.theme-cyberpink[data-cyberpink-subtheme="blue"] {
   --cyberpink-subtheme-soft-glow: rgba(135, 194, 255, 0.28);
   --cyberpink-subtheme-soft-muted: #bfdfff;
   --cyberpink-subtheme-navbar-text: #69aeff;
-  --cyberpink-subtheme-text: #e7f3ff;
-  --cyberpink-subtheme-text-soft: #dfedff;
-  --cyberpink-subtheme-text-strong: #f1f7ff;
+  --cyberpink-subtheme-text: #9fccff;
+  --cyberpink-subtheme-text-soft: #87c0ff;
+  --cyberpink-subtheme-text-strong: #badcff;
   --cyberpink-subtheme-compact: rgba(46, 140, 255, 0.62);
   --cyberpink-subtheme-frame-stroke: rgba(46, 140, 255, 0.94);
   --cyberpink-subtheme-frame-inner: rgba(157, 208, 255, 0.43);
@@ -163,6 +167,7 @@ body.theme-cyberpink[data-cyberpink-subtheme="blue"] {
   --cyberpink-subtheme-select-arrow: #cee5ff;
   --cyberpink-subtheme-surface-a: rgba(6, 24, 48, 0.62);
   --cyberpink-subtheme-surface-b: rgba(6, 24, 48, 0.62);
+  --cyberpink-subtheme-icon-filter: brightness(0) saturate(100%) invert(55%) sepia(69%) saturate(2640%) hue-rotate(194deg) brightness(103%) contrast(102%);
 }
 
 body.theme-cyberpink[data-cyberpink-subtheme="pink"] {
@@ -173,9 +178,9 @@ body.theme-cyberpink[data-cyberpink-subtheme="pink"] {
   --cyberpink-subtheme-soft-glow: rgba(255, 143, 208, 0.28);
   --cyberpink-subtheme-soft-muted: #ffc3e6;
   --cyberpink-subtheme-navbar-text: #ff69c4;
-  --cyberpink-subtheme-text: #ffe8f6;
-  --cyberpink-subtheme-text-soft: #ffe2f3;
-  --cyberpink-subtheme-text-strong: #fff0fa;
+  --cyberpink-subtheme-text: #ffb1de;
+  --cyberpink-subtheme-text-soft: #ff98d2;
+  --cyberpink-subtheme-text-strong: #ffc7e8;
   --cyberpink-subtheme-compact: rgba(251, 0, 138, 0.62);
   --cyberpink-subtheme-frame-stroke: rgba(251, 0, 138, 0.94);
   --cyberpink-subtheme-frame-inner: rgba(255, 183, 226, 0.43);
@@ -196,4 +201,5 @@ body.theme-cyberpink[data-cyberpink-subtheme="pink"] {
   --cyberpink-subtheme-select-arrow: #ffd0ea;
   --cyberpink-subtheme-surface-a: rgba(48, 6, 30, 0.62);
   --cyberpink-subtheme-surface-b: rgba(48, 6, 30, 0.62);
+  --cyberpink-subtheme-icon-filter: brightness(0) saturate(100%) invert(43%) sepia(83%) saturate(3188%) hue-rotate(303deg) brightness(101%) contrast(101%);
 }

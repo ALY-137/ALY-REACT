@@ -89,6 +89,10 @@ import {
   parseIconSelectionValue,
 } from "../Sistema/iconCollectionsUtils";
 import { solicitarSolicitacaoPixManualBloco } from "../Pagamentos/mercadoPagoApi";
+import {
+  CYBERPINK_SUBTHEMES,
+  normalizeCyberpinkSubtheme,
+} from "../Temas/cyberpink/subthemes";
 import { seforAdm } from "../../Scripts/verificacoes/verificaAdm";
 import { getEspacoCompleto } from "./firebaseEspacos";
 
@@ -187,15 +191,54 @@ const normalizarAddOnIds = (value) => {
   );
 };
 
+const normalizarAddOnSubthemes = (value, validIds = []) => {
+  if (!value || typeof value !== "object") return {};
+
+  const validIdSet = new Set(
+    Array.isArray(validIds)
+      ? validIds.map((item) => String(item || "").trim()).filter(Boolean)
+      : []
+  );
+
+  return Object.entries(value).reduce((acc, [addOnId, subtheme]) => {
+    const addOnIdNormalizado = String(addOnId || "").trim();
+    if (!addOnIdNormalizado) return acc;
+    if (validIdSet.size && !validIdSet.has(addOnIdNormalizado)) return acc;
+
+    const bruto = String(subtheme || "")
+      .trim()
+      .toLowerCase();
+    if (!bruto || bruto === "space" || bruto === "default" || bruto === "padrao") {
+      return acc;
+    }
+
+    acc[addOnIdNormalizado] = normalizeCyberpinkSubtheme(bruto);
+    return acc;
+  }, {});
+};
+
+const isSvgAssetUrl = (value = "") => {
+  const normalizado = String(value || "").trim().toLowerCase();
+  return (
+    normalizado.endsWith(".svg") ||
+    normalizado.includes(".svg?") ||
+    normalizado.startsWith("data:image/svg+xml")
+  );
+};
+
 const normalizarCardsDoBloco = (valor) => {
   if (!Array.isArray(valor)) return [];
 
   return valor
     .map((card, index) => {
+      const addOnIdsNormalizados = normalizarAddOnIds(
+        card?.addOnIds || card?.addOnsIds || card?.addons
+      );
       const possuiCampoAddOns =
         Array.isArray(card?.addOnIds) ||
         Array.isArray(card?.addOnsIds) ||
-        Array.isArray(card?.addons);
+        Array.isArray(card?.addons) ||
+        (card?.addOnSubthemes && typeof card.addOnSubthemes === "object");
       return {
         id: String(card?.id || `card_${index}`),
         ordem: Number.isFinite(card?.ordem) ? Number(card.ordem) : index,
@@ -205,7 +248,11 @@ const normalizarCardsDoBloco = (valor) => {
         imagem: String(card?.imagem || "").trim(),
         imagemPath: String(card?.imagemPath || "").trim(),
         linkExterno: String(card?.linkExterno || "").trim(),
-        addOnIds: normalizarAddOnIds(card?.addOnIds || card?.addOnsIds || card?.addons),
+        addOnIds: addOnIdsNormalizados,
+        addOnSubthemes: normalizarAddOnSubthemes(
+          card?.addOnSubthemes || card?.addOnThemes,
+          addOnIdsNormalizados
+        ),
         usaAddOnsGerenciador: possuiCampoAddOns,
       };
     })
@@ -285,6 +332,7 @@ const criarEstadoEditorCard = (overrides = {}) => ({
   imagemPreviewUrl: "",
   linkExterno: "",
   addOnIds: [],
+  addOnSubthemes: {},
   ...overrides,
 });
 
@@ -1291,6 +1339,7 @@ export default function EspacoPage() {
         imagemPathOriginal: String(card?.imagemPath || "").trim(),
         linkExterno: String(card?.linkExterno || "").trim(),
         addOnIds: normalizarAddOnIds(card?.addOnIds),
+        addOnSubthemes: normalizarAddOnSubthemes(card?.addOnSubthemes, card?.addOnIds),
       });
     });
     setBuscaAddOnEditor("");
@@ -3766,6 +3815,7 @@ export default function EspacoPage() {
               imagemPath: card.imagemPath || "",
               linkExterno: card.linkExterno || "",
               addOnIds: normalizarAddOnIds(card.addOnIds),
+              addOnSubthemes: normalizarAddOnSubthemes(card.addOnSubthemes, card.addOnIds),
               blocoId: bloco.id,
               espacoId,
               ownerUserId,
@@ -4103,6 +4153,10 @@ export default function EspacoPage() {
     const imagemPathAtual = String(editorCardModal?.imagemPathOriginal || "").trim();
     const linkNovo = String(editorCardModal?.linkExterno || "").trim();
     const addOnIdsNovos = normalizarAddOnIds(editorCardModal?.addOnIds);
+    const addOnSubthemesNovos = normalizarAddOnSubthemes(
+      editorCardModal?.addOnSubthemes,
+      addOnIdsNovos
+    );
     const ehNovoCard = Boolean(editorCardModal?.ehNovo);
 
     const cardRef = getBlocoCardDocRef(bloco, card.id);
@@ -4166,6 +4220,7 @@ export default function EspacoPage() {
         imagemPath: imagemPathFinal,
         linkExterno: String(linkNovo || "").trim(),
         addOnIds: addOnIdsNovos,
+        addOnSubthemes: addOnSubthemesNovos,
         usaAddOnsGerenciador: true,
       };
 
@@ -4760,6 +4815,10 @@ export default function EspacoPage() {
                                     espacoId={espacoId}
                                     blocoId={bloco.id}
                                     addOnIds={normalizarAddOnIds(cardAtivo.addOnIds)}
+                                    addOnSubthemes={normalizarAddOnSubthemes(
+                                      cardAtivo.addOnSubthemes,
+                                      cardAtivo.addOnIds
+                                    )}
                                     usaAddOnsGerenciador={cardAtivo?.usaAddOnsGerenciador === true}
                                     addOns={normalizarAddOnIds(cardAtivo.addOnIds)
                                       .map((addOnId) => addOnsDisponiveisProjetoPorId[addOnId])
@@ -5411,6 +5470,10 @@ export default function EspacoPage() {
                 ) : (
                   addOnsEditorFiltrados.map((item) => {
                     const marcado = normalizarAddOnIds(editorCardModal.addOnIds).includes(item.id);
+                    const subtemaSelecionado =
+                      normalizarAddOnSubthemes(editorCardModal.addOnSubthemes, [item.id])[item.id] ||
+                      "";
+                    const addOnEhSvg = isSvgAssetUrl(item?.url_img);
                     return (
                       <label
                         key={item.id}
@@ -5427,11 +5490,25 @@ export default function EspacoPage() {
                           onChange={() =>
                             setEditorCardModal((prev) => {
                               const atuais = normalizarAddOnIds(prev?.addOnIds);
+                              const addOnSubthemesAtuais = normalizarAddOnSubthemes(
+                                prev?.addOnSubthemes,
+                                atuais
+                              );
+                              const estaMarcado = atuais.includes(item.id);
+                              const proximosIds = estaMarcado
+                                ? atuais.filter((id) => id !== item.id)
+                                : [...atuais, item.id];
+                              const proximosSubtemas = estaMarcado
+                                ? Object.fromEntries(
+                                    Object.entries(addOnSubthemesAtuais).filter(
+                                      ([addOnId]) => addOnId !== item.id
+                                    )
+                                  )
+                                : addOnSubthemesAtuais;
                               return {
                                 ...prev,
-                                addOnIds: atuais.includes(item.id)
-                                  ? atuais.filter((id) => id !== item.id)
-                                  : [...atuais, item.id],
+                                addOnIds: proximosIds,
+                                addOnSubthemes: proximosSubtemas,
                               };
                             })
                           }
@@ -5462,6 +5539,56 @@ export default function EspacoPage() {
                           {item?.descricao ? (
                             <span style={{ display: "block", fontSize: 12, opacity: 0.74 }}>
                               {item.descricao}
+                            </span>
+                          ) : null}
+                          {marcado && addOnEhSvg ? (
+                            <span style={{ display: "grid", gap: 4, marginTop: 8 }}>
+                              <span style={{ fontSize: 11, opacity: 0.72 }}>
+                                Cor do SVG no card
+                              </span>
+                              <select
+                                value={subtemaSelecionado}
+                                onChange={(event) => {
+                                  const proximoValor = String(event.target.value || "").trim();
+                                  setEditorCardModal((prev) => {
+                                    const mapaAtual = normalizarAddOnSubthemes(
+                                      prev?.addOnSubthemes,
+                                      prev?.addOnIds
+                                    );
+
+                                    if (!proximoValor) {
+                                      const { [item.id]: _omitido, ...restante } = mapaAtual;
+                                      return {
+                                        ...prev,
+                                        addOnSubthemes: restante,
+                                      };
+                                    }
+
+                                    return {
+                                      ...prev,
+                                      addOnSubthemes: {
+                                        ...mapaAtual,
+                                        [item.id]: normalizeCyberpinkSubtheme(proximoValor),
+                                      },
+                                    };
+                                  });
+                                }}
+                              >
+                                <option value="">Padrao do espaco</option>
+                                {CYBERPINK_SUBTHEMES.map((subtema) => (
+                                  <option key={subtema.value} value={subtema.value}>
+                                    {`Subtema: ${subtema.label}`}
+                                  </option>
+                                ))}
+                              </select>
+                              <span style={{ fontSize: 11, opacity: 0.62 }}>
+                                Escolha um subtema para tingir este SVG no card.
+                              </span>
+                            </span>
+                          ) : null}
+                          {marcado && !addOnEhSvg ? (
+                            <span style={{ display: "block", fontSize: 11, opacity: 0.58, marginTop: 8 }}>
+                              Cor dinamica disponivel apenas para add-ons em SVG.
                             </span>
                           ) : null}
                         </span>

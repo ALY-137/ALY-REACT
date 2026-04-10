@@ -5,6 +5,11 @@ import {
   getProjectCollectionCandidates,
   getProjectDocCandidates,
 } from "../../../Banco/projectDataRefs";
+import {
+  getCyberpinkSubthemeIconFilter,
+  getCyberpinkSubthemeIconColor,
+  normalizeCyberpinkSubtheme,
+} from "../../Temas/cyberpink/subthemes";
 
 async function getFirstExistingDoc(refs = []) {
   for (const refItem of refs) {
@@ -25,6 +30,37 @@ function normalizarAddOnIds(value) {
   );
 }
 
+function normalizarAddOnSubthemes(value, validIds = []) {
+  if (!value || typeof value !== "object") return {};
+
+  const validIdSet = new Set(
+    Array.isArray(validIds)
+      ? validIds.map((item) => String(item || "").trim()).filter(Boolean)
+      : []
+  );
+
+  return Object.entries(value).reduce((acc, [addOnId, subtheme]) => {
+    const addOnIdNormalizado = String(addOnId || "").trim();
+    if (!addOnIdNormalizado) return acc;
+    if (validIdSet.size && !validIdSet.has(addOnIdNormalizado)) return acc;
+
+    const bruto = String(subtheme || "")
+      .trim()
+      .toLowerCase();
+    if (!bruto || bruto === "space" || bruto === "padrao" || bruto === "default") {
+      return acc;
+    }
+
+    acc[addOnIdNormalizado] = normalizeCyberpinkSubtheme(bruto);
+    return acc;
+  }, {});
+}
+
+function isSvgAssetUrl(value = "") {
+  const normalizado = String(value || "").trim().toLowerCase();
+  return normalizado.endsWith(".svg") || normalizado.includes(".svg?") || normalizado.startsWith("data:image/svg+xml");
+}
+
 function Card({
   id,
   id_user,
@@ -34,6 +70,7 @@ function Card({
   espacoId,
   blocoId,
   addOnIds,
+  addOnSubthemes = {},
   addOns: addOnsProp = [],
   usaAddOnsGerenciador = false,
   atividade,
@@ -58,6 +95,10 @@ function Card({
   const cardRef = useRef(null);
   const [addOns, setAddOns] = useState([]);
   const addOnIdsNormalizados = useMemo(() => normalizarAddOnIds(addOnIds), [addOnIds]);
+  const addOnSubthemesNormalizados = useMemo(
+    () => normalizarAddOnSubthemes(addOnSubthemes, addOnIdsNormalizados),
+    [addOnSubthemes, addOnIdsNormalizados]
+  );
   const addOnsPropNormalizados = useMemo(
     () => (Array.isArray(addOnsProp) ? addOnsProp.filter(Boolean) : []),
     [addOnsProp]
@@ -199,12 +240,41 @@ function Card({
         <div className={cardDescricaoDiv}>
           <div className="checkBoxHab">
             {addOns.map((addon) => (
-              <img
-                key={addon.id}
-                src={addon.url_img}
-                alt="Habilidade"
-                className="iconeAddOn"
-              />
+              (() => {
+                const addOnId = String(addon?.id || "").trim();
+                const addOnUrl = String(addon?.url_img || "").trim();
+                const subthemeKey = addOnSubthemesNormalizados[addOnId] || "";
+                const podeColorir = Boolean(subthemeKey) && isSvgAssetUrl(addOnUrl);
+                const label = String(addon?.nome || "Add-on").trim() || "Add-on";
+                const iconColor = getCyberpinkSubthemeIconColor(subthemeKey);
+
+                if (podeColorir) {
+                  return (
+                    <img
+                      key={addOnId}
+                      src={addOnUrl}
+                      alt={label}
+                      title={label}
+                      className="iconeAddOn iconeAddOn--tinted"
+                      style={{
+                        filter: `${getCyberpinkSubthemeIconFilter(
+                          subthemeKey
+                        )} drop-shadow(0 0 2px ${iconColor}) drop-shadow(0 0 5px ${iconColor})`,
+                      }}
+                    />
+                  );
+                }
+
+                return (
+                  <img
+                    key={addOnId}
+                    src={addOnUrl}
+                    alt={label}
+                    title={label}
+                    className="iconeAddOn"
+                  />
+                );
+              })()
             ))}
           </div>
 

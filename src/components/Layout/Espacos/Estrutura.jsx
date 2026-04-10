@@ -1167,7 +1167,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
         <LoginButton />
       ) : !oneOwnerPublicaAtiva || usuarioPodeAbrirMenuOneOwner ? (
         <p onClick={toggleMenu} style={{ cursor: "pointer" }}>
-          ?
+          ≡
         </p>
       ) : null}
     </div>

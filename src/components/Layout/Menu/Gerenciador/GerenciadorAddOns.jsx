@@ -257,20 +257,24 @@ function GerenciadorAddOns() {
 
   if (!user || !seforAdm(user)) {
     return (
-      <div>
-        <h2>ADD-ONS</h2>
-        <p>Acesso restrito ao owner.</p>
+      <div className="menu-panel-stack addon-manager">
+        <h2 className="menu-panel-main-title">ADD-ONS</h2>
+        <div className="menu-panel-block">
+          <p className="menu-panel-note">Acesso restrito ao owner.</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div>
-      <h2>ADD-ONS</h2>
-      <p>Cadastre add-ons globais, envie o icone e mantenha a biblioteca central do gerenciador.</p>
+    <div className="menu-panel-stack addon-manager">
+      <h2 className="menu-panel-main-title">ADD-ONS</h2>
+      <p className="menu-panel-note">
+        Cadastre add-ons globais, envie o icone e mantenha a biblioteca central do gerenciador.
+      </p>
 
-      <div style={{ border: "1px solid #999", borderRadius: 8, padding: 12, marginBottom: 12 }}>
-        <h3 style={{ marginTop: 0 }}>Novo add-on</h3>
+      <div className="menu-panel-block addon-manager__create">
+        <h3 className="menu-panel-title">Novo add-on</h3>
         <div style={{ display: "grid", gap: 10 }}>
           <label style={{ display: "grid", gap: 6 }}>
             <span>Nome</span>
@@ -306,7 +310,7 @@ function GerenciadorAddOns() {
         </div>
       </div>
 
-      <div style={{ border: "1px solid #999", borderRadius: 8, padding: 12 }}>
+      <div className="menu-panel-block addon-manager__library">
         <div
           style={{
             display: "flex",
@@ -317,7 +321,7 @@ function GerenciadorAddOns() {
             marginBottom: 12,
           }}
         >
-          <h3 style={{ margin: 0 }}>Biblioteca central</h3>
+          <h3 className="menu-panel-title" style={{ margin: 0 }}>Biblioteca central</h3>
           <input
             type="search"
             value={busca}
@@ -343,9 +347,8 @@ function GerenciadorAddOns() {
               return (
                 <div
                   key={item.id}
+                  className="menu-panel-item addon-manager__item"
                   style={{
-                    border: "1px solid rgba(255,255,255,0.12)",
-                    borderRadius: 10,
                     padding: 12,
                     display: "grid",
                     gridTemplateColumns: "88px minmax(0, 1fr)",
@@ -354,11 +357,10 @@ function GerenciadorAddOns() {
                   }}
                 >
                   <div
+                    className="addon-manager__preview"
                     style={{
                       width: 88,
                       height: 88,
-                      border: "1px solid rgba(255,255,255,0.16)",
-                      borderRadius: 12,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",

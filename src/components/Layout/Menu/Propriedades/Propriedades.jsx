@@ -42,15 +42,18 @@ function Propriedades() {
   }
 
   return (
-    <div>
-      <h2>Propriedades</h2>
+    <div className="menu-panel-stack menu-properties">
+      <h2 className="menu-panel-main-title">Propriedades</h2>
 
-      <div style={{ marginBottom: 12, border: "1px solid #ccc", borderRadius: 8, padding: 10 }}>
-        <button onClick={() => setIntegracoesAbertas((prev) => !prev)}>
-          {integracoesAbertas ? "Fechar Integracoes" : "Abrir Integracoes"}
-        </button>
+      <div className="menu-panel-block">
+        <div className="menu-panel-header">
+          <h3 className="menu-panel-title">Integracoes</h3>
+          <button onClick={() => setIntegracoesAbertas((prev) => !prev)}>
+            {integracoesAbertas ? "Fechar Integracoes" : "Abrir Integracoes"}
+          </button>
+        </div>
         {integracoesAbertas && (
-          <div style={{ marginTop: 10 }}>
+          <div className="menu-panel-body">
             {configSistema.mercadoPagoHabilitado ? (
               <MercadoPagoConfig />
             ) : (
@@ -69,12 +72,15 @@ function Propriedades() {
         )}
       </div>
 
-      <div style={{ marginBottom: 12, border: "1px solid #ccc", borderRadius: 8, padding: 10 }}>
-        <button onClick={() => setContaAberta((prev) => !prev)}>
-          {contaAberta ? "Fechar Configuracoes da Conta" : "Abrir Configuracoes da Conta"}
-        </button>
+      <div className="menu-panel-block">
+        <div className="menu-panel-header">
+          <h3 className="menu-panel-title">Conta</h3>
+          <button onClick={() => setContaAberta((prev) => !prev)}>
+            {contaAberta ? "Fechar Configuracoes da Conta" : "Abrir Configuracoes da Conta"}
+          </button>
+        </div>
         {contaAberta && (
-          <div style={{ marginTop: 10 }}>
+          <div className="menu-panel-body">
             <ContaManager />
           </div>
         )}

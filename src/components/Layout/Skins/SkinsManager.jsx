@@ -420,54 +420,60 @@ const SkinsManager = () => {
   if (skins.length === 0) {
     if (projetoOneOwner) {
       return (
-        <div className="theme-picker">
-          <h2>Gerenciar {nomeSkinGestao}</h2>
-          <p>
-            {`Em projetos oneowner, a ${nomeSkinSingular} e criada automaticamente no primeiro login.`}
-          </p>
-          <button type="button" onClick={fetchSkins}>
-            Atualizar lista
-          </button>
-          {!!feedback && <p style={{ color: "red" }}>{feedback}</p>}
+        <div className="theme-picker menu-panel-stack">
+          <h2 className="menu-panel-main-title">Gerenciar {nomeSkinGestao}</h2>
+          <div className="menu-panel-block">
+            <p className="menu-panel-note">
+              {`Em projetos oneowner, a ${nomeSkinSingular} e criada automaticamente no primeiro login.`}
+            </p>
+            <div className="menu-panel-actions">
+              <button type="button" onClick={fetchSkins}>
+                Atualizar lista
+              </button>
+            </div>
+            {!!feedback && <p className="menu-panel-message menu-panel-message--error">{feedback}</p>}
+          </div>
         </div>
       );
     }
 
     return (
-      <div className="theme-picker">
+      <div className="theme-picker menu-panel-stack">
         {permitirTemasSkinSecundarios ? (
-          <>
-            <h2>Escolha o tema da sua {nomeSkinSingular}</h2>
-            <div className="themes-grid">
+          <div className="menu-panel-block">
+            <h2 className="menu-panel-main-title">{`Escolha o tema da sua ${nomeSkinSingular}`}</h2>
+            <div className="themes-grid menu-panel-actions">
               {temasDisponiveis.map((theme) => (
                 <button key={theme.id} onClick={() => handleCreateFirstSkin(theme.id)}>
                   {labelTemaSkin(theme)}
                 </button>
               ))}
             </div>
-          </>
+          </div>
         ) : (
-          <>
-            <h2>Criar sua primeira {nomeSkinSingular}</h2>
-            <p>Este projeto usa somente o tema padrao de skin.</p>
-            <button onClick={() => handleCreateFirstSkin(temaSkinPadraoId)}>
-              Criar com tema padrao
-            </button>
-          </>
+          <div className="menu-panel-block">
+            <h2 className="menu-panel-main-title">{`Criar sua primeira ${nomeSkinSingular}`}</h2>
+            <p className="menu-panel-note">Este projeto usa somente o tema padrao de skin.</p>
+            <div className="menu-panel-actions">
+              <button onClick={() => handleCreateFirstSkin(temaSkinPadraoId)}>
+                Criar com tema padrao
+              </button>
+            </div>
+          </div>
         )}
 
-        {!!feedback && <p style={{ color: "red" }}>{feedback}</p>}
+        {!!feedback && <p className="menu-panel-message menu-panel-message--error">{feedback}</p>}
       </div>
     );
   }
 
   return (
-    <div className="skins-manager">
-      <h2>Gerenciar {nomeSkinGestao}</h2>
+    <div className="skins-manager menu-panel-stack">
+      <h2 className="menu-panel-main-title">Gerenciar {nomeSkinGestao}</h2>
 
       {!projetoOneOwner && exibirSecaoCriacao ? (
-        <div className="create-skin">
-          <h3>Criar nova {nomeSkinSingular}</h3>
+        <div className="create-skin menu-panel-block">
+          <h3 className="menu-panel-title">{`Criar nova ${nomeSkinSingular}`}</h3>
 
           <input
             placeholder={`Nome da ${nomeSkinSingular}`}
@@ -495,39 +501,26 @@ const SkinsManager = () => {
             Criar
           </button>
 
-          {textoLimite ? <p style={{ marginTop: 8, opacity: 0.8 }}>{textoLimite}</p> : null}
-          {!!feedback && <p style={{ color: "red" }}>{feedback}</p>}
+          {textoLimite ? <p className="menu-panel-note">{textoLimite}</p> : null}
+          {!!feedback && <p className="menu-panel-message menu-panel-message--error">{feedback}</p>}
         </div>
       ) : (
-        textoLimite ? <p style={{ marginTop: 8, opacity: 0.8 }}>{textoLimite}</p> : null
+        textoLimite ? <p className="menu-panel-note">{textoLimite}</p> : null
       )}
 
       <ul className="skins-list">
         {skins.map((skin) => (
-          <li key={skin.id}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <li key={skin.id} className="skin-item">
+            <div className="skin-item__avatar-row">
               {String(skin.iconSkin || iconSkinPadraoUrl || "").trim() ? (
                 <img
                   src={String(skin.iconSkin || iconSkinPadraoUrl || "").trim()}
                   alt={`Avatar da ${nomeSkinSingular} ${skin.username}`}
-                  style={{
-                    width: 34,
-                    height: 34,
-                    objectFit: "cover",
-                    borderRadius: "50%",
-                    border: "1px solid rgba(0,0,0,0.2)",
-                  }}
+                  className="skin-item__avatar"
                 />
               ) : null}
-              <label
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  cursor: "pointer",
-                }}
-              >
-                <span style={{ opacity: 0.9 }}>Trocar avatar</span>
+              <label className="skin-item__upload">
+                <span>Trocar avatar</span>
                 <input
                   type="file"
                   accept="image/*"
@@ -564,13 +557,13 @@ const SkinsManager = () => {
             </div>
             <strong
               onClick={() => handleSelectSkin(skin.username)}
-              style={{ cursor: "pointer" }}
+              className="skin-item__name"
             >
               {skin.username}
             </strong>
 
             {editingSkinId === skin.id && permitirTemasSkinSecundarios ? (
-              <>
+              <div className="skin-item__actions">
                 <select value={editingTheme} onChange={(event) => setEditingTheme(event.target.value)}>
                   <option value="">Tema</option>
                   {temasDisponiveis.map((theme) => (
@@ -582,11 +575,11 @@ const SkinsManager = () => {
 
                 <button onClick={() => handleUpdateTheme(skin.id)}>Salvar</button>
                 <button onClick={() => setEditingSkinId(null)}>Cancelar</button>
-              </>
+              </div>
             ) : (
-              <>
+              <div className="skin-item__actions">
                 {permitirTemasSkinSecundarios ? (
-                  <span> - {labelSkinAtual(skin.theme)}</span>
+                  <span className="skin-item__theme">{labelSkinAtual(skin.theme)}</span>
                 ) : null}
                 {podeUsarCardcaptor && String(skin.username || "").trim() ? (
                   <button type="button" onClick={() => setCardcaptorSkin(skin)}>
@@ -610,17 +603,17 @@ const SkinsManager = () => {
                   </button>
                 )}
                 {!projetoOneOwner ? (
-                  <button onClick={() => handleDeleteSkin(skin)} style={{ color: "red" }}>
+                  <button onClick={() => handleDeleteSkin(skin)} className="skin-item__danger">
                     Excluir
                   </button>
                 ) : null}
-              </>
+              </div>
             )}
           </li>
         ))}
       </ul>
       {!!avatarUploadMensagem ? (
-        <p style={{ marginTop: 8, opacity: 0.9 }}>{avatarUploadMensagem}</p>
+        <p className="menu-panel-message">{avatarUploadMensagem}</p>
       ) : null}
       <Cardcaptor
         aberto={!!cardcaptorSkin && podeUsarCardcaptor}

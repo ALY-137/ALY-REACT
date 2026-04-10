@@ -67,43 +67,48 @@ export default function Cardcaptor({
         </div>
 
         <div className="cardcaptor-card">
-          <div>
-            <div className="cardcaptor-card__brand">
-              {avatarUrl ? (
-                <img
-                  className="cardcaptor-card__avatar"
-                  src={avatarUrl}
-                  alt={`Avatar de ${username || "skin"}`}
-                />
-              ) : null}
-              <div>
-                <p className="cardcaptor-card__project">{projectTitle}</p>
-                <h2 className="cardcaptor-card__username">{username || "skin"}</h2>
-              </div>
-            </div>
+          <div className="cardcaptor-card__header">
+            <p className="cardcaptor-card__project">{projectTitle}</p>
+            <h2 className="cardcaptor-card__username">{username || "skin"}</h2>
+          </div>
+
+          <div className="cardcaptor-card__media">
+            {avatarUrl ? (
+              <img
+                className="cardcaptor-card__avatar"
+                src={avatarUrl}
+                alt={`Avatar de ${username || "skin"}`}
+              />
+            ) : (
+              <div className="cardcaptor-card__avatar cardcaptor-card__avatar--placeholder" />
+            )}
 
             <p className="cardcaptor-card__meta">
               {`Cartao para divulgar o ${nomeEspacoSingular} principal desta skin.`}
             </p>
-
-            <span className="cardcaptor-card__label">Link principal</span>
-            <p className="cardcaptor-card__link">{urlPrincipal || "Link indisponivel."}</p>
-
-            <p className="cardcaptor-card__hint">
-              Aponte a camera para o QR code para abrir o espaco principal.
-            </p>
           </div>
 
-          <div className="cardcaptor-card__qr">
-            <QRCodeImage
-              value={urlPrincipal}
-              size={220}
-              alt={`QR code do espaco principal de ${username || "skin"}`}
-              className="cardcaptor-card__qr-image"
-            />
-            <p className="cardcaptor-card__qr-caption">
-              {username ? `QR code de @${username}` : "QR code do espaco principal"}
-            </p>
+          <div className="cardcaptor-card__description">
+            <div className="cardcaptor-card__description-main">
+              <span className="cardcaptor-card__label">Link principal</span>
+              <p className="cardcaptor-card__link">{urlPrincipal || "Link indisponivel."}</p>
+
+              <p className="cardcaptor-card__hint">
+                Aponte a camera para o QR code para abrir o espaco principal.
+              </p>
+            </div>
+
+            <div className="cardcaptor-card__description-qr">
+              <QRCodeImage
+                value={urlPrincipal}
+                size={96}
+                alt={`QR code do espaco principal de ${username || "skin"}`}
+                className="cardcaptor-card__qr-image"
+              />
+              <p className="cardcaptor-card__qr-caption">
+                {username ? `QR code de @${username}` : "QR code do espaco principal"}
+              </p>
+            </div>
           </div>
         </div>
       </div>
