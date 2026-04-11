@@ -235,63 +235,65 @@ function Card({
           draggable={false}
           onDragStart={(event) => event.preventDefault()}
         />
-      </div>
-      <div className={cardDescricao}>
-        <div className={cardDescricaoDiv}>
-          <div className="checkBoxHab">
-            {addOns.map((addon) => (
-              (() => {
-                const addOnId = String(addon?.id || "").trim();
-                const addOnUrl = String(addon?.url_img || "").trim();
-                const subthemeKey = addOnSubthemesNormalizados[addOnId] || "";
-                const podeColorir = Boolean(subthemeKey) && isSvgAssetUrl(addOnUrl);
-                const label = String(addon?.nome || "Add-on").trim() || "Add-on";
-                const iconColor = getCyberpinkSubthemeIconColor(subthemeKey);
+        </div>
+        <div className={cardDescricao}>
+          <div className={cardDescricaoDiv}>
+            <div className="cardDescricaoDiv__scroll">
+              <div className="checkBoxHab">
+                {addOns.map((addon) => (
+                  (() => {
+                    const addOnId = String(addon?.id || "").trim();
+                    const addOnUrl = String(addon?.url_img || "").trim();
+                    const subthemeKey = addOnSubthemesNormalizados[addOnId] || "";
+                    const podeColorir = Boolean(subthemeKey) && isSvgAssetUrl(addOnUrl);
+                    const label = String(addon?.nome || "Add-on").trim() || "Add-on";
+                    const iconColor = getCyberpinkSubthemeIconColor(subthemeKey);
 
-                if (podeColorir) {
-                  return (
-                    <img
-                      key={addOnId}
-                      src={addOnUrl}
-                      alt={label}
-                      title={label}
-                      className="iconeAddOn iconeAddOn--tinted"
-                      style={{
-                        filter: `${getCyberpinkSubthemeIconFilter(
-                          subthemeKey
-                        )} drop-shadow(0 0 2px ${iconColor}) drop-shadow(0 0 5px ${iconColor})`,
-                      }}
-                    />
-                  );
-                }
+                    if (podeColorir) {
+                      return (
+                        <img
+                          key={addOnId}
+                          src={addOnUrl}
+                          alt={label}
+                          title={label}
+                          className="iconeAddOn iconeAddOn--tinted"
+                          style={{
+                            filter: `${getCyberpinkSubthemeIconFilter(
+                              subthemeKey
+                            )} drop-shadow(0 0 2px ${iconColor}) drop-shadow(0 0 5px ${iconColor})`,
+                          }}
+                        />
+                      );
+                    }
 
-                return (
-                  <img
-                    key={addOnId}
-                    src={addOnUrl}
-                    alt={label}
-                    title={label}
-                    className="iconeAddOn"
-                  />
-                );
-              })()
-            ))}
+                    return (
+                      <img
+                        key={addOnId}
+                        src={addOnUrl}
+                        alt={label}
+                        title={label}
+                        className="iconeAddOn"
+                      />
+                    );
+                  })()
+                ))}
+              </div>
+
+              {nomeDescricao && <p className="txtTituloPri"> [ {nomeDescricao} ] </p>}
+              {descricao && <p className="txtDescricao"> {descricao}</p>}
+              {atividade && criador && <p className="txtTitulo"> [ {atividade} ] por {criador}.</p>}
+              {data && <p className="txtTitulo"> [ PERIODO ] {data}.</p>}
+              {linkExterno && (
+                <p className="txtTitulo">
+                  <a href={linkExterno} className="txtTituloLink" target="_blank" rel="noopener noreferrer">
+                    [ LINK ]
+                  </a>
+                </p>
+              )}
+            </div>
           </div>
-
-          {nomeDescricao && <p className="txtTituloPri"> [ {nomeDescricao} ] </p>}
-          {descricao && <p className="txtDescricao"> {descricao}</p>}
-          {atividade && criador && <p className="txtTitulo"> [ {atividade} ] por {criador}.</p>}
-          {data && <p className="txtTitulo"> [ PERIODO ] {data}.</p>}
-          {linkExterno && (
-            <p className="txtTitulo">
-              <a href={linkExterno} className="txtTituloLink" target="_blank" rel="noopener noreferrer">
-                [ LINK ]
-              </a>
-            </p>
-          )}
         </div>
       </div>
-    </div>
   );
 }
 

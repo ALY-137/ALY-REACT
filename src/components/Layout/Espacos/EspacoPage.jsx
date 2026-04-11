@@ -667,9 +667,6 @@ export default function EspacoPage() {
       ? DEFAULT_SISTEMA_CONFIG.googleFontsUrls
       : []
   );
-  const [exibirBotaoLoginMensagemRestricao, setExibirBotaoLoginMensagemRestricao] = useState(
-    DEFAULT_SISTEMA_CONFIG.exibirBotaoLoginMensagemRestricao
-  );
   const [mensagemRestricaoAvatarUrl, setMensagemRestricaoAvatarUrl] = useState(
     DEFAULT_SISTEMA_CONFIG.mensagemRestricaoAvatarUrl
   );
@@ -2451,6 +2448,20 @@ export default function EspacoPage() {
   const espacoExigeChecagemAssinatura =
     visibilidadeEspaco === "exclusivo_assinante" && !podeGerenciar;
   const acessoEspacoResolvido = !espacoExigeChecagemAssinatura || assinaturaCheckPronto;
+  const mensagemRestricaoVisivel = acessoEspacoResolvido && !podeVerEspaco;
+
+  useEffect(() => {
+    if (typeof document === "undefined") return undefined;
+
+    document.body.classList.toggle(
+      "cyberpink-restriction-message-visible",
+      mensagemRestricaoVisivel
+    );
+
+    return () => {
+      document.body.classList.remove("cyberpink-restriction-message-visible");
+    };
+  }, [mensagemRestricaoVisivel]);
 
   const podeVerBloco = (bloco) => {
     if (podeGerenciar) return true;
@@ -2587,9 +2598,6 @@ export default function EspacoPage() {
           )
         );
         setGoogleFontsUrlsProjeto(Array.isArray(config?.googleFontsUrls) ? config.googleFontsUrls : []);
-        setExibirBotaoLoginMensagemRestricao(
-          config?.exibirBotaoLoginMensagemRestricao !== false
-        );
         setMensagemRestricaoAvatarUrl(
           String(
             config?.mensagemRestricaoAvatarUrl ||
@@ -2650,9 +2658,6 @@ export default function EspacoPage() {
         );
         setGoogleFontsUrlsProjeto(
           Array.isArray(configFallback?.googleFontsUrls) ? configFallback.googleFontsUrls : []
-        );
-        setExibirBotaoLoginMensagemRestricao(
-          configFallback?.exibirBotaoLoginMensagemRestricao !== false
         );
         setMensagemRestricaoAvatarUrl(
           String(
@@ -3487,10 +3492,6 @@ export default function EspacoPage() {
   const estiloMensagemRestricaoEspaco = fonteMensagemRestricaoEspaco
     ? { fontFamily: montarFontFamilyCss(fonteMensagemRestricaoEspaco) }
     : undefined;
-  const tipoRestricaoEspaco =
-    visibilidadeEspaco === "exclusivo_assinante" ? "assinante" : "login";
-  const mostrarCtaRestricaoEspaco =
-    tipoRestricaoEspaco !== "login" || exibirBotaoLoginMensagemRestricao !== false;
   const avatarMensagemRestricao = String(mensagemRestricaoAvatarUrl || "").trim();
   const conteudoEspacoBruto = String(espacoAtualEfetivo?.conteudo || "").trim();
   const conteudoEspaco =
@@ -4470,10 +4471,12 @@ export default function EspacoPage() {
               <span aria-hidden="true" className="espaco-restricao-balao-ponteiro" />
             ) : null}
 
-            <p className="espaco-restricao-texto" style={estiloMensagemRestricaoEspaco}>
-              {mensagemRestricaoEspaco}
-            </p>
-            {mostrarCtaRestricaoEspaco ? renderCtaRestricao(tipoRestricaoEspaco) : null}
+            <div className="espaco-restricao-conteudo">
+              <span aria-hidden="true" className="espaco-restricao-aviso-icon" />
+              <p className="espaco-restricao-texto" style={estiloMensagemRestricaoEspaco}>
+                {mensagemRestricaoEspaco}
+              </p>
+            </div>
           </div>
         </div>
       )}

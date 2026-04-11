@@ -1164,7 +1164,17 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
   const navbarMenuJSX = (
     <div id="navbar-menu" style={{ textAlign: "center" }}>
       {!user ? (
-        <LoginButton />
+        <div className="navbar-menu__login-cta">
+          <span
+            aria-hidden="true"
+            className="navbar-menu__login-arrow navbar-menu__login-arrow--left"
+          />
+          <LoginButton />
+          <span
+            aria-hidden="true"
+            className="navbar-menu__login-arrow navbar-menu__login-arrow--right"
+          />
+        </div>
       ) : !oneOwnerPublicaAtiva || usuarioPodeAbrirMenuOneOwner ? (
         <p onClick={toggleMenu} style={{ cursor: "pointer" }}>
           ≡

@@ -4,11 +4,29 @@ import {
   DEFAULT_SISTEMA_CONFIG,
   obterConfigSistemaCacheLocal,
 } from "../Sistema/configSistema";
+import DEFAULT_LOGIN_BUTTON_ICON from "../Temas/cyberpink/assets/cyberpink-rocket-login.svg";
 import "./loginButton.css";
 
 const POST_LOGIN_REDIRECT_KEY = "postLoginRedirectPath";
-const DEFAULT_LOGIN_BUTTON_ICON =
-  "https://firebasestorage.googleapis.com/v0/b/teste-aa015.appspot.com/o/imagens%2Fthemes%2Fcyberpink%2Fviolet%2Ffoguete.png?alt=media&token=19c205b6-b36f-49df-b336-4afc6565c9a5";
+const LEGACY_DEFAULT_LOGIN_BUTTON_ICON_FRAGMENT =
+  "imagens%2Fthemes%2Fcyberpink%2Fviolet%2Ffoguete.png";
+
+function isSvgIconUrl(value = "") {
+  const normalizado = String(value || "").trim().toLowerCase();
+  return normalizado.endsWith(".svg") || normalizado.includes(".svg?") || normalizado.startsWith("data:image/svg+xml");
+}
+
+function buildMaskImageValue(rawUrl = "") {
+  return `url("${String(rawUrl).replace(/"/g, '\\"')}")`;
+}
+
+function resolveLoginButtonIcon(value = "") {
+  const normalizado = String(value || "").trim();
+  if (!normalizado || normalizado.includes(LEGACY_DEFAULT_LOGIN_BUTTON_ICON_FRAGMENT)) {
+    return DEFAULT_LOGIN_BUTTON_ICON;
+  }
+  return normalizado;
+}
 
 const LoginButton = () => {
   const userId = localStorage.getItem("userId");
@@ -16,9 +34,8 @@ const LoginButton = () => {
   const navigate = useNavigate();
   const configSistema = obterConfigSistemaCacheLocal() || DEFAULT_SISTEMA_CONFIG;
   const tipoExperiencia = String(configSistema?.tipoExperiencia || "").trim().toLowerCase();
-  const loginButtonIconSrc = String(
-    configSistema?.loginButtonIconUrl || DEFAULT_LOGIN_BUTTON_ICON
-  ).trim();
+  const loginButtonIconSrc = resolveLoginButtonIcon(configSistema?.loginButtonIconUrl);
+  const loginButtonIconIsSvg = isSvgIconUrl(loginButtonIconSrc);
   const rotaLogin = tipoExperiencia === "oneowner" ? "/login" : "/";
 
   if (userId) {
@@ -44,11 +61,23 @@ const LoginButton = () => {
 
   return (
     <button className="loginButton" onClick={irParaLogin}>
-      <img
-        className="imgLoginButton"
-        src={loginButtonIconSrc}
-        alt="Login Icon"
-      />
+      {loginButtonIconIsSvg ? (
+        <span
+          className="imgLoginButton imgLoginButton--svg"
+          style={{
+            WebkitMaskImage: buildMaskImageValue(loginButtonIconSrc),
+            maskImage: buildMaskImageValue(loginButtonIconSrc),
+          }}
+          aria-hidden="true"
+        />
+      ) : (
+        <img
+          className="imgLoginButton"
+          src={loginButtonIconSrc}
+          alt=""
+          aria-hidden="true"
+        />
+      )}
       <span className="txtLoginButton"> LOGIN </span>
     </button>
   );
