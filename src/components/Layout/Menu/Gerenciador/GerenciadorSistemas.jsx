@@ -7,7 +7,6 @@ import {
   limparEnvsProjetoNoVercel,
   listarPreconfiguracoesNoGerenciador,
   listarProjetosNoGerenciador,
-  listarAddOnsNoGerenciador,
   removerProjetoNoGerenciador,
   salvarConfigProjetoNoGerenciador,
   salvarPreconfiguracaoProjetoNoGerenciador,
@@ -465,8 +464,6 @@ function GerenciadorProjetos() {
   const [filtroTipoProjeto, setFiltroTipoProjeto] = useState("todos");
   const [domainsProjetoEdicao, setDomainsProjetoEdicao] = useState("");
   const [statusProjetoEdicao, setStatusProjetoEdicao] = useState("ativo");
-  const [addOnsDisponiveis, setAddOnsDisponiveis] = useState([]);
-  const [buscaAddOnProjeto, setBuscaAddOnProjeto] = useState("");
   const [addOnIdsProjetoEdicao, setAddOnIdsProjetoEdicao] = useState([]);
   const [salvandoDomainsProjeto, setSalvandoDomainsProjeto] = useState(false);
   const [limpandoEnvSystemKey, setLimpandoEnvSystemKey] = useState("");
@@ -496,24 +493,11 @@ function GerenciadorProjetos() {
       (projeto) => resolveTipoProjetoProjeto(projeto) === filtroTipoProjeto
     );
   }, [filtroTipoProjeto, projetosOrdenados]);
-  const addOnsProjetoFiltrados = useMemo(() => {
-    const buscaNormalizada = normalizeText(buscaAddOnProjeto).toLowerCase();
-    return [...addOnsDisponiveis]
-      .filter((item) => {
-        if (!buscaNormalizada) return true;
-        return normalizeText(item?.nome).toLowerCase().includes(buscaNormalizada);
-      })
-      .sort((a, b) => normalizeText(a?.nome).localeCompare(normalizeText(b?.nome), "pt-BR"));
-  }, [addOnsDisponiveis, buscaAddOnProjeto]);
-
   const carregarProjetos = async () => {
     setCarregando(true);
     setErro("");
     try {
-      const [lista, listaAddOns] = await Promise.all([
-        listarProjetosNoGerenciador(),
-        listarAddOnsNoGerenciador().catch(() => []),
-      ]);
+      const lista = await listarProjetosNoGerenciador();
       let listaPreconfiguracoes = [];
       let avisoPreconfig = "";
 
@@ -525,7 +509,6 @@ function GerenciadorProjetos() {
       }
 
       const projetosMesclados = mesclarProjetosGerenciadorComEnv(lista);
-      setAddOnsDisponiveis(Array.isArray(listaAddOns) ? listaAddOns : []);
       setPreconfiguracoes(listaPreconfiguracoes);
       setProjetos(
         projetosMesclados.filter(
@@ -537,7 +520,6 @@ function GerenciadorProjetos() {
       }
     } catch (error) {
       const projetosMesclados = mesclarProjetosGerenciadorComEnv([]);
-      setAddOnsDisponiveis([]);
       setPreconfiguracoes([]);
       setProjetos(
         projetosMesclados.filter(
@@ -982,7 +964,7 @@ function GerenciadorProjetos() {
         )
       );
       setMensagem(
-        `Projeto atualizado: dominios, status e add-ons de ${projeto.nomeProjeto || projeto.systemKey}.`
+        `Projeto atualizado: dominios e status de ${projeto.nomeProjeto || projeto.systemKey}.`
       );
     } catch (error) {
       setErro(error?.message || "Falha ao salvar dominios do projeto.");
@@ -1445,106 +1427,11 @@ function GerenciadorProjetos() {
                 </option>
               ))}
             </select>
-            <div
-              style={{
-                border: "1px solid rgba(255,255,255,0.12)",
-                borderRadius: 8,
-                padding: 12,
-                marginBottom: 10,
-              }}
-            >
-              <h4 style={{ marginTop: 0, marginBottom: 8 }}>Add-ons disponiveis neste projeto</h4>
-              <input
-                type="search"
-                value={buscaAddOnProjeto}
-                onChange={(event) => setBuscaAddOnProjeto(event.target.value)}
-                placeholder="Pesquisar add-on por nome"
-                style={{ width: "100%", marginBottom: 10 }}
-              />
-              {!addOnsDisponiveis.length ? (
-                <p style={{ margin: 0, opacity: 0.78 }}>
-                  Nenhum add-on cadastrado no gerenciador ainda.
-                </p>
-              ) : !addOnsProjetoFiltrados.length ? (
-                <p style={{ margin: 0, opacity: 0.78 }}>
-                  Nenhum add-on encontrado para este filtro.
-                </p>
-              ) : (
-                <div
-                  style={{
-                    display: "grid",
-                    gap: 8,
-                    maxHeight: 240,
-                    overflowY: "auto",
-                    paddingRight: 4,
-                  }}
-                >
-                  {addOnsProjetoFiltrados.map((item) => {
-                    const marcado = addOnIdsProjetoEdicao.includes(item.id);
-                    return (
-                      <label
-                        key={item.id}
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "20px 36px minmax(0, 1fr)",
-                          gap: 10,
-                          alignItems: "center",
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={marcado}
-                          onChange={() =>
-                            setAddOnIdsProjetoEdicao((prev) =>
-                              prev.includes(item.id)
-                                ? prev.filter((id) => id !== item.id)
-                                : [...prev, item.id]
-                            )
-                          }
-                        />
-                        <span
-                          style={{
-                            width: 36,
-                            height: 36,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            border: "1px solid rgba(255,255,255,0.12)",
-                            borderRadius: 8,
-                            overflow: "hidden",
-                            background: "rgba(255,255,255,0.04)",
-                          }}
-                        >
-                          {item?.url_img ? (
-                            <img
-                              src={item.url_img}
-                              alt={item.nome || "Add-on"}
-                              style={{ width: "100%", height: "100%", objectFit: "contain" }}
-                            />
-                          ) : null}
-                        </span>
-                        <span style={{ minWidth: 0 }}>
-                          <strong>{item.nome}</strong>
-                          {item?.descricao ? (
-                            <span style={{ display: "block", opacity: 0.74, fontSize: 12 }}>
-                              {item.descricao}
-                            </span>
-                          ) : null}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
-              <p style={{ margin: "10px 0 0", opacity: 0.75 }}>
-                {`${addOnIdsProjetoEdicao.length} add-on(s) liberado(s) para este projeto.`}
-              </p>
-            </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button type="button" onClick={salvarDomainsProjeto} disabled={salvandoDomainsProjeto}>
                 {salvandoDomainsProjeto
                   ? "Salvando projeto..."
-                  : "Salvar dominios, status e add-ons"}
+                  : "Salvar dominios e status"}
               </button>
               <button
                 type="button"

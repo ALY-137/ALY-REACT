@@ -14,11 +14,18 @@ import {
   usandoBucketCompartilhadoCrossProject,
 } from "../../../Banco/sharedBucketApi";
 import {
-  criarAddOnNoGerenciador,
-  listarAddOnsNoGerenciador,
-  removerAddOnNoGerenciador,
-  salvarAddOnNoGerenciador,
+  criarAddOnDoUsuarioProjeto,
+  listarAddOnsDoUsuarioProjeto,
+  removerAddOnDoUsuarioProjeto,
+  salvarAddOnDoUsuarioProjeto,
 } from "../../Sistema/gerenciadorProjetosApi";
+import {
+  DEFAULT_SISTEMA_CONFIG,
+  isOneOwnerComEntradaPublica,
+  obterConfigSistema,
+  obterOwnerUidConfigurado,
+  usuarioCorrespondeOwnerConfigurado,
+} from "../../Sistema/configSistema";
 import ProjectLoadingFallback from "../../Geral/ProjectLoadingFallback";
 
 function nomeArquivoSeguro(nome = "addon.png") {
@@ -27,14 +34,14 @@ function nomeArquivoSeguro(nome = "addon.png") {
     .replace(/[^\w.\-]/g, "_");
 }
 
-async function subirImagemAddOn({ file, addOnId, currentUser }) {
-  const currentUid = String(currentUser?.uid || "").trim();
-  if (!currentUid) {
+async function subirImagemAddOn({ file, addOnId, currentUser, ownerUserId }) {
+  const ownerUid = String(ownerUserId || currentUser?.uid || "").trim();
+  if (!ownerUid) {
     throw new Error("Usuario autenticado obrigatorio para enviar icones de add-on.");
   }
 
   const nome = `${Date.now()}-${nomeArquivoSeguro(file?.name || "addon.png")}`;
-  const path = `users/${currentUid}/add_ons/${addOnId}/${nome}`;
+  const path = `users/${ownerUid}/add_ons/${addOnId}/${nome}`;
 
   if (usandoBucketCompartilhadoCrossProject()) {
     const upload = await uploadArquivoNoBucketCompartilhado({
@@ -94,12 +101,69 @@ function GerenciadorAddOns() {
   const [novoNome, setNovoNome] = useState("");
   const [novaDescricao, setNovaDescricao] = useState("");
   const [novoArquivo, setNovoArquivo] = useState(null);
+  const [configSistema, setConfigSistema] = useState(DEFAULT_SISTEMA_CONFIG);
+
+  const addOnsHabilitados = configSistema?.addOnsHabilitados === true;
+  const oneOwnerAtivo = isOneOwnerComEntradaPublica(configSistema);
+  const ownerUidConfigurado = String(obterOwnerUidConfigurado(configSistema) || "").trim();
+  const usuarioEhOwnerProjeto = Boolean(
+    user?.uid &&
+      (
+        usuarioCorrespondeOwnerConfigurado(configSistema, {
+          uid: user.uid,
+          email: user?.email,
+        }) ||
+        (!ownerUidConfigurado && seforAdm(user))
+      )
+  );
+  const ownerUserId = String(
+    oneOwnerAtivo
+      ? ownerUidConfigurado || (usuarioEhOwnerProjeto ? user?.uid : "")
+      : user?.uid || ""
+  ).trim();
+  const podeGerenciarAddOns = Boolean(
+    user?.uid &&
+      addOnsHabilitados &&
+      ownerUserId &&
+      (!oneOwnerAtivo || usuarioEhOwnerProjeto)
+  );
 
   const carregarAddOns = async () => {
     setCarregando(true);
     setErro("");
     try {
-      const lista = await listarAddOnsNoGerenciador();
+      const config = await obterConfigSistema();
+      setConfigSistema(config || DEFAULT_SISTEMA_CONFIG);
+      const configOneOwnerAtivo = isOneOwnerComEntradaPublica(config);
+      const configOwnerUid = String(obterOwnerUidConfigurado(config) || "").trim();
+      const configUsuarioEhOwner = Boolean(
+        user?.uid &&
+          (
+            usuarioCorrespondeOwnerConfigurado(config, {
+              uid: user.uid,
+              email: user?.email,
+            }) ||
+            (!configOwnerUid && seforAdm(user))
+          )
+      );
+      const ownerUid = String(
+        configOneOwnerAtivo
+          ? configOwnerUid || (configUsuarioEhOwner ? user?.uid : "")
+          : user?.uid || ""
+      ).trim();
+
+      if (config?.addOnsHabilitados !== true) {
+        setAddOns([]);
+        setDraftsPorId({});
+        return;
+      }
+      if (!ownerUid || (configOneOwnerAtivo && !configUsuarioEhOwner)) {
+        setAddOns([]);
+        setDraftsPorId({});
+        return;
+      }
+
+      const lista = await listarAddOnsDoUsuarioProjeto({ ownerUserId: ownerUid });
       setAddOns(lista);
       setDraftsPorId(buildDrafts(lista));
     } catch (error) {
@@ -112,7 +176,7 @@ function GerenciadorAddOns() {
   useEffect(() => {
     if (loading) return;
     void carregarAddOns();
-  }, [loading]);
+  }, [loading, user?.uid]);
 
   const addOnsFiltrados = useMemo(() => {
     const buscaNormalizada = String(busca || "").trim().toLowerCase();
@@ -125,6 +189,11 @@ function GerenciadorAddOns() {
   }, [addOns, busca]);
 
   const criarAddOn = async () => {
+    if (!podeGerenciarAddOns) {
+      setErro("Add-ons estao desativados ou voce nao tem permissao neste projeto.");
+      return;
+    }
+
     const nome = String(novoNome || "").trim();
     if (!nome) {
       setErro("Informe o nome do add-on.");
@@ -136,7 +205,8 @@ function GerenciadorAddOns() {
     setSalvandoKey("novo");
 
     try {
-      const addOnCriado = await criarAddOnNoGerenciador({
+      const addOnCriado = await criarAddOnDoUsuarioProjeto({
+        ownerUserId,
         nome,
         descricao: novaDescricao,
         criadoPorUid: user?.uid || null,
@@ -147,9 +217,11 @@ function GerenciadorAddOns() {
           file: novoArquivo,
           addOnId: addOnCriado.id,
           currentUser: user || null,
+          ownerUserId,
         });
 
-        await salvarAddOnNoGerenciador({
+        await salvarAddOnDoUsuarioProjeto({
+          ownerUserId,
           addOnId: addOnCriado.id,
           url_img: upload.url,
           path_img: upload.path,
@@ -170,6 +242,11 @@ function GerenciadorAddOns() {
   };
 
   const salvarAddOn = async (item) => {
+    if (!podeGerenciarAddOns) {
+      setErro("Add-ons estao desativados ou voce nao tem permissao neste projeto.");
+      return;
+    }
+
     const draft = draftsPorId[item.id] || {};
     const nome = String(draft?.nome || "").trim();
     if (!nome) {
@@ -197,6 +274,7 @@ function GerenciadorAddOns() {
           file: arquivoNovo,
           addOnId: item.id,
           currentUser: user || null,
+          ownerUserId,
         });
         payloadImagem = {
           url_img: upload.url,
@@ -204,7 +282,8 @@ function GerenciadorAddOns() {
         };
       }
 
-      await salvarAddOnNoGerenciador({
+      await salvarAddOnDoUsuarioProjeto({
+        ownerUserId,
         addOnId: item.id,
         nome,
         descricao: draft?.descricao || "",
@@ -227,6 +306,11 @@ function GerenciadorAddOns() {
   };
 
   const removerAddOn = async (item) => {
+    if (!podeGerenciarAddOns) {
+      setErro("Add-ons estao desativados ou voce nao tem permissao neste projeto.");
+      return;
+    }
+
     const ok = window.confirm(`Remover o add-on "${item.nome}"?`);
     if (!ok) return;
 
@@ -241,7 +325,7 @@ function GerenciadorAddOns() {
           currentUser: user || null,
         }).catch(() => {});
       }
-      await removerAddOnNoGerenciador({ addOnId: item.id });
+      await removerAddOnDoUsuarioProjeto({ ownerUserId, addOnId: item.id });
       setMensagem(`Add-on "${item.nome}" removido.`);
       await carregarAddOns();
     } catch (error) {
@@ -255,12 +339,34 @@ function GerenciadorAddOns() {
     return <ProjectLoadingFallback text="Carregando add-ons..." />;
   }
 
-  if (!user || !seforAdm(user)) {
+  if (!user) {
     return (
       <div className="menu-panel-stack addon-manager">
         <h2 className="menu-panel-main-title">ADD-ONS</h2>
         <div className="menu-panel-block">
-          <p className="menu-panel-note">Acesso restrito ao owner.</p>
+          <p className="menu-panel-note">Faca login para gerenciar add-ons.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!addOnsHabilitados) {
+    return (
+      <div className="menu-panel-stack addon-manager">
+        <h2 className="menu-panel-main-title">ADD-ONS</h2>
+        <div className="menu-panel-block">
+          <p className="menu-panel-note">A base de add-ons esta desativada neste projeto.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!podeGerenciarAddOns) {
+    return (
+      <div className="menu-panel-stack addon-manager">
+        <h2 className="menu-panel-main-title">ADD-ONS</h2>
+        <div className="menu-panel-block">
+          <p className="menu-panel-note">Acesso permitido apenas ao usuario do projeto.</p>
         </div>
       </div>
     );
@@ -270,7 +376,7 @@ function GerenciadorAddOns() {
     <div className="menu-panel-stack addon-manager">
       <h2 className="menu-panel-main-title">ADD-ONS</h2>
       <p className="menu-panel-note">
-        Cadastre add-ons globais, envie o icone e mantenha a biblioteca central do gerenciador.
+        Cadastre add-ons deste usuario/projeto, envie icones e use-os em cards e blocos.
       </p>
 
       <div className="menu-panel-block addon-manager__create">
@@ -321,7 +427,7 @@ function GerenciadorAddOns() {
             marginBottom: 12,
           }}
         >
-          <h3 className="menu-panel-title" style={{ margin: 0 }}>Biblioteca central</h3>
+          <h3 className="menu-panel-title" style={{ margin: 0 }}>Biblioteca do projeto</h3>
           <input
             type="search"
             value={busca}

@@ -139,6 +139,9 @@ export const DEFAULT_SISTEMA_CONFIG = {
   permitirTemasSkinSecundarios: true,
   metodosLoginHabilitados: { ...METODOS_LOGIN_PADRAO },
   chatHabilitado: true,
+  addOnsHabilitados: false,
+  blocoAddOnsHabilitado: false,
+  aly137Habilitado: false,
   livesHabilitadas: false,
   cardcaptorHabilitado: false,
   mercadoPagoHabilitado: true,
@@ -1059,6 +1062,29 @@ export function normalizarConfigSistema(data = {}) {
     tipoExperienciaNormalizado === "oneowner"
       ? "1"
       : normalizarLimiteSkins(data.limiteSkinsPorUsuario);
+  const addOnIdsDisponiveisNormalizados = normalizarListaString(data.addOnIdsDisponiveis);
+  const addOnsHabilitadosRaw = Object.prototype.hasOwnProperty.call(data, "addOnsHabilitados")
+    ? data.addOnsHabilitados
+    : data.addonsHabilitados;
+  const addOnsHabilitadosNormalizado = normalizarBoolean(
+    addOnsHabilitadosRaw,
+    DEFAULT_SISTEMA_CONFIG.addOnsHabilitados || addOnIdsDisponiveisNormalizados.length > 0
+  );
+  const blocoAddOnsHabilitadoRaw = Object.prototype.hasOwnProperty.call(
+    data,
+    "blocoAddOnsHabilitado"
+  )
+    ? data.blocoAddOnsHabilitado
+    : data.blocosAddOnsHabilitados;
+  const blocoAddOnsHabilitadoNormalizado =
+    addOnsHabilitadosNormalizado &&
+    normalizarBoolean(
+      blocoAddOnsHabilitadoRaw,
+      DEFAULT_SISTEMA_CONFIG.blocoAddOnsHabilitado
+    );
+  const aly137HabilitadoNormalizado =
+    addOnsHabilitadosNormalizado &&
+    normalizarBoolean(data.aly137Habilitado, DEFAULT_SISTEMA_CONFIG.aly137Habilitado);
 
   return {
     projectSystemKey: projectSystemKeyNormalizado,
@@ -1150,6 +1176,9 @@ export function normalizarConfigSistema(data = {}) {
       data.chatHabilitado,
       DEFAULT_SISTEMA_CONFIG.chatHabilitado
     ),
+    addOnsHabilitados: addOnsHabilitadosNormalizado,
+    blocoAddOnsHabilitado: blocoAddOnsHabilitadoNormalizado,
+    aly137Habilitado: aly137HabilitadoNormalizado,
     livesHabilitadas: normalizarBoolean(
       data.livesHabilitadas,
       DEFAULT_SISTEMA_CONFIG.livesHabilitadas
@@ -1188,7 +1217,7 @@ export function normalizarConfigSistema(data = {}) {
     adminUid: ownerUidNormalizado,
     adminEmail: ownerEmailNormalizado,
     iconCollectionIds: normalizarListaString(data.iconCollectionIds),
-    addOnIdsDisponiveis: normalizarListaString(data.addOnIdsDisponiveis),
+    addOnIdsDisponiveis: addOnIdsDisponiveisNormalizados,
     projectOwnerUid: projectOwnerUidNormalizado,
     projectLastEditorUid: projectLastEditorUidNormalizado,
   };

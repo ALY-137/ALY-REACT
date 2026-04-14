@@ -23,11 +23,18 @@ import {
   obterRotulosBloco,
   obterRotulosEspaco,
 } from "../Sistema/configSistema";
-import { listarIconCollectionsNoGerenciador } from "../Sistema/gerenciadorProjetosApi";
+import {
+  listarAddOnsDoUsuarioProjeto,
+  listarIconCollectionsNoGerenciador,
+} from "../Sistema/gerenciadorProjetosApi";
 import {
   filtrarColecoesIconesPermitidas,
   parseIconSelectionValue,
 } from "../Sistema/iconCollectionsUtils";
+import {
+  CYBERPINK_SUBTHEMES,
+  normalizeCyberpinkSubtheme,
+} from "../Temas/cyberpink/subthemes";
 
 async function gerarPreviewDesfocado(file) {
   try {
@@ -148,6 +155,39 @@ const normalizarCardsDoBloco = (cards = []) => {
     );
 };
 
+const normalizarAddOnIds = (value) => {
+  if (!Array.isArray(value)) return [];
+  return Array.from(
+    new Set(
+      value
+        .map((item) => String(item || "").trim())
+        .filter(Boolean)
+    )
+  );
+};
+
+const normalizarSubtemaAddOnOpcional = (value = "") => {
+  const bruto = String(value || "").trim();
+  return bruto ? normalizeCyberpinkSubtheme(bruto) : "";
+};
+
+const criarSubObjetoAddOn = (addOn = {}, ordem = 0, subtema = "") => {
+  const addOnId = String(addOn?.id || "").trim();
+  return {
+    id: `addonRef_${addOnId || ordem}`,
+    tipo: "addonRef",
+    refId: addOnId,
+    addonId: addOnId,
+    ordem,
+    visivel: true,
+    destaque: false,
+    nomeSnapshot: String(addOn?.nome || "").trim(),
+    imagemSnapshot: String(addOn?.url_img || "").trim(),
+    descricaoSnapshot: String(addOn?.descricao || "").trim(),
+    subtema: normalizarSubtemaAddOnOpcional(subtema),
+  };
+};
+
 export default function CriadorBloco({
   espacoAtual,
   skinIdAtual,
@@ -180,6 +220,12 @@ export default function CriadorBloco({
   const [blocoCardsHabilitado, setBlocoCardsHabilitado] = useState(
     DEFAULT_SISTEMA_CONFIG.blocoCardsHabilitado
   );
+  const [addOnsHabilitados, setAddOnsHabilitados] = useState(
+    DEFAULT_SISTEMA_CONFIG.addOnsHabilitados
+  );
+  const [blocoAddOnsHabilitado, setBlocoAddOnsHabilitado] = useState(
+    DEFAULT_SISTEMA_CONFIG.blocoAddOnsHabilitado
+  );
   const [livesHabilitadas, setLivesHabilitadas] = useState(
     DEFAULT_SISTEMA_CONFIG.livesHabilitadas
   );
@@ -191,6 +237,11 @@ export default function CriadorBloco({
   );
   const [configSistemaAtual, setConfigSistemaAtual] = useState(DEFAULT_SISTEMA_CONFIG);
   const [iconCollectionsDisponiveis, setIconCollectionsDisponiveis] = useState([]);
+  const [addOnsDisponiveisGerenciador, setAddOnsDisponiveisGerenciador] = useState([]);
+  const [erroAddOnsGerenciador, setErroAddOnsGerenciador] = useState("");
+  const [buscaAddOnBloco, setBuscaAddOnBloco] = useState("");
+  const [addOnIdsBloco, setAddOnIdsBloco] = useState([]);
+  const [addOnSubthemesBloco, setAddOnSubthemesBloco] = useState({});
   const [nomeEspacoSingular, setNomeEspacoSingular] = useState(
     DEFAULT_SISTEMA_CONFIG.nomeEspacoSingular
   );
@@ -246,6 +297,8 @@ export default function CriadorBloco({
           setPixManualConectado(false);
           setPixManualQrsDisponiveis([]);
           setBlocoCardsHabilitado(DEFAULT_SISTEMA_CONFIG.blocoCardsHabilitado);
+          setAddOnsHabilitados(DEFAULT_SISTEMA_CONFIG.addOnsHabilitados);
+          setBlocoAddOnsHabilitado(DEFAULT_SISTEMA_CONFIG.blocoAddOnsHabilitado);
           setLivesHabilitadas(DEFAULT_SISTEMA_CONFIG.livesHabilitadas);
           setPixManualSistemaHabilitado(DEFAULT_SISTEMA_CONFIG.pixManualHabilitado);
           setNomeEspacoSingular(DEFAULT_SISTEMA_CONFIG.nomeEspacoSingular);
@@ -258,6 +311,8 @@ export default function CriadorBloco({
       let moduloMercadoPagoAtivo = DEFAULT_SISTEMA_CONFIG.mercadoPagoHabilitado;
       let moduloPixManualAtivo = DEFAULT_SISTEMA_CONFIG.pixManualHabilitado;
       let cardsBlocoHabilitado = DEFAULT_SISTEMA_CONFIG.blocoCardsHabilitado;
+      let addOnsProjetoHabilitados = DEFAULT_SISTEMA_CONFIG.addOnsHabilitados;
+      let blocoAddOnsProjetoHabilitado = DEFAULT_SISTEMA_CONFIG.blocoAddOnsHabilitado;
       let livesDoProjetoHabilitadas = DEFAULT_SISTEMA_CONFIG.livesHabilitadas;
       let nomeEspacoSingularAtual = DEFAULT_SISTEMA_CONFIG.nomeEspacoSingular;
       let nomeBlocoSingularAtual = DEFAULT_SISTEMA_CONFIG.nomeBlocoSingular;
@@ -270,6 +325,8 @@ export default function CriadorBloco({
         moduloMercadoPagoAtivo = configSistema?.mercadoPagoHabilitado !== false;
         moduloPixManualAtivo = configSistema?.pixManualHabilitado !== false;
         cardsBlocoHabilitado = configSistema?.blocoCardsHabilitado === true;
+        addOnsProjetoHabilitados = configSistema?.addOnsHabilitados === true;
+        blocoAddOnsProjetoHabilitado = configSistema?.blocoAddOnsHabilitado === true;
         livesDoProjetoHabilitadas = configSistema?.livesHabilitadas === true;
         const rotulosEspaco = obterRotulosEspaco(configSistema);
         const rotulosBloco = obterRotulosBloco(configSistema);
@@ -289,6 +346,8 @@ export default function CriadorBloco({
         setMercadoPagoSistemaHabilitado(moduloMercadoPagoAtivo);
         setPixManualSistemaHabilitado(moduloPixManualAtivo);
         setBlocoCardsHabilitado(cardsBlocoHabilitado);
+        setAddOnsHabilitados(addOnsProjetoHabilitados);
+        setBlocoAddOnsHabilitado(blocoAddOnsProjetoHabilitado);
         setLivesHabilitadas(livesDoProjetoHabilitadas);
         setNomeEspacoSingular(nomeEspacoSingularAtual);
         setNomeBlocoSingular(nomeBlocoSingularAtual);
@@ -360,6 +419,39 @@ export default function CriadorBloco({
     };
   }, []);
 
+  useEffect(() => {
+    let cancelado = false;
+
+    async function carregarAddOns() {
+      if (!ownerUserId || !addOnsHabilitados) {
+        setAddOnsDisponiveisGerenciador([]);
+        setErroAddOnsGerenciador("");
+        return;
+      }
+
+      try {
+        const lista = await listarAddOnsDoUsuarioProjeto({
+          ownerUserId,
+          onlyActive: true,
+        });
+        if (!cancelado) {
+          setAddOnsDisponiveisGerenciador(Array.isArray(lista) ? lista : []);
+          setErroAddOnsGerenciador("");
+        }
+      } catch (error) {
+        if (!cancelado) {
+          setAddOnsDisponiveisGerenciador([]);
+          setErroAddOnsGerenciador(error?.message || "Falha ao carregar add-ons.");
+        }
+      }
+    }
+
+    carregarAddOns();
+    return () => {
+      cancelado = true;
+    };
+  }, [addOnsHabilitados, ownerUserId]);
+
   const metodoPagamentoCompradorDisponivel =
     mpConectado ||
     (pixManualSistemaHabilitado && pixManualConectado);
@@ -390,6 +482,14 @@ export default function CriadorBloco({
       setTipoConteudo("imagem");
     }
   }, [livesHabilitadas, tipoConteudo]);
+
+  useEffect(() => {
+    if ((!addOnsHabilitados || !blocoAddOnsHabilitado) && tipoConteudo === "addons") {
+      setTipoConteudo("imagem");
+      setAddOnIdsBloco([]);
+      setAddOnSubthemesBloco({});
+    }
+  }, [addOnsHabilitados, blocoAddOnsHabilitado, tipoConteudo]);
 
   useEffect(() => {
     if (tipoConteudo !== "live") {
@@ -432,6 +532,8 @@ export default function CriadorBloco({
     pixManualValoresDisponiveis.length > 0;
   const blocoEhCards = tipoConteudo === "cards" && blocoCardsHabilitado;
   const blocoEhLive = tipoConteudo === "live" && livesHabilitadas;
+  const blocoEhAddOns =
+    tipoConteudo === "addons" && addOnsHabilitados && blocoAddOnsHabilitado;
   const nomeEspacoSingularCapitalizado = capitalizar(nomeEspacoSingular);
   const nomeBlocoSingularCapitalizado = capitalizar(nomeBlocoSingular);
   const iconCollectionsFiltradas = useMemo(
@@ -439,6 +541,28 @@ export default function CriadorBloco({
     [configSistemaAtual, iconCollectionsDisponiveis]
   );
   const projetoPossuiColecoesIcones = iconCollectionsFiltradas.length > 0;
+  const addOnsDisponiveisProjeto = useMemo(() => {
+    if (!addOnsHabilitados) return [];
+    return addOnsDisponiveisGerenciador;
+  }, [addOnsDisponiveisGerenciador, addOnsHabilitados]);
+  const addOnsDisponiveisProjetoPorId = useMemo(
+    () =>
+      addOnsDisponiveisProjeto.reduce((acc, item) => {
+        acc[item.id] = item;
+        return acc;
+      }, {}),
+    [addOnsDisponiveisProjeto]
+  );
+  const addOnsBlocoFiltrados = useMemo(() => {
+    const buscaNormalizada = String(buscaAddOnBloco || "").trim().toLowerCase();
+    return addOnsDisponiveisProjeto.filter((item) => {
+      if (!buscaNormalizada) return true;
+      return (
+        String(item?.nome || "").toLowerCase().includes(buscaNormalizada) ||
+        String(item?.descricao || "").toLowerCase().includes(buscaNormalizada)
+      );
+    });
+  }, [addOnsDisponiveisProjeto, buscaAddOnBloco]);
 
   const parseValorCompraEmCentavos = (valorTexto) => {
     const normalizado = String(valorTexto || "").replace(",", ".").trim();
@@ -583,8 +707,14 @@ export default function CriadorBloco({
 
     if (!espacoId) return alert(`${nomeEspacoSingularCapitalizado} sem id valido.`);
     if (!ownerUserId) return alert(`${nomeEspacoSingularCapitalizado} sem ownerUserId valido.`);
-    if (!blocoEhCards && !blocoEhLive && !files.length) {
+    if (tipoConteudo === "addons" && !blocoEhAddOns) {
+      return alert("Habilite a base de add-ons e os blocos de add-ons no projeto.");
+    }
+    if (!blocoEhCards && !blocoEhLive && !blocoEhAddOns && !files.length) {
       return alert("Selecione ao menos uma imagem");
+    }
+    if (blocoEhAddOns && !normalizarAddOnIds(addOnIdsBloco).length) {
+      return alert("Selecione ao menos um add-on para o bloco.");
     }
 
     const liveInicioMs = blocoEhLive ? parseDateTimeLocalToMs(liveInicioEm) : null;
@@ -718,6 +848,73 @@ export default function CriadorBloco({
         setPermitirMercadoPagoLive(mercadoPagoDisponivelParaLive);
         setPermitirPixManualLive(pixManualDisponivelParaLive);
         setMetodosPagamentoLiveCustomizados(false);
+        alert(`${nomeBlocoSingularCapitalizado} criado com sucesso!`);
+        return;
+      }
+
+      if (blocoEhAddOns) {
+        const addOnIdsSelecionados = normalizarAddOnIds(addOnIdsBloco);
+        const subObjetos = addOnIdsSelecionados
+          .map((addOnId, index) =>
+            criarSubObjetoAddOn(
+              addOnsDisponiveisProjetoPorId[addOnId] || { id: addOnId },
+              index,
+              addOnSubthemesBloco?.[addOnId]
+            )
+          )
+          .filter((item) => item.addonId);
+
+        if (!subObjetos.length) {
+          alert("Selecione ao menos um add-on valido para o bloco.");
+          return;
+        }
+
+        const blocoPayload = {
+          id: blocoId,
+          tipo: "addons",
+          titulo: tituloBlocoFinal,
+          icone: iconeBlocoFinal,
+          iconUrl: iconeBlocoFinal,
+          iconCollectionId: iconPayload.iconCollectionId,
+          iconId: iconPayload.iconId,
+          iconLabel: iconPayload.iconLabel,
+          subObjetos,
+          configAddOns: {
+            layout: "grid",
+            mostrarNome: true,
+            abrirFichaAoClicar: false,
+          },
+          imagensPreview: [],
+          imagensPreviewPaths: [],
+          imagensOriginaisPaths: [],
+          imagensOriginaisPublicas: [],
+          imagens: [],
+          criadoPor: user.uid,
+          criadoEm: serverTimestamp(),
+          ordem: Date.now(),
+          espacoId,
+          ownerUserId,
+          skinOwner: espacoAtual.skinOwner || activeSkinId || null,
+          visibilidade,
+          precoCentavos: precoCentavos || null,
+          moeda: precoCentavos ? "BRL" : null,
+        };
+
+        await setDoc(blocoRef, blocoPayload);
+
+        if (onCreate) {
+          onCreate({
+            criadoEm: new Date().toISOString(),
+            ...blocoPayload,
+          });
+        }
+
+        setAddOnIdsBloco([]);
+        setAddOnSubthemesBloco({});
+        setBuscaAddOnBloco("");
+        setTituloBloco("");
+        setIconeBloco("");
+        setValorCompra("");
         alert(`${nomeBlocoSingularCapitalizado} criado com sucesso!`);
         return;
       }
@@ -960,7 +1157,7 @@ export default function CriadorBloco({
     <div className="bloco-creator">
       <h3>
         {`Criar ${nomeBlocoSingular} de ${
-          blocoEhCards ? "cards" : blocoEhLive ? "live" : "imagens"
+          blocoEhCards ? "cards" : blocoEhLive ? "live" : blocoEhAddOns ? "add-ons" : "imagens"
         }`}
       </h3>
 
@@ -993,6 +1190,7 @@ export default function CriadorBloco({
       <select value={tipoConteudo} onChange={(e) => setTipoConteudo(e.target.value)}>
         <option value="imagem">Imagens</option>
         {blocoCardsHabilitado && <option value="cards">Cards</option>}
+        {addOnsHabilitados && blocoAddOnsHabilitado && <option value="addons">Add-ons</option>}
         {livesHabilitadas && <option value="live">Live</option>}
       </select>
 
@@ -1145,6 +1343,143 @@ export default function CriadorBloco({
           <button type="button" onClick={() => setCards((prev) => [...prev, criarCardVazio()])}>
             Adicionar card
           </button>
+        </div>
+      ) : blocoEhAddOns ? (
+        <div className="bloco-addons-editor" style={{ width: "100%", display: "grid", gap: 10 }}>
+          <input
+            type="search"
+            placeholder="Pesquisar add-on"
+            value={buscaAddOnBloco}
+            onChange={(event) => setBuscaAddOnBloco(event.target.value)}
+          />
+
+          <div
+            className="bloco-addons-editor__list"
+            style={{
+              display: "grid",
+              gap: 8,
+              maxHeight: 260,
+              overflowY: "auto",
+              padding: 8,
+              border: "1px solid rgba(255,255,255,0.12)",
+            }}
+          >
+            {erroAddOnsGerenciador ? (
+              <p style={{ margin: 0, color: "#ff9db0" }}>{erroAddOnsGerenciador}</p>
+            ) : !addOnsDisponiveisProjeto.length ? (
+              <p style={{ margin: 0, opacity: 0.76 }}>
+                Nenhum add-on criado para este usuario/projeto.
+              </p>
+            ) : !addOnsBlocoFiltrados.length ? (
+              <p style={{ margin: 0, opacity: 0.76 }}>
+                Nenhum add-on encontrado para este filtro.
+              </p>
+            ) : (
+              addOnsBlocoFiltrados.map((item) => {
+                const addOnId = String(item?.id || "").trim();
+                const marcado = normalizarAddOnIds(addOnIdsBloco).includes(addOnId);
+                const subtemaSelecionado =
+                  normalizarSubtemaAddOnOpcional(addOnSubthemesBloco?.[addOnId]) || "";
+
+                return (
+                  <label
+                    key={addOnId}
+                    className="bloco-addons-editor__item"
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "20px 38px minmax(0, 1fr)",
+                      gap: 10,
+                      alignItems: "center",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={marcado}
+                      onChange={() => {
+                        setAddOnIdsBloco((prev) => {
+                          const atuais = normalizarAddOnIds(prev);
+                          return atuais.includes(addOnId)
+                            ? atuais.filter((id) => id !== addOnId)
+                            : [...atuais, addOnId];
+                        });
+                        if (marcado) {
+                          setAddOnSubthemesBloco((prev) => {
+                            const next = { ...prev };
+                            delete next[addOnId];
+                            return next;
+                          });
+                        }
+                      }}
+                    />
+                    <span
+                      style={{
+                        width: 38,
+                        height: 38,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        overflow: "hidden",
+                        background: "rgba(255,255,255,0.04)",
+                      }}
+                    >
+                      {item?.url_img ? (
+                        <img
+                          src={item.url_img}
+                          alt={item.nome || "Add-on"}
+                          style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                        />
+                      ) : null}
+                    </span>
+                    <span style={{ minWidth: 0 }}>
+                      <strong>{item.nome}</strong>
+                      {item?.descricao ? (
+                        <span style={{ display: "block", fontSize: 12, opacity: 0.74 }}>
+                          {item.descricao}
+                        </span>
+                      ) : null}
+                      {marcado ? (
+                        <span style={{ display: "grid", gap: 4, marginTop: 8 }}>
+                          <span style={{ fontSize: 11, opacity: 0.72 }}>
+                            Subtema do add-on neste bloco
+                          </span>
+                          <select
+                            value={subtemaSelecionado}
+                            onChange={(event) => {
+                              const proximoValor = normalizarSubtemaAddOnOpcional(
+                                event.target.value
+                              );
+                              setAddOnSubthemesBloco((prev) => {
+                                if (!proximoValor) {
+                                  const next = { ...prev };
+                                  delete next[addOnId];
+                                  return next;
+                                }
+                                return {
+                                  ...prev,
+                                  [addOnId]: proximoValor,
+                                };
+                              });
+                            }}
+                          >
+                            <option value="">Padrao do espaco</option>
+                            {CYBERPINK_SUBTHEMES.map((subtema) => (
+                              <option key={subtema.value} value={subtema.value}>
+                                {`Subtema: ${subtema.label}`}
+                              </option>
+                            ))}
+                          </select>
+                        </span>
+                      ) : null}
+                    </span>
+                  </label>
+                );
+              })
+            )}
+          </div>
+
+          <span style={{ fontSize: 12, opacity: 0.78 }}>
+            {`${normalizarAddOnIds(addOnIdsBloco).length} subobjeto(s) de add-on selecionado(s).`}
+          </span>
         </div>
       ) : blocoEhLive ? (
         <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10 }}>

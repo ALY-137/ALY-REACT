@@ -16,6 +16,10 @@ export {
   criarAddOnNoGerenciador,
   salvarAddOnNoGerenciador,
   removerAddOnNoGerenciador,
+  listarAddOnsDoUsuarioProjeto,
+  criarAddOnDoUsuarioProjeto,
+  salvarAddOnDoUsuarioProjeto,
+  removerAddOnDoUsuarioProjeto,
 } from "./gerenciadorSistemasApi";
 
 // Compatibilidade temporaria: alguns fluxos ainda usam nomes antigos.

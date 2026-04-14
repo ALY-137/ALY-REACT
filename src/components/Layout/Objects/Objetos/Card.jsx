@@ -125,7 +125,7 @@ function Card({
   }, []);
 
   useEffect(() => {
-    if (usaAddOnsGerenciador) {
+    if (usaAddOnsGerenciador || addOnsPropNormalizados.length) {
       setAddOns(addOnsPropNormalizados);
       return undefined;
     }
@@ -177,9 +177,14 @@ function Card({
           const id_add = String(docData?.id_add || "").trim();
           if (!id_add) return null;
 
-          const addOnDoc = await getFirstExistingDoc(
-            getProjectDocCandidates(db, "add_ons", id_add)
-          );
+          const ownerAddOnUserId = String(ownerUserId || id_user || "").trim();
+          const refs = ownerAddOnUserId
+            ? [
+                ...getProjectDocCandidates(db, "users", ownerAddOnUserId, "add_ons", id_add),
+                ...getProjectDocCandidates(db, "add_ons", id_add),
+              ]
+            : getProjectDocCandidates(db, "add_ons", id_add);
+          const addOnDoc = await getFirstExistingDoc(refs);
           return addOnDoc?.exists?.() ? { id: addOnDoc.id, ...addOnDoc.data() } : null;
         });
 

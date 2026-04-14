@@ -246,7 +246,7 @@ function consolidarUsuarios({ usuariosEspelhados, acessos, projetosMap, agoraMs 
         email: "",
         nome: "",
         avatar: "",
-        hashAnonimo: "",
+        hashNavegacao: "",
         projetosMap: new Map(),
         skinsResumoMap: new Map(),
         skinsPorProjetoBaseMap: new Map(),
@@ -341,7 +341,7 @@ function consolidarUsuarios({ usuariosEspelhados, acessos, projetosMap, agoraMs 
     registro.email = registro.email || normalizarTexto(acesso?.email);
     registro.nome =
       registro.nome || normalizarTexto(acesso?.displayName || acesso?.nome || acesso?.email);
-    registro.hashAnonimo = registro.hashAnonimo || normalizarTexto(acesso?.visitorHash || acesso?.hash);
+    registro.hashNavegacao = registro.hashNavegacao || normalizarTexto(acesso?.visitorHash || acesso?.hash);
 
     const projectKey = normalizarTexto(
       acesso?.projectSystemKey || acesso?.runtimeProjectKey
@@ -491,7 +491,7 @@ function consolidarUsuarios({ usuariosEspelhados, acessos, projetosMap, agoraMs 
 
     return {
       ...usuario,
-      nome: usuario.nome || usuario.email || usuario.uid || usuario.hashAnonimo || "Usuario",
+      nome: usuario.nome || usuario.email || usuario.uid || usuario.hashNavegacao || "Usuario",
       email: usuario.email || "--",
       avatar: usuario.avatar || "/favicon.ico",
       projetos,
@@ -880,7 +880,7 @@ function Users() {
 
                   <span>{usuario.email}</span>
                   <span>{`ID user: ${usuario.uid || "--"}`}</span>
-                  <span>{`Hash anonimo: ${usuario.hashAnonimo || "--"}`}</span>
+                  <span>{`Hash navegacao: ${usuario.hashNavegacao || "--"}`}</span>
                   <span>{`Ultima navegacao: ${formatarData(usuario.ultimaNavegacaoRaw)}`}</span>
                   <span>{`Ultima rota: ${usuario.ultimaRota || "--"}`}</span>
                   <span>{`Host: ${usuario.ultimoHost || "--"}`}</span>

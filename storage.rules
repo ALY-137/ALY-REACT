@@ -32,6 +32,12 @@ service firebase.storage {
       allow read, write: if isAdmin() || isOwner(userId);
     }
 
+    // Icones de add-ons do usuario/projeto.
+    match /users/{userId}/add_ons/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin() || isOwner(userId);
+    }
+
     // Preview desfocado: sempre publico para exibir bloqueio sem vazar original.
     match /users/{userId}/espacos/{espacoId}/blocos/{blocoId}/preview/{allPaths=**} {
       allow read: if true;

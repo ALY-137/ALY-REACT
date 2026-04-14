@@ -2,25 +2,38 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import {
   listarAcessosNoGerenciador,
+  obterConfigAcessosNoGerenciador,
   listarProjetosNoGerenciador,
+  salvarConfigAcessosNoGerenciador,
 } from "../../../Sistema/gerenciadorSistemasApi";
 import { obterManagerProjectLabel } from "../../../Sistema/configSistema";
 import "./acessos.css";
 
-const PAGE_SIZE = 24;
+const GROUP_PAGE_SIZE = 12;
+const ACCESS_GROUP_PREVIEW_SIZE = 3;
 const ACCESS_QUERY_LIMIT = 100;
 
 function normalizeText(value) {
   return String(value || "").trim();
 }
 
-function resolveGeoText(acesso, ...candidates) {
+function resolveFirstText(...candidates) {
   for (const candidate of candidates) {
     const value = normalizeText(candidate);
     if (value) return value;
   }
 
+  return "";
+}
+
+function resolveGeoText(...candidates) {
+  const value = resolveFirstText(...candidates);
+  if (value) return value;
   return "--";
+}
+
+function joinUnique(values = []) {
+  return [...new Set(values.map((value) => normalizeText(value)).filter(Boolean))].join(", ") || "--";
 }
 
 function resolveOrigemAcesso(acesso) {
@@ -42,10 +55,101 @@ function resolveTipoUsuario(acesso) {
   return perfil === "owner" ? "owner" : "viewer";
 }
 
+function resolveAccessHash(acesso) {
+  return normalizeText(acesso?.visitorHash || acesso?.hash);
+}
+
+function resolveAccessIp(acesso) {
+  return resolveFirstText(acesso?.ip, acesso?.geo?.ip);
+}
+
+function resolveAccessProjectKey(acesso) {
+  return normalizeText(acesso?.projectSystemKey || acesso?.runtimeProjectKey).toLowerCase();
+}
+
+function normalizeIpBloqueio(value) {
+  return normalizeText(value).replace(/^::ffff:/, "").toLowerCase();
+}
+
+function normalizeUsuarioBloqueio(value) {
+  const normalized = normalizeText(value);
+  if (!normalized) return "";
+  return normalized.includes("@") ? normalized.toLowerCase() : normalized;
+}
+
+function normalizarIpsBloqueados(value = []) {
+  if (!Array.isArray(value)) return [];
+  return Array.from(
+    new Set(value.map((item) => normalizeIpBloqueio(item)).filter(Boolean))
+  );
+}
+
+function normalizarUsuariosBloqueados(value = []) {
+  if (!Array.isArray(value)) return [];
+  return Array.from(
+    new Set(value.map((item) => normalizeUsuarioBloqueio(item)).filter(Boolean))
+  );
+}
+
+function resolveAccessUserLabel(acesso) {
+  return (
+    normalizeText(acesso?.displayName || acesso?.email || acesso?.uid) ||
+    "Visitante"
+  );
+}
+
+function resolveAccessUserIdentifiers(acesso) {
+  return normalizarUsuariosBloqueados([acesso?.uid, acesso?.email]);
+}
+
+function formatarUsuarioBloqueio(usuario = "") {
+  const normalized = normalizeUsuarioBloqueio(usuario);
+  if (!normalized) return "usuario";
+  return normalized.includes("@") ? `email ${normalized}` : `uid ${normalized}`;
+}
+
+function resolveAccessGeoInfo(acesso = {}) {
+  const geo = acesso?.geo && typeof acesso.geo === "object" ? acesso.geo : {};
+
+  return {
+    country: resolveFirstText(acesso?.country, acesso?.pais, geo?.country, geo?.pais),
+    region: resolveFirstText(acesso?.region, acesso?.regiao, geo?.region, geo?.regiao),
+    city: resolveFirstText(acesso?.city, acesso?.cidade, geo?.city, geo?.cidade),
+    uf: resolveFirstText(acesso?.uf, acesso?.regionCode, geo?.uf, geo?.regionCode),
+    org: resolveFirstText(acesso?.org, geo?.org),
+    cep: resolveFirstText(acesso?.cep, geo?.cep),
+    source: resolveFirstText(acesso?.geoSource, geo?.source, geo?._geoSource),
+    error: resolveFirstText(acesso?.geoError, geo?.error, geo?._geoError),
+    latitude: Number.isFinite(Number(acesso?.latitude))
+      ? Number(acesso.latitude)
+      : (Number.isFinite(Number(geo?.latitude)) ? Number(geo.latitude) : null),
+    longitude: Number.isFinite(Number(acesso?.longitude))
+      ? Number(acesso.longitude)
+      : (Number.isFinite(Number(geo?.longitude)) ? Number(geo.longitude) : null),
+  };
+}
+
 function formatarData(value) {
   const timestampMs = resolveDataTimestampMs(value);
   if (!Number.isFinite(timestampMs) || timestampMs <= 0) return "--";
   return new Date(timestampMs).toLocaleString("pt-BR");
+}
+
+function formatarDuracaoMs(value) {
+  const durationMs = Number(value);
+  if (!Number.isFinite(durationMs) || durationMs < 0) return "--";
+  if (durationMs < 1000) return `${Math.round(durationMs)} ms`;
+
+  const totalSeconds = Math.round(durationMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  if (minutes <= 0) return `${seconds}s`;
+  if (minutes < 60) return `${minutes}min ${seconds}s`;
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return `${hours}h ${remainingMinutes}min`;
 }
 
 function resolveDataTimestampMs(value) {
@@ -80,6 +184,17 @@ function ListaAcessos() {
   const [filtroDataInicio, setFiltroDataInicio] = useState("");
   const [filtroDataFim, setFiltroDataFim] = useState("");
   const [paginaAtual, setPaginaAtual] = useState(1);
+  const [gruposExpandidos, setGruposExpandidos] = useState({});
+  const [ipsBloqueadosRegistro, setIpsBloqueadosRegistro] = useState([]);
+  const [ipBloqueioInput, setIpBloqueioInput] = useState("");
+  const [salvandoBloqueioIp, setSalvandoBloqueioIp] = useState(false);
+  const [erroBloqueioIp, setErroBloqueioIp] = useState("");
+  const [mensagemBloqueioIp, setMensagemBloqueioIp] = useState("");
+  const [usuariosBloqueadosRegistro, setUsuariosBloqueadosRegistro] = useState([]);
+  const [usuarioBloqueioInput, setUsuarioBloqueioInput] = useState("");
+  const [salvandoBloqueioUsuario, setSalvandoBloqueioUsuario] = useState(false);
+  const [erroBloqueioUsuario, setErroBloqueioUsuario] = useState("");
+  const [mensagemBloqueioUsuario, setMensagemBloqueioUsuario] = useState("");
   const [erro, setErro] = useState("");
   const [carregando, setCarregando] = useState(false);
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState(null);
@@ -108,6 +223,172 @@ function ListaAcessos() {
     };
   }, []);
 
+  const carregarConfigBloqueioAcessos = useCallback(async () => {
+    try {
+      const configAcessos = await obterConfigAcessosNoGerenciador();
+      if (!mountedRef.current) return;
+      setIpsBloqueadosRegistro(
+        normalizarIpsBloqueados(configAcessos?.ipsBloqueadosRegistro)
+      );
+      setUsuariosBloqueadosRegistro(
+        normalizarUsuariosBloqueados(configAcessos?.usuariosBloqueadosRegistro)
+      );
+      setErroBloqueioIp("");
+      setErroBloqueioUsuario("");
+    } catch (error) {
+      if (!mountedRef.current) return;
+      console.error("Erro ao carregar bloqueios de IP:", error);
+      setErroBloqueioIp("Nao foi possivel carregar os IPs bloqueados.");
+      setErroBloqueioUsuario("Nao foi possivel carregar os usuarios bloqueados.");
+    }
+  }, []);
+
+  useEffect(() => {
+    void carregarConfigBloqueioAcessos();
+  }, [carregarConfigBloqueioAcessos]);
+
+  const salvarIpsBloqueados = useCallback(async (ipsProximos = [], mensagemSucesso = "") => {
+    const ipsNormalizados = normalizarIpsBloqueados(ipsProximos);
+    const usuariosNormalizados = normalizarUsuariosBloqueados(usuariosBloqueadosRegistro);
+    setSalvandoBloqueioIp(true);
+    setErroBloqueioIp("");
+    setMensagemBloqueioIp("");
+
+    try {
+      const resultado = await salvarConfigAcessosNoGerenciador({
+        ipsBloqueadosRegistro: ipsNormalizados,
+        usuariosBloqueadosRegistro: usuariosNormalizados,
+      });
+      if (!mountedRef.current) return;
+      setIpsBloqueadosRegistro(
+        normalizarIpsBloqueados(resultado?.ipsBloqueadosRegistro || ipsNormalizados)
+      );
+      setUsuariosBloqueadosRegistro(
+        normalizarUsuariosBloqueados(
+          resultado?.usuariosBloqueadosRegistro || usuariosNormalizados
+        )
+      );
+      setMensagemBloqueioIp(mensagemSucesso || "Bloqueios de IP atualizados.");
+    } catch (error) {
+      if (!mountedRef.current) return;
+      console.error("Erro ao salvar bloqueios de IP:", error);
+      setErroBloqueioIp("Nao foi possivel salvar os IPs bloqueados.");
+    } finally {
+      if (mountedRef.current) {
+        setSalvandoBloqueioIp(false);
+      }
+    }
+  }, [usuariosBloqueadosRegistro]);
+
+  const salvarUsuariosBloqueados = useCallback(
+    async (usuariosProximos = [], mensagemSucesso = "") => {
+      const usuariosNormalizados = normalizarUsuariosBloqueados(usuariosProximos);
+      const ipsNormalizados = normalizarIpsBloqueados(ipsBloqueadosRegistro);
+      setSalvandoBloqueioUsuario(true);
+      setErroBloqueioUsuario("");
+      setMensagemBloqueioUsuario("");
+
+      try {
+        const resultado = await salvarConfigAcessosNoGerenciador({
+          ipsBloqueadosRegistro: ipsNormalizados,
+          usuariosBloqueadosRegistro: usuariosNormalizados,
+        });
+        if (!mountedRef.current) return;
+        setIpsBloqueadosRegistro(
+          normalizarIpsBloqueados(resultado?.ipsBloqueadosRegistro || ipsNormalizados)
+        );
+        setUsuariosBloqueadosRegistro(
+          normalizarUsuariosBloqueados(
+            resultado?.usuariosBloqueadosRegistro || usuariosNormalizados
+          )
+        );
+        setMensagemBloqueioUsuario(
+          mensagemSucesso || "Bloqueios de usuario atualizados."
+        );
+      } catch (error) {
+        if (!mountedRef.current) return;
+        console.error("Erro ao salvar bloqueios de usuario:", error);
+        setErroBloqueioUsuario("Nao foi possivel salvar os usuarios bloqueados.");
+      } finally {
+        if (mountedRef.current) {
+          setSalvandoBloqueioUsuario(false);
+        }
+      }
+    },
+    [ipsBloqueadosRegistro]
+  );
+
+  const adicionarIpBloqueado = useCallback(
+    (ip) => {
+      const ipNormalizado = normalizeIpBloqueio(ip);
+      if (!ipNormalizado) {
+        setErroBloqueioIp("Informe um IP para bloquear.");
+        return;
+      }
+
+      const proximos = normalizarIpsBloqueados([...ipsBloqueadosRegistro, ipNormalizado]);
+      setIpBloqueioInput("");
+      void salvarIpsBloqueados(
+        proximos,
+        `Registro de acessos bloqueado para o IP ${ipNormalizado}.`
+      );
+    },
+    [ipsBloqueadosRegistro, salvarIpsBloqueados]
+  );
+
+  const adicionarUsuarioBloqueado = useCallback(
+    (usuario) => {
+      const usuarioNormalizado = normalizeUsuarioBloqueio(usuario);
+      if (!usuarioNormalizado) {
+        setErroBloqueioUsuario("Informe um UID ou email para bloquear.");
+        return;
+      }
+
+      const proximos = normalizarUsuariosBloqueados([
+        ...usuariosBloqueadosRegistro,
+        usuarioNormalizado,
+      ]);
+      setUsuarioBloqueioInput("");
+      void salvarUsuariosBloqueados(
+        proximos,
+        `Registro de acessos bloqueado para ${formatarUsuarioBloqueio(
+          usuarioNormalizado
+        )}.`
+      );
+    },
+    [salvarUsuariosBloqueados, usuariosBloqueadosRegistro]
+  );
+
+  const removerUsuarioBloqueado = useCallback(
+    (usuario) => {
+      const usuarioNormalizado = normalizeUsuarioBloqueio(usuario);
+      if (!usuarioNormalizado) return;
+      const proximos = usuariosBloqueadosRegistro.filter(
+        (item) => item !== usuarioNormalizado
+      );
+      void salvarUsuariosBloqueados(
+        proximos,
+        `Registro de acessos liberado para ${formatarUsuarioBloqueio(
+          usuarioNormalizado
+        )}.`
+      );
+    },
+    [salvarUsuariosBloqueados, usuariosBloqueadosRegistro]
+  );
+
+  const removerIpBloqueado = useCallback(
+    (ip) => {
+      const ipNormalizado = normalizeIpBloqueio(ip);
+      if (!ipNormalizado) return;
+      const proximos = ipsBloqueadosRegistro.filter((item) => item !== ipNormalizado);
+      void salvarIpsBloqueados(
+        proximos,
+        `Registro de acessos liberado para o IP ${ipNormalizado}.`
+      );
+    },
+    [ipsBloqueadosRegistro, salvarIpsBloqueados]
+  );
+
   const carregarAcessos = useCallback(async () => {
     setCarregando(true);
 
@@ -121,6 +402,7 @@ function ListaAcessos() {
       if (!mountedRef.current) return;
       setErro("");
       setAcessos(Array.isArray(lista) ? lista : []);
+      setGruposExpandidos({});
       setUltimaAtualizacao(Date.now());
     } catch (error) {
       if (!mountedRef.current) return;
@@ -162,11 +444,9 @@ function ListaAcessos() {
 
   const acessosFiltrados = useMemo(() => {
     return acessos.filter((acesso) => {
-      const projectKey = normalizeText(
-        acesso?.projectSystemKey || acesso?.runtimeProjectKey
-      ).toLowerCase();
-      const hashAtual = normalizeText(acesso?.visitorHash || acesso?.hash).toLowerCase();
-      const ipAtual = normalizeText(acesso?.ip).toLowerCase();
+      const projectKey = resolveAccessProjectKey(acesso);
+      const hashAtual = resolveAccessHash(acesso).toLowerCase();
+      const ipAtual = resolveAccessIp(acesso).toLowerCase();
       const acessoTimestamp = resolveDataTimestampMs(acesso?.data || acesso?.criadoEm);
       if (filtroProjeto && projectKey !== filtroProjeto) return false;
       if (filtroOrigem && resolveOrigemAcesso(acesso) !== filtroOrigem) return false;
@@ -196,6 +476,7 @@ function ListaAcessos() {
 
   useEffect(() => {
     setPaginaAtual(1);
+    setGruposExpandidos({});
   }, [
     filtroDataFim,
     filtroDataInicio,
@@ -206,7 +487,108 @@ function ListaAcessos() {
     filtroTipoUsuario,
   ]);
 
-  const totalPaginas = Math.max(1, Math.ceil(acessosFiltrados.length / PAGE_SIZE));
+  const ipsBloqueadosSet = useMemo(
+    () => new Set(normalizarIpsBloqueados(ipsBloqueadosRegistro)),
+    [ipsBloqueadosRegistro]
+  );
+
+  const usuariosBloqueadosSet = useMemo(
+    () => new Set(normalizarUsuariosBloqueados(usuariosBloqueadosRegistro)),
+    [usuariosBloqueadosRegistro]
+  );
+
+  const gruposAcessos = useMemo(() => {
+    const gruposMap = new Map();
+
+    acessosFiltrados.forEach((acesso, index) => {
+      const hash = resolveAccessHash(acesso);
+      const projectKey = resolveAccessProjectKey(acesso) || "sem-projeto";
+      const fallbackKey =
+        normalizeText(acesso?.uid || acesso?.email || resolveAccessIp(acesso) || acesso?.id) ||
+        String(index);
+      const groupKey = `${projectKey}|${hash || `sem-hash:${fallbackKey}`}`;
+
+      if (!gruposMap.has(groupKey)) {
+        gruposMap.set(groupKey, {
+          key: groupKey,
+          hash,
+          projectKey,
+          items: [],
+          projetosSet: new Set(),
+          ipsSet: new Set(),
+          hostsSet: new Set(),
+          countriesSet: new Set(),
+          regionsSet: new Set(),
+          citiesSet: new Set(),
+          ufsSet: new Set(),
+          orgsSet: new Set(),
+          geoSourcesSet: new Set(),
+          perfisSet: new Set(),
+          eventosSet: new Set(),
+          usersSet: new Set(),
+          userIdentifiersSet: new Set(),
+        });
+      }
+
+      const grupo = gruposMap.get(groupKey);
+      const geoInfo = resolveAccessGeoInfo(acesso);
+      const userIdentifiers = resolveAccessUserIdentifiers(acesso);
+      grupo.items.push(acesso);
+      grupo.projetosSet.add(resolveAccessProjectKey(acesso));
+      grupo.ipsSet.add(resolveAccessIp(acesso));
+      grupo.hostsSet.add(normalizeText(acesso?.hostname));
+      grupo.countriesSet.add(geoInfo.country);
+      grupo.regionsSet.add(geoInfo.region);
+      grupo.citiesSet.add(geoInfo.city);
+      grupo.ufsSet.add(geoInfo.uf);
+      grupo.orgsSet.add(geoInfo.org);
+      grupo.geoSourcesSet.add(geoInfo.source);
+      grupo.perfisSet.add(normalizeText(acesso?.perfilAcesso));
+      grupo.eventosSet.add(normalizeText(acesso?.eventoTipo));
+      grupo.usersSet.add(resolveAccessUserLabel(acesso));
+      userIdentifiers.forEach((identifier) => grupo.userIdentifiersSet.add(identifier));
+    });
+
+    return Array.from(gruposMap.values())
+      .map((grupo) => {
+        const itemsOrdenados = [...grupo.items].sort((a, b) => {
+          const dataA = resolveDataTimestampMs(a?.data || a?.criadoEm) || 0;
+          const dataB = resolveDataTimestampMs(b?.data || b?.criadoEm) || 0;
+          return dataB - dataA;
+        });
+        const eventoMaisRecente = itemsOrdenados[0] || null;
+        const primeiroEvento = itemsOrdenados[itemsOrdenados.length - 1] || null;
+
+        return {
+          key: grupo.key,
+          hash: grupo.hash,
+          projectKey: grupo.projectKey,
+          items: itemsOrdenados,
+          total: itemsOrdenados.length,
+          usuario: Array.from(grupo.usersSet).filter(Boolean)[0] || "Visitante",
+          projetos: Array.from(grupo.projetosSet).filter(Boolean),
+          ips: Array.from(grupo.ipsSet).filter(Boolean),
+          hosts: Array.from(grupo.hostsSet).filter(Boolean),
+          countries: Array.from(grupo.countriesSet).filter(Boolean),
+          regions: Array.from(grupo.regionsSet).filter(Boolean),
+          cities: Array.from(grupo.citiesSet).filter(Boolean),
+          ufs: Array.from(grupo.ufsSet).filter(Boolean),
+          orgs: Array.from(grupo.orgsSet).filter(Boolean),
+          geoSources: Array.from(grupo.geoSourcesSet).filter(Boolean),
+          perfis: Array.from(grupo.perfisSet).filter(Boolean),
+          eventos: Array.from(grupo.eventosSet).filter(Boolean),
+          userIdentifiers: Array.from(grupo.userIdentifiersSet).filter(Boolean),
+          primeiroEvento,
+          eventoMaisRecente,
+          primeiroEventoMs: resolveDataTimestampMs(primeiroEvento?.data || primeiroEvento?.criadoEm) || 0,
+          eventoMaisRecenteMs:
+            resolveDataTimestampMs(eventoMaisRecente?.data || eventoMaisRecente?.criadoEm) || 0,
+        };
+      })
+      .sort((a, b) => b.eventoMaisRecenteMs - a.eventoMaisRecenteMs);
+  }, [acessosFiltrados]);
+
+  const totalPaginas = Math.max(1, Math.ceil(gruposAcessos.length / GROUP_PAGE_SIZE));
   const paginaAtualSegura = Math.min(paginaAtual, totalPaginas);
 
   useEffect(() => {
@@ -215,10 +597,10 @@ function ListaAcessos() {
     }
   }, [paginaAtual, paginaAtualSegura]);
 
-  const acessosPaginados = useMemo(() => {
-    const inicio = (paginaAtualSegura - 1) * PAGE_SIZE;
-    return acessosFiltrados.slice(inicio, inicio + PAGE_SIZE);
-  }, [acessosFiltrados, paginaAtualSegura]);
+  const gruposPaginados = useMemo(() => {
+    const inicio = (paginaAtualSegura - 1) * GROUP_PAGE_SIZE;
+    return gruposAcessos.slice(inicio, inicio + GROUP_PAGE_SIZE);
+  }, [gruposAcessos, paginaAtualSegura]);
 
   return (
     <section className="gerenciador-acessos">
@@ -308,8 +690,119 @@ function ListaAcessos() {
         </div>
       </div>
 
+      <div className="gerenciador-acessos__block-panel">
+        <div>
+          <strong>Bloqueio de registro por IP</strong>
+          <p>
+            IPs nesta lista nao geram novos registros de navegacao/acesso. Registros antigos
+            continuam visiveis para auditoria.
+          </p>
+        </div>
+
+        <form
+          className="gerenciador-acessos__block-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            adicionarIpBloqueado(ipBloqueioInput);
+          }}
+        >
+          <input
+            type="text"
+            value={ipBloqueioInput}
+            onChange={(event) => setIpBloqueioInput(event.target.value)}
+            placeholder="IP para bloquear"
+            disabled={salvandoBloqueioIp}
+          />
+          <button type="submit" disabled={salvandoBloqueioIp}>
+            Bloquear IP
+          </button>
+        </form>
+
+        {ipsBloqueadosRegistro.length ? (
+          <div className="gerenciador-acessos__blocked-list">
+            {ipsBloqueadosRegistro.map((ip) => (
+              <span key={ip} className="gerenciador-acessos__blocked-chip">
+                <code>{ip}</code>
+                <button
+                  type="button"
+                  onClick={() => removerIpBloqueado(ip)}
+                  disabled={salvandoBloqueioIp}
+                >
+                  remover
+                </button>
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="gerenciador-acessos__block-note">Nenhum IP bloqueado.</p>
+        )}
+
+        {erroBloqueioIp ? (
+          <p className="gerenciador-acessos__error">{erroBloqueioIp}</p>
+        ) : null}
+        {mensagemBloqueioIp ? (
+          <p className="gerenciador-acessos__success">{mensagemBloqueioIp}</p>
+        ) : null}
+      </div>
+
+      <div className="gerenciador-acessos__block-panel">
+        <div>
+          <strong>Bloqueio de registro por usuario</strong>
+          <p>
+            UIDs ou emails nesta lista nao geram novos registros de navegacao/acesso
+            quando o visitante estiver logado. Visitantes anonimos continuam dependendo
+            de hash ou IP.
+          </p>
+        </div>
+
+        <form
+          className="gerenciador-acessos__block-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            adicionarUsuarioBloqueado(usuarioBloqueioInput);
+          }}
+        >
+          <input
+            type="text"
+            value={usuarioBloqueioInput}
+            onChange={(event) => setUsuarioBloqueioInput(event.target.value)}
+            placeholder="UID ou email para bloquear"
+            disabled={salvandoBloqueioUsuario}
+          />
+          <button type="submit" disabled={salvandoBloqueioUsuario}>
+            Bloquear usuario
+          </button>
+        </form>
+
+        {usuariosBloqueadosRegistro.length ? (
+          <div className="gerenciador-acessos__blocked-list">
+            {usuariosBloqueadosRegistro.map((usuario) => (
+              <span key={usuario} className="gerenciador-acessos__blocked-chip">
+                <code>{usuario}</code>
+                <button
+                  type="button"
+                  onClick={() => removerUsuarioBloqueado(usuario)}
+                  disabled={salvandoBloqueioUsuario}
+                >
+                  remover
+                </button>
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="gerenciador-acessos__block-note">Nenhum usuario bloqueado.</p>
+        )}
+
+        {erroBloqueioUsuario ? (
+          <p className="gerenciador-acessos__error">{erroBloqueioUsuario}</p>
+        ) : null}
+        {mensagemBloqueioUsuario ? (
+          <p className="gerenciador-acessos__success">{mensagemBloqueioUsuario}</p>
+        ) : null}
+      </div>
+
       <div className="gerenciador-acessos__summary">
-        <span>{`Total exibido: ${acessosFiltrados.length}`}</span>
+        <span>{`Total exibido: ${gruposAcessos.length} grupo(s) / ${acessosFiltrados.length} evento(s)`}</span>
         <span>{`Pagina: ${paginaAtualSegura}/${totalPaginas}`}</span>
         <span>{`Consulta: ultimos ${ACCESS_QUERY_LIMIT} registros`}</span>
         <span>{`Atualizado: ${formatarData(ultimaAtualizacao)}`}</span>
@@ -351,70 +844,208 @@ function ListaAcessos() {
         <p className="gerenciador-acessos__empty">Nenhum acesso encontrado.</p>
       ) : null}
 
-      {!erro && acessosPaginados.length ? (
+      {!erro && gruposPaginados.length ? (
         <div className="gerenciador-acessos__list">
-          {acessosPaginados.map((acesso) => {
-            const projectKey = normalizeText(
-              acesso?.projectSystemKey || acesso?.runtimeProjectKey
-            ).toLowerCase();
-            const projeto = projetosMap.get(projectKey);
-            const hashAnonimo = normalizeText(acesso?.visitorHash || acesso?.hash) || "--";
-            const ipAcesso = normalizeText(acesso?.ip) || "--";
-            const origemAcesso = resolveOrigemAcesso(acesso) || "--";
-            const tipoUsuario = resolveTipoUsuario(acesso);
-            const paisAcesso = resolveGeoText(
-              acesso,
-              acesso?.country,
-              acesso?.pais,
-              acesso?.geo?.country,
-              acesso?.geo?.pais
-            );
-            const regiaoAcesso = resolveGeoText(
-              acesso,
-              acesso?.region,
-              acesso?.regiao,
-              acesso?.uf,
-              acesso?.geo?.region,
-              acesso?.geo?.regiao,
-              acesso?.geo?.uf
-            );
-            const cidadeAcesso = resolveGeoText(
-              acesso,
-              acesso?.city,
-              acesso?.cidade,
-              acesso?.geo?.city,
-              acesso?.geo?.cidade
-            );
+          {gruposPaginados.map((grupo) => {
+            const expandido = Boolean(gruposExpandidos[grupo.key]);
+            const eventosVisiveis = expandido
+              ? grupo.items
+              : grupo.items.slice(0, ACCESS_GROUP_PREVIEW_SIZE);
+            const eventosOcultos = Math.max(0, grupo.total - eventosVisiveis.length);
+            const projetosGrupo =
+              grupo.projetos
+                .map((projectKey) => {
+                  const projeto = projetosMap.get(projectKey);
+                  return normalizeText(projeto?.nomeProjeto) || projectKey;
+                })
+                .filter(Boolean)
+                .join(", ") || "--";
+            const ipsGrupo = joinUnique(grupo.ips);
+            const hostsGrupo = joinUnique(grupo.hosts);
+            const paisesGrupo = joinUnique(grupo.countries);
+            const regioesGrupo = joinUnique([...grupo.ufs, ...grupo.regions]);
+            const cidadesGrupo = joinUnique(grupo.cities);
+            const orgsGrupo = joinUnique(grupo.orgs);
+            const fontesGeoGrupo = joinUnique(grupo.geoSources);
+            const perfisGrupo = joinUnique(grupo.perfis);
+            const eventosGrupo = joinUnique(grupo.eventos);
+
             return (
-              <article key={acesso.id} className="gerenciador-acessos__card">
-                <div className="gerenciador-acessos__topline">
-                  <strong>
-                    {normalizeText(acesso?.displayName || acesso?.email || acesso?.uid) ||
-                      "Visitante"}
-                  </strong>
-                  <span>{`Data/Hora: ${formatarData(acesso?.data || acesso?.criadoEm)}`}</span>
+              <article key={grupo.key} className="gerenciador-acessos__group">
+                <div className="gerenciador-acessos__group-header">
+                  <div>
+                    <strong>{grupo.usuario}</strong>
+                    <span>{`Hash navegacao: ${grupo.hash || "--"}`}</span>
+                  </div>
+                  {grupo.total > ACCESS_GROUP_PREVIEW_SIZE ? (
+                    <button
+                      type="button"
+                      className="gerenciador-acessos__more"
+                      onClick={() =>
+                        setGruposExpandidos((prev) => ({
+                          ...prev,
+                          [grupo.key]: !prev[grupo.key],
+                        }))
+                      }
+                    >
+                      {expandido ? "Ver menos" : `Ver mais (${eventosOcultos})`}
+                    </button>
+                  ) : null}
                 </div>
-                <div className="gerenciador-acessos__meta">
-                  <span>{`Projeto: ${
-                    normalizeText(projeto?.nomeProjeto) ||
-                    normalizeText(acesso?.projectNome) ||
-                    projectKey ||
-                    "--"
-                  }`}</span>
-                  <span>{`Perfil: ${normalizeText(acesso?.perfilAcesso) || "--"}`}</span>
-                  <span>{`Evento: ${normalizeText(acesso?.eventoTipo) || "--"}`}</span>
-                  <span>{`Origem: ${origemAcesso}`}</span>
-                  <span>{`Tipo usuario: ${tipoUsuario}`}</span>
-                  <span>{`Runtime: ${normalizeText(acesso?.runtimeProjectId) || "--"}`}</span>
-                  <span>{`Host: ${normalizeText(acesso?.hostname) || "--"}`}</span>
-                  <span>{`IP: ${ipAcesso}`}</span>
-                  <span>{`Hash: ${hashAnonimo}`}</span>
-                  <span>{`Pais: ${paisAcesso}`}</span>
-                  <span>{`Regiao: ${regiaoAcesso}`}</span>
-                  <span>{`Cidade: ${cidadeAcesso}`}</span>
+
+                <div className="gerenciador-acessos__group-meta">
+                  <span>{`Eventos: ${grupo.total}`}</span>
+                  <span>{`Primeiro: ${formatarData(
+                    grupo.primeiroEvento?.data || grupo.primeiroEvento?.criadoEm
+                  )}`}</span>
+                  <span>{`Ultimo: ${formatarData(
+                    grupo.eventoMaisRecente?.data || grupo.eventoMaisRecente?.criadoEm
+                  )}`}</span>
+                  <span>{`Projetos: ${projetosGrupo}`}</span>
+                  <span>{`Perfil: ${perfisGrupo}`}</span>
+                  <span>{`Eventos tipo: ${eventosGrupo}`}</span>
+                  <span>{`Hosts: ${hostsGrupo}`}</span>
+                  <span>{`IPs: ${ipsGrupo}`}</span>
+                  <span>{`Pais: ${paisesGrupo}`}</span>
+                  <span>{`Regiao/UF: ${regioesGrupo}`}</span>
+                  <span>{`Cidade: ${cidadesGrupo}`}</span>
+                  <span>{`Org: ${orgsGrupo}`}</span>
+                  <span>{`Geo fonte: ${fontesGeoGrupo}`}</span>
                 </div>
-                <div className="gerenciador-acessos__path">
-                  <code>{normalizeText(acesso?.fullPath || acesso?.path) || "/"}</code>
+
+                {grupo.ips.length ? (
+                  <div className="gerenciador-acessos__ip-actions">
+                    {grupo.ips.map((ip) => {
+                      const ipNormalizado = normalizeIpBloqueio(ip);
+                      const bloqueado = ipsBloqueadosSet.has(ipNormalizado);
+                      return (
+                        <button
+                          key={ipNormalizado || ip}
+                          type="button"
+                          onClick={() =>
+                            bloqueado
+                              ? removerIpBloqueado(ipNormalizado)
+                              : adicionarIpBloqueado(ipNormalizado)
+                          }
+                          disabled={salvandoBloqueioIp || !ipNormalizado}
+                          className={
+                            bloqueado
+                              ? "gerenciador-acessos__ip-action is-blocked"
+                              : "gerenciador-acessos__ip-action"
+                          }
+                        >
+                          {bloqueado
+                            ? `Liberar registro do IP ${ipNormalizado}`
+                            : `Bloquear registro do IP ${ipNormalizado}`}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
+
+                {grupo.userIdentifiers.length ? (
+                  <div className="gerenciador-acessos__ip-actions">
+                    {grupo.userIdentifiers.map((usuario) => {
+                      const usuarioNormalizado = normalizeUsuarioBloqueio(usuario);
+                      const bloqueado = usuariosBloqueadosSet.has(usuarioNormalizado);
+                      return (
+                        <button
+                          key={usuarioNormalizado || usuario}
+                          type="button"
+                          onClick={() =>
+                            bloqueado
+                              ? removerUsuarioBloqueado(usuarioNormalizado)
+                              : adicionarUsuarioBloqueado(usuarioNormalizado)
+                          }
+                          disabled={salvandoBloqueioUsuario || !usuarioNormalizado}
+                          className={
+                            bloqueado
+                              ? "gerenciador-acessos__ip-action is-blocked"
+                              : "gerenciador-acessos__ip-action"
+                          }
+                        >
+                          {bloqueado
+                            ? `Liberar registro de ${formatarUsuarioBloqueio(
+                                usuarioNormalizado
+                              )}`
+                            : `Bloquear registro de ${formatarUsuarioBloqueio(
+                                usuarioNormalizado
+                              )}`}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
+
+                <div className="gerenciador-acessos__events">
+                  {eventosVisiveis.map((acesso) => {
+                    const projectKey = resolveAccessProjectKey(acesso);
+                    const projeto = projetosMap.get(projectKey);
+                    const hashNavegacao = resolveAccessHash(acesso) || "--";
+                    const ipAcesso = resolveAccessIp(acesso) || "--";
+                    const origemAcesso = resolveOrigemAcesso(acesso) || "--";
+                    const tipoUsuario = resolveTipoUsuario(acesso);
+                    const geoInfo = resolveAccessGeoInfo(acesso);
+                    const paisAcesso = resolveGeoText(geoInfo.country);
+                    const regiaoAcesso = resolveGeoText(geoInfo.uf || geoInfo.region);
+                    const cidadeAcesso = resolveGeoText(geoInfo.city);
+                    const orgAcesso = resolveGeoText(geoInfo.org);
+                    const fonteGeoAcesso = resolveGeoText(geoInfo.source);
+                    const erroGeoAcesso = resolveGeoText(geoInfo.error);
+                    const visibilidadeAba = resolveGeoText(
+                      acesso?.documentVisibility || acesso?.visibilityState
+                    );
+                    const motivoRegistro = resolveGeoText(
+                      acesso?.registroMotivo || acesso?.motivoRegistro
+                    );
+                    const tempoAba = formatarDuracaoMs(acesso?.tempoDesdeAberturaMs);
+                    const coordenadasAcesso =
+                      geoInfo.latitude !== null && geoInfo.longitude !== null
+                        ? `${geoInfo.latitude}, ${geoInfo.longitude}`
+                        : "--";
+
+                    return (
+                      <article key={acesso.id} className="gerenciador-acessos__card">
+                        <div className="gerenciador-acessos__topline">
+                          <strong>{resolveAccessUserLabel(acesso)}</strong>
+                          <span>{`Data/Hora: ${formatarData(
+                            acesso?.data || acesso?.criadoEm
+                          )}`}</span>
+                        </div>
+                        <div className="gerenciador-acessos__meta">
+                          <span>{`Projeto: ${
+                            normalizeText(projeto?.nomeProjeto) ||
+                            normalizeText(acesso?.projectNome) ||
+                            projectKey ||
+                            "--"
+                          }`}</span>
+                          <span>{`Perfil: ${normalizeText(acesso?.perfilAcesso) || "--"}`}</span>
+                          <span>{`Evento: ${normalizeText(acesso?.eventoTipo) || "--"}`}</span>
+                          <span>{`Motivo: ${motivoRegistro}`}</span>
+                          <span>{`Visibilidade: ${visibilidadeAba}`}</span>
+                          <span>{`Tempo aba: ${tempoAba}`}</span>
+                          <span>{`Origem: ${origemAcesso}`}</span>
+                          <span>{`Tipo usuario: ${tipoUsuario}`}</span>
+                          <span>{`Runtime: ${normalizeText(acesso?.runtimeProjectId) || "--"}`}</span>
+                          <span>{`Host: ${normalizeText(acesso?.hostname) || "--"}`}</span>
+                          <span>{`IP: ${ipAcesso}`}</span>
+                          <span>{`UID: ${normalizeText(acesso?.uid) || "--"}`}</span>
+                          <span>{`Email: ${normalizeText(acesso?.email) || "--"}`}</span>
+                          <span>{`Hash: ${hashNavegacao}`}</span>
+                          <span>{`Pais: ${paisAcesso}`}</span>
+                          <span>{`Regiao: ${regiaoAcesso}`}</span>
+                          <span>{`Cidade: ${cidadeAcesso}`}</span>
+                          <span>{`Org: ${orgAcesso}`}</span>
+                          <span>{`Geo fonte: ${fonteGeoAcesso}`}</span>
+                          <span>{`Geo erro: ${erroGeoAcesso}`}</span>
+                          <span>{`Coordenadas: ${coordenadasAcesso}`}</span>
+                        </div>
+                        <div className="gerenciador-acessos__path">
+                          <code>{normalizeText(acesso?.fullPath || acesso?.path) || "/"}</code>
+                        </div>
+                      </article>
+                    );
+                  })}
                 </div>
               </article>
             );

@@ -18,6 +18,7 @@ import {
   createFirestoreCompatInstance,
   db as dbProjetoAtivo,
 } from "../../Banco/init-firebase";
+import { getPrimaryProjectCollection } from "../../Banco/projectDataRefs";
 import { postSharedFunctionJson } from "../../Banco/sharedFunctionsApi";
 import { PROJECT_STATUS_ACTIVE, normalizeProjectStatus } from "./projectStatus";
 
@@ -57,6 +58,18 @@ async function callSharedManagerRead(endpoint, payload = {}) {
   });
 }
 
+async function callSharedManagerAction(endpoint, payload = {}) {
+  const user = auth?.currentUser;
+  if (!user?.getIdToken) {
+    throw new Error("Usuario autenticado obrigatorio para gerenciar dados do gerenciador.");
+  }
+
+  return postSharedFunctionJson(endpoint, {
+    payload,
+    idToken: await user.getIdToken(),
+  });
+}
+
 function shouldFallbackToDirectManagerRead(error) {
   const code = normalizeText(error?.code).toLowerCase();
   const message = normalizeText(error?.message).toLowerCase();
@@ -80,6 +93,31 @@ function shouldFallbackToDirectManagerRead(error) {
 
 function normalizeText(value) {
   return String(value || "").trim();
+}
+
+function normalizarIpsBloqueadosRegistro(value = []) {
+  if (!Array.isArray(value)) return [];
+  return Array.from(
+    new Set(
+      value
+        .map((item) => normalizeText(item).replace(/^::ffff:/, "").toLowerCase())
+        .filter(Boolean)
+    )
+  ).slice(0, 500);
+}
+
+function normalizarUsuariosBloqueadosRegistro(value = []) {
+  if (!Array.isArray(value)) return [];
+  return Array.from(
+    new Set(
+      value
+        .map((item) => {
+          const normalized = normalizeText(item);
+          return normalized.includes("@") ? normalized.toLowerCase() : normalized;
+        })
+        .filter(Boolean)
+    )
+  ).slice(0, 500);
 }
 
 function buildAccessRangeStart(startDate = "") {
@@ -660,6 +698,89 @@ export async function listarAcessosNoGerenciador({
   }
 }
 
+export async function obterConfigAcessosNoGerenciador() {
+  const managerDb = getManagerDb();
+
+  try {
+    const response = await callSharedManagerRead("obterConfigAcessosGerenciadorHttp", {});
+    return {
+      ipsBloqueadosRegistro: normalizarIpsBloqueadosRegistro(
+        response?.ipsBloqueadosRegistro || response?.ipsBloqueados || response?.blockedIps
+      ),
+      usuariosBloqueadosRegistro: normalizarUsuariosBloqueadosRegistro(
+        response?.usuariosBloqueadosRegistro ||
+          response?.usuariosBloqueados ||
+          response?.blockedUsers ||
+          response?.uidsBloqueadosRegistro
+      ),
+    };
+  } catch (error) {
+    if (!managerDb || !shouldFallbackToDirectManagerRead(error)) {
+      throw error;
+    }
+  }
+
+  const snap = await getDoc(doc(managerDb, "access_settings", "registro"));
+  const data = snap.exists() ? snap.data() || {} : {};
+
+  return {
+    ipsBloqueadosRegistro: normalizarIpsBloqueadosRegistro(
+      data.ipsBloqueadosRegistro || data.ipsBloqueados || data.blockedIps
+    ),
+    usuariosBloqueadosRegistro: normalizarUsuariosBloqueadosRegistro(
+      data.usuariosBloqueadosRegistro ||
+        data.usuariosBloqueados ||
+        data.blockedUsers ||
+        data.uidsBloqueadosRegistro
+    ),
+  };
+}
+
+export async function salvarConfigAcessosNoGerenciador({
+  ipsBloqueadosRegistro = [],
+  usuariosBloqueadosRegistro = [],
+} = {}) {
+  const ipsNormalizados = normalizarIpsBloqueadosRegistro(ipsBloqueadosRegistro);
+  const usuariosNormalizados = normalizarUsuariosBloqueadosRegistro(
+    usuariosBloqueadosRegistro
+  );
+  const managerDb = getManagerDb();
+
+  try {
+    const response = await callSharedManagerAction("salvarConfigAcessosGerenciadorHttp", {
+      ipsBloqueadosRegistro: ipsNormalizados,
+      usuariosBloqueadosRegistro: usuariosNormalizados,
+    });
+    return {
+      ipsBloqueadosRegistro: normalizarIpsBloqueadosRegistro(
+        response?.ipsBloqueadosRegistro || ipsNormalizados
+      ),
+      usuariosBloqueadosRegistro: normalizarUsuariosBloqueadosRegistro(
+        response?.usuariosBloqueadosRegistro || usuariosNormalizados
+      ),
+    };
+  } catch (error) {
+    if (!managerDb || !shouldFallbackToDirectManagerRead(error)) {
+      throw error;
+    }
+  }
+
+  await setDoc(
+    doc(managerDb, "access_settings", "registro"),
+    {
+      ipsBloqueadosRegistro: ipsNormalizados,
+      usuariosBloqueadosRegistro: usuariosNormalizados,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
+
+  return {
+    ipsBloqueadosRegistro: ipsNormalizados,
+    usuariosBloqueadosRegistro: usuariosNormalizados,
+  };
+}
+
 function extrairConfigSistemaDoDocumento(data = {}) {
   if (data && typeof data.configSistema === "object" && data.configSistema) {
     return {
@@ -856,6 +977,145 @@ export async function removerAddOnNoGerenciador({
   }
 
   await deleteDoc(doc(managerDb, ADDON_COLLECTION, addOnIdNormalizado));
+  return true;
+}
+
+function getAddOnsUsuarioProjetoCollection(ownerUserId = "") {
+  const ownerUidNormalizado = normalizeText(ownerUserId);
+  if (!ownerUidNormalizado) {
+    throw new Error("Usuario owner obrigatorio para gerenciar add-ons.");
+  }
+
+  return getPrimaryProjectCollection(
+    dbProjetoAtivo,
+    "users",
+    ownerUidNormalizado,
+    ADDON_COLLECTION
+  );
+}
+
+export async function listarAddOnsDoUsuarioProjeto({
+  ownerUserId = "",
+  search = "",
+  onlyActive = false,
+} = {}) {
+  const buscaNormalizada = normalizeText(search).toLowerCase();
+  const snap = await getDocs(getAddOnsUsuarioProjetoCollection(ownerUserId));
+
+  return snap.docs
+    .map((docItem) => normalizeAddOnItem(docItem.data() || {}, docItem.id))
+    .filter((item) => item.id && item.id !== "sistema_config")
+    .filter((item) => (onlyActive ? item.ativo !== false : true))
+    .filter((item) => {
+      if (!buscaNormalizada) return true;
+      return (
+        item.nome.toLowerCase().includes(buscaNormalizada) ||
+        item.nomeBusca.includes(buscaNormalizada)
+      );
+    })
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+}
+
+export async function criarAddOnDoUsuarioProjeto({
+  ownerUserId = "",
+  nome = "",
+  descricao = "",
+  criadoPorUid = null,
+} = {}) {
+  const nomeNormalizado = normalizeText(nome);
+  if (!nomeNormalizado) {
+    throw new Error("Informe o nome do add-on.");
+  }
+
+  const docRef = doc(getAddOnsUsuarioProjetoCollection(ownerUserId));
+  await setDoc(
+    docRef,
+    {
+      nome: nomeNormalizado,
+      nomeBusca: nomeNormalizado.toLowerCase(),
+      descricao: normalizeText(descricao),
+      url_img: "",
+      path_img: "",
+      ativo: true,
+      ownerUserId: normalizeText(ownerUserId),
+      criadoPorUid: normalizeText(criadoPorUid),
+      atualizadoPorUid: normalizeText(criadoPorUid),
+      criadoEm: serverTimestamp(),
+      atualizadoEm: serverTimestamp(),
+    },
+    { merge: true }
+  );
+
+  return {
+    id: docRef.id,
+    nome: nomeNormalizado,
+    nomeBusca: nomeNormalizado.toLowerCase(),
+    descricao: normalizeText(descricao),
+    url_img: "",
+    path_img: "",
+    ativo: true,
+    ownerUserId: normalizeText(ownerUserId),
+  };
+}
+
+export async function salvarAddOnDoUsuarioProjeto({
+  ownerUserId = "",
+  addOnId = "",
+  nome,
+  descricao,
+  url_img,
+  path_img,
+  ativo,
+  atualizadoPorUid = null,
+} = {}) {
+  const addOnIdNormalizado = normalizeText(addOnId);
+  if (!addOnIdNormalizado || addOnIdNormalizado === "sistema_config") {
+    throw new Error("Add-on invalido.");
+  }
+
+  const payload = {
+    ownerUserId: normalizeText(ownerUserId),
+    atualizadoPorUid: normalizeText(atualizadoPorUid),
+    atualizadoEm: serverTimestamp(),
+  };
+
+  if (typeof nome !== "undefined") {
+    const nomeNormalizado = normalizeText(nome);
+    payload.nome = nomeNormalizado;
+    payload.nomeBusca = nomeNormalizado.toLowerCase();
+  }
+  if (typeof descricao !== "undefined") {
+    payload.descricao = normalizeText(descricao);
+  }
+  if (typeof url_img !== "undefined") {
+    payload.url_img = normalizeText(url_img);
+  }
+  if (typeof path_img !== "undefined") {
+    payload.path_img = normalizeText(path_img);
+  }
+  if (typeof ativo === "boolean") {
+    payload.ativo = ativo;
+  }
+
+  await setDoc(
+    doc(getAddOnsUsuarioProjetoCollection(ownerUserId), addOnIdNormalizado),
+    payload,
+    { merge: true }
+  );
+
+  return true;
+}
+
+export async function removerAddOnDoUsuarioProjeto({
+  ownerUserId = "",
+  addOnId = "",
+} = {}) {
+  const addOnIdNormalizado = normalizeText(addOnId);
+  if (!addOnIdNormalizado || addOnIdNormalizado === "sistema_config") {
+    throw new Error("Add-on invalido.");
+  }
+
+  await deleteDoc(doc(getAddOnsUsuarioProjetoCollection(ownerUserId), addOnIdNormalizado));
   return true;
 }
 

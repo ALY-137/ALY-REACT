@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 
 import { activeFirebaseProjectId, activeFirebaseProjectKey } from "../../../../Banco/init-firebase";
@@ -15,6 +15,7 @@ import { seforAdm } from "../../../../Scripts/verificacoes/verificaAdm";
 import { normalizeProjectStatus } from "../../../Sistema/projectStatus";
 
 const UX_VISITOR_HASH_STORAGE_KEY = "uxVisitorHash";
+const NAVIGATION_HASH_STORAGE_KEY = "navegacaoHash";
 const UX_DEDUPE_WINDOW_MS = 1500;
 const RESERVED_ROOT_SEGMENTS = new Set([
   "",
@@ -28,12 +29,14 @@ const RESERVED_ROOT_SEGMENTS = new Set([
 ]);
 const RESERVED_MENU_SEGMENTS = new Set([
   "",
+  "addons",
   "acessos",
   "config",
   "contatos",
   "conversas",
   "formularios",
   "gerenciador",
+  "gerenciador-addons",
   "owner",
   "perfil",
   "propriedades",
@@ -48,26 +51,69 @@ function normalizeText(value) {
   return String(value || "").trim();
 }
 
+function resolveDocumentVisibilityState() {
+  if (typeof document === "undefined") return "unknown";
+  return normalizeText(document.visibilityState) || "unknown";
+}
+
+function documentIsVisible() {
+  return resolveDocumentVisibilityState() === "visible";
+}
+
+function buildRuntimeAccessMeta({ pageOpenedAtMs = null, registroMotivo = "" } = {}) {
+  const now = Date.now();
+  const openedAt = Number(pageOpenedAtMs);
+
+  return {
+    documentVisibility: resolveDocumentVisibilityState(),
+    registroMotivo: normalizeText(registroMotivo) || null,
+    pageOpenedAtMs: Number.isFinite(openedAt) && openedAt > 0 ? openedAt : null,
+    tempoDesdeAberturaMs:
+      Number.isFinite(openedAt) && openedAt > 0 ? Math.max(0, now - openedAt) : null,
+    clientCapturedAtMs: now,
+  };
+}
+
 function hashString(value = "") {
   const input = normalizeText(value) || `${Date.now()}_${Math.random()}`;
   let hash = 5381;
   for (let index = 0; index < input.length; index += 1) {
     hash = (hash * 33) ^ input.charCodeAt(index);
   }
-  return `anon_${(hash >>> 0).toString(16)}`;
+  return `nav_${(hash >>> 0).toString(16)}`;
+}
+
+function normalizeNavigationHash(value = "") {
+  const hash = normalizeText(value);
+  if (!hash) return "";
+  return hash.startsWith("anon_") ? `nav_${hash.slice(5)}` : hash;
 }
 
 function getOrCreateVisitorHash() {
   if (typeof window === "undefined") return hashString("server");
 
   try {
-    const stored = normalizeText(localStorage.getItem(UX_VISITOR_HASH_STORAGE_KEY));
-    if (stored) return stored;
+    const navigationHash = normalizeNavigationHash(
+      localStorage.getItem(NAVIGATION_HASH_STORAGE_KEY)
+    );
+    if (navigationHash) {
+      localStorage.setItem(NAVIGATION_HASH_STORAGE_KEY, navigationHash);
+      localStorage.setItem(UX_VISITOR_HASH_STORAGE_KEY, navigationHash);
+      return navigationHash;
+    }
+
+    const stored = normalizeNavigationHash(localStorage.getItem(UX_VISITOR_HASH_STORAGE_KEY));
+    if (stored) {
+      localStorage.setItem(NAVIGATION_HASH_STORAGE_KEY, stored);
+      localStorage.setItem(UX_VISITOR_HASH_STORAGE_KEY, stored);
+      return stored;
+    }
 
     const seed =
       (typeof window.crypto?.randomUUID === "function" && window.crypto.randomUUID()) ||
       `${Date.now()}_${Math.random()}_${window.location.hostname}`;
     const hash = hashString(seed);
+    localStorage.setItem(NAVIGATION_HASH_STORAGE_KEY, hash);
     localStorage.setItem(UX_VISITOR_HASH_STORAGE_KEY, hash);
     return hash;
   } catch {
@@ -257,7 +303,11 @@ function Acesso({ configSistema = {}, user = null }) {
     []
   );
   const pageSessionRef = useRef(null);
+  const pageOpenedAtRef = useRef(Date.now());
+  const hiddenBeforeFirstViewRef = useRef(false);
   const geoRef = useRef(lerGeoAcessoCache());
+  const [geoResolvido, setGeoResolvido] = useState(Boolean(geoRef.current));
+  const [visibilityVersion, setVisibilityVersion] = useState(0);
 
   const reportarErro = useCallback((error) => {
     if (typeof window !== "undefined" && window.location.hostname === "localhost") {
@@ -266,11 +316,18 @@ function Acesso({ configSistema = {}, user = null }) {
   }, []);
 
   const enviarEvento = useCallback(
-    (payload, { dedupeKey = "" } = {}) => {
+    (payload, { dedupeKey = "", registroMotivo = "" } = {}) => {
       if (!registrarAcessoUrl || !payload) return;
       if (dedupeKey && isDuplicateEvent(dedupeKey)) return;
 
+      const eventoTipo = normalizeText(payload?.eventoTipo);
+      if (!documentIsVisible() && eventoTipo !== "page_leave") return;
+
       const geoPayload = buildGeoFallbackPayload(geoRef.current);
+      const runtimeMeta = buildRuntimeAccessMeta({
+        pageOpenedAtMs: pageOpenedAtRef.current,
+        registroMotivo,
+      });
 
       fetch(registrarAcessoUrl, {
         method: "POST",
@@ -282,6 +339,7 @@ function Acesso({ configSistema = {}, user = null }) {
         body: JSON.stringify({
           ...geoPayload,
           ...payload,
+          ...runtimeMeta,
           geo: geoPayload,
         }),
         keepalive: true,
@@ -313,14 +371,22 @@ function Acesso({ configSistema = {}, user = null }) {
     const geoCache = lerGeoAcessoCache();
     if (geoCache) {
       geoRef.current = geoCache;
+      setGeoResolvido(true);
     }
 
     obterGeoAcessoAtual()
       .then((geoAtual) => {
-        if (!ativo || !geoAtual) return;
-        geoRef.current = geoAtual;
+        if (!ativo) return;
+        if (geoAtual) {
+          geoRef.current = geoAtual;
+        }
+        setGeoResolvido(true);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (ativo) {
+          setGeoResolvido(true);
+        }
+      });
 
     return () => {
       ativo = false;
@@ -331,6 +397,8 @@ function Acesso({ configSistema = {}, user = null }) {
     (motivo = "route_change") => {
       const sessaoAtual = pageSessionRef.current;
       if (!sessaoAtual || sessaoAtual.leaveSent) return;
+      if (!sessaoAtual.viewSent) return;
+      if (motivo === "visibility_hidden") return;
 
       sessaoAtual.leaveSent = true;
 
@@ -343,6 +411,7 @@ function Acesso({ configSistema = {}, user = null }) {
           duracaoMs: Math.max(0, Date.now() - sessaoAtual.startedAt),
         },
         {
+          registroMotivo: motivo,
           dedupeKey: `leave|${sessaoAtual.pageSessionId}|${motivo}`,
         }
       );
@@ -351,6 +420,12 @@ function Acesso({ configSistema = {}, user = null }) {
   );
 
   useEffect(() => {
+    if (!geoResolvido) return;
+    if (!documentIsVisible()) {
+      hiddenBeforeFirstViewRef.current = true;
+      return;
+    }
+
     const basePayload = buildAcessoPayload({ user, configSistema, location });
     const fullPath = basePayload.fullPath || "/";
     const currentSignature = [
@@ -369,21 +444,26 @@ function Acesso({ configSistema = {}, user = null }) {
     }
 
     const pageSessionId = buildPageSessionId(basePayload, location);
+    const startedFromHiddenTab = hiddenBeforeFirstViewRef.current;
+    hiddenBeforeFirstViewRef.current = false;
     pageSessionRef.current = {
       signature: currentSignature,
       pageSessionId,
       startedAt: Date.now(),
       basePayload,
       leaveSent: false,
+      viewSent: true,
     };
 
     enviarEvento(
       {
         ...basePayload,
         eventoTipo: "page_view",
+        eventoAcao: startedFromHiddenTab ? "visibility_return" : "page_load",
         pageSessionId,
       },
       {
+        registroMotivo: startedFromHiddenTab ? "visibility_return" : "page_load",
         dedupeKey: `view|${basePayload.projectSystemKey || basePayload.runtimeProjectKey}|${
           basePayload.uid || basePayload.hash || "anon"
         }|${currentSignature}`,
@@ -394,6 +474,8 @@ function Acesso({ configSistema = {}, user = null }) {
     location.search,
     location.hash,
     location.key,
+    geoResolvido,
+    visibilityVersion,
     user?.uid,
     user?.email,
     user?.displayName,
@@ -404,8 +486,11 @@ function Acesso({ configSistema = {}, user = null }) {
 
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === "hidden") {
-        registrarSaidaPagina("visibility_hidden");
+      const visibilityState = resolveDocumentVisibilityState();
+      setVisibilityVersion((prev) => prev + 1);
+
+      if (visibilityState === "hidden" && !pageSessionRef.current?.viewSent) {
+        hiddenBeforeFirstViewRef.current = true;
       }
     };
 
@@ -434,16 +519,19 @@ function Acesso({ configSistema = {}, user = null }) {
         element.tagName === "A" ? normalizeText(element.getAttribute("href")).slice(0, 180) : "";
       const pageSessionId = pageSessionRef.current?.pageSessionId || null;
 
-      enviarEvento({
-        ...basePayload,
-        eventoTipo: "ui_click",
-        eventoAcao: "click",
-        pageSessionId,
-        elementoTag: normalizeText(element.tagName).toLowerCase() || null,
-        elementoId: elementoId || null,
-        elementoTexto: elementoTexto || null,
-        elementoHref: elementoHref || null,
-      });
+      enviarEvento(
+        {
+          ...basePayload,
+          eventoTipo: "ui_click",
+          eventoAcao: "click",
+          pageSessionId,
+          elementoTag: normalizeText(element.tagName).toLowerCase() || null,
+          elementoId: elementoId || null,
+          elementoTexto: elementoTexto || null,
+          elementoHref: elementoHref || null,
+        },
+        { registroMotivo: "ui_click" }
+      );
     };
 
     document.addEventListener("click", handleClickCapture, true);

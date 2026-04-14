@@ -27,6 +27,20 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "acessos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "projectSystemKey",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "data",
+          "order": "DESCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": [

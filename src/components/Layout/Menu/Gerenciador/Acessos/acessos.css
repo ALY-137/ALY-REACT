@@ -65,8 +65,103 @@
 
 .gerenciador-acessos__summary,
 .gerenciador-acessos__error,
-.gerenciador-acessos__empty {
+.gerenciador-acessos__empty,
+.gerenciador-acessos__success,
+.gerenciador-acessos__block-note {
   font-size: 12px;
+}
+
+.gerenciador-acessos__error {
+  color: #ff8ba8;
+}
+
+.gerenciador-acessos__success {
+  color: #95ffd4;
+}
+
+.gerenciador-acessos__block-panel {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.gerenciador-acessos__block-panel strong {
+  font-size: 13px;
+}
+
+.gerenciador-acessos__block-panel p {
+  margin: 4px 0 0;
+  opacity: 0.8;
+}
+
+.gerenciador-acessos__block-form {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.gerenciador-acessos__block-form input {
+  min-height: 36px;
+  min-width: min(260px, 100%);
+  flex: 1 1 220px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(0, 0, 0, 0.15);
+  color: inherit;
+}
+
+.gerenciador-acessos__block-form button,
+.gerenciador-acessos__blocked-chip button,
+.gerenciador-acessos__ip-action {
+  min-height: 34px;
+  padding: 7px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  cursor: pointer;
+}
+
+.gerenciador-acessos__block-form button:disabled,
+.gerenciador-acessos__blocked-chip button:disabled,
+.gerenciador-acessos__ip-action:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.gerenciador-acessos__blocked-list,
+.gerenciador-acessos__ip-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.gerenciador-acessos__blocked-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 4px 6px 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 126, 168, 0.35);
+  background: rgba(255, 60, 128, 0.08);
+}
+
+.gerenciador-acessos__blocked-chip code {
+  font-size: 12px;
+}
+
+.gerenciador-acessos__ip-action {
+  font-size: 12px;
+}
+
+.gerenciador-acessos__ip-action.is-blocked {
+  border-color: rgba(149, 255, 212, 0.35);
+  background: rgba(149, 255, 212, 0.08);
 }
 
 .gerenciador-acessos__summary {
@@ -118,6 +213,64 @@
 .gerenciador-acessos__list {
   display: grid;
   gap: 12px;
+}
+
+.gerenciador-acessos__group {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.gerenciador-acessos__group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.gerenciador-acessos__group-header > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.gerenciador-acessos__group-header strong {
+  font-size: 14px;
+}
+
+.gerenciador-acessos__group-header span,
+.gerenciador-acessos__group-meta {
+  font-size: 12px;
+  opacity: 0.86;
+}
+
+.gerenciador-acessos__group-header span {
+  word-break: break-all;
+}
+
+.gerenciador-acessos__group-meta {
+  display: flex;
+  gap: 8px 14px;
+  flex-wrap: wrap;
+}
+
+.gerenciador-acessos__more {
+  min-height: 34px;
+  padding: 7px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  cursor: pointer;
+}
+
+.gerenciador-acessos__events {
+  display: grid;
+  gap: 10px;
 }
 
 .gerenciador-acessos__card {

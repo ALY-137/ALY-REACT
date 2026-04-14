@@ -491,6 +491,11 @@ service cloud.firestore {
         allow read, write: if isAdmin() || isOwner(userId);
       }
 
+      match /add_ons/{addonId} {
+        allow read: if true;
+        allow write: if isAdmin() || isOwner(userId);
+      }
+
       match /integracoes/{integracaoId} {
         allow read: if isAdmin() ||
           isOwner(userId) ||
@@ -796,6 +801,11 @@ service cloud.firestore {
 
         match /navegacoes_users/{sessaoId} {
           allow read, write: if isAdmin() || isProjetoAdmin(projectKey) || isOwner(userId);
+        }
+
+        match /add_ons/{addonId} {
+          allow read: if true;
+          allow write: if isAdmin() || isProjetoAdmin(projectKey) || isOwner(userId);
         }
 
         match /integracoes/{integracaoId} {

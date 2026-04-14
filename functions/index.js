@@ -52,6 +52,8 @@ const SHARED_BUCKET_ALLOWED_AUTH_PROJECTS = [
 ].filter(Boolean);
 const UNIQUE_SHARED_BUCKET_AUTH_PROJECTS = [...new Set(SHARED_BUCKET_ALLOWED_AUTH_PROJECTS)];
 const SHARED_ONEOWNER_RUNTIME_KEYS = new Set(["aly-onepages-runtime"]);
+const ACCESS_SETTINGS_COLLECTION = "access_settings";
+const ACCESS_REGISTRATION_SETTINGS_DOC = "registro";
 const sharedVerifierApps = new Map();
 const sharedProjectRuntimeApps = new Map();
 const ADMIN_ONLY_AUTH_PROJECTS = [
@@ -335,6 +337,24 @@ function getBearerToken(req) {
     return "";
   }
   return sanitizeString(authHeader.slice(7));
+}
+
+function applyHttpCorsHeaders(req, res) {
+  const origin = sanitizeString(req.headers?.origin) || "*";
+  res.set("Access-Control-Allow-Origin", origin);
+  res.set("Vary", "Origin");
+  res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "Authorization, Content-Type");
+  res.set("Access-Control-Max-Age", "3600");
+}
+
+function handleHttpCorsPreflight(req, res) {
+  applyHttpCorsHeaders(req, res);
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return true;
+  }
+  return false;
 }
 
 function normalizeHostValue(value = "") {
@@ -629,6 +649,82 @@ function normalizeStringList(value = []) {
   return [...new Set(value.map((item) => sanitizeString(item)).filter(Boolean))];
 }
 
+function normalizeIpForAccessBlock(value = "") {
+  return sanitizeString(value).replace(/^::ffff:/, "").toLowerCase();
+}
+
+function normalizeAccessIpBlockList(value = []) {
+  return normalizeStringList(value)
+    .map((item) => normalizeIpForAccessBlock(item))
+    .filter(Boolean)
+    .slice(0, 500);
+}
+
+function normalizeAccessUserBlockIdentifier(value = "") {
+  const normalized = sanitizeString(value);
+  if (!normalized) return "";
+  return normalized.includes("@") ? normalized.toLowerCase() : normalized;
+}
+
+function normalizeAccessUserBlockList(value = []) {
+  return normalizeStringList(value)
+    .map((item) => normalizeAccessUserBlockIdentifier(item))
+    .filter(Boolean)
+    .slice(0, 500);
+}
+
+function getAccessRegistrationSettingsRef(managerDb) {
+  return managerDb
+    .collection(ACCESS_SETTINGS_COLLECTION)
+    .doc(ACCESS_REGISTRATION_SETTINGS_DOC);
+}
+
+async function getAccessRegistrationSettings(managerDb) {
+  try {
+    const snap = await getAccessRegistrationSettingsRef(managerDb).get();
+    const data = snap.exists ? snap.data() || {} : {};
+    const ipsBloqueadosRegistro = normalizeAccessIpBlockList(
+      data.ipsBloqueadosRegistro || data.ipsBloqueados || data.blockedIps
+    );
+    const usuariosBloqueadosRegistro = normalizeAccessUserBlockList(
+      data.usuariosBloqueadosRegistro ||
+        data.usuariosBloqueados ||
+        data.blockedUsers ||
+        data.uidsBloqueadosRegistro
+    );
+
+    return {
+      ipsBloqueadosRegistro,
+      usuariosBloqueadosRegistro,
+    };
+  } catch {
+    return {
+      ipsBloqueadosRegistro: [],
+      usuariosBloqueadosRegistro: [],
+    };
+  }
+}
+
+async function isAccessRegistrationIpBlocked(managerDb, ip = "") {
+  const ipNormalizado = normalizeIpForAccessBlock(ip);
+  if (!ipNormalizado) return false;
+
+  const settings = await getAccessRegistrationSettings(managerDb);
+  return settings.ipsBloqueadosRegistro.includes(ipNormalizado);
+}
+
+async function isAccessRegistrationUserBlocked(managerDb, payload = {}) {
+  const candidates = [
+    normalizeAccessUserBlockIdentifier(payload?.uid),
+    normalizeAccessUserBlockIdentifier(payload?.email),
+  ].filter(Boolean);
+  if (!candidates.length) return false;
+
+  const settings = await getAccessRegistrationSettings(managerDb);
+  const blockedSet = new Set(settings.usuariosBloqueadosRegistro || []);
+  return candidates.some((candidate) => blockedSet.has(candidate));
+}
+
 function isPrivateOrLocalIp(ip = "") {
   const value = sanitizeString(ip).toLowerCase();
   if (!value) return true;
@@ -679,70 +775,202 @@ async function fetchGeoByIp(ip = "") {
     };
   }
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 2500);
+  const fetchJsonWithTimeout = async (url, timeoutMs = 2200) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "ALY-REACT geo resolver",
+        },
+      });
+      const payload = await response.json().catch(() => ({}));
+      return { response, payload };
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  };
 
-  try {
-    const response = await fetch(`https://ipwho.is/${encodeURIComponent(normalizedIp)}`, {
-      signal: controller.signal,
-      headers: {
-        Accept: "application/json",
+  const parseCoordinates = (loc = "") => {
+    const [latitude, longitude] = sanitizeString(loc)
+      .split(",")
+      .map((item) => Number(item.trim()));
+
+    return {
+      latitude: Number.isFinite(latitude) ? latitude : null,
+      longitude: Number.isFinite(longitude) ? longitude : null,
+    };
+  };
+
+  const normalizeGeoResult = (source, values = {}) => ({
+    ip: sanitizeString(values.ip) || normalizedIp,
+    country: sanitizeString(values.country) || null,
+    region: sanitizeString(values.region) || null,
+    city: sanitizeString(values.city) || null,
+    uf: sanitizeString(values.uf || values.regionCode) || null,
+    regionCode: sanitizeString(values.regionCode || values.uf) || null,
+    org: sanitizeString(values.org) || null,
+    cep: sanitizeString(values.cep) || null,
+    latitude: Number.isFinite(Number(values.latitude)) ? Number(values.latitude) : null,
+    longitude: Number.isFinite(Number(values.longitude)) ? Number(values.longitude) : null,
+    resolvedAt: Date.now(),
+    _geoSource: source,
+    _geoError: sanitizeString(values.error) || null,
+  });
+
+  const hasLocationData = (geo = {}) =>
+    Boolean(
+      geo.country ||
+        geo.region ||
+        geo.city ||
+        geo.uf ||
+        geo.org ||
+        Number.isFinite(Number(geo.latitude)) ||
+        Number.isFinite(Number(geo.longitude))
+    );
+
+  const providers = [
+    {
+      source: "ipwho.is",
+      lookup: async () => {
+        const { response, payload } = await fetchJsonWithTimeout(
+          `https://ipwho.is/${encodeURIComponent(normalizedIp)}`
+        );
+        const error =
+          !response?.ok || payload?.success === false
+            ? sanitizeString(payload?.message) ||
+              `HTTP ${Number(response?.status) || "sem_status"}`
+            : null;
+
+        return normalizeGeoResult("ipwho.is", {
+          country: payload?.country,
+          region: payload?.region,
+          city: payload?.city,
+          uf: payload?.region_code,
+          regionCode: payload?.region_code,
+          org: payload?.connection?.org || payload?.org,
+          cep: payload?.postal,
+          latitude: payload?.latitude,
+          longitude: payload?.longitude,
+          error,
+        });
       },
-    });
-    const payload = await response.json().catch(() => ({}));
+    },
+    {
+      source: "geojs.io",
+      lookup: async () => {
+        const { response, payload } = await fetchJsonWithTimeout(
+          `https://get.geojs.io/v1/ip/geo/${encodeURIComponent(normalizedIp)}.json`
+        );
+        const error = !response?.ok
+          ? `HTTP ${Number(response?.status) || "sem_status"}`
+          : null;
 
-    console.info("[geo] ipwho.is lookup result", {
-      ip: normalizedIp,
-      ok: Boolean(response?.ok),
-      status: Number(response?.status) || null,
-      success: payload?.success !== false,
-      country: sanitizeString(payload?.country) || null,
-      region: sanitizeString(payload?.region) || null,
-      city: sanitizeString(payload?.city) || null,
-      regionCode: sanitizeString(payload?.region_code) || null,
-    });
+        return normalizeGeoResult("geojs.io", {
+          country: payload?.country || payload?.country_code,
+          region: payload?.region,
+          city: payload?.city,
+          org: payload?.organization_name || payload?.organization,
+          latitude: payload?.latitude,
+          longitude: payload?.longitude,
+          error,
+        });
+      },
+    },
+    {
+      source: "ipapi.co",
+      lookup: async () => {
+        const { response, payload } = await fetchJsonWithTimeout(
+          `https://ipapi.co/${encodeURIComponent(normalizedIp)}/json/`
+        );
+        const error =
+          !response?.ok || payload?.error
+            ? sanitizeString(payload?.reason || payload?.message) ||
+              `HTTP ${Number(response?.status) || "sem_status"}`
+            : null;
 
-    return {
-      ip: normalizedIp,
-      country: sanitizeString(payload?.country) || null,
-      region: sanitizeString(payload?.region) || null,
-      city: sanitizeString(payload?.city) || null,
-      uf: sanitizeString(payload?.region_code) || null,
-      regionCode: sanitizeString(payload?.region_code) || null,
-      org: sanitizeString(payload?.connection?.org || payload?.org) || null,
-      cep: sanitizeString(payload?.postal) || null,
-      latitude:
-        Number.isFinite(Number(payload?.latitude)) ? Number(payload.latitude) : null,
-      longitude:
-        Number.isFinite(Number(payload?.longitude)) ? Number(payload.longitude) : null,
-      resolvedAt: Date.now(),
-      _geoSource: "ipwho.is",
-      _geoError: null,
-    };
-  } catch (error) {
-    console.warn("[geo] ipwho.is lookup failed", {
-      ip: normalizedIp,
-      errorName: sanitizeString(error?.name) || null,
-      errorMessage: sanitizeString(error?.message) || null,
-    });
-    return {
-      ip: normalizedIp,
-      country: null,
-      region: null,
-      city: null,
-      uf: null,
-      regionCode: null,
-      org: null,
-      cep: null,
-      latitude: null,
-      longitude: null,
-      resolvedAt: Date.now(),
-      _geoSource: "lookup_error",
-      _geoError: sanitizeString(error?.message) || sanitizeString(error?.name) || null,
-    };
-  } finally {
-    clearTimeout(timeoutId);
+        return normalizeGeoResult("ipapi.co", {
+          country: payload?.country_name || payload?.country,
+          region: payload?.region,
+          city: payload?.city,
+          uf: payload?.region_code,
+          regionCode: payload?.region_code,
+          org: payload?.org,
+          cep: payload?.postal,
+          latitude: payload?.latitude,
+          longitude: payload?.longitude,
+          error,
+        });
+      },
+    },
+    {
+      source: "ipinfo.io",
+      lookup: async () => {
+        const { response, payload } = await fetchJsonWithTimeout(
+          `https://ipinfo.io/${encodeURIComponent(normalizedIp)}/json`
+        );
+        const coordinates = parseCoordinates(payload?.loc);
+        const error =
+          !response?.ok || payload?.error
+            ? sanitizeString(payload?.error?.message || payload?.message) ||
+              `HTTP ${Number(response?.status) || "sem_status"}`
+            : null;
+
+        return normalizeGeoResult("ipinfo.io", {
+          country: payload?.country,
+          region: payload?.region,
+          city: payload?.city,
+          org: payload?.org,
+          cep: payload?.postal,
+          latitude: coordinates.latitude,
+          longitude: coordinates.longitude,
+          error,
+        });
+      },
+    },
+  ];
+
+  let lastGeo = null;
+  for (const provider of providers) {
+    try {
+      const geo = await provider.lookup();
+      lastGeo = geo;
+
+      console.info("[geo] provider lookup result", {
+        provider: provider.source,
+        ip: normalizedIp,
+        success: hasLocationData(geo) && !geo._geoError,
+        country: geo.country,
+        region: geo.region,
+        city: geo.city,
+        regionCode: geo.regionCode,
+        error: geo._geoError,
+      });
+
+      if (hasLocationData(geo) && !geo._geoError) {
+        return geo;
+      }
+    } catch (error) {
+      lastGeo = normalizeGeoResult(provider.source, {
+        error: sanitizeString(error?.message) || sanitizeString(error?.name) || null,
+      });
+      console.warn("[geo] provider lookup failed", {
+        provider: provider.source,
+        ip: normalizedIp,
+        errorName: sanitizeString(error?.name) || null,
+        errorMessage: sanitizeString(error?.message) || null,
+      });
+    }
   }
+
+  return (
+    lastGeo ||
+    normalizeGeoResult("lookup_error", {
+      error: "Nenhum provedor de geolocalizacao retornou dados.",
+    })
+  );
 }
 
 async function resolveGeoDataFromRequest(req, fallback = {}) {
@@ -2371,9 +2599,40 @@ exports.registrarAcessoPublico = onRequest(
       const body = normalizeRequestBody(req);
       const hostname = normalizeHostValue(body?.hostname);
       const fullPath = sanitizeString(body?.fullPath || body?.path || "/").slice(0, 300);
+      const managerDb = getSystemManagerDb();
+      const requestIp = extractClientIp(req) || sanitizeString(body?.ip || body?.geo?.ip);
+
+      if (await isAccessRegistrationUserBlocked(managerDb, body)) {
+        res.json({
+          ok: true,
+          blocked: true,
+          reason: "user_blocked",
+        });
+        return;
+      }
+
+      if (await isAccessRegistrationIpBlocked(managerDb, requestIp)) {
+        res.json({
+          ok: true,
+          blocked: true,
+          reason: "ip_blocked",
+        });
+        return;
+      }
+
       const geo = await resolveGeoDataFromRequest(req, body || {});
       const clientIp = sanitizeString(geo?.ip) || null;
-      const managerDb = getSystemManagerDb();
+
+      if (await isAccessRegistrationIpBlocked(managerDb, clientIp)) {
+        res.json({
+          ok: true,
+          blocked: true,
+          reason: "ip_blocked",
+          geo,
+        });
+        return;
+      }
+
       const geoPayload = {
         ip: clientIp,
         country: sanitizeString(geo?.country) || null,
@@ -2427,6 +2686,19 @@ exports.registrarAcessoPublico = onRequest(
         elementoTexto: sanitizeString(body?.elementoTexto) || null,
         elementoHref: sanitizeString(body?.elementoHref) || null,
         duracaoMs: Number.isFinite(Number(body?.duracaoMs)) ? Number(body?.duracaoMs) : null,
+        documentVisibility: sanitizeString(
+          body?.documentVisibility || body?.visibilityState
+        ) || null,
+        registroMotivo: sanitizeString(body?.registroMotivo || body?.motivoRegistro) || null,
+        pageOpenedAtMs: Number.isFinite(Number(body?.pageOpenedAtMs))
+          ? Number(body.pageOpenedAtMs)
+          : null,
+        tempoDesdeAberturaMs: Number.isFinite(Number(body?.tempoDesdeAberturaMs))
+          ? Number(body.tempoDesdeAberturaMs)
+          : null,
+        clientCapturedAtMs: Number.isFinite(Number(body?.clientCapturedAtMs))
+          ? Number(body.clientCapturedAtMs)
+          : null,
 
         ip: geoPayload.ip,
         country: geoPayload.country,
@@ -2638,6 +2910,88 @@ exports.listarAcessosGerenciadorHttp = onRequest(
           id: docItem.id,
           ...docItem.data(),
         })),
+      });
+    } catch (error) {
+      sendHttpError(res, error);
+    }
+  }
+);
+
+exports.obterConfigAcessosGerenciadorHttp = onRequest(
+  HTTP_OPTIONS,
+  async (req, res) => {
+    if (handleHttpCorsPreflight(req, res)) return;
+
+    try {
+      if (req.method !== "POST") {
+        res.status(405).json({ ok: false, error: "Metodo nao permitido." });
+        return;
+      }
+
+      const token = getBearerToken(req);
+      const { decoded } = await verifySharedBucketIdToken(token);
+      await assertSystemManagerAdminIdentity({
+        uid: decoded?.uid,
+        email: decoded?.email,
+      });
+
+      const managerDb = getSystemManagerDb();
+      const settings = await getAccessRegistrationSettings(managerDb);
+
+      res.json({
+        ok: true,
+        ...settings,
+      });
+    } catch (error) {
+      sendHttpError(res, error);
+    }
+  }
+);
+
+exports.salvarConfigAcessosGerenciadorHttp = onRequest(
+  HTTP_OPTIONS,
+  async (req, res) => {
+    if (handleHttpCorsPreflight(req, res)) return;
+
+    try {
+      if (req.method !== "POST") {
+        res.status(405).json({ ok: false, error: "Metodo nao permitido." });
+        return;
+      }
+
+      const body = normalizeRequestBody(req);
+      const token = getBearerToken(req);
+      const { decoded } = await verifySharedBucketIdToken(token);
+      await assertSystemManagerAdminIdentity({
+        uid: decoded?.uid,
+        email: decoded?.email,
+      });
+
+      const ipsBloqueadosRegistro = normalizeAccessIpBlockList(
+        body?.ipsBloqueadosRegistro || body?.ipsBloqueados || body?.blockedIps
+      );
+      const usuariosBloqueadosRegistro = normalizeAccessUserBlockList(
+        body?.usuariosBloqueadosRegistro ||
+          body?.usuariosBloqueados ||
+          body?.blockedUsers ||
+          body?.uidsBloqueadosRegistro
+      );
+      const managerDb = getSystemManagerDb();
+      await getAccessRegistrationSettingsRef(managerDb).set(
+        {
+          ipsBloqueadosRegistro,
+          usuariosBloqueadosRegistro,
+          updatedAt: serverTimestamp(),
+          updatedByUid: sanitizeString(decoded?.uid) || null,
+          updatedByEmail: sanitizeString(decoded?.email) || null,
+        },
+        { merge: true }
+      );
+
+      res.json({
+        ok: true,
+        ipsBloqueadosRegistro,
+        usuariosBloqueadosRegistro,
       });
     } catch (error) {
       sendHttpError(res, error);

@@ -2019,6 +2019,59 @@ function PropriedadesSistema({
           <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <input
               type="checkbox"
+              checked={!!config.addOnsHabilitados}
+              onChange={(event) =>
+                setConfig((prev) => ({
+                  ...prev,
+                  addOnsHabilitados: event.target.checked,
+                  blocoAddOnsHabilitado: event.target.checked
+                    ? !!prev.blocoAddOnsHabilitado
+                    : false,
+                  aly137Habilitado: event.target.checked ? !!prev.aly137Habilitado : false,
+                }))
+              }
+            />
+            Habilitar base de Add-ons no projeto
+          </label>
+
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <input
+              type="checkbox"
+              checked={!!config.blocoAddOnsHabilitado}
+              onChange={(event) =>
+                setConfig((prev) => ({
+                  ...prev,
+                  addOnsHabilitados: event.target.checked ? true : !!prev.addOnsHabilitados,
+                  blocoAddOnsHabilitado: event.target.checked,
+                }))
+              }
+            />
+            Habilitar blocos do tipo Add-ons
+          </label>
+
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <input
+              type="checkbox"
+              checked={!!config.aly137Habilitado}
+              onChange={(event) =>
+                setConfig((prev) => ({
+                  ...prev,
+                  addOnsHabilitados: event.target.checked ? true : !!prev.addOnsHabilitados,
+                  blocoCardsHabilitado: event.target.checked ? true : !!prev.blocoCardsHabilitado,
+                  aly137Habilitado: event.target.checked,
+                }))
+              }
+            />
+            Habilitar modulo ALY-137 / Forja
+          </label>
+          <p style={{ marginTop: -2, marginBottom: 10, opacity: 0.8, fontSize: 12 }}>
+            Add-ons sao uma base do sistema. O ALY-137 usa cards, add-ons e subobjetos, mas nao
+            controla esses recursos sozinho.
+          </p>
+
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <input
+              type="checkbox"
               checked={!!config.livesHabilitadas}
               onChange={(event) =>
                 setConfig((prev) => ({

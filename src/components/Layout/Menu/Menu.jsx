@@ -45,6 +45,7 @@ const SEGMENTOS_RESERVADOS_MENU = new Set([
   "propriedades",
   "solicitacoes",
   "pedidos",
+  "addons",
   "propriedades-sistema",
   "espacos",
   "configuracoes-gerenciador",
@@ -129,6 +130,7 @@ function Menu({ menuOpen }) {
   const nomeEspacoPlural = (configSistema.nomeEspacoPlural || "espacos").trim() || "espacos";
   const nomeEspacoPluralUpper = nomeEspacoPlural.toUpperCase();
   const chatHabilitado = configSistema.chatHabilitado !== false;
+  const addOnsHabilitados = configSistema.addOnsHabilitados === true;
   const mercadoPagoHabilitado = configSistema.mercadoPagoHabilitado !== false;
   const pixManualHabilitado = configSistema.pixManualHabilitado !== false;
   const exibirBadgeProjetoFirebase = configSistema.exibirBadgeProjetoFirebase !== false;
@@ -165,6 +167,8 @@ function Menu({ menuOpen }) {
   const exibirGestaoEspacos =
     (oneOwnerPublicaAtiva && rotaOwnerMenuOneOwner && usuarioEhOwnerProjeto) ||
     (Boolean(skinLogadoUser) && !menuOneOwnerUsuarioComum);
+  const exibirGavetaAddOns =
+    addOnsHabilitados && temUsuarioAutenticado && !menuOneOwnerUsuarioComum;
   const exibirGavetaChat = chatHabilitado && Boolean(skinLogadoUser);
   const exibirContatos = exibirGavetaChat && usuarioEhOwnerProjeto;
   const exibirConversas = exibirGavetaChat && !usuarioEhOwnerProjeto;
@@ -291,8 +295,8 @@ function Menu({ menuOpen }) {
     navigateIfChanged(`/menu/${menuTargetUser}/gerenciador-icones`);
   }
 
-  function abrirGerenciadorAddOns() {
-    navigateIfChanged(`/menu/${menuTargetUser}/gerenciador-addons`);
+  function abrirAddOns() {
+    navigateIfChanged(`/menu/${menuTargetUser}/addons`);
   }
 
   function abrirGerenciadoProjetos() {
@@ -445,6 +449,14 @@ function Menu({ menuOpen }) {
 
   useEffect(() => {
     if (isManagerProject) return;
+    if (addOnsHabilitados) return;
+    if (location.pathname.endsWith("/addons") && menuTargetUser) {
+      navigateIfChanged(`/menu/${menuTargetUser}`, { replace: true });
+    }
+  }, [isManagerProject, addOnsHabilitados, location.pathname, menuTargetUser]);
+
+  useEffect(() => {
+    if (isManagerProject) return;
     const path = location.pathname;
 
     if (oneOwnerPublicaAtiva && (path.endsWith("/users") || path.endsWith("/acessos"))) {
@@ -479,10 +491,6 @@ function Menu({ menuOpen }) {
           setAtualTxt("GERENCIADOR DE ICONES");
           setBackText("MENU");
           setBackAction(() => returnMenu);
-        } else if (path.endsWith("/gerenciador-addons")) {
-          setAtualTxt("ADD-ONS");
-          setBackText("MENU");
-          setBackAction(() => returnMenu);
         } else if (path.endsWith("/gerenciador-projetos")) {
           setAtualTxt("GERENCIADO DE PROJETOS");
           setBackText("MENU");
@@ -501,6 +509,10 @@ function Menu({ menuOpen }) {
         setBackAction(() => returnMenu);
       } else if (path.endsWith("/espacos")) {
         setAtualTxt(nomeEspacoPluralUpper);
+        setBackText("MENU");
+        setBackAction(() => returnMenu);
+      } else if (path.endsWith("/addons")) {
+        setAtualTxt("ADD-ONS");
         setBackText("MENU");
         setBackAction(() => returnMenu);
       } else if (path.endsWith("/propriedades")) {
@@ -719,9 +731,6 @@ function Menu({ menuOpen }) {
             <div onClick={abrirGerenciadorIcones} className="gavetaOption">
               GERENCIADOR DE ICONES
             </div>
-            <div onClick={abrirGerenciadorAddOns} className="gavetaOption">
-              ADD-ONS
-            </div>
             <div onClick={abrirGerenciadoProjetos} className="gavetaOption">
               GERENCIADO DE PROJETOS
             </div>
@@ -737,6 +746,11 @@ function Menu({ menuOpen }) {
             {exibirGestaoEspacos ? (
               <div onClick={abrirEspacos} className="gavetaOption">
                 {`GERENCIAR ${nomeEspacoPluralUpper}`}
+              </div>
+            ) : null}
+            {exibirGavetaAddOns ? (
+              <div onClick={abrirAddOns} className="gavetaOption">
+                ADD-ONS
               </div>
             ) : null}
             {exibirContatos && (

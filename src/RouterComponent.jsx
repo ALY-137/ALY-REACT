@@ -92,7 +92,7 @@ export default function RouterComponent() {
         { path: "users", element: <Users /> },
         { path: "acessos", element: <ListaAcessos /> },
         { path: "gerenciador-icones", element: <GerenciadorIcones /> },
-        { path: "gerenciador-addons", element: <GerenciadorAddOns /> },
+        { path: "gerenciador-addons", element: <Navigate to="../gerenciador-projetos" replace /> },
         { path: "gerenciador-projetos", element: <GerenciadorProjetos /> },
       ]
     : [
@@ -105,6 +105,7 @@ export default function RouterComponent() {
         { path: "pedidos", element: <Navigate to="../solicitacoes" replace /> },
         { path: "propriedades-sistema", element: <PropriedadesSistema /> },
         { path: "espacos", element: <EspacoManager /> },
+        { path: "addons", element: <GerenciadorAddOns /> },
       ];
 
   const estruturaRoutes = !isManagerProject
