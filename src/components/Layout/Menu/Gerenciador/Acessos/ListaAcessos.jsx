@@ -102,6 +102,10 @@ function resolveAccessUserIdentifiers(acesso) {
   return normalizarUsuariosBloqueados([acesso?.uid, acesso?.email]);
 }
 
+function isAccessRecordBlocked(acesso = {}) {
+  return acesso?.registroBloqueado === true || acesso?.bloqueado === true;
+}
+
 function formatarUsuarioBloqueio(usuario = "") {
   const normalized = normalizeUsuarioBloqueio(usuario);
   if (!normalized) return "usuario";
@@ -183,6 +187,7 @@ function ListaAcessos() {
   const [filtroIp, setFiltroIp] = useState("");
   const [filtroDataInicio, setFiltroDataInicio] = useState("");
   const [filtroDataFim, setFiltroDataFim] = useState("");
+  const [mostrarRegistrosBloqueados, setMostrarRegistrosBloqueados] = useState(false);
   const [paginaAtual, setPaginaAtual] = useState(1);
   const [gruposExpandidos, setGruposExpandidos] = useState({});
   const [ipsBloqueadosRegistro, setIpsBloqueadosRegistro] = useState([]);
@@ -448,6 +453,7 @@ function ListaAcessos() {
       const hashAtual = resolveAccessHash(acesso).toLowerCase();
       const ipAtual = resolveAccessIp(acesso).toLowerCase();
       const acessoTimestamp = resolveDataTimestampMs(acesso?.data || acesso?.criadoEm);
+      if (!mostrarRegistrosBloqueados && isAccessRecordBlocked(acesso)) return false;
       if (filtroProjeto && projectKey !== filtroProjeto) return false;
       if (filtroOrigem && resolveOrigemAcesso(acesso) !== filtroOrigem) return false;
       if (filtroTipoUsuario && resolveTipoUsuario(acesso) !== filtroTipoUsuario) return false;
@@ -472,7 +478,13 @@ function ListaAcessos() {
     filtroOrigem,
     filtroProjeto,
     filtroTipoUsuario,
+    mostrarRegistrosBloqueados,
   ]);
+
+  const totalRegistrosBloqueadosOcultos = useMemo(
+    () => acessos.filter((acesso) => isAccessRecordBlocked(acesso)).length,
+    [acessos]
+  );
 
   useEffect(() => {
     setPaginaAtual(1);
@@ -485,6 +497,7 @@ function ListaAcessos() {
     filtroOrigem,
     filtroProjeto,
     filtroTipoUsuario,
+    mostrarRegistrosBloqueados,
   ]);
 
   const ipsBloqueadosSet = useMemo(
@@ -565,6 +578,7 @@ function ListaAcessos() {
           projectKey: grupo.projectKey,
           items: itemsOrdenados,
           total: itemsOrdenados.length,
+          totalBloqueados: itemsOrdenados.filter((item) => isAccessRecordBlocked(item)).length,
           usuario: Array.from(grupo.usersSet).filter(Boolean)[0] || "Visitante",
           projetos: Array.from(grupo.projetosSet).filter(Boolean),
           ips: Array.from(grupo.ipsSet).filter(Boolean),
@@ -687,6 +701,15 @@ function ListaAcessos() {
               onChange={(event) => setFiltroDataFim(event.target.value)}
             />
           </label>
+
+          <label className="gerenciador-acessos__filter gerenciador-acessos__filter-check">
+            <input
+              type="checkbox"
+              checked={mostrarRegistrosBloqueados}
+              onChange={(event) => setMostrarRegistrosBloqueados(event.target.checked)}
+            />
+            <span>Mostrar bloqueados</span>
+          </label>
         </div>
       </div>
 
@@ -803,6 +826,9 @@ function ListaAcessos() {
 
       <div className="gerenciador-acessos__summary">
         <span>{`Total exibido: ${gruposAcessos.length} grupo(s) / ${acessosFiltrados.length} evento(s)`}</span>
+        <span>{`Bloqueados ocultos: ${
+          mostrarRegistrosBloqueados ? 0 : totalRegistrosBloqueadosOcultos
+        }`}</span>
         <span>{`Pagina: ${paginaAtualSegura}/${totalPaginas}`}</span>
         <span>{`Consulta: ultimos ${ACCESS_QUERY_LIMIT} registros`}</span>
         <span>{`Atualizado: ${formatarData(ultimaAtualizacao)}`}</span>
@@ -895,6 +921,11 @@ function ListaAcessos() {
 
                 <div className="gerenciador-acessos__group-meta">
                   <span>{`Eventos: ${grupo.total}`}</span>
+                  {grupo.totalBloqueados ? (
+                    <span className="gerenciador-acessos__blocked-badge">
+                      {`Bloqueados: ${grupo.totalBloqueados}`}
+                    </span>
+                  ) : null}
                   <span>{`Primeiro: ${formatarData(
                     grupo.primeiroEvento?.data || grupo.primeiroEvento?.criadoEm
                   )}`}</span>
@@ -998,6 +1029,10 @@ function ListaAcessos() {
                     const motivoRegistro = resolveGeoText(
                       acesso?.registroMotivo || acesso?.motivoRegistro
                     );
+                    const registroBloqueado = isAccessRecordBlocked(acesso);
+                    const motivoBloqueio = resolveGeoText(
+                      acesso?.bloqueadoPor || acesso?.motivoBloqueio
+                    );
                     const tempoAba = formatarDuracaoMs(acesso?.tempoDesdeAberturaMs);
                     const coordenadasAcesso =
                       geoInfo.latitude !== null && geoInfo.longitude !== null
@@ -1008,6 +1043,11 @@ function ListaAcessos() {
                       <article key={acesso.id} className="gerenciador-acessos__card">
                         <div className="gerenciador-acessos__topline">
                           <strong>{resolveAccessUserLabel(acesso)}</strong>
+                          {registroBloqueado ? (
+                            <span className="gerenciador-acessos__blocked-badge">
+                              BLOQUEADO
+                            </span>
+                          ) : null}
                           <span>{`Data/Hora: ${formatarData(
                             acesso?.data || acesso?.criadoEm
                           )}`}</span>
@@ -1022,6 +1062,7 @@ function ListaAcessos() {
                           <span>{`Perfil: ${normalizeText(acesso?.perfilAcesso) || "--"}`}</span>
                           <span>{`Evento: ${normalizeText(acesso?.eventoTipo) || "--"}`}</span>
                           <span>{`Motivo: ${motivoRegistro}`}</span>
+                          <span>{`Bloqueio: ${registroBloqueado ? motivoBloqueio : "--"}`}</span>
                           <span>{`Visibilidade: ${visibilidadeAba}`}</span>
                           <span>{`Tempo aba: ${tempoAba}`}</span>
                           <span>{`Origem: ${origemAcesso}`}</span>

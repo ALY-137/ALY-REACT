@@ -725,6 +725,141 @@ async function isAccessRegistrationUserBlocked(managerDb, payload = {}) {
   return candidates.some((candidate) => blockedSet.has(candidate));
 }
 
+async function resolveAccessRegistrationUserBlockMatch(managerDb, payload = {}) {
+  const candidates = [
+    normalizeAccessUserBlockIdentifier(payload?.uid),
+    normalizeAccessUserBlockIdentifier(payload?.email),
+  ].filter(Boolean);
+  if (!candidates.length) {
+    return {
+      blocked: false,
+      candidates: [],
+      matchedIdentifier: "",
+    };
+  }
+
+  const settings = await getAccessRegistrationSettings(managerDb);
+  const blockedSet = new Set(settings.usuariosBloqueadosRegistro || []);
+  const matchedIdentifier =
+    candidates.find((candidate) => blockedSet.has(candidate)) || "";
+
+  return {
+    blocked: Boolean(matchedIdentifier),
+    candidates,
+    matchedIdentifier,
+  };
+}
+
+function resolveAccessHashCandidates(payload = {}) {
+  return normalizeStringList([
+    payload?.visitorHash,
+    payload?.hash,
+    payload?.navegacaoHash,
+  ]);
+}
+
+async function updateAccessDocsAsBlocked(managerDb, refs = [], payload = {}) {
+  const uniqueRefs = [];
+  const seenPaths = new Set();
+
+  refs.forEach((ref) => {
+    if (!ref?.path || seenPaths.has(ref.path)) return;
+    seenPaths.add(ref.path);
+    uniqueRefs.push(ref);
+  });
+
+  if (!uniqueRefs.length) return 0;
+
+  const basePayload = {
+    registroBloqueado: true,
+    bloqueadoEm: serverTimestamp(),
+    ...payload,
+  };
+
+  let updated = 0;
+  for (let index = 0; index < uniqueRefs.length; index += 450) {
+    const batch = managerDb.batch();
+    const chunk = uniqueRefs.slice(index, index + 450);
+    chunk.forEach((ref) => {
+      batch.update(ref, basePayload);
+    });
+    await batch.commit();
+    updated += chunk.length;
+  }
+
+  return updated;
+}
+
+async function markAccessRecordsBlockedByHashes(managerDb, hashes = [], payload = {}) {
+  const hashList = normalizeStringList(hashes).slice(0, 30);
+  if (!hashList.length) return 0;
+
+  const refs = [];
+  for (const hash of hashList) {
+    const [visitorSnap, hashSnap] = await Promise.all([
+      managerDb.collection("acessos").where("visitorHash", "==", hash).limit(300).get(),
+      managerDb.collection("acessos").where("hash", "==", hash).limit(300).get(),
+    ]);
+    visitorSnap.docs.forEach((docItem) => refs.push(docItem.ref));
+    hashSnap.docs.forEach((docItem) => refs.push(docItem.ref));
+  }
+
+  return updateAccessDocsAsBlocked(managerDb, refs, {
+    hashBloqueado: hashList[0] || null,
+    ...payload,
+  });
+}
+
+async function markAccessRecordsBlockedByUsers(
+  managerDb,
+  identifiers = [],
+  payload = {}
+) {
+  const userIdentifiers = normalizeAccessUserBlockList(identifiers).slice(0, 50);
+  if (!userIdentifiers.length) {
+    return {
+      docs: 0,
+      hashes: 0,
+    };
+  }
+
+  const refs = [];
+  const hashes = new Set();
+
+  for (const identifier of userIdentifiers) {
+    const field = identifier.includes("@") ? "email" : "uid";
+    const snap = await managerDb
+      .collection("acessos")
+      .where(field, "==", identifier)
+      .limit(300)
+      .get();
+
+    snap.docs.forEach((docItem) => {
+      const data = docItem.data() || {};
+      refs.push(docItem.ref);
+      resolveAccessHashCandidates(data).forEach((hash) => hashes.add(hash));
+    });
+  }
+
+  const directUpdates = await updateAccessDocsAsBlocked(managerDb, refs, {
+    usuarioBloqueado: userIdentifiers[0] || null,
+    ...payload,
+  });
+  const hashUpdates = await markAccessRecordsBlockedByHashes(
+    managerDb,
+    Array.from(hashes),
+    {
+      usuarioBloqueado: userIdentifiers[0] || null,
+      ...payload,
+    }
+  );
+
+  return {
+    docs: directUpdates,
+    hashes: hashUpdates,
+  };
+}
+
 function isPrivateOrLocalIp(ip = "") {
   const value = sanitizeString(ip).toLowerCase();
   if (!value) return true;
@@ -2602,11 +2737,24 @@ exports.registrarAcessoPublico = onRequest(
       const managerDb = getSystemManagerDb();
       const requestIp = extractClientIp(req) || sanitizeString(body?.ip || body?.geo?.ip);
 
-      if (await isAccessRegistrationUserBlocked(managerDb, body)) {
+      const userBlockMatch = await resolveAccessRegistrationUserBlockMatch(managerDb, body);
+      if (userBlockMatch.blocked) {
+        const markedCount = await markAccessRecordsBlockedByHashes(
+          managerDb,
+          resolveAccessHashCandidates(body),
+          {
+            bloqueadoPor: "user_blocked",
+            uidBloqueado: sanitizeString(body?.uid) || null,
+            emailBloqueado: sanitizeString(body?.email) || null,
+            usuarioBloqueado: userBlockMatch.matchedIdentifier || null,
+          }
+        );
+
         res.json({
           ok: true,
           blocked: true,
           reason: "user_blocked",
+          markedCount,
         });
         return;
       }
@@ -2987,11 +3135,21 @@ exports.salvarConfigAcessosGerenciadorHttp = onRequest(
         },
         { merge: true }
       );
+      const registrosOcultados = await markAccessRecordsBlockedByUsers(
+        managerDb,
+        usuariosBloqueadosRegistro,
+        {
+          bloqueadoPor: "user_blocked",
+          bloqueadoPorConfigUid: sanitizeString(decoded?.uid) || null,
+          bloqueadoPorConfigEmail: sanitizeString(decoded?.email) || null,
+        }
+      );
 
       res.json({
         ok: true,
         ipsBloqueadosRegistro,
         usuariosBloqueadosRegistro,
+        registrosOcultados,
       });
     } catch (error) {
       sendHttpError(res, error);

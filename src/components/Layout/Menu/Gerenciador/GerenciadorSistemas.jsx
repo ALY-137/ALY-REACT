@@ -572,7 +572,6 @@ function GerenciadorProjetos() {
       setDomainsProjetoEdicao("");
       setStatusProjetoEdicao("ativo");
       setAddOnIdsProjetoEdicao([]);
-      setBuscaAddOnProjeto("");
       return;
     }
 
@@ -603,7 +602,6 @@ function GerenciadorProjetos() {
           )
         : []
     );
-    setBuscaAddOnProjeto("");
   }, [projetoEmGerenciamento]);
 
   const atualizarCampo = (campo, valor) => {

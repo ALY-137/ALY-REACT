@@ -63,6 +63,27 @@
   min-width: 170px;
 }
 
+.gerenciador-acessos__filter-check {
+  display: inline-flex;
+  align-items: center;
+  align-self: end;
+  gap: 8px;
+  min-height: 36px;
+  min-width: 170px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.gerenciador-acessos__filter-check input {
+  min-height: auto;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  accent-color: #ff7ea8;
+}
+
 .gerenciador-acessos__summary,
 .gerenciador-acessos__error,
 .gerenciador-acessos__empty,
@@ -256,6 +277,20 @@
   display: flex;
   gap: 8px 14px;
   flex-wrap: wrap;
+}
+
+.gerenciador-acessos__blocked-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 126, 168, 0.42);
+  background: rgba(255, 60, 128, 0.12);
+  color: #ff9fbe;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
 }
 
 .gerenciador-acessos__more {
