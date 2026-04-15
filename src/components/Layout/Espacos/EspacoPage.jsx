@@ -276,6 +276,66 @@ const normalizarSubObjetosAddOns = (value) => {
     .sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
 };
 
+const normalizarSubBlocosAddOns = (value, fallbackSubObjetos = [], options = {}) => {
+  const manterVazios = options?.manterVazios === true;
+  const subBlocosOrigem = Array.isArray(value) ? value : [];
+  const subBlocosNormalizados = subBlocosOrigem
+    .map((subBloco, index) => {
+      const subObjetos = normalizarSubObjetosAddOns(
+        subBloco?.subObjetos || subBloco?.subobjetos || subBloco?.addOns || []
+      );
+      return {
+        id: String(subBloco?.id || `subbloco_${index}`).trim(),
+        tipo: String(subBloco?.tipo || subBloco?.type || "addons").trim(),
+        titulo: String(subBloco?.titulo || subBloco?.nome || `Subbloco ${index + 1}`).trim(),
+        ordem: Number.isFinite(Number(subBloco?.ordem)) ? Number(subBloco.ordem) : index,
+        layout: String(subBloco?.layout || "grid").trim(),
+        subObjetos,
+      };
+    })
+    .filter((subBloco) => manterVazios || subBloco.subObjetos.length)
+    .sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
+
+  if (subBlocosNormalizados.length) return subBlocosNormalizados;
+
+  const subObjetosFallback = normalizarSubObjetosAddOns(fallbackSubObjetos);
+  return subObjetosFallback.length
+    ? [
+        {
+          id: "subbloco_legacy",
+          tipo: "addons",
+          titulo: "Add-ons",
+          ordem: 0,
+          layout: "grid",
+          subObjetos: subObjetosFallback,
+        },
+      ]
+    : [];
+};
+
+const criarSubBlocoAddOns = (ordem = 0) => ({
+  id: `subbloco_${Date.now()}_${ordem}`,
+  tipo: "addons",
+  titulo: ordem === 0 ? "Add-ons" : `Subbloco ${ordem + 1}`,
+  ordem,
+  layout: "grid",
+  subObjetos: [],
+});
+
+const achatarSubBlocosAddOns = (subBlocos = []) =>
+  normalizarSubBlocosAddOns(subBlocos)
+    .flatMap((subBloco) =>
+      subBloco.subObjetos.map((subObjeto) => ({
+        ...subObjeto,
+        subBlocoId: subBloco.id,
+        subBlocoTitulo: subBloco.titulo,
+      }))
+    )
+    .map((subObjeto, index) => ({
+      ...subObjeto,
+      ordem: index,
+    }));
+
 const isSvgAssetUrl = (value = "") => {
   const normalizado = String(value || "").trim().toLowerCase();
   return (
@@ -838,12 +898,20 @@ export default function EspacoPage() {
     () => normalizarCardsDoBloco(blocoEditorCardsAtual?.cards),
     [blocoEditorCardsAtual]
   );
-  const subObjetosAddOnsEditorBlocoAtual = useMemo(
-    () =>
-      normalizarSubObjetosAddOns(
-        blocoEditorCardsAtual?.subObjetos || blocoEditorCardsAtual?.subobjetos
-      ),
+  const subBlocosAddOnsEditorBlocoAtual = useMemo(
+    () => {
+      const subBlocos = normalizarSubBlocosAddOns(
+        blocoEditorCardsAtual?.subBlocos || blocoEditorCardsAtual?.subblocos,
+        blocoEditorCardsAtual?.subObjetos || blocoEditorCardsAtual?.subobjetos,
+        { manterVazios: true }
+      );
+      return subBlocos.length ? subBlocos : [criarSubBlocoAddOns(0)];
+    },
     [blocoEditorCardsAtual]
+  );
+  const subObjetosAddOnsEditorBlocoAtual = useMemo(
+    () => achatarSubBlocosAddOns(subBlocosAddOnsEditorBlocoAtual),
+    [subBlocosAddOnsEditorBlocoAtual]
   );
   const addOnIdsEditorBlocoAtual = useMemo(
     () => normalizarAddOnIds(subObjetosAddOnsEditorBlocoAtual.map((item) => item.addonId)),
@@ -3934,8 +4002,8 @@ export default function EspacoPage() {
     [espacoId, ownerUserId]
   );
 
-  const persistirSubObjetosAddOnsDoBloco = useCallback(
-    async (bloco, subObjetosOrigem = []) => {
+  const persistirSubBlocosAddOnsDoBloco = useCallback(
+    async (bloco, subBlocosOrigem = []) => {
       if (!bloco?.id) {
         throw new Error("Bloco invalido para persistir add-ons.");
       }
@@ -3945,18 +4013,30 @@ export default function EspacoPage() {
         throw new Error("Nao foi possivel localizar o bloco para persistir add-ons.");
       }
 
-      const subObjetosAtualizados = normalizarSubObjetosAddOns(subObjetosOrigem).map(
-        (item, index) => ({
-          ...item,
-          ordem: index,
-        })
-      );
+      const subBlocosAtualizados = normalizarSubBlocosAddOns(
+        subBlocosOrigem,
+        [],
+        { manterVazios: true }
+      ).map((subBloco, subBlocoIndex) => ({
+          ...subBloco,
+          ordem: subBlocoIndex,
+          subObjetos: normalizarSubObjetosAddOns(subBloco.subObjetos).map(
+            (subObjeto, subObjetoIndex) => ({
+              ...subObjeto,
+              ordem: subObjetoIndex,
+              subBlocoId: subBloco.id,
+              subBlocoTitulo: subBloco.titulo,
+            })
+          ),
+        }));
+      const subObjetosAtualizados = achatarSubBlocosAddOns(subBlocosAtualizados);
 
       setErroAcaoBloco("");
       setBlocoEmAtualizacaoId(bloco.id);
 
       try {
         await updateDoc(blocoRef, {
+          subBlocos: subBlocosAtualizados,
           subObjetos: subObjetosAtualizados,
           updatedAt: serverTimestamp(),
         });
@@ -3964,15 +4044,21 @@ export default function EspacoPage() {
         setBlocos((prev) =>
           ordenarBlocosMaisRecentesPrimeiro(
             prev.map((item) =>
-              item.id === bloco.id ? { ...item, subObjetos: subObjetosAtualizados } : item
+              item.id === bloco.id
+                ? {
+                    ...item,
+                    subBlocos: subBlocosAtualizados,
+                    subObjetos: subObjetosAtualizados,
+                  }
+                : item
             )
           )
         );
 
-        return subObjetosAtualizados;
+        return subBlocosAtualizados;
       } catch (err) {
-        console.error("Erro ao persistir add-ons do bloco:", err);
-        setErroAcaoBloco(err?.message || "Falha ao salvar add-ons do bloco.");
+        console.error("Erro ao persistir subblocos de add-ons:", err);
+        setErroAcaoBloco(err?.message || "Falha ao salvar subblocos de add-ons.");
         throw err;
       } finally {
         setBlocoEmAtualizacaoId(null);
@@ -4626,29 +4712,35 @@ export default function EspacoPage() {
           const blocoEhLive = bloco?.tipo === "live";
           const blocoEhAddOns = bloco?.tipo === "addons";
           const cardsDoBloco = normalizarCardsDoBloco(bloco?.cards);
-          const subObjetosAddOnsDoBloco = normalizarSubObjetosAddOns(
+          const subBlocosAddOnsDoBloco = normalizarSubBlocosAddOns(
+            bloco?.subBlocos || bloco?.subblocos,
             bloco?.subObjetos || bloco?.subobjetos
           );
-          const addOnsDoBloco = subObjetosAddOnsDoBloco
-            .map((subObjeto) => {
-              const addOnAtual = addOnsDisponiveisProjetoPorId[subObjeto.addonId] || {};
-              return {
-                ...subObjeto,
-                nome:
-                  String(addOnAtual?.nome || "").trim() ||
-                  subObjeto.nomeSnapshot ||
-                  "Add-on",
-                descricao:
-                  String(addOnAtual?.descricao || "").trim() ||
-                  subObjeto.descricaoSnapshot ||
-                  "",
-                url_img:
-                  String(addOnAtual?.url_img || "").trim() ||
-                  subObjeto.imagemSnapshot ||
-                  "",
-              };
-            })
-            .filter((item) => item.nome || item.url_img);
+          const addOnsPorSubBloco = subBlocosAddOnsDoBloco
+            .map((subBloco) => ({
+              ...subBloco,
+              addOns: subBloco.subObjetos
+                .map((subObjeto) => {
+                  const addOnAtual = addOnsDisponiveisProjetoPorId[subObjeto.addonId] || {};
+                  return {
+                    ...subObjeto,
+                    nome:
+                      String(addOnAtual?.nome || "").trim() ||
+                      subObjeto.nomeSnapshot ||
+                      "Add-on",
+                    descricao:
+                      String(addOnAtual?.descricao || "").trim() ||
+                      subObjeto.descricaoSnapshot ||
+                      "",
+                    url_img:
+                      String(addOnAtual?.url_img || "").trim() ||
+                      subObjeto.imagemSnapshot ||
+                      "",
+                  };
+                })
+                .filter((item) => item.nome || item.url_img),
+            }))
+            .filter((subBloco) => subBloco.addOns.length);
           const indiceCardAtivoBruto = Number(cardAtivoPorBloco?.[bloco.id] || 0);
           const indiceCardAtivo = cardsDoBloco.length
             ? Math.min(Math.max(indiceCardAtivoBruto, 0), cardsDoBloco.length - 1)
@@ -5113,50 +5205,63 @@ export default function EspacoPage() {
               )}
 
               {blocoEhAddOns && !bloqueado && (
-                <div className="addons-bloco-grid" aria-label="Add-ons do bloco">
-                  {addOnsDoBloco.length ? (
-                    addOnsDoBloco.map((addOn) => {
-                      const addOnId = String(addOn?.addonId || addOn?.id || "").trim();
-                      const addOnUrl = String(addOn?.url_img || "").trim();
-                      const subthemeKey = normalizarSubtemaAddOnOpcional(addOn?.subtema);
-                      const podeColorir = Boolean(subthemeKey) && isSvgAssetUrl(addOnUrl);
-                      const iconColor = getCyberpinkSubthemeIconColor(subthemeKey);
-                      const label = String(addOn?.nome || "Add-on").trim() || "Add-on";
+                <div className="addons-bloco-subblocos" aria-label="Add-ons do bloco">
+                  {addOnsPorSubBloco.length ? (
+                    addOnsPorSubBloco.map((subBloco) => (
+                      <section key={`${bloco.id}-${subBloco.id}`} className="addons-bloco-subbloco">
+                        {subBloco.titulo ? (
+                          <h4 className="addons-bloco-subbloco-title">{subBloco.titulo}</h4>
+                        ) : null}
+                        <div className="addons-bloco-grid">
+                          {subBloco.addOns.map((addOn) => {
+                            const addOnId = String(addOn?.addonId || addOn?.id || "").trim();
+                            const addOnUrl = String(addOn?.url_img || "").trim();
+                            const subthemeKey = normalizarSubtemaAddOnOpcional(addOn?.subtema);
+                            const podeColorir = Boolean(subthemeKey) && isSvgAssetUrl(addOnUrl);
+                            const iconColor = getCyberpinkSubthemeIconColor(subthemeKey);
+                            const label = String(addOn?.nome || "Add-on").trim() || "Add-on";
 
-                      return (
-                        <div
-                          key={`${bloco.id}-addon-${addOnId}`}
-                          className={`addons-bloco-item${
-                            addOn?.destaque ? " addons-bloco-item--destaque" : ""
-                          }`}
-                          title={addOn?.descricao || label}
-                        >
-                          <span className="addons-bloco-icon">
-                            {addOnUrl ? (
-                              <img
-                                src={addOnUrl}
-                                alt={label}
-                                className={podeColorir ? "addons-bloco-icon-img is-tinted" : "addons-bloco-icon-img"}
-                                style={
-                                  podeColorir
-                                    ? {
-                                        filter: `${getCyberpinkSubthemeIconFilter(
-                                          subthemeKey
-                                        )} drop-shadow(0 0 2px ${iconColor}) drop-shadow(0 0 6px ${iconColor})`,
+                            return (
+                              <div
+                                key={`${bloco.id}-${subBloco.id}-addon-${addOnId}`}
+                                className={`addons-bloco-item${
+                                  addOn?.destaque ? " addons-bloco-item--destaque" : ""
+                                }`}
+                                title={addOn?.descricao || label}
+                              >
+                                <span className="addons-bloco-icon">
+                                  {addOnUrl ? (
+                                    <img
+                                      src={addOnUrl}
+                                      alt={label}
+                                      className={
+                                        podeColorir
+                                          ? "addons-bloco-icon-img is-tinted"
+                                          : "addons-bloco-icon-img"
                                       }
-                                    : undefined
-                                }
-                              />
-                            ) : (
-                              <span className="addons-bloco-icon-fallback">
-                                {label.slice(0, 2).toUpperCase()}
-                              </span>
-                            )}
-                          </span>
-                          <span className="addons-bloco-name">{label}</span>
+                                      style={
+                                        podeColorir
+                                          ? {
+                                              filter: `${getCyberpinkSubthemeIconFilter(
+                                                subthemeKey
+                                              )} drop-shadow(0 0 2px ${iconColor}) drop-shadow(0 0 6px ${iconColor})`,
+                                            }
+                                          : undefined
+                                      }
+                                    />
+                                  ) : (
+                                    <span className="addons-bloco-icon-fallback">
+                                      {label.slice(0, 2).toUpperCase()}
+                                    </span>
+                                  )}
+                                </span>
+                                <span className="addons-bloco-name">{label}</span>
+                              </div>
+                            );
+                          })}
                         </div>
-                      );
-                    })
+                      </section>
+                    ))
                   ) : (
                     <p style={{ margin: 0, opacity: 0.76 }}>
                       Nenhum add-on configurado neste bloco.
@@ -5557,7 +5662,7 @@ export default function EspacoPage() {
 
             {blocoEditorCardsAtual?.tipo === "addons" ? (
               <div style={{ display: "grid", gap: 10 }}>
-                <strong>Subobjetos de add-ons</strong>
+                <strong>Subblocos de add-ons</strong>
                 <input
                   type="search"
                   value={buscaAddOnEditor}
@@ -5565,161 +5670,267 @@ export default function EspacoPage() {
                   placeholder="Pesquisar add-on por nome"
                   disabled={blocoEmAtualizacaoId === blocoEditorCardsAtual.id}
                 />
-                <div
-                  style={{
-                    border: "1px solid rgba(255,255,255,0.12)",
-                    borderRadius: 8,
-                    padding: 10,
-                    maxHeight: 320,
-                    overflowY: "auto",
-                    display: "grid",
-                    gap: 8,
-                  }}
-                >
-                  {!addOnsProjetoHabilitados ? (
-                    <p style={{ margin: 0, opacity: 0.76 }}>
-                      A base de add-ons esta desativada neste projeto.
-                    </p>
-                  ) : !blocoAddOnsProjetoHabilitado ? (
-                    <p style={{ margin: 0, opacity: 0.76 }}>
-                      Blocos do tipo Add-ons estao desativados neste projeto.
-                    </p>
-                  ) : erroAddOnsGerenciador ? (
-                    <p style={{ margin: 0, color: "#ff9db0" }}>{erroAddOnsGerenciador}</p>
-                  ) : !addOnsDisponiveisProjeto.length ? (
-                    <p style={{ margin: 0, opacity: 0.76 }}>
-                      Nenhum add-on criado para este usuario/projeto.
-                    </p>
-                  ) : !addOnsEditorFiltrados.length ? (
-                    <p style={{ margin: 0, opacity: 0.76 }}>
-                      Nenhum add-on encontrado para este filtro.
-                    </p>
-                  ) : (
-                    addOnsEditorFiltrados.map((item) => {
-                      const addOnId = String(item?.id || "").trim();
-                      const subObjetoAtual = subObjetosAddOnsEditorBlocoAtual.find(
-                        (subObjeto) => String(subObjeto?.addonId || "") === addOnId
-                      );
-                      const marcado = Boolean(subObjetoAtual);
-                      const subtemaSelecionado =
-                        normalizarSubtemaAddOnOpcional(subObjetoAtual?.subtema) || "";
-                      const addOnEhSvg = isSvgAssetUrl(item?.url_img);
-                      const bloqueadoEditor = blocoEmAtualizacaoId === blocoEditorCardsAtual.id;
+                {subBlocosAddOnsEditorBlocoAtual.length ? (
+                  subBlocosAddOnsEditorBlocoAtual.map((subBloco, subBlocoIndex) => {
+                    const bloqueadoEditor = blocoEmAtualizacaoId === blocoEditorCardsAtual.id;
+                    const subObjetosSubBloco = normalizarSubObjetosAddOns(subBloco.subObjetos);
 
-                      return (
-                        <label
-                          key={addOnId}
+                    return (
+                      <section
+                        key={subBloco.id}
+                        style={{
+                          border: "1px solid rgba(255,255,255,0.12)",
+                          borderRadius: 8,
+                          padding: 10,
+                          display: "grid",
+                          gap: 8,
+                        }}
+                      >
+                        <div
                           style={{
                             display: "grid",
-                            gridTemplateColumns: "20px 38px minmax(0, 1fr)",
-                            gap: 10,
+                            gridTemplateColumns: "minmax(0, 1fr) auto",
+                            gap: 8,
                             alignItems: "center",
                           }}
                         >
                           <input
-                            type="checkbox"
-                            checked={marcado}
+                            type="text"
+                            defaultValue={subBloco.titulo}
+                            placeholder={`Nome do subbloco ${subBlocoIndex + 1}`}
                             disabled={bloqueadoEditor}
-                            onChange={() => {
-                              const atuais = normalizarSubObjetosAddOns(
-                                blocoEditorCardsAtual?.subObjetos ||
-                                  blocoEditorCardsAtual?.subobjetos
+                            onBlur={(event) => {
+                              const titulo = String(event.target.value || "").trim();
+                              if (titulo === subBloco.titulo) return;
+                              const proximosSubBlocos = subBlocosAddOnsEditorBlocoAtual.map(
+                                (item, index) =>
+                                  index === subBlocoIndex
+                                    ? {
+                                        ...item,
+                                        titulo: titulo || `Subbloco ${subBlocoIndex + 1}`,
+                                      }
+                                    : item
                               );
-                              const proximosSubObjetos = marcado
-                                ? atuais.filter(
-                                    (subObjeto) =>
-                                      String(subObjeto?.addonId || "") !== addOnId
-                                  )
-                                : [
-                                    ...atuais,
-                                    criarSubObjetoAddOnRef(item, atuais.length),
-                                  ];
-
-                              void persistirSubObjetosAddOnsDoBloco(
+                              void persistirSubBlocosAddOnsDoBloco(
                                 blocoEditorCardsAtual,
-                                proximosSubObjetos
+                                proximosSubBlocos
                               );
                             }}
                           />
-                          <span
-                            style={{
-                              width: 38,
-                              height: 38,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              border: "1px solid rgba(255,255,255,0.12)",
-                              borderRadius: 8,
-                              overflow: "hidden",
-                              background: "rgba(255,255,255,0.04)",
-                            }}
-                          >
-                            {item?.url_img ? (
-                              <img
-                                src={item.url_img}
-                                alt={item.nome || "Add-on"}
-                                style={{ width: "100%", height: "100%", objectFit: "contain" }}
-                              />
-                            ) : null}
-                          </span>
-                          <span style={{ minWidth: 0 }}>
-                            <strong>{item.nome}</strong>
-                            {item?.descricao ? (
-                              <span style={{ display: "block", fontSize: 12, opacity: 0.74 }}>
-                                {item.descricao}
-                              </span>
-                            ) : null}
-                            {marcado && addOnEhSvg ? (
-                              <span style={{ display: "grid", gap: 4, marginTop: 8 }}>
-                                <span style={{ fontSize: 11, opacity: 0.72 }}>
-                                  Subtema do SVG neste bloco
-                                </span>
-                                <select
-                                  value={subtemaSelecionado}
-                                  disabled={bloqueadoEditor}
-                                  onChange={(event) => {
-                                    const proximoValor = normalizarSubtemaAddOnOpcional(
-                                      event.target.value
-                                    );
-                                    const atuais = normalizarSubObjetosAddOns(
-                                      blocoEditorCardsAtual?.subObjetos ||
-                                        blocoEditorCardsAtual?.subobjetos
-                                    );
-                                    const proximosSubObjetos = atuais.map((subObjeto) =>
-                                      String(subObjeto?.addonId || "") === addOnId
-                                        ? {
-                                            ...subObjeto,
-                                            subtema: proximoValor,
-                                          }
-                                        : subObjeto
-                                    );
+                          {subBlocosAddOnsEditorBlocoAtual.length > 1 ? (
+                            <button
+                              type="button"
+                              disabled={bloqueadoEditor}
+                              onClick={() => {
+                                const proximosSubBlocos = subBlocosAddOnsEditorBlocoAtual.filter(
+                                  (_, index) => index !== subBlocoIndex
+                                );
+                                void persistirSubBlocosAddOnsDoBloco(
+                                  blocoEditorCardsAtual,
+                                  proximosSubBlocos
+                                );
+                              }}
+                              style={{ color: "#ff5aa5" }}
+                            >
+                              Remover
+                            </button>
+                          ) : null}
+                        </div>
 
-                                    void persistirSubObjetosAddOnsDoBloco(
-                                      blocoEditorCardsAtual,
-                                      proximosSubObjetos
-                                    );
+                        <div
+                          style={{
+                            border: "1px solid rgba(255,255,255,0.12)",
+                            borderRadius: 8,
+                            padding: 10,
+                            maxHeight: 320,
+                            overflowY: "auto",
+                            display: "grid",
+                            gap: 8,
+                          }}
+                        >
+                          {!addOnsProjetoHabilitados ? (
+                            <p style={{ margin: 0, opacity: 0.76 }}>
+                              A base de add-ons esta desativada neste projeto.
+                            </p>
+                          ) : !blocoAddOnsProjetoHabilitado ? (
+                            <p style={{ margin: 0, opacity: 0.76 }}>
+                              Blocos do tipo Add-ons estao desativados neste projeto.
+                            </p>
+                          ) : erroAddOnsGerenciador ? (
+                            <p style={{ margin: 0, color: "#ff9db0" }}>{erroAddOnsGerenciador}</p>
+                          ) : !addOnsDisponiveisProjeto.length ? (
+                            <p style={{ margin: 0, opacity: 0.76 }}>
+                              Nenhum add-on criado para este usuario/projeto.
+                            </p>
+                          ) : !addOnsEditorFiltrados.length ? (
+                            <p style={{ margin: 0, opacity: 0.76 }}>
+                              Nenhum add-on encontrado para este filtro.
+                            </p>
+                          ) : (
+                            addOnsEditorFiltrados.map((item) => {
+                              const addOnId = String(item?.id || "").trim();
+                              const subObjetoAtual = subObjetosSubBloco.find(
+                                (subObjeto) => String(subObjeto?.addonId || "") === addOnId
+                              );
+                              const marcado = Boolean(subObjetoAtual);
+                              const subtemaSelecionado =
+                                normalizarSubtemaAddOnOpcional(subObjetoAtual?.subtema) || "";
+                              const addOnEhSvg = isSvgAssetUrl(item?.url_img);
+
+                              return (
+                                <label
+                                  key={`${subBloco.id}-${addOnId}`}
+                                  style={{
+                                    display: "grid",
+                                    gridTemplateColumns: "20px 38px minmax(0, 1fr)",
+                                    gap: 10,
+                                    alignItems: "center",
                                   }}
                                 >
-                                  <option value="">Padrao do espaco</option>
-                                  {CYBERPINK_SUBTHEMES.map((subtema) => (
-                                    <option key={subtema.value} value={subtema.value}>
-                                      {`Subtema: ${subtema.label}`}
-                                    </option>
-                                  ))}
-                                </select>
-                              </span>
-                            ) : null}
-                            {marcado && !addOnEhSvg ? (
-                              <span style={{ display: "block", fontSize: 11, opacity: 0.58, marginTop: 8 }}>
-                                Cor dinamica disponivel apenas para add-ons em SVG.
-                              </span>
-                            ) : null}
-                          </span>
-                        </label>
-                      );
-                    })
-                  )}
-                </div>
+                                  <input
+                                    type="checkbox"
+                                    checked={marcado}
+                                    disabled={bloqueadoEditor}
+                                    onChange={() => {
+                                      const proximosSubBlocos = subBlocosAddOnsEditorBlocoAtual.map(
+                                        (itemSubBloco, index) => {
+                                          if (index !== subBlocoIndex) return itemSubBloco;
+                                          const atuais = normalizarSubObjetosAddOns(
+                                            itemSubBloco.subObjetos
+                                          );
+                                          const proximosSubObjetos = marcado
+                                            ? atuais.filter(
+                                                (subObjeto) =>
+                                                  String(subObjeto?.addonId || "") !== addOnId
+                                              )
+                                            : [
+                                                ...atuais,
+                                                criarSubObjetoAddOnRef(item, atuais.length),
+                                              ];
+                                          return {
+                                            ...itemSubBloco,
+                                            subObjetos: proximosSubObjetos,
+                                          };
+                                        }
+                                      );
+
+                                      void persistirSubBlocosAddOnsDoBloco(
+                                        blocoEditorCardsAtual,
+                                        proximosSubBlocos
+                                      );
+                                    }}
+                                  />
+                                  <span
+                                    style={{
+                                      width: 38,
+                                      height: 38,
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      border: "1px solid rgba(255,255,255,0.12)",
+                                      borderRadius: 8,
+                                      overflow: "hidden",
+                                      background: "rgba(255,255,255,0.04)",
+                                    }}
+                                  >
+                                    {item?.url_img ? (
+                                      <img
+                                        src={item.url_img}
+                                        alt={item.nome || "Add-on"}
+                                        style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                                      />
+                                    ) : null}
+                                  </span>
+                                  <span style={{ minWidth: 0 }}>
+                                    <strong>{item.nome}</strong>
+                                    {item?.descricao ? (
+                                      <span style={{ display: "block", fontSize: 12, opacity: 0.74 }}>
+                                        {item.descricao}
+                                      </span>
+                                    ) : null}
+                                    {marcado && addOnEhSvg ? (
+                                      <span style={{ display: "grid", gap: 4, marginTop: 8 }}>
+                                        <span style={{ fontSize: 11, opacity: 0.72 }}>
+                                          Subtema do SVG neste subbloco
+                                        </span>
+                                        <select
+                                          value={subtemaSelecionado}
+                                          disabled={bloqueadoEditor}
+                                          onChange={(event) => {
+                                            const proximoValor = normalizarSubtemaAddOnOpcional(
+                                              event.target.value
+                                            );
+                                            const proximosSubBlocos =
+                                              subBlocosAddOnsEditorBlocoAtual.map(
+                                                (itemSubBloco, index) => {
+                                                  if (index !== subBlocoIndex) return itemSubBloco;
+                                                  return {
+                                                    ...itemSubBloco,
+                                                    subObjetos: normalizarSubObjetosAddOns(
+                                                      itemSubBloco.subObjetos
+                                                    ).map((subObjeto) =>
+                                                      String(subObjeto?.addonId || "") === addOnId
+                                                        ? {
+                                                            ...subObjeto,
+                                                            subtema: proximoValor,
+                                                          }
+                                                        : subObjeto
+                                                    ),
+                                                  };
+                                                }
+                                              );
+
+                                            void persistirSubBlocosAddOnsDoBloco(
+                                              blocoEditorCardsAtual,
+                                              proximosSubBlocos
+                                            );
+                                          }}
+                                        >
+                                          <option value="">Padrao do espaco</option>
+                                          {CYBERPINK_SUBTHEMES.map((subtema) => (
+                                            <option key={subtema.value} value={subtema.value}>
+                                              {`Subtema: ${subtema.label}`}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </span>
+                                    ) : null}
+                                    {marcado && !addOnEhSvg ? (
+                                      <span style={{ display: "block", fontSize: 11, opacity: 0.58, marginTop: 8 }}>
+                                        Cor dinamica disponivel apenas para add-ons em SVG.
+                                      </span>
+                                    ) : null}
+                                  </span>
+                                </label>
+                              );
+                            })
+                          )}
+                        </div>
+
+                        <span style={{ fontSize: 12, opacity: 0.78 }}>
+                          {`${subObjetosSubBloco.length} subobjeto(s) neste subbloco.`}
+                        </span>
+                      </section>
+                    );
+                  })
+                ) : (
+                  <p style={{ margin: 0, opacity: 0.76 }}>Nenhum subbloco criado.</p>
+                )}
+                <button
+                  type="button"
+                  disabled={blocoEmAtualizacaoId === blocoEditorCardsAtual.id}
+                  onClick={() => {
+                    const atuais = subBlocosAddOnsEditorBlocoAtual.length
+                      ? subBlocosAddOnsEditorBlocoAtual
+                      : [criarSubBlocoAddOns(0)];
+                    void persistirSubBlocosAddOnsDoBloco(blocoEditorCardsAtual, [
+                      ...atuais,
+                      criarSubBlocoAddOns(atuais.length),
+                    ]);
+                  }}
+                >
+                  Adicionar subbloco
+                </button>
                 <span style={{ fontSize: 12, opacity: 0.78 }}>
                   {`${addOnIdsEditorBlocoAtual.length} subobjeto(s) selecionado(s).`}
                 </span>

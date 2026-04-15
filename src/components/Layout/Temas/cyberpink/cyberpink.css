@@ -4023,6 +4023,61 @@ body.theme-cyberpink .addons-bloco-grid {
   align-items: stretch;
 }
 
+body.theme-cyberpink .addons-bloco-subblocos {
+  width: min(100%, 820px);
+  margin: 8px auto 0;
+  display: grid;
+  gap: 18px;
+}
+
+body.theme-cyberpink .addons-bloco-subbloco,
+body.theme-cyberpink .bloco-addons-editor__subbloco {
+  position: relative;
+  padding: 16px 14px 14px;
+  color: var(--cyberpink-subtheme-text);
+  background:
+    linear-gradient(135deg, var(--cyberpink-subtheme-surface-a), var(--cyberpink-subtheme-surface-b));
+  border: 1px solid var(--cyberpink-subtheme-frame-inner) !important;
+  clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
+}
+
+body.theme-cyberpink .addons-bloco-subbloco::before,
+body.theme-cyberpink .addons-bloco-subbloco::after,
+body.theme-cyberpink .bloco-addons-editor__subbloco::before,
+body.theme-cyberpink .bloco-addons-editor__subbloco::after {
+  content: "";
+  position: absolute;
+  width: 15px;
+  height: 15px;
+  pointer-events: none;
+  background-color: var(--cyberpink-subtheme-frame-inner);
+}
+
+body.theme-cyberpink .addons-bloco-subbloco::before,
+body.theme-cyberpink .bloco-addons-editor__subbloco::before {
+  top: 0;
+  left: 0;
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+
+body.theme-cyberpink .addons-bloco-subbloco::after,
+body.theme-cyberpink .bloco-addons-editor__subbloco::after {
+  right: 0;
+  bottom: 0;
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+}
+
+body.theme-cyberpink .addons-bloco-subbloco-title {
+  margin: 0 0 10px;
+  color: var(--cyberpink-subtheme-text);
+  font-family: "Rajdhani", sans-serif;
+  font-size: 17px;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow: 0 0 6px var(--cyberpink-subtheme-primary);
+}
+
 body.theme-cyberpink .addons-bloco-item {
   position: relative;
   min-height: 108px;

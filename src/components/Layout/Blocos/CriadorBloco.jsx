@@ -188,6 +188,46 @@ const criarSubObjetoAddOn = (addOn = {}, ordem = 0, subtema = "") => {
   };
 };
 
+const criarSubBlocoAddOnsVazio = (ordem = 0) => ({
+  id: `subbloco_${Date.now()}_${ordem}`,
+  titulo: ordem === 0 ? "Add-ons" : `Subbloco ${ordem + 1}`,
+  ordem,
+  addOnIds: [],
+  addOnSubthemes: {},
+});
+
+const normalizarSubBlocosAddOnsCriador = (value) => {
+  const base = Array.isArray(value) && value.length ? value : [criarSubBlocoAddOnsVazio(0)];
+  return base.map((subBloco, index) => {
+    const addOnIds = normalizarAddOnIds(subBloco?.addOnIds);
+    const validIds = new Set(addOnIds);
+    const addOnSubthemes =
+      subBloco?.addOnSubthemes && typeof subBloco.addOnSubthemes === "object"
+        ? Object.entries(subBloco.addOnSubthemes).reduce((acc, [addOnId, subtema]) => {
+            const addOnIdNormalizado = String(addOnId || "").trim();
+            if (!validIds.has(addOnIdNormalizado)) return acc;
+            const subtemaNormalizado = normalizarSubtemaAddOnOpcional(subtema);
+            if (subtemaNormalizado) acc[addOnIdNormalizado] = subtemaNormalizado;
+            return acc;
+          }, {})
+        : {};
+
+    return {
+      id: String(subBloco?.id || `subbloco_${Date.now()}_${index}`).trim(),
+      titulo: String(subBloco?.titulo || `Subbloco ${index + 1}`).trim(),
+      ordem: index,
+      addOnIds,
+      addOnSubthemes,
+    };
+  });
+};
+
+const contarAddOnsEmSubBlocos = (subBlocos = []) =>
+  normalizarSubBlocosAddOnsCriador(subBlocos).reduce(
+    (total, subBloco) => total + normalizarAddOnIds(subBloco.addOnIds).length,
+    0
+  );
+
 export default function CriadorBloco({
   espacoAtual,
   skinIdAtual,
@@ -240,8 +280,9 @@ export default function CriadorBloco({
   const [addOnsDisponiveisGerenciador, setAddOnsDisponiveisGerenciador] = useState([]);
   const [erroAddOnsGerenciador, setErroAddOnsGerenciador] = useState("");
   const [buscaAddOnBloco, setBuscaAddOnBloco] = useState("");
-  const [addOnIdsBloco, setAddOnIdsBloco] = useState([]);
-  const [addOnSubthemesBloco, setAddOnSubthemesBloco] = useState({});
+  const [subBlocosAddOns, setSubBlocosAddOns] = useState(() => [
+    criarSubBlocoAddOnsVazio(0),
+  ]);
   const [nomeEspacoSingular, setNomeEspacoSingular] = useState(
     DEFAULT_SISTEMA_CONFIG.nomeEspacoSingular
   );
@@ -486,8 +527,7 @@ export default function CriadorBloco({
   useEffect(() => {
     if ((!addOnsHabilitados || !blocoAddOnsHabilitado) && tipoConteudo === "addons") {
       setTipoConteudo("imagem");
-      setAddOnIdsBloco([]);
-      setAddOnSubthemesBloco({});
+      setSubBlocosAddOns([criarSubBlocoAddOnsVazio(0)]);
     }
   }, [addOnsHabilitados, blocoAddOnsHabilitado, tipoConteudo]);
 
@@ -713,7 +753,7 @@ export default function CriadorBloco({
     if (!blocoEhCards && !blocoEhLive && !blocoEhAddOns && !files.length) {
       return alert("Selecione ao menos uma imagem");
     }
-    if (blocoEhAddOns && !normalizarAddOnIds(addOnIdsBloco).length) {
+    if (blocoEhAddOns && !contarAddOnsEmSubBlocos(subBlocosAddOns)) {
       return alert("Selecione ao menos um add-on para o bloco.");
     }
 
@@ -853,16 +893,36 @@ export default function CriadorBloco({
       }
 
       if (blocoEhAddOns) {
-        const addOnIdsSelecionados = normalizarAddOnIds(addOnIdsBloco);
-        const subObjetos = addOnIdsSelecionados
-          .map((addOnId, index) =>
-            criarSubObjetoAddOn(
-              addOnsDisponiveisProjetoPorId[addOnId] || { id: addOnId },
-              index,
-              addOnSubthemesBloco?.[addOnId]
-            )
-          )
-          .filter((item) => item.addonId);
+        let ordemGlobal = 0;
+        const subBlocos = normalizarSubBlocosAddOnsCriador(subBlocosAddOns)
+          .map((subBloco, subBlocoIndex) => {
+            const subObjetos = normalizarAddOnIds(subBloco.addOnIds)
+              .map((addOnId) => {
+                const subObjeto = criarSubObjetoAddOn(
+                  addOnsDisponiveisProjetoPorId[addOnId] || { id: addOnId },
+                  ordemGlobal,
+                  subBloco.addOnSubthemes?.[addOnId]
+                );
+                ordemGlobal += 1;
+                return {
+                  ...subObjeto,
+                  subBlocoId: subBloco.id,
+                  subBlocoTitulo: subBloco.titulo,
+                };
+              })
+              .filter((item) => item.addonId);
+
+            return {
+              id: subBloco.id,
+              tipo: "addons",
+              titulo: subBloco.titulo || `Subbloco ${subBlocoIndex + 1}`,
+              ordem: subBlocoIndex,
+              layout: "grid",
+              subObjetos,
+            };
+          })
+          .filter((subBloco) => subBloco.subObjetos.length);
+        const subObjetos = subBlocos.flatMap((subBloco) => subBloco.subObjetos);
 
         if (!subObjetos.length) {
           alert("Selecione ao menos um add-on valido para o bloco.");
@@ -878,6 +938,7 @@ export default function CriadorBloco({
           iconCollectionId: iconPayload.iconCollectionId,
           iconId: iconPayload.iconId,
           iconLabel: iconPayload.iconLabel,
+          subBlocos,
           subObjetos,
           configAddOns: {
             layout: "grid",
@@ -909,8 +970,7 @@ export default function CriadorBloco({
           });
         }
 
-        setAddOnIdsBloco([]);
-        setAddOnSubthemesBloco({});
+        setSubBlocosAddOns([criarSubBlocoAddOnsVazio(0)]);
         setBuscaAddOnBloco("");
         setTituloBloco("");
         setIconeBloco("");
@@ -1353,132 +1413,218 @@ export default function CriadorBloco({
             onChange={(event) => setBuscaAddOnBloco(event.target.value)}
           />
 
-          <div
-            className="bloco-addons-editor__list"
-            style={{
-              display: "grid",
-              gap: 8,
-              maxHeight: 260,
-              overflowY: "auto",
-              padding: 8,
-              border: "1px solid rgba(255,255,255,0.12)",
-            }}
-          >
-            {erroAddOnsGerenciador ? (
-              <p style={{ margin: 0, color: "#ff9db0" }}>{erroAddOnsGerenciador}</p>
-            ) : !addOnsDisponiveisProjeto.length ? (
-              <p style={{ margin: 0, opacity: 0.76 }}>
-                Nenhum add-on criado para este usuario/projeto.
-              </p>
-            ) : !addOnsBlocoFiltrados.length ? (
-              <p style={{ margin: 0, opacity: 0.76 }}>
-                Nenhum add-on encontrado para este filtro.
-              </p>
-            ) : (
-              addOnsBlocoFiltrados.map((item) => {
-                const addOnId = String(item?.id || "").trim();
-                const marcado = normalizarAddOnIds(addOnIdsBloco).includes(addOnId);
-                const subtemaSelecionado =
-                  normalizarSubtemaAddOnOpcional(addOnSubthemesBloco?.[addOnId]) || "";
+          <div className="bloco-addons-editor__subblocos" style={{ display: "grid", gap: 12 }}>
+            {normalizarSubBlocosAddOnsCriador(subBlocosAddOns).map((subBloco, subBlocoIndex) => {
+              const addOnIdsSubBloco = normalizarAddOnIds(subBloco.addOnIds);
 
-                return (
-                  <label
-                    key={addOnId}
-                    className="bloco-addons-editor__item"
+              return (
+                <section
+                  key={subBloco.id}
+                  className="bloco-addons-editor__subbloco"
+                  style={{
+                    display: "grid",
+                    gap: 8,
+                    padding: 10,
+                    border: "1px solid rgba(255,255,255,0.12)",
+                  }}
+                >
+                  <div
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "20px 38px minmax(0, 1fr)",
-                      gap: 10,
+                      gridTemplateColumns: "minmax(0, 1fr) auto",
+                      gap: 8,
                       alignItems: "center",
                     }}
                   >
                     <input
-                      type="checkbox"
-                      checked={marcado}
-                      onChange={() => {
-                        setAddOnIdsBloco((prev) => {
-                          const atuais = normalizarAddOnIds(prev);
-                          return atuais.includes(addOnId)
-                            ? atuais.filter((id) => id !== addOnId)
-                            : [...atuais, addOnId];
-                        });
-                        if (marcado) {
-                          setAddOnSubthemesBloco((prev) => {
-                            const next = { ...prev };
-                            delete next[addOnId];
-                            return next;
-                          });
-                        }
+                      type="text"
+                      value={subBloco.titulo}
+                      placeholder={`Nome do subbloco ${subBlocoIndex + 1}`}
+                      onChange={(event) => {
+                        const titulo = event.target.value;
+                        setSubBlocosAddOns((prev) =>
+                          normalizarSubBlocosAddOnsCriador(prev).map((item, index) =>
+                            index === subBlocoIndex ? { ...item, titulo } : item
+                          )
+                        );
                       }}
                     />
-                    <span
-                      style={{
-                        width: 38,
-                        height: 38,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        overflow: "hidden",
-                        background: "rgba(255,255,255,0.04)",
-                      }}
-                    >
-                      {item?.url_img ? (
-                        <img
-                          src={item.url_img}
-                          alt={item.nome || "Add-on"}
-                          style={{ width: "100%", height: "100%", objectFit: "contain" }}
-                        />
-                      ) : null}
-                    </span>
-                    <span style={{ minWidth: 0 }}>
-                      <strong>{item.nome}</strong>
-                      {item?.descricao ? (
-                        <span style={{ display: "block", fontSize: 12, opacity: 0.74 }}>
-                          {item.descricao}
-                        </span>
-                      ) : null}
-                      {marcado ? (
-                        <span style={{ display: "grid", gap: 4, marginTop: 8 }}>
-                          <span style={{ fontSize: 11, opacity: 0.72 }}>
-                            Subtema do add-on neste bloco
-                          </span>
-                          <select
-                            value={subtemaSelecionado}
-                            onChange={(event) => {
-                              const proximoValor = normalizarSubtemaAddOnOpcional(
-                                event.target.value
-                              );
-                              setAddOnSubthemesBloco((prev) => {
-                                if (!proximoValor) {
-                                  const next = { ...prev };
-                                  delete next[addOnId];
-                                  return next;
-                                }
-                                return {
-                                  ...prev,
-                                  [addOnId]: proximoValor,
-                                };
-                              });
+                    {normalizarSubBlocosAddOnsCriador(subBlocosAddOns).length > 1 ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSubBlocosAddOns((prev) =>
+                            normalizarSubBlocosAddOnsCriador(prev).filter(
+                              (_, index) => index !== subBlocoIndex
+                            )
+                          )
+                        }
+                        style={{ color: "#ff5aa5" }}
+                      >
+                        Remover
+                      </button>
+                    ) : null}
+                  </div>
+
+                  <div
+                    className="bloco-addons-editor__list"
+                    style={{
+                      display: "grid",
+                      gap: 8,
+                      maxHeight: 260,
+                      overflowY: "auto",
+                      padding: 8,
+                      border: "1px solid rgba(255,255,255,0.12)",
+                    }}
+                  >
+                    {erroAddOnsGerenciador ? (
+                      <p style={{ margin: 0, color: "#ff9db0" }}>{erroAddOnsGerenciador}</p>
+                    ) : !addOnsDisponiveisProjeto.length ? (
+                      <p style={{ margin: 0, opacity: 0.76 }}>
+                        Nenhum add-on criado para este usuario/projeto.
+                      </p>
+                    ) : !addOnsBlocoFiltrados.length ? (
+                      <p style={{ margin: 0, opacity: 0.76 }}>
+                        Nenhum add-on encontrado para este filtro.
+                      </p>
+                    ) : (
+                      addOnsBlocoFiltrados.map((item) => {
+                        const addOnId = String(item?.id || "").trim();
+                        const marcado = addOnIdsSubBloco.includes(addOnId);
+                        const subtemaSelecionado =
+                          normalizarSubtemaAddOnOpcional(
+                            subBloco.addOnSubthemes?.[addOnId]
+                          ) || "";
+
+                        return (
+                          <label
+                            key={`${subBloco.id}-${addOnId}`}
+                            className="bloco-addons-editor__item"
+                            style={{
+                              display: "grid",
+                              gridTemplateColumns: "20px 38px minmax(0, 1fr)",
+                              gap: 10,
+                              alignItems: "center",
                             }}
                           >
-                            <option value="">Padrao do espaco</option>
-                            {CYBERPINK_SUBTHEMES.map((subtema) => (
-                              <option key={subtema.value} value={subtema.value}>
-                                {`Subtema: ${subtema.label}`}
-                              </option>
-                            ))}
-                          </select>
-                        </span>
-                      ) : null}
-                    </span>
-                  </label>
-                );
-              })
-            )}
+                            <input
+                              type="checkbox"
+                              checked={marcado}
+                              onChange={() => {
+                                setSubBlocosAddOns((prev) =>
+                                  normalizarSubBlocosAddOnsCriador(prev).map((itemSubBloco, index) => {
+                                    if (index !== subBlocoIndex) return itemSubBloco;
+                                    const atuais = normalizarAddOnIds(itemSubBloco.addOnIds);
+                                    const addOnSubthemes = { ...itemSubBloco.addOnSubthemes };
+                                    const proximosIds = atuais.includes(addOnId)
+                                      ? atuais.filter((id) => id !== addOnId)
+                                      : [...atuais, addOnId];
+                                    if (atuais.includes(addOnId)) delete addOnSubthemes[addOnId];
+                                    return {
+                                      ...itemSubBloco,
+                                      addOnIds: proximosIds,
+                                      addOnSubthemes,
+                                    };
+                                  })
+                                );
+                              }}
+                            />
+                            <span
+                              style={{
+                                width: 38,
+                                height: 38,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                overflow: "hidden",
+                                background: "rgba(255,255,255,0.04)",
+                              }}
+                            >
+                              {item?.url_img ? (
+                                <img
+                                  src={item.url_img}
+                                  alt={item.nome || "Add-on"}
+                                  style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                                />
+                              ) : null}
+                            </span>
+                            <span style={{ minWidth: 0 }}>
+                              <strong>{item.nome}</strong>
+                              {item?.descricao ? (
+                                <span style={{ display: "block", fontSize: 12, opacity: 0.74 }}>
+                                  {item.descricao}
+                                </span>
+                              ) : null}
+                              {marcado ? (
+                                <span style={{ display: "grid", gap: 4, marginTop: 8 }}>
+                                  <span style={{ fontSize: 11, opacity: 0.72 }}>
+                                    Subtema do add-on neste subbloco
+                                  </span>
+                                  <select
+                                    value={subtemaSelecionado}
+                                    onChange={(event) => {
+                                      const proximoValor = normalizarSubtemaAddOnOpcional(
+                                        event.target.value
+                                      );
+                                      setSubBlocosAddOns((prev) =>
+                                        normalizarSubBlocosAddOnsCriador(prev).map(
+                                          (itemSubBloco, index) => {
+                                            if (index !== subBlocoIndex) return itemSubBloco;
+                                            const addOnSubthemes = {
+                                              ...itemSubBloco.addOnSubthemes,
+                                            };
+                                            if (!proximoValor) {
+                                              delete addOnSubthemes[addOnId];
+                                            } else {
+                                              addOnSubthemes[addOnId] = proximoValor;
+                                            }
+                                            return {
+                                              ...itemSubBloco,
+                                              addOnSubthemes,
+                                            };
+                                          }
+                                        )
+                                      );
+                                    }}
+                                  >
+                                    <option value="">Padrao do espaco</option>
+                                    {CYBERPINK_SUBTHEMES.map((subtema) => (
+                                      <option key={subtema.value} value={subtema.value}>
+                                        {`Subtema: ${subtema.label}`}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </span>
+                              ) : null}
+                            </span>
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  <span style={{ fontSize: 12, opacity: 0.78 }}>
+                    {`${addOnIdsSubBloco.length} add-on(s) neste subbloco.`}
+                  </span>
+                </section>
+              );
+            })}
           </div>
 
+          <button
+            type="button"
+            onClick={() =>
+              setSubBlocosAddOns((prev) => {
+                const atuais = normalizarSubBlocosAddOnsCriador(prev);
+                return [...atuais, criarSubBlocoAddOnsVazio(atuais.length)];
+              })
+            }
+          >
+            Adicionar subbloco
+          </button>
+
           <span style={{ fontSize: 12, opacity: 0.78 }}>
-            {`${normalizarAddOnIds(addOnIdsBloco).length} subobjeto(s) de add-on selecionado(s).`}
+            {`${contarAddOnsEmSubBlocos(subBlocosAddOns)} subobjeto(s) de add-on selecionado(s).`}
           </span>
         </div>
       ) : blocoEhLive ? (
