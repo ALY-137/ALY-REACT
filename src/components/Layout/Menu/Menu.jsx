@@ -36,6 +36,7 @@ import {
   CYBERPINK_SUBTHEME_STORAGE_KEY,
   normalizeCyberpinkSubtheme,
 } from "../Temas/cyberpink/subthemes";
+import { obterResumoAcessosNoGerenciador } from "../Sistema/gerenciadorSistemasApi";
 
 const SEGMENTOS_RESERVADOS_MENU = new Set([
   "contatos",
@@ -74,6 +75,10 @@ function Menu({ menuOpen }) {
   const [badgeSolicitacoes, setBadgeSolicitacoes] = useState({
     pendentes: 0,
     confirmadas: 0,
+  });
+  const [badgeAcessos, setBadgeAcessos] = useState({
+    naoLidos: 0,
+    limiteAtingido: false,
   });
 
   const navigate = useNavigate();
@@ -671,6 +676,43 @@ function Menu({ menuOpen }) {
     };
   }, [exibirBadgeSolicitacoes, ownerSolicitacoesUid]);
 
+  useEffect(() => {
+    if (!isManagerProject || !usuarioEhOwnerGerenciador || !temUsuarioAutenticado) {
+      setBadgeAcessos({ naoLidos: 0, limiteAtingido: false });
+      return undefined;
+    }
+
+    let ativo = true;
+    const atualizarBadgeAcessos = async () => {
+      try {
+        const resumo = await obterResumoAcessosNoGerenciador({ limit: 500 });
+        if (!ativo) return;
+        setBadgeAcessos({
+          naoLidos: Number(resumo?.naoLidos) || 0,
+          limiteAtingido: Boolean(resumo?.limiteAtingido),
+        });
+      } catch (error) {
+        if (!ativo) return;
+        setBadgeAcessos({ naoLidos: 0, limiteAtingido: false });
+        if (error?.code !== "permission-denied") {
+          console.error("Erro ao carregar notificacao de acessos:", error);
+        }
+      }
+    };
+
+    void atualizarBadgeAcessos();
+    const intervalId = window.setInterval(atualizarBadgeAcessos, 60000);
+    window.addEventListener("focus", atualizarBadgeAcessos);
+    window.addEventListener("acessos-resumo-atualizado", atualizarBadgeAcessos);
+
+    return () => {
+      ativo = false;
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", atualizarBadgeAcessos);
+      window.removeEventListener("acessos-resumo-atualizado", atualizarBadgeAcessos);
+    };
+  }, [isManagerProject, temUsuarioAutenticado, usuarioEhOwnerGerenciador]);
+
   if (aguardandoAuthInicial) {
     return <ProjectLoadingFallback text="Carregando menu..." />;
   }
@@ -725,8 +767,20 @@ function Menu({ menuOpen }) {
             <div onClick={abrirUsers} className="gavetaOption">
               USERS
             </div>
-            <div onClick={abrirAcessos} className="gavetaOption">
+            <div
+              onClick={abrirAcessos}
+              className={
+                badgeAcessos.naoLidos > 0
+                  ? "gavetaOption gavetaOption--notified"
+                  : "gavetaOption"
+              }
+            >
               ACESSOS
+              {badgeAcessos.naoLidos > 0 ? (
+                <span className="gavetaOption__badge" title="Acessos nao lidos">
+                  {badgeAcessos.limiteAtingido ? `${badgeAcessos.naoLidos}+` : badgeAcessos.naoLidos}
+                </span>
+              ) : null}
             </div>
             <div onClick={abrirGerenciadorIcones} className="gavetaOption">
               GERENCIADOR DE ICONES

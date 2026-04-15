@@ -758,6 +758,13 @@ function resolveAccessHashCandidates(payload = {}) {
   ]);
 }
 
+function normalizeAccessDocIds(value = []) {
+  return normalizeStringList(value)
+    .map((item) => sanitizeString(item).replace(/[\/\\]/g, ""))
+    .filter(Boolean)
+    .slice(0, 500);
+}
+
 async function updateAccessDocsAsBlocked(managerDb, refs = [], payload = {}) {
   const uniqueRefs = [];
   const seenPaths = new Set();
@@ -858,6 +865,33 @@ async function markAccessRecordsBlockedByUsers(
     docs: directUpdates,
     hashes: hashUpdates,
   };
+}
+
+async function markAccessRecordsAsRead(managerDb, ids = [], payload = {}) {
+  const accessIds = normalizeAccessDocIds(ids);
+  if (!accessIds.length) return 0;
+
+  let updated = 0;
+  for (let index = 0; index < accessIds.length; index += 450) {
+    const batch = managerDb.batch();
+    const chunk = accessIds.slice(index, index + 450);
+    chunk.forEach((accessId) => {
+      batch.update(
+        managerDb.collection("acessos").doc(accessId),
+        {
+          visto: true,
+          lido: true,
+          statusLeitura: "lido",
+          lidoEm: serverTimestamp(),
+          ...payload,
+        }
+      );
+    });
+    await batch.commit();
+    updated += chunk.length;
+  }
+
+  return updated;
 }
 
 function isPrivateOrLocalIp(ip = "") {
@@ -3058,6 +3092,93 @@ exports.listarAcessosGerenciadorHttp = onRequest(
           id: docItem.id,
           ...docItem.data(),
         })),
+      });
+    } catch (error) {
+      sendHttpError(res, error);
+    }
+  }
+);
+
+exports.obterResumoAcessosGerenciadorHttp = onRequest(
+  HTTP_OPTIONS,
+  async (req, res) => {
+    if (handleHttpCorsPreflight(req, res)) return;
+
+    try {
+      if (req.method !== "POST") {
+        res.status(405).json({ ok: false, error: "Metodo nao permitido." });
+        return;
+      }
+
+      const body = normalizeRequestBody(req);
+      const token = getBearerToken(req);
+      const { decoded } = await verifySharedBucketIdToken(token);
+      await assertSystemManagerAdminIdentity({
+        uid: decoded?.uid,
+        email: decoded?.email,
+      });
+
+      const maxItems = Math.min(Math.max(Number(body?.limit) || 500, 1), 500);
+      const managerDb = getSystemManagerDb();
+      const snap = await managerDb
+        .collection("acessos")
+        .where("visto", "==", false)
+        .limit(maxItems)
+        .get();
+
+      let naoLidos = 0;
+      snap.docs.forEach((docItem) => {
+        const data = docItem.data() || {};
+        if (data.registroBloqueado === true || data.bloqueado === true) return;
+        naoLidos += 1;
+      });
+
+      res.json({
+        ok: true,
+        naoLidos,
+        temNaoLidos: naoLidos > 0,
+        limiteAtingido: snap.size >= maxItems,
+      });
+    } catch (error) {
+      sendHttpError(res, error);
+    }
+  }
+);
+
+exports.marcarAcessosLidosGerenciadorHttp = onRequest(
+  HTTP_OPTIONS,
+  async (req, res) => {
+    if (handleHttpCorsPreflight(req, res)) return;
+
+    try {
+      if (req.method !== "POST") {
+        res.status(405).json({ ok: false, error: "Metodo nao permitido." });
+        return;
+      }
+
+      const body = normalizeRequestBody(req);
+      const token = getBearerToken(req);
+      const { decoded } = await verifySharedBucketIdToken(token);
+      await assertSystemManagerAdminIdentity({
+        uid: decoded?.uid,
+        email: decoded?.email,
+      });
+
+      const ids = normalizeAccessDocIds(body?.ids || body?.accessIds);
+      if (!ids.length) {
+        throw new HttpsError("invalid-argument", "Informe ao menos um acesso.");
+      }
+
+      const managerDb = getSystemManagerDb();
+      const total = await markAccessRecordsAsRead(managerDb, ids, {
+        lidoPorUid: sanitizeString(decoded?.uid) || null,
+        lidoPorEmail: sanitizeString(decoded?.email) || null,
+      });
+
+      res.json({
+        ok: true,
+        total,
+        ids,
       });
     } catch (error) {
       sendHttpError(res, error);

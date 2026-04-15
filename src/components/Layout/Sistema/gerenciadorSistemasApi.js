@@ -10,6 +10,7 @@ import {
   query,
   serverTimestamp,
   setDoc,
+  updateDoc,
   where,
 } from "firebase/firestore";
 import {
@@ -696,6 +697,80 @@ export async function listarAcessosNoGerenciador({
       }
     ).slice(0, maxItems);
   }
+}
+
+export async function obterResumoAcessosNoGerenciador({ limit: maxItems = 500 } = {}) {
+  const managerDb = getManagerDb();
+
+  try {
+    const response = await callSharedManagerRead("obterResumoAcessosGerenciadorHttp", {
+      limit: maxItems,
+    });
+    return {
+      naoLidos: Number(response?.naoLidos) || 0,
+      temNaoLidos: Boolean(response?.temNaoLidos || Number(response?.naoLidos) > 0),
+      limiteAtingido: Boolean(response?.limiteAtingido),
+    };
+  } catch (error) {
+    if (!managerDb || !shouldFallbackToDirectManagerRead(error)) {
+      throw error;
+    }
+  }
+
+  const snap = await getDocs(
+    query(collection(managerDb, "acessos"), where("visto", "==", false), limit(maxItems))
+  );
+  let naoLidos = 0;
+  snap.docs.forEach((docItem) => {
+    const data = docItem.data() || {};
+    if (data.registroBloqueado === true || data.bloqueado === true) return;
+    naoLidos += 1;
+  });
+
+  return {
+    naoLidos,
+    temNaoLidos: naoLidos > 0,
+    limiteAtingido: snap.size >= maxItems,
+  };
+}
+
+export async function marcarAcessosComoLidosNoGerenciador({ ids = [] } = {}) {
+  const accessIds = Array.from(
+    new Set((Array.isArray(ids) ? ids : []).map((item) => normalizeText(item)).filter(Boolean))
+  ).slice(0, 500);
+  if (!accessIds.length) return { total: 0, ids: [] };
+
+  const managerDb = getManagerDb();
+
+  try {
+    const response = await callSharedManagerAction("marcarAcessosLidosGerenciadorHttp", {
+      ids: accessIds,
+    });
+    return {
+      total: Number(response?.total) || accessIds.length,
+      ids: Array.isArray(response?.ids) ? response.ids : accessIds,
+    };
+  } catch (error) {
+    if (!managerDb || !shouldFallbackToDirectManagerRead(error)) {
+      throw error;
+    }
+  }
+
+  await Promise.all(
+    accessIds.map((accessId) =>
+      updateDoc(doc(managerDb, "acessos", accessId), {
+        visto: true,
+        lido: true,
+        statusLeitura: "lido",
+        lidoEm: serverTimestamp(),
+      })
+    )
+  );
+
+  return {
+    total: accessIds.length,
+    ids: accessIds,
+  };
 }
 
 export async function obterConfigAcessosNoGerenciador() {

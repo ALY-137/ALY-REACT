@@ -192,6 +192,32 @@ body.layout-navbar-tabs-sticky-disabled .menu-navbar {
   display: none !important;
 }
 
+.gavetaOption {
+  position: relative;
+}
+
+.gavetaOption__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: 8px;
+  padding: 0 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 126, 168, 0.55);
+  background: rgba(255, 60, 128, 0.22);
+  color: #ffd6e6;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+.gavetaOption--notified {
+  font-weight: 700;
+}
+
 .menuContentArea {
   width: min(96vw, 1000px);
   margin: 0 auto;

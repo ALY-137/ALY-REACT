@@ -707,6 +707,22 @@ body.theme-cyberpink .gavetaOption:hover::after {
     opacity: 1; 
 }
 
+body.theme-cyberpink .gavetaOption__badge {
+  border-color: color-mix(in srgb, var(--cyberpink-subtheme-primary) 72%, transparent);
+  background: color-mix(in srgb, var(--cyberpink-subtheme-primary) 22%, transparent);
+  color: var(--cyberpink-subtheme-text);
+  box-shadow:
+    0 0 5px color-mix(in srgb, var(--cyberpink-subtheme-primary) 55%, transparent),
+    0 0 12px color-mix(in srgb, var(--cyberpink-subtheme-primary) 28%, transparent);
+  text-shadow:
+    0 0 2px var(--cyberpink-subtheme-primary),
+    0 0 6px var(--cyberpink-subtheme-primary);
+}
+
+body.theme-cyberpink .gavetaOption--notified {
+  color: var(--cyberpink-subtheme-text);
+}
+
 body.theme-cyberpink .back-detail {
     margin: 0px;
     cursor: pointer;

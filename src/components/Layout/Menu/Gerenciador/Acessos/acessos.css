@@ -293,6 +293,31 @@
   letter-spacing: 0.05em;
 }
 
+.gerenciador-acessos__unread-badge,
+.gerenciador-acessos__read-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  opacity: 1;
+}
+
+.gerenciador-acessos__unread-badge {
+  border: 1px solid rgba(255, 218, 121, 0.5);
+  background: rgba(255, 190, 60, 0.12);
+  color: #ffe09a;
+}
+
+.gerenciador-acessos__read-badge {
+  border: 1px solid rgba(149, 255, 212, 0.36);
+  background: rgba(149, 255, 212, 0.08);
+  color: #95ffd4;
+}
+
 .gerenciador-acessos__more {
   min-height: 34px;
   padding: 7px 12px;

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import {
   listarAcessosNoGerenciador,
+  marcarAcessosComoLidosNoGerenciador,
   obterConfigAcessosNoGerenciador,
   listarProjetosNoGerenciador,
   salvarConfigAcessosNoGerenciador,
@@ -106,6 +107,10 @@ function isAccessRecordBlocked(acesso = {}) {
   return acesso?.registroBloqueado === true || acesso?.bloqueado === true;
 }
 
+function isAccessRead(acesso = {}) {
+  return acesso?.visto === true || acesso?.lido === true || acesso?.statusLeitura === "lido";
+}
+
 function formatarUsuarioBloqueio(usuario = "") {
   const normalized = normalizeUsuarioBloqueio(usuario);
   if (!normalized) return "usuario";
@@ -187,9 +192,12 @@ function ListaAcessos() {
   const [filtroIp, setFiltroIp] = useState("");
   const [filtroDataInicio, setFiltroDataInicio] = useState("");
   const [filtroDataFim, setFiltroDataFim] = useState("");
+  const [filtroStatusLeitura, setFiltroStatusLeitura] = useState("");
   const [mostrarRegistrosBloqueados, setMostrarRegistrosBloqueados] = useState(false);
   const [paginaAtual, setPaginaAtual] = useState(1);
   const [gruposExpandidos, setGruposExpandidos] = useState({});
+  const [marcandoLido, setMarcandoLido] = useState(false);
+  const [mensagemLeitura, setMensagemLeitura] = useState("");
   const [ipsBloqueadosRegistro, setIpsBloqueadosRegistro] = useState([]);
   const [ipBloqueioInput, setIpBloqueioInput] = useState("");
   const [salvandoBloqueioIp, setSalvandoBloqueioIp] = useState(false);
@@ -425,6 +433,48 @@ function ListaAcessos() {
     void carregarAcessos();
   }, [carregarAcessos]);
 
+  const marcarComoLido = useCallback(async (ids = []) => {
+    const idsNormalizados = Array.from(
+      new Set((Array.isArray(ids) ? ids : []).map((item) => normalizeText(item)).filter(Boolean))
+    );
+    if (!idsNormalizados.length) return;
+
+    setMarcandoLido(true);
+    setMensagemLeitura("");
+    setErro("");
+
+    try {
+      await marcarAcessosComoLidosNoGerenciador({ ids: idsNormalizados });
+      if (!mountedRef.current) return;
+      setAcessos((prev) =>
+        prev.map((acesso) =>
+          idsNormalizados.includes(normalizeText(acesso?.id))
+            ? {
+                ...acesso,
+                visto: true,
+                lido: true,
+                statusLeitura: "lido",
+              }
+            : acesso
+        )
+      );
+      setMensagemLeitura(
+        idsNormalizados.length === 1
+          ? "Acesso marcado como lido."
+          : `${idsNormalizados.length} acessos marcados como lidos.`
+      );
+      window.dispatchEvent(new CustomEvent("acessos-resumo-atualizado"));
+    } catch (error) {
+      if (!mountedRef.current) return;
+      console.error("Erro ao marcar acessos como lidos:", error);
+      setErro("Nao foi possivel marcar os acessos como lidos.");
+    } finally {
+      if (mountedRef.current) {
+        setMarcandoLido(false);
+      }
+    }
+  }, []);
+
   const projetosMap = useMemo(() => {
     const mapa = new Map();
     projetos.forEach((projeto) => {
@@ -453,10 +503,13 @@ function ListaAcessos() {
       const hashAtual = resolveAccessHash(acesso).toLowerCase();
       const ipAtual = resolveAccessIp(acesso).toLowerCase();
       const acessoTimestamp = resolveDataTimestampMs(acesso?.data || acesso?.criadoEm);
+      const lido = isAccessRead(acesso);
       if (!mostrarRegistrosBloqueados && isAccessRecordBlocked(acesso)) return false;
       if (filtroProjeto && projectKey !== filtroProjeto) return false;
       if (filtroOrigem && resolveOrigemAcesso(acesso) !== filtroOrigem) return false;
       if (filtroTipoUsuario && resolveTipoUsuario(acesso) !== filtroTipoUsuario) return false;
+      if (filtroStatusLeitura === "lido" && !lido) return false;
+      if (filtroStatusLeitura === "nao-lido" && lido) return false;
       if (filtroHash && !hashAtual.includes(filtroHash.toLowerCase())) return false;
       if (filtroIp && !ipAtual.includes(filtroIp.toLowerCase())) return false;
       if (filtroDataInicio) {
@@ -477,6 +530,7 @@ function ListaAcessos() {
     filtroIp,
     filtroOrigem,
     filtroProjeto,
+    filtroStatusLeitura,
     filtroTipoUsuario,
     mostrarRegistrosBloqueados,
   ]);
@@ -484,6 +538,11 @@ function ListaAcessos() {
   const totalRegistrosBloqueadosOcultos = useMemo(
     () => acessos.filter((acesso) => isAccessRecordBlocked(acesso)).length,
     [acessos]
+  );
+
+  const acessosNaoLidosFiltrados = useMemo(
+    () => acessosFiltrados.filter((acesso) => !isAccessRead(acesso)),
+    [acessosFiltrados]
   );
 
   useEffect(() => {
@@ -496,6 +555,7 @@ function ListaAcessos() {
     filtroIp,
     filtroOrigem,
     filtroProjeto,
+    filtroStatusLeitura,
     filtroTipoUsuario,
     mostrarRegistrosBloqueados,
   ]);
@@ -579,6 +639,7 @@ function ListaAcessos() {
           items: itemsOrdenados,
           total: itemsOrdenados.length,
           totalBloqueados: itemsOrdenados.filter((item) => isAccessRecordBlocked(item)).length,
+          totalNaoLidos: itemsOrdenados.filter((item) => !isAccessRead(item)).length,
           usuario: Array.from(grupo.usersSet).filter(Boolean)[0] || "Visitante",
           projetos: Array.from(grupo.projetosSet).filter(Boolean),
           ips: Array.from(grupo.ipsSet).filter(Boolean),
@@ -657,6 +718,18 @@ function ListaAcessos() {
               <option value="">Todos</option>
               <option value="owner">owners</option>
               <option value="viewer">viewers</option>
+            </select>
+          </label>
+
+          <label className="gerenciador-acessos__filter">
+            <span>Status</span>
+            <select
+              value={filtroStatusLeitura}
+              onChange={(event) => setFiltroStatusLeitura(event.target.value)}
+            >
+              <option value="">Todos</option>
+              <option value="nao-lido">Nao lidos</option>
+              <option value="lido">Lidos</option>
             </select>
           </label>
 
@@ -826,6 +899,7 @@ function ListaAcessos() {
 
       <div className="gerenciador-acessos__summary">
         <span>{`Total exibido: ${gruposAcessos.length} grupo(s) / ${acessosFiltrados.length} evento(s)`}</span>
+        <span>{`Nao lidos: ${acessosNaoLidosFiltrados.length}`}</span>
         <span>{`Bloqueados ocultos: ${
           mostrarRegistrosBloqueados ? 0 : totalRegistrosBloqueadosOcultos
         }`}</span>
@@ -842,7 +916,21 @@ function ListaAcessos() {
         >
           {carregando ? "Atualizando..." : "Atualizar"}
         </button>
+        <button
+          type="button"
+          className="gerenciador-acessos__refresh"
+          onClick={() => {
+            void marcarComoLido(acessosNaoLidosFiltrados.map((acesso) => acesso.id));
+          }}
+          disabled={marcandoLido || !acessosNaoLidosFiltrados.length}
+        >
+          {marcandoLido ? "Marcando..." : "Marcar exibidos como lidos"}
+        </button>
       </div>
+
+      {mensagemLeitura ? (
+        <p className="gerenciador-acessos__success">{mensagemLeitura}</p>
+      ) : null}
 
       {totalPaginas > 1 ? (
         <div className="gerenciador-acessos__pagination">
@@ -895,6 +983,9 @@ function ListaAcessos() {
             const fontesGeoGrupo = joinUnique(grupo.geoSources);
             const perfisGrupo = joinUnique(grupo.perfis);
             const eventosGrupo = joinUnique(grupo.eventos);
+            const idsNaoLidosGrupo = grupo.items
+              .filter((acesso) => !isAccessRead(acesso))
+              .map((acesso) => acesso.id);
 
             return (
               <article key={grupo.key} className="gerenciador-acessos__group">
@@ -917,10 +1008,27 @@ function ListaAcessos() {
                       {expandido ? "Ver menos" : `Ver mais (${eventosOcultos})`}
                     </button>
                   ) : null}
+                  {idsNaoLidosGrupo.length ? (
+                    <button
+                      type="button"
+                      className="gerenciador-acessos__more"
+                      onClick={() => {
+                        void marcarComoLido(idsNaoLidosGrupo);
+                      }}
+                      disabled={marcandoLido}
+                    >
+                      Marcar grupo como lido
+                    </button>
+                  ) : null}
                 </div>
 
                 <div className="gerenciador-acessos__group-meta">
                   <span>{`Eventos: ${grupo.total}`}</span>
+                  {grupo.totalNaoLidos ? (
+                    <span className="gerenciador-acessos__unread-badge">
+                      {`Nao lidos: ${grupo.totalNaoLidos}`}
+                    </span>
+                  ) : null}
                   {grupo.totalBloqueados ? (
                     <span className="gerenciador-acessos__blocked-badge">
                       {`Bloqueados: ${grupo.totalBloqueados}`}
@@ -1030,6 +1138,7 @@ function ListaAcessos() {
                       acesso?.registroMotivo || acesso?.motivoRegistro
                     );
                     const registroBloqueado = isAccessRecordBlocked(acesso);
+                    const acessoLido = isAccessRead(acesso);
                     const motivoBloqueio = resolveGeoText(
                       acesso?.bloqueadoPor || acesso?.motivoBloqueio
                     );
@@ -1048,6 +1157,15 @@ function ListaAcessos() {
                               BLOQUEADO
                             </span>
                           ) : null}
+                          <span
+                            className={
+                              acessoLido
+                                ? "gerenciador-acessos__read-badge"
+                                : "gerenciador-acessos__unread-badge"
+                            }
+                          >
+                            {acessoLido ? "LIDO" : "NAO LIDO"}
+                          </span>
                           <span>{`Data/Hora: ${formatarData(
                             acesso?.data || acesso?.criadoEm
                           )}`}</span>
@@ -1059,6 +1177,7 @@ function ListaAcessos() {
                             projectKey ||
                             "--"
                           }`}</span>
+                          <span>{`Status: ${acessoLido ? "LIDO" : "NAO LIDO"}`}</span>
                           <span>{`Perfil: ${normalizeText(acesso?.perfilAcesso) || "--"}`}</span>
                           <span>{`Evento: ${normalizeText(acesso?.eventoTipo) || "--"}`}</span>
                           <span>{`Motivo: ${motivoRegistro}`}</span>
@@ -1084,6 +1203,20 @@ function ListaAcessos() {
                         <div className="gerenciador-acessos__path">
                           <code>{normalizeText(acesso?.fullPath || acesso?.path) || "/"}</code>
                         </div>
+                        {!acessoLido ? (
+                          <div className="gerenciador-acessos__ip-actions">
+                            <button
+                              type="button"
+                              className="gerenciador-acessos__ip-action"
+                              onClick={() => {
+                                void marcarComoLido([acesso.id]);
+                              }}
+                              disabled={marcandoLido}
+                            >
+                              Marcar como lido
+                            </button>
+                          </div>
+                        ) : null}
                       </article>
                     );
                   })}
