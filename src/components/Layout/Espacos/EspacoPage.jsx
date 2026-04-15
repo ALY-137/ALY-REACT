@@ -829,6 +829,7 @@ export default function EspacoPage() {
   const blockedOriginalPathsRef = useRef(new Set());
   const blockedPreviewPathsRef = useRef(new Set());
   const backfilledPublicUrlsRef = useRef(new Set());
+  const migratedAddOnBlocksRef = useRef(new Set());
   const blocosInfiniteScrollRef = useRef(null);
   const cardSwipeStateRef = useRef({});
   const liveChatScrollRef = useRef(null);
@@ -4036,8 +4037,14 @@ export default function EspacoPage() {
 
       try {
         await updateDoc(blocoRef, {
+          estruturaAddOns: "subblocos_v1",
           subBlocos: subBlocosAtualizados,
           subObjetos: subObjetosAtualizados,
+          configAddOns: {
+            ...(bloco?.configAddOns || {}),
+            layout: "subblocos",
+            itemLayout: "grid",
+          },
           updatedAt: serverTimestamp(),
         });
 
@@ -4047,8 +4054,14 @@ export default function EspacoPage() {
               item.id === bloco.id
                 ? {
                     ...item,
+                    estruturaAddOns: "subblocos_v1",
                     subBlocos: subBlocosAtualizados,
                     subObjetos: subObjetosAtualizados,
+                    configAddOns: {
+                      ...(item?.configAddOns || {}),
+                      layout: "subblocos",
+                      itemLayout: "grid",
+                    },
                   }
                 : item
             )
@@ -4066,6 +4079,44 @@ export default function EspacoPage() {
     },
     [espacoId, ownerUserId]
   );
+
+  useEffect(() => {
+    if (
+      !podeGerenciar ||
+      !editorBlocoCardsModal.aberto ||
+      blocoEditorCardsAtual?.tipo !== "addons"
+    ) {
+      return;
+    }
+
+    const blocoId = String(blocoEditorCardsAtual?.id || "").trim();
+    if (!blocoId || migratedAddOnBlocksRef.current.has(blocoId)) return;
+
+    const possuiSubBlocos =
+      Array.isArray(blocoEditorCardsAtual?.subBlocos) ||
+      Array.isArray(blocoEditorCardsAtual?.subblocos);
+    if (possuiSubBlocos) return;
+
+    const subObjetosLegados = normalizarSubObjetosAddOns(
+      blocoEditorCardsAtual?.subObjetos || blocoEditorCardsAtual?.subobjetos
+    );
+    if (!subObjetosLegados.length) return;
+
+    migratedAddOnBlocksRef.current.add(blocoId);
+    void persistirSubBlocosAddOnsDoBloco(blocoEditorCardsAtual, [
+      {
+        ...criarSubBlocoAddOns(0),
+        id: "subbloco_legacy",
+        titulo: "Add-ons",
+        subObjetos: subObjetosLegados,
+      },
+    ]);
+  }, [
+    blocoEditorCardsAtual,
+    editorBlocoCardsModal.aberto,
+    persistirSubBlocosAddOnsDoBloco,
+    podeGerenciar,
+  ]);
 
   const atualizarMetadadosBloco = useCallback(
     async (blocoId, updates = {}) => {

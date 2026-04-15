@@ -938,10 +938,12 @@ export default function CriadorBloco({
           iconCollectionId: iconPayload.iconCollectionId,
           iconId: iconPayload.iconId,
           iconLabel: iconPayload.iconLabel,
+          estruturaAddOns: "subblocos_v1",
           subBlocos,
           subObjetos,
           configAddOns: {
-            layout: "grid",
+            layout: "subblocos",
+            itemLayout: "grid",
             mostrarNome: true,
             abrirFichaAoClicar: false,
           },
