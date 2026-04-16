@@ -5263,53 +5263,93 @@ export default function EspacoPage() {
                         {subBloco.titulo ? (
                           <h4 className="addons-bloco-subbloco-title">{subBloco.titulo}</h4>
                         ) : null}
-                        <div className="addons-bloco-grid">
-                          {subBloco.addOns.map((addOn) => {
-                            const addOnId = String(addOn?.addonId || addOn?.id || "").trim();
-                            const addOnUrl = String(addOn?.url_img || "").trim();
-                            const subthemeKey = normalizarSubtemaAddOnOpcional(addOn?.subtema);
-                            const podeColorir = Boolean(subthemeKey) && isSvgAssetUrl(addOnUrl);
-                            const iconColor = getCyberpinkSubthemeIconColor(subthemeKey);
-                            const label = String(addOn?.nome || "Add-on").trim() || "Add-on";
+                        <div
+                          className="addons-bloco-carousel"
+                          role="region"
+                          aria-label={`Carrossel de add-ons: ${subBloco.titulo || "Subbloco"}`}
+                        >
+                          <div className="addons-bloco-track">
+                            {subBloco.addOns.map((addOn) => {
+                              const addOnId = String(addOn?.addonId || addOn?.id || "").trim();
+                              const addOnUrl = String(addOn?.url_img || "").trim();
+                              const subthemeKey = normalizarSubtemaAddOnOpcional(addOn?.subtema);
+                              const podeColorir = Boolean(subthemeKey) && isSvgAssetUrl(addOnUrl);
+                              const iconColor = getCyberpinkSubthemeIconColor(subthemeKey);
+                              const label = String(addOn?.nome || "Add-on").trim() || "Add-on";
 
-                            return (
-                              <div
-                                key={`${bloco.id}-${subBloco.id}-addon-${addOnId}`}
-                                className={`addons-bloco-item${
-                                  addOn?.destaque ? " addons-bloco-item--destaque" : ""
-                                }`}
-                                title={addOn?.descricao || label}
-                              >
-                                <span className="addons-bloco-icon">
-                                  {addOnUrl ? (
-                                    <img
-                                      src={addOnUrl}
-                                      alt={label}
-                                      className={
-                                        podeColorir
-                                          ? "addons-bloco-icon-img is-tinted"
-                                          : "addons-bloco-icon-img"
-                                      }
-                                      style={
-                                        podeColorir
-                                          ? {
-                                              filter: `${getCyberpinkSubthemeIconFilter(
-                                                subthemeKey
-                                              )} drop-shadow(0 0 2px ${iconColor}) drop-shadow(0 0 6px ${iconColor})`,
-                                            }
-                                          : undefined
-                                      }
-                                    />
-                                  ) : (
-                                    <span className="addons-bloco-icon-fallback">
-                                      {label.slice(0, 2).toUpperCase()}
-                                    </span>
-                                  )}
-                                </span>
-                                <span className="addons-bloco-name">{label}</span>
-                              </div>
-                            );
-                          })}
+                              return (
+                                <div
+                                  key={`${bloco.id}-${subBloco.id}-addon-${addOnId}`}
+                                  className={`addons-bloco-item${
+                                    addOn?.destaque ? " addons-bloco-item--destaque" : ""
+                                  }`}
+                                  title={addOn?.descricao || label}
+                                >
+                                  <svg
+                                    className="addons-bloco-chip-corner addons-bloco-chip-corner--tl"
+                                    viewBox="0 0 10 10"
+                                    aria-hidden="true"
+                                    focusable="false"
+                                  >
+                                    <path d="M10 0 L0 10" />
+                                  </svg>
+                                  <svg
+                                    className="addons-bloco-chip-corner addons-bloco-chip-corner--tr"
+                                    viewBox="0 0 10 10"
+                                    aria-hidden="true"
+                                    focusable="false"
+                                  >
+                                    <path d="M0 0 L10 10" />
+                                  </svg>
+                                  <svg
+                                    className="addons-bloco-chip-corner addons-bloco-chip-corner--bl"
+                                    viewBox="0 0 10 10"
+                                    aria-hidden="true"
+                                    focusable="false"
+                                  >
+                                    <path d="M0 0 L10 10" />
+                                  </svg>
+                                  <svg
+                                    className="addons-bloco-chip-corner addons-bloco-chip-corner--br"
+                                    viewBox="0 0 10 10"
+                                    aria-hidden="true"
+                                    focusable="false"
+                                  >
+                                    <path d="M10 0 L0 10" />
+                                  </svg>
+                                  <span className="addons-bloco-chip-pins addons-bloco-chip-pins--top" aria-hidden="true" />
+                                  <span className="addons-bloco-chip-pins addons-bloco-chip-pins--bottom" aria-hidden="true" />
+                                  <span className="addons-bloco-icon">
+                                    {addOnUrl ? (
+                                      <img
+                                        src={addOnUrl}
+                                        alt={label}
+                                        className={
+                                          podeColorir
+                                            ? "addons-bloco-icon-img is-tinted"
+                                            : "addons-bloco-icon-img"
+                                        }
+                                        style={
+                                          podeColorir
+                                            ? {
+                                                filter: `${getCyberpinkSubthemeIconFilter(
+                                                  subthemeKey
+                                                )} drop-shadow(0 0 2px ${iconColor}) drop-shadow(0 0 6px ${iconColor})`,
+                                              }
+                                            : undefined
+                                        }
+                                      />
+                                    ) : (
+                                      <span className="addons-bloco-icon-fallback">
+                                        {label.slice(0, 2).toUpperCase()}
+                                      </span>
+                                    )}
+                                  </span>
+                                  <span className="addons-bloco-name">{label}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
                       </section>
                     ))
@@ -5442,7 +5482,6 @@ export default function EspacoPage() {
         <div
           role="dialog"
           aria-modal="true"
-          onClick={fecharEditorBlocoCards}
           style={{
             position: "fixed",
             inset: 0,
@@ -5958,7 +5997,7 @@ export default function EspacoPage() {
                           )}
                         </div>
 
-                        <span style={{ fontSize: 12, opacity: 0.78 }}>
+                        <span className="bloco-addons-editor__summary" style={{ fontSize: 12 }}>
                           {`${subObjetosSubBloco.length} subobjeto(s) neste subbloco.`}
                         </span>
                       </section>
@@ -5982,7 +6021,7 @@ export default function EspacoPage() {
                 >
                   Adicionar subbloco
                 </button>
-                <span style={{ fontSize: 12, opacity: 0.78 }}>
+                <span className="bloco-addons-editor__summary" style={{ fontSize: 12 }}>
                   {`${addOnIdsEditorBlocoAtual.length} subobjeto(s) selecionado(s).`}
                 </span>
               </div>

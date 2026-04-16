@@ -92,7 +92,12 @@ function Container({
   children,
 }) {
   const possuiCabecalho = Boolean(titulo || iconUrl);
-  const classesContainer = ["bloco-container", `bloco-container--${variante}`, className]
+  const classesContainer = [
+    "bloco-container",
+    `bloco-container--${variante}`,
+    possuiCabecalho ? "bloco-container--with-header" : "bloco-container--without-header",
+    className,
+  ]
     .filter(Boolean)
     .join(" ");
   const classesConteudo = ["bloco-container__content", contentClassName]

@@ -1722,6 +1722,8 @@ body.theme-cyberpink .cardcaptor-card {
   --cyberpink-card-home-surface: var(--cyberpink-subtheme-card-surface);
   --cyberpink-card-home-surface-shadow: var(--cyberpink-subtheme-card-surface-shadow);
   --cyberpink-card-home-side-detail-y: 39%;
+  --cyberpink-card-home-side-detail-y-top: calc(var(--cyberpink-card-home-side-detail-y) - 18%);
+  --cyberpink-card-home-side-detail-y-bottom: calc(var(--cyberpink-card-home-side-detail-y) + 18%);
   --cyberpink-card-home-side-detail-width: 14px;
   --cyberpink-card-home-side-detail-height: 57px;
   --cyberpink-card-home-side-detail-left-x: 0px;
@@ -1802,6 +1804,10 @@ body.theme-cyberpink .cardcaptor-card::after {
   background-image:
     linear-gradient(var(--cyberpink-card-detail-side), var(--cyberpink-card-detail-side)),
     linear-gradient(var(--cyberpink-card-detail-side), var(--cyberpink-card-detail-side)),
+    linear-gradient(var(--cyberpink-card-detail-side), var(--cyberpink-card-detail-side)),
+    linear-gradient(var(--cyberpink-card-detail-side), var(--cyberpink-card-detail-side)),
+    linear-gradient(var(--cyberpink-card-detail-side), var(--cyberpink-card-detail-side)),
+    linear-gradient(var(--cyberpink-card-detail-side), var(--cyberpink-card-detail-side)),
     linear-gradient(
       0deg,
       var(--cyberpink-card-detail-top-mid) 0,
@@ -1813,54 +1819,86 @@ body.theme-cyberpink .cardcaptor-card::after {
       var(--cyberpink-card-detail-bottom-rail)
     ),
     linear-gradient(var(--cyberpink-card-detail-main), var(--cyberpink-card-detail-main));
-  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
   background-size:
+    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
+    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
+    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
+    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
     var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
     var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
     100% 14px,
     100% 14px,
     118px 48px;
   background-position:
+    left var(--cyberpink-card-home-side-detail-left-x) top var(--cyberpink-card-home-side-detail-y-top),
     left var(--cyberpink-card-home-side-detail-left-x) top var(--cyberpink-card-home-side-detail-y),
+    left var(--cyberpink-card-home-side-detail-left-x) top var(--cyberpink-card-home-side-detail-y-bottom),
+    right var(--cyberpink-card-home-side-detail-right-x) top var(--cyberpink-card-home-side-detail-y-top),
     right var(--cyberpink-card-home-side-detail-right-x) top var(--cyberpink-card-home-side-detail-y),
+    right var(--cyberpink-card-home-side-detail-right-x) top var(--cyberpink-card-home-side-detail-y-bottom),
     center top,
     center bottom,
     center calc(100% + var(--cyberpink-card-home-bottom-detail-offset));
   -webkit-mask-image:
     url("./assets/cyberpink-card-side-right.svg"),
+    url("./assets/cyberpink-card-side-right.svg"),
+    url("./assets/cyberpink-card-side-right.svg"),
+    url("./assets/cyberpink-card-side-left.svg"),
+    url("./assets/cyberpink-card-side-left.svg"),
     url("./assets/cyberpink-card-side-left.svg"),
     url("./assets/cyberpink-card-top-rail.svg"),
     url("./assets/cyberpink-card-bottom-rail.svg"),
     url("./assets/cyberpink-card-bottom.svg");
-  -webkit-mask-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+  -webkit-mask-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
   -webkit-mask-size:
+    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
+    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
+    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
+    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
     var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
     var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
     100% 14px,
     100% 14px,
     118px 48px;
   -webkit-mask-position:
+    left var(--cyberpink-card-home-side-detail-left-x) top var(--cyberpink-card-home-side-detail-y-top),
     left var(--cyberpink-card-home-side-detail-left-x) top var(--cyberpink-card-home-side-detail-y),
+    left var(--cyberpink-card-home-side-detail-left-x) top var(--cyberpink-card-home-side-detail-y-bottom),
+    right var(--cyberpink-card-home-side-detail-right-x) top var(--cyberpink-card-home-side-detail-y-top),
     right var(--cyberpink-card-home-side-detail-right-x) top var(--cyberpink-card-home-side-detail-y),
+    right var(--cyberpink-card-home-side-detail-right-x) top var(--cyberpink-card-home-side-detail-y-bottom),
     center top,
     center bottom,
     center calc(100% + var(--cyberpink-card-home-bottom-detail-offset));
   mask-image:
     url("./assets/cyberpink-card-side-right.svg"),
+    url("./assets/cyberpink-card-side-right.svg"),
+    url("./assets/cyberpink-card-side-right.svg"),
+    url("./assets/cyberpink-card-side-left.svg"),
+    url("./assets/cyberpink-card-side-left.svg"),
     url("./assets/cyberpink-card-side-left.svg"),
     url("./assets/cyberpink-card-top-rail.svg"),
     url("./assets/cyberpink-card-bottom-rail.svg"),
     url("./assets/cyberpink-card-bottom.svg");
-  mask-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+  mask-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
   mask-size:
+    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
+    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
+    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
+    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
     var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
     var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
     100% 14px,
     100% 14px,
     118px 48px;
   mask-position:
+    left var(--cyberpink-card-home-side-detail-left-x) top var(--cyberpink-card-home-side-detail-y-top),
     left var(--cyberpink-card-home-side-detail-left-x) top var(--cyberpink-card-home-side-detail-y),
+    left var(--cyberpink-card-home-side-detail-left-x) top var(--cyberpink-card-home-side-detail-y-bottom),
+    right var(--cyberpink-card-home-side-detail-right-x) top var(--cyberpink-card-home-side-detail-y-top),
     right var(--cyberpink-card-home-side-detail-right-x) top var(--cyberpink-card-home-side-detail-y),
+    right var(--cyberpink-card-home-side-detail-right-x) top var(--cyberpink-card-home-side-detail-y-bottom),
     center top,
     center bottom,
     center calc(100% + var(--cyberpink-card-home-bottom-detail-offset));
@@ -2286,6 +2324,10 @@ body.theme-cyberpink .cardContainerDesktopHome::after {
   background-image:
     linear-gradient(var(--cyberpink-card-detail-side), var(--cyberpink-card-detail-side)),
     linear-gradient(var(--cyberpink-card-detail-side), var(--cyberpink-card-detail-side)),
+    linear-gradient(var(--cyberpink-card-detail-side), var(--cyberpink-card-detail-side)),
+    linear-gradient(var(--cyberpink-card-detail-side), var(--cyberpink-card-detail-side)),
+    linear-gradient(var(--cyberpink-card-detail-side), var(--cyberpink-card-detail-side)),
+    linear-gradient(var(--cyberpink-card-detail-side), var(--cyberpink-card-detail-side)),
     linear-gradient(
       0deg,
       var(--cyberpink-card-detail-top-mid) 0,
@@ -2297,54 +2339,86 @@ body.theme-cyberpink .cardContainerDesktopHome::after {
       var(--cyberpink-card-detail-bottom-rail)
     ),
     linear-gradient(var(--cyberpink-card-detail-main), var(--cyberpink-card-detail-main));
-  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
   background-size:
+    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
+    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
+    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
+    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
     var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
     var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
     100% 14px,
     100% 14px,
     118px 48px;
   background-position:
+    left var(--cyberpink-card-home-side-detail-left-x) top var(--cyberpink-card-home-side-detail-y-top),
     left var(--cyberpink-card-home-side-detail-left-x) top var(--cyberpink-card-home-side-detail-y),
+    left var(--cyberpink-card-home-side-detail-left-x) top var(--cyberpink-card-home-side-detail-y-bottom),
+    right var(--cyberpink-card-home-side-detail-right-x) top var(--cyberpink-card-home-side-detail-y-top),
     right var(--cyberpink-card-home-side-detail-right-x) top var(--cyberpink-card-home-side-detail-y),
+    right var(--cyberpink-card-home-side-detail-right-x) top var(--cyberpink-card-home-side-detail-y-bottom),
     center top,
     center bottom,
     center calc(100% + var(--cyberpink-card-home-bottom-detail-offset));
   -webkit-mask-image:
     url("./assets/cyberpink-card-side-right.svg"),
+    url("./assets/cyberpink-card-side-right.svg"),
+    url("./assets/cyberpink-card-side-right.svg"),
+    url("./assets/cyberpink-card-side-left.svg"),
+    url("./assets/cyberpink-card-side-left.svg"),
     url("./assets/cyberpink-card-side-left.svg"),
     url("./assets/cyberpink-card-top-rail.svg"),
     url("./assets/cyberpink-card-bottom-rail.svg"),
     url("./assets/cyberpink-card-bottom.svg");
-  -webkit-mask-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+  -webkit-mask-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
   -webkit-mask-size:
+    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
+    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
+    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
+    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
     var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
     var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
     100% 14px,
     100% 14px,
     118px 48px;
   -webkit-mask-position:
+    left var(--cyberpink-card-home-side-detail-left-x) top var(--cyberpink-card-home-side-detail-y-top),
     left var(--cyberpink-card-home-side-detail-left-x) top var(--cyberpink-card-home-side-detail-y),
+    left var(--cyberpink-card-home-side-detail-left-x) top var(--cyberpink-card-home-side-detail-y-bottom),
+    right var(--cyberpink-card-home-side-detail-right-x) top var(--cyberpink-card-home-side-detail-y-top),
     right var(--cyberpink-card-home-side-detail-right-x) top var(--cyberpink-card-home-side-detail-y),
+    right var(--cyberpink-card-home-side-detail-right-x) top var(--cyberpink-card-home-side-detail-y-bottom),
     center top,
     center bottom,
     center calc(100% + var(--cyberpink-card-home-bottom-detail-offset));
   mask-image:
     url("./assets/cyberpink-card-side-right.svg"),
+    url("./assets/cyberpink-card-side-right.svg"),
+    url("./assets/cyberpink-card-side-right.svg"),
+    url("./assets/cyberpink-card-side-left.svg"),
+    url("./assets/cyberpink-card-side-left.svg"),
     url("./assets/cyberpink-card-side-left.svg"),
     url("./assets/cyberpink-card-top-rail.svg"),
     url("./assets/cyberpink-card-bottom-rail.svg"),
     url("./assets/cyberpink-card-bottom.svg");
-  mask-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+  mask-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
   mask-size:
+    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
+    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
+    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
+    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
     var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
     var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
     100% 14px,
     100% 14px,
     118px 48px;
   mask-position:
+    left var(--cyberpink-card-home-side-detail-left-x) top var(--cyberpink-card-home-side-detail-y-top),
     left var(--cyberpink-card-home-side-detail-left-x) top var(--cyberpink-card-home-side-detail-y),
+    left var(--cyberpink-card-home-side-detail-left-x) top var(--cyberpink-card-home-side-detail-y-bottom),
+    right var(--cyberpink-card-home-side-detail-right-x) top var(--cyberpink-card-home-side-detail-y-top),
     right var(--cyberpink-card-home-side-detail-right-x) top var(--cyberpink-card-home-side-detail-y),
+    right var(--cyberpink-card-home-side-detail-right-x) top var(--cyberpink-card-home-side-detail-y-bottom),
     center top,
     center bottom,
     center calc(100% + var(--cyberpink-card-home-bottom-detail-offset));
@@ -2542,6 +2616,14 @@ body.theme-cyberpink .bloco-container {
 
 body.theme-cyberpink .bloco-container.bloco-imagem--first-without-creator {
   margin-top: 64px;
+}
+
+body.theme-cyberpink .bloco-container + .bloco-container--with-header {
+  margin-top: 64px;
+}
+
+body.theme-cyberpink .bloco-creator + .bloco-container--without-header {
+  margin-top: -30px;
 }
 
 body.theme-cyberpink .bloco-container__header {
@@ -3454,6 +3536,8 @@ body.theme-cyberpink .cardContainerDesktopHome {
   --cyberpink-card-home-surface: var(--cyberpink-subtheme-card-surface);
   --cyberpink-card-home-surface-shadow: var(--cyberpink-subtheme-card-surface-shadow);
   --cyberpink-card-home-side-detail-y: 39%;
+  --cyberpink-card-home-side-detail-y-top: calc(var(--cyberpink-card-home-side-detail-y) - 18%);
+  --cyberpink-card-home-side-detail-y-bottom: calc(var(--cyberpink-card-home-side-detail-y) + 18%);
   --cyberpink-card-home-side-detail-width: 14px;
   --cyberpink-card-home-side-detail-height: 57px;
   --cyberpink-card-home-side-detail-left-x: 0px;
@@ -3596,6 +3680,8 @@ body.theme-cyberpink .cardTituloPanel {
   width: calc(100% - (var(--cyberpink-card-inner-gap) * 2));
   max-width: calc(100% - (var(--cyberpink-card-inner-gap) * 2));
   display: block;
+  box-sizing: border-box;
+  padding-inline: 4px;
 }
 
 body.theme-cyberpink .cardTituloPanel .cardNomeHome {
@@ -4023,6 +4109,32 @@ body.theme-cyberpink .addons-bloco-grid {
   align-items: stretch;
 }
 
+body.theme-cyberpink .addons-bloco-carousel {
+  width: 100%;
+  margin-top: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  display: block;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+body.theme-cyberpink .addons-bloco-carousel::-webkit-scrollbar {
+  display: none;
+}
+
+body.theme-cyberpink .addons-bloco-track {
+  width: 100%;
+  min-width: max-content;
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: stretch;
+  justify-content: center;
+  gap: 18px;
+  padding: 4px 3px 10px;
+  scroll-snap-type: x proximity;
+}
+
 body.theme-cyberpink .addons-bloco-subblocos {
   width: min(100%, 820px);
   margin: 8px auto 0;
@@ -4033,6 +4145,7 @@ body.theme-cyberpink .addons-bloco-subblocos {
 body.theme-cyberpink .addons-bloco-subbloco,
 body.theme-cyberpink .bloco-addons-editor__subbloco {
   position: relative;
+  margin-inline: 10px;
   padding: 16px 14px 14px;
   color: var(--cyberpink-subtheme-text);
   background:
@@ -4068,7 +4181,7 @@ body.theme-cyberpink .bloco-addons-editor__subbloco::after {
 }
 
 body.theme-cyberpink .addons-bloco-subbloco-title {
-  margin: 0 0 10px;
+  margin: 0 0 18px;
   color: var(--cyberpink-subtheme-text);
   font-family: "Rajdhani", sans-serif;
   font-size: 17px;
@@ -4079,51 +4192,174 @@ body.theme-cyberpink .addons-bloco-subbloco-title {
 }
 
 body.theme-cyberpink .addons-bloco-item {
+  --cyberpink-addon-chip-cut: 8px;
+  --cyberpink-addon-chip-circuit: color-mix(in srgb, var(--cyberpink-subtheme-frame-stroke) 84%, white 16%);
+  --cyberpink-addon-chip-top-detail: color-mix(
+    in srgb,
+    var(--cyberpink-subtheme-card-surface) 54%,
+    white 46%
+  );
   position: relative;
-  min-height: 108px;
-  padding: 12px 10px 10px;
+  flex: 0 0 82px;
+  width: 82px;
+  min-width: 82px;
+  min-height: 107px;
+  padding: 14px 11px 12px;
   display: grid;
-  grid-template-rows: 58px auto;
+  grid-template-rows: 54px minmax(0, 1fr);
   justify-items: center;
   align-items: center;
-  gap: 8px;
+  gap: 0px;
   color: var(--cyberpink-subtheme-text);
-  background:
-    linear-gradient(135deg, var(--cyberpink-subtheme-surface-a), var(--cyberpink-subtheme-surface-b));
-  border: 1px solid var(--cyberpink-subtheme-frame-inner);
-  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
-  overflow: hidden;
-}
-
-body.theme-cyberpink .addons-bloco-item::before,
-body.theme-cyberpink .addons-bloco-item::after {
-  content: "";
-  position: absolute;
-  width: 14px;
-  height: 14px;
-  pointer-events: none;
-  background-color: var(--cyberpink-subtheme-frame-inner);
-  opacity: 0.9;
+  background: transparent;
+  border: 0;
+  overflow: visible;
+  isolation: isolate;
+  scroll-snap-align: start;
 }
 
 body.theme-cyberpink .addons-bloco-item::before {
-  top: 0;
-  left: 0;
-  clip-path: polygon(0 0, 100% 0, 0 100%);
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      circle at 22% 50%,
+      color-mix(in srgb, var(--cyberpink-subtheme-primary) 14%, transparent) 0 16px,
+      transparent 30px
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--cyberpink-subtheme-card-surface-shadow) 88%, transparent),
+      color-mix(in srgb, var(--cyberpink-subtheme-card-surface) 88%, transparent)
+    );
+  border: 1px solid var(--cyberpink-subtheme-frame-inner);
+  clip-path: polygon(
+    var(--cyberpink-addon-chip-cut) 0,
+    calc(100% - var(--cyberpink-addon-chip-cut)) 0,
+    100% var(--cyberpink-addon-chip-cut),
+    100% calc(100% - var(--cyberpink-addon-chip-cut)),
+    calc(100% - var(--cyberpink-addon-chip-cut)) 100%,
+    var(--cyberpink-addon-chip-cut) 100%,
+    0 calc(100% - var(--cyberpink-addon-chip-cut)),
+    0 var(--cyberpink-addon-chip-cut)
+  );
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 8%, transparent),
+    0 0 9px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 34%, transparent);
 }
 
 body.theme-cyberpink .addons-bloco-item::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: var(--cyberpink-addon-chip-cut);
+  right: var(--cyberpink-addon-chip-cut);
+  z-index: 3;
+  height: 7px;
+  pointer-events: none;
+  background: var(--cyberpink-addon-chip-top-detail);
+  -webkit-mask-image: url("./assets/cyberpink-card-side-left-top.svg");
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: 100% 100%;
+  mask-image: url("./assets/cyberpink-card-side-left-top.svg");
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: 100% 100%;
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 62%, transparent));
+}
+
+body.theme-cyberpink .addons-bloco-chip-pins {
+  position: absolute;
+  left: 50%;
+  z-index: 1;
+  width: 50px;
+  height: 10px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  background:
+    linear-gradient(var(--cyberpink-addon-chip-circuit), var(--cyberpink-addon-chip-circuit)) 0 center / 6px 100% no-repeat,
+    linear-gradient(var(--cyberpink-addon-chip-circuit), var(--cyberpink-addon-chip-circuit)) 11px center / 6px 100% no-repeat,
+    linear-gradient(var(--cyberpink-addon-chip-circuit), var(--cyberpink-addon-chip-circuit)) 22px center / 6px 100% no-repeat,
+    linear-gradient(var(--cyberpink-addon-chip-circuit), var(--cyberpink-addon-chip-circuit)) 33px center / 6px 100% no-repeat,
+    linear-gradient(var(--cyberpink-addon-chip-circuit), var(--cyberpink-addon-chip-circuit)) 44px center / 6px 100% no-repeat;
+  opacity: 0.9;
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 64%, transparent));
+}
+
+body.theme-cyberpink .addons-bloco-chip-pins--top {
+  display: none;
+}
+
+body.theme-cyberpink .addons-bloco-chip-pins--bottom {
+  bottom: 0;
+}
+
+body.theme-cyberpink .addons-bloco-chip-corner {
+  position: absolute;
+  z-index: 2;
+  width: var(--cyberpink-addon-chip-cut);
+  height: var(--cyberpink-addon-chip-cut);
+  color: color-mix(in srgb, var(--cyberpink-subtheme-frame-stroke) 84%, white 16%);
+  pointer-events: none;
+  overflow: visible;
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 56%, transparent));
+}
+
+body.theme-cyberpink .addons-bloco-chip-corner path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1;
+  stroke-linecap: square;
+  vector-effect: non-scaling-stroke;
+}
+
+body.theme-cyberpink .addons-bloco-chip-corner--tl {
+  top: 0;
+  left: 0;
+}
+
+body.theme-cyberpink .addons-bloco-chip-corner--tr {
+  top: 0;
+  right: 0;
+}
+
+body.theme-cyberpink .addons-bloco-chip-corner--bl {
+  bottom: 0;
+  left: 0;
+}
+
+body.theme-cyberpink .addons-bloco-chip-corner--br {
   right: 0;
   bottom: 0;
-  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+}
+
+body.theme-cyberpink .addons-bloco-item:hover {
+  transform: translateY(-1px);
+}
+
+body.theme-cyberpink .addons-bloco-item:hover::before {
+  border-color: color-mix(in srgb, var(--cyberpink-subtheme-frame-stroke) 82%, white 18%);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 12%, transparent),
+    0 0 14px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 58%, transparent);
 }
 
 body.theme-cyberpink .addons-bloco-icon {
-  width: 58px;
-  height: 58px;
+  position: relative;
+  z-index: 2;
+  width: 48px;
+  height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
+  justify-self: center;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 body.theme-cyberpink .addons-bloco-icon-img {
@@ -4146,16 +4382,20 @@ body.theme-cyberpink .addons-bloco-icon-fallback {
 }
 
 body.theme-cyberpink .addons-bloco-name {
+  position: relative;
+  z-index: 2;
   max-width: 100%;
-  font-size: 12px;
+  font-size: 11.5px;
   line-height: 1.1;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.055em;
   text-transform: uppercase;
   text-align: center;
-  white-space: nowrap;
+  white-space: normal;
   overflow: hidden;
-  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   color: var(--cyberpink-subtheme-text);
   text-shadow: 0 0 5px var(--cyberpink-subtheme-primary);
 }
@@ -4163,6 +4403,15 @@ body.theme-cyberpink .addons-bloco-name {
 body.theme-cyberpink .bloco-addons-editor__list,
 body.theme-cyberpink .bloco-addons-editor__item {
   border-color: var(--cyberpink-subtheme-frame-inner) !important;
+}
+
+body.theme-cyberpink .bloco-addons-editor__summary {
+  color: var(--cyberpink-subtheme-text);
+  font-family: "Rajdhani", sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-shadow: 0 0 5px var(--cyberpink-subtheme-primary);
 }
 
 /* Ajustes de contraste e forma (Cyberpink) */

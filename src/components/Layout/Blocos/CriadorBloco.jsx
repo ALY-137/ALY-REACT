@@ -1605,7 +1605,7 @@ export default function CriadorBloco({
                     )}
                   </div>
 
-                  <span style={{ fontSize: 12, opacity: 0.78 }}>
+                  <span className="bloco-addons-editor__summary" style={{ fontSize: 12 }}>
                     {`${addOnIdsSubBloco.length} add-on(s) neste subbloco.`}
                   </span>
                 </section>
@@ -1625,7 +1625,7 @@ export default function CriadorBloco({
             Adicionar subbloco
           </button>
 
-          <span style={{ fontSize: 12, opacity: 0.78 }}>
+          <span className="bloco-addons-editor__summary" style={{ fontSize: 12 }}>
             {`${contarAddOnsEmSubBlocos(subBlocosAddOns)} subobjeto(s) de add-on selecionado(s).`}
           </span>
         </div>
