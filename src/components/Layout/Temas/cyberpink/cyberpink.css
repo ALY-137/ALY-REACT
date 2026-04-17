@@ -4125,6 +4125,331 @@ body.theme-cyberpink .card-print-preview-back__track-label {
   pointer-events: none;
 }
 
+body.theme-cyberpink .card-print-history {
+  position: relative;
+  z-index: 1;
+  margin-top: 18px;
+  padding: 14px;
+  width: 100%;
+  box-sizing: border-box;
+  color: var(--cyberpink-subtheme-text);
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--cyberpink-subtheme-card-surface) 76%, transparent),
+      color-mix(in srgb, var(--cyberpink-subtheme-card-surface-shadow) 82%, transparent)
+    );
+  border: 1px solid color-mix(in srgb, var(--cyberpink-subtheme-card-frame) 78%, transparent);
+  clip-path: polygon(
+    12px 0,
+    100% 0,
+    100% calc(100% - 12px),
+    calc(100% - 12px) 100%,
+    0 100%,
+    0 12px
+  );
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 8%, transparent),
+    0 0 12px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 20%, transparent);
+}
+
+body.theme-cyberpink .card-print-history::before,
+body.theme-cyberpink .card-print-history::after {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  z-index: 1;
+  pointer-events: none;
+  background: var(--cyberpink-subtheme-card-frame);
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-repeat: no-repeat;
+  mask-size: 100% 100%;
+}
+
+body.theme-cyberpink .card-print-history::before {
+  top: 0;
+  left: 0;
+  -webkit-mask-image: url("./assets/cyberpink-simple-cut-tl.svg");
+  mask-image: url("./assets/cyberpink-simple-cut-tl.svg");
+}
+
+body.theme-cyberpink .card-print-history::after {
+  right: 0;
+  bottom: 0;
+  -webkit-mask-image: url("./assets/cyberpink-simple-cut-br.svg");
+  mask-image: url("./assets/cyberpink-simple-cut-br.svg");
+}
+
+body.theme-cyberpink .card-print-history__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+body.theme-cyberpink .card-print-history__header strong,
+body.theme-cyberpink .card-print-history__item-main strong {
+  display: block;
+  color: var(--cyberpink-subtheme-text);
+  font-family: "DotGothic16", sans-serif;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow:
+    0 0 3px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 55%, transparent),
+    0 0 8px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 28%, transparent);
+}
+
+body.theme-cyberpink .card-print-history__header p {
+  margin: 3px 0 0;
+  color: color-mix(in srgb, var(--cyberpink-subtheme-text) 72%, var(--cyberpink-subtheme-card-surface));
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+body.theme-cyberpink .card-print-history__button {
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 6px 10px;
+  color: var(--cyberpink-subtheme-text);
+  font-family: "DotGothic16", sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: color-mix(in srgb, var(--cyberpink-subtheme-card-surface-shadow) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cyberpink-subtheme-card-frame) 86%, transparent);
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 8%, transparent),
+    0 0 8px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 18%, transparent);
+  cursor: pointer;
+}
+
+body.theme-cyberpink .card-print-history__button:hover,
+body.theme-cyberpink .card-print-history__button:focus-visible {
+  background: color-mix(in srgb, var(--cyberpink-subtheme-card-surface-shadow) 70%, var(--cyberpink-subtheme-text) 10%);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 14%, transparent),
+    0 0 10px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 26%, transparent);
+}
+
+body.theme-cyberpink .card-print-history__button:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
+body.theme-cyberpink .card-print-history__list {
+  display: grid;
+  gap: 10px;
+}
+
+body.theme-cyberpink .card-print-history__creator {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 10px;
+  background: color-mix(in srgb, var(--cyberpink-subtheme-card-surface-shadow) 56%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cyberpink-subtheme-card-frame) 36%, transparent);
+}
+
+body.theme-cyberpink .card-print-history__creator-field {
+  display: grid;
+  gap: 6px;
+}
+
+body.theme-cyberpink .card-print-history__creator-field span,
+body.theme-cyberpink .card-print-history__creator-current,
+body.theme-cyberpink .card-print-history__creator-meta span {
+  color: color-mix(in srgb, var(--cyberpink-subtheme-text) 76%, var(--cyberpink-subtheme-card-surface));
+  font-size: 11px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+body.theme-cyberpink .card-print-history__creator-field textarea {
+  width: 100%;
+  min-height: 72px;
+  padding: 10px 12px;
+  box-sizing: border-box;
+  resize: vertical;
+  color: var(--cyberpink-subtheme-text);
+  font-family: "Rajdhani", "Segoe UI", sans-serif;
+  font-size: 13px;
+  line-height: 1.35;
+  background: color-mix(in srgb, var(--cyberpink-subtheme-card-surface) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cyberpink-subtheme-card-frame) 60%, transparent);
+  outline: none;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 6%, transparent);
+}
+
+body.theme-cyberpink .card-print-history__creator-field textarea:focus {
+  border-color: color-mix(in srgb, var(--cyberpink-subtheme-card-frame) 85%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 12%, transparent),
+    0 0 10px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 22%, transparent);
+}
+
+body.theme-cyberpink .card-print-history__creator-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+body.theme-cyberpink .card-print-history__creator-meta {
+  display: grid;
+  gap: 4px;
+}
+
+body.theme-cyberpink .card-print-history__item {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding: 10px;
+  background: color-mix(in srgb, var(--cyberpink-subtheme-card-surface) 68%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cyberpink-subtheme-card-frame) 46%, transparent);
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+}
+
+body.theme-cyberpink .card-print-history__item-main {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+body.theme-cyberpink .card-print-history__item-main span,
+body.theme-cyberpink .card-print-history__reading span,
+body.theme-cyberpink .card-print-history__status,
+body.theme-cyberpink .card-print-history__error {
+  color: color-mix(in srgb, var(--cyberpink-subtheme-text) 76%, var(--cyberpink-subtheme-card-surface));
+  font-size: 11px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+body.theme-cyberpink .card-print-history__item-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+body.theme-cyberpink .card-print-history__readings {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid color-mix(in srgb, var(--cyberpink-subtheme-card-frame) 34%, transparent);
+}
+
+body.theme-cyberpink .card-print-history__reading {
+  display: grid;
+  gap: 2px;
+  padding: 8px;
+  background: color-mix(in srgb, var(--cyberpink-subtheme-card-surface-shadow) 66%, transparent);
+  border-left: 2px solid color-mix(in srgb, var(--cyberpink-subtheme-card-frame) 72%, transparent);
+}
+
+body.theme-cyberpink .card-print-history__status,
+body.theme-cyberpink .card-print-history__error {
+  margin: 0;
+}
+
+body.theme-cyberpink .card-print-history__error {
+  color: color-mix(in srgb, #ff4f8f 76%, var(--cyberpink-subtheme-text));
+}
+
+body.theme-cyberpink .card-print-preview-stage {
+  position: relative;
+  z-index: 1;
+  margin-top: 18px;
+  padding: 14px;
+  width: 100%;
+  box-sizing: border-box;
+  color: var(--cyberpink-subtheme-text);
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--cyberpink-subtheme-card-surface) 76%, transparent),
+      color-mix(in srgb, var(--cyberpink-subtheme-card-surface-shadow) 82%, transparent)
+    );
+  border: 1px solid color-mix(in srgb, var(--cyberpink-subtheme-card-frame) 78%, transparent);
+  clip-path: polygon(
+    12px 0,
+    100% 0,
+    100% calc(100% - 12px),
+    calc(100% - 12px) 100%,
+    0 100%,
+    0 12px
+  );
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 8%, transparent),
+    0 0 12px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 20%, transparent);
+}
+
+body.theme-cyberpink .card-print-preview-stage::before,
+body.theme-cyberpink .card-print-preview-stage::after {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  z-index: 1;
+  pointer-events: none;
+  background: var(--cyberpink-subtheme-card-frame);
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-repeat: no-repeat;
+  mask-size: 100% 100%;
+}
+
+body.theme-cyberpink .card-print-preview-stage::before {
+  top: 0;
+  left: 0;
+  -webkit-mask-image: url("./assets/cyberpink-simple-cut-tl.svg");
+  mask-image: url("./assets/cyberpink-simple-cut-tl.svg");
+}
+
+body.theme-cyberpink .card-print-preview-stage::after {
+  right: 0;
+  bottom: 0;
+  -webkit-mask-image: url("./assets/cyberpink-simple-cut-br.svg");
+  mask-image: url("./assets/cyberpink-simple-cut-br.svg");
+}
+
+body.theme-cyberpink .card-print-preview-stage__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+body.theme-cyberpink .card-print-preview-stage__header strong {
+  display: block;
+  color: var(--cyberpink-subtheme-text);
+  font-family: "DotGothic16", sans-serif;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow:
+    0 0 3px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 55%, transparent),
+    0 0 8px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 28%, transparent);
+}
+
+body.theme-cyberpink .card-print-preview-stage__header p {
+  margin: 3px 0 0;
+  color: color-mix(in srgb, var(--cyberpink-subtheme-text) 72%, var(--cyberpink-subtheme-card-surface));
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 @media (max-width: 720px) {
   body.theme-cyberpink .card-route-page__viewer {
     --cyberpink-card-route-scale: 1;

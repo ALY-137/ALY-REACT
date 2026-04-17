@@ -761,7 +761,7 @@ service cloud.firestore {
 
     match /qrPrints/{printId} {
       allow get: if canReadQrPrintData(resource.data);
-      allow list: if isAdmin();
+      allow list: if canManageQrPrintData(resource.data);
       allow create: if canCreateQrPrintData(request.resource.data);
       allow update, delete: if canManageQrPrintData(resource.data);
 
@@ -892,7 +892,7 @@ service cloud.firestore {
 
       match /qrPrints/{printId} {
         allow get: if canReadProjetoQrPrintData(projectKey, resource.data);
-        allow list: if isAdmin() || isProjetoAdmin(projectKey);
+        allow list: if canManageProjetoQrPrintData(projectKey, resource.data);
         allow create: if canCreateProjetoQrPrintData(projectKey, request.resource.data);
         allow update, delete: if canManageProjetoQrPrintData(projectKey, resource.data);
 

@@ -3,8 +3,12 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
+  limit,
+  query,
   serverTimestamp,
   setDoc,
+  where,
 } from "firebase/firestore";
 
 import {
@@ -98,6 +102,27 @@ function cleanPayload(payload = {}) {
     acc[key] = value;
     return acc;
   }, {});
+}
+
+function buildCardKey(ownerUserId = "", espacoId = "", blocoId = "", cardId = "") {
+  return [
+    normalizeText(ownerUserId),
+    normalizeText(espacoId),
+    normalizeText(blocoId),
+    normalizeText(cardId),
+  ].join("|");
+}
+
+function getTimestampMs(value = null) {
+  if (!value) return 0;
+  if (typeof value?.toDate === "function") {
+    return value.toDate().getTime();
+  }
+  if (Number.isFinite(Number(value?.seconds))) {
+    return Number(value.seconds) * 1000;
+  }
+  const parsed = Date.parse(String(value));
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function buildAbsoluteUrl(route = "") {
@@ -219,14 +244,22 @@ export async function criarQrPrintCard({
   card = null,
   rotaCard = "",
   urlCard = "",
+  descricaoRegistro = "",
 } = {}) {
   const printId = createFirestoreId("qrPrints");
   const normalizedOwnerUserId = normalizeText(ownerUserId);
   const normalizedEspacoId = normalizeText(espacoId);
   const normalizedBlocoId = normalizeText(bloco?.id);
   const normalizedCardId = normalizeText(card?.id);
+  const cardKey = buildCardKey(
+    normalizedOwnerUserId,
+    normalizedEspacoId,
+    normalizedBlocoId,
+    normalizedCardId
+  );
   const normalizedRotaCard = normalizeText(rotaCard);
   const normalizedUrlCard = normalizeText(urlCard) || buildAbsoluteUrl(normalizedRotaCard);
+  const normalizedDescricaoRegistro = normalizeText(descricaoRegistro);
   const rotaQr = buildQrRoute({
     oneOwnerPublicaAtiva,
     skinsUsername,
@@ -256,7 +289,9 @@ export async function criarQrPrintCard({
       blocoId: normalizedBlocoId,
       blocoTitulo: normalizeText(bloco?.titulo || bloco?.nome) || null,
       cardId: normalizedCardId,
+      cardKey,
       cardNome: normalizeText(card?.nome) || null,
+      descricaoRegistro: normalizedDescricaoRegistro || null,
       rotaCard: normalizedRotaCard || null,
       urlCard: normalizedUrlCard || null,
       rotaQr: rotaQr || null,
@@ -279,6 +314,65 @@ export async function criarQrPrintCard({
     rotaCard: normalizedRotaCard,
     urlCard: normalizedUrlCard,
   };
+}
+
+export async function listarQrPrintsDoCard({
+  ownerUserId = "",
+  espacoId = "",
+  blocoId = "",
+  cardId = "",
+  limite = 50,
+} = {}) {
+  const normalizedOwnerUserId = normalizeText(ownerUserId);
+  const normalizedEspacoId = normalizeText(espacoId);
+  const normalizedBlocoId = normalizeText(blocoId);
+  const normalizedCardId = normalizeText(cardId);
+  const cardKey = buildCardKey(
+    normalizedOwnerUserId,
+    normalizedEspacoId,
+    normalizedBlocoId,
+    normalizedCardId
+  );
+
+  if (!normalizedOwnerUserId || !normalizedEspacoId || !normalizedBlocoId || !normalizedCardId) {
+    return [];
+  }
+
+  const printsRef = getPrimaryProjectCollection(db, "qrPrints");
+  const printsQuery = query(
+    printsRef,
+    where("cardKey", "==", cardKey),
+    limit(Math.max(1, Math.min(Number(limite) || 50, 100)))
+  );
+  const snapshot = await getDocs(printsQuery);
+
+  return snapshot.docs
+    .map((item) => ({ id: item.id, ...item.data() }))
+    .sort(
+      (a, b) =>
+        getTimestampMs(b.criadoEm || b.atualizadoEm) -
+        getTimestampMs(a.criadoEm || a.atualizadoEm)
+    );
+}
+
+export async function listarLeiturasQrPrint(printId = "", { limite = 80 } = {}) {
+  const normalizedPrintId = normalizeText(printId);
+  const leiturasRef = getPrimaryQrPrintLeiturasCollection(normalizedPrintId);
+  if (!normalizedPrintId || !leiturasRef) return [];
+
+  const leiturasQuery = query(
+    leiturasRef,
+    limit(Math.max(1, Math.min(Number(limite) || 80, 150)))
+  );
+  const snapshot = await getDocs(leiturasQuery);
+
+  return snapshot.docs
+    .map((item) => ({ id: item.id, ...item.data() }))
+    .sort(
+      (a, b) =>
+        getTimestampMs(b.data || b.criadoEm) -
+        getTimestampMs(a.data || a.criadoEm)
+    );
 }
 
 export async function obterQrPrint(printId = "") {

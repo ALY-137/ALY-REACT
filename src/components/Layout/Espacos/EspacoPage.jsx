@@ -98,7 +98,11 @@ import {
 } from "../Temas/cyberpink/subthemes";
 import { seforAdm } from "../../Scripts/verificacoes/verificaAdm";
 import { getEspacoCompleto } from "./firebaseEspacos";
-import { criarQrPrintCard } from "./qrPrintsApi";
+import {
+  criarQrPrintCard,
+  listarLeiturasQrPrint,
+  listarQrPrintsDoCard,
+} from "./qrPrintsApi";
 
 const getBlocosCollectionRefs = (ownerUserId, espacoId) =>
   getProjectCollectionCandidates(db, "users", ownerUserId, "espacos", espacoId, "blocos");
@@ -439,6 +443,34 @@ const capitalizar = (texto = "") =>
 
 const encodeRouteSegment = (value = "") => encodeURIComponent(String(value || "").trim());
 
+const getDataMs = (value = null) => {
+  if (!value) return 0;
+  if (typeof value?.toDate === "function") {
+    return value.toDate().getTime();
+  }
+  if (Number.isFinite(Number(value?.seconds))) {
+    return Number(value.seconds) * 1000;
+  }
+  const parsed = Date.parse(String(value));
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const formatarDataCurta = (value = null) => {
+  const ms = getDataMs(value);
+  if (!ms) return "--";
+  try {
+    return new Intl.DateTimeFormat("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(ms));
+  } catch {
+    return new Date(ms).toLocaleString();
+  }
+};
+
 function CardActionIcon({ type }) {
   if (type === "eye") {
     return (
@@ -511,6 +543,9 @@ const criarEstadoPreviewImpressaoCard = (overrides = {}) => ({
   printId: "",
   qrStatus: "",
   qrErro: "",
+  criandoQr: false,
+  descricaoRegistro: "",
+  printSelecionadoId: "",
   addOns: [],
   ...overrides,
 });
@@ -849,6 +884,12 @@ export default function EspacoPage() {
   const [previewImpressaoCard, setPreviewImpressaoCard] = useState(() =>
     criarEstadoPreviewImpressaoCard()
   );
+  const [qrPrintsHistorico, setQrPrintsHistorico] = useState({
+    loading: false,
+    erro: "",
+    itens: [],
+  });
+  const [qrPrintLeituras, setQrPrintLeituras] = useState({});
   const [editorCardModal, setEditorCardModal] = useState(() => criarEstadoEditorCard());
   const [editorBlocoCardsModal, setEditorBlocoCardsModal] = useState(() =>
     criarEstadoEditorBlocoCards()
@@ -1563,21 +1604,10 @@ export default function EspacoPage() {
   }, []);
 
   const abrirPreviewImpressaoCard = useCallback(
-    async ({ bloco = null, card = null, imagem = "", addOns = [], rota = "" } = {}) => {
+    ({ bloco = null, card = null, imagem = "", addOns = [], rota = "" } = {}) => {
       if (!card) return;
       const rotaCard = String(rota || montarRotaCardDoBloco(bloco, card)).trim();
       const urlCard = montarUrlAbsolutaCard(rotaCard);
-      const blocoIdAtual = String(bloco?.id || "").trim();
-      const cardIdAtual = String(card?.id || "").trim();
-      const podeCriarQrRastreavel = Boolean(
-        podeGerenciar &&
-          ownerUserId &&
-          espacoId &&
-          blocoIdAtual &&
-          cardIdAtual &&
-          rotaCard &&
-          urlCard
-      );
 
       setPreviewImpressaoCard(
         criarEstadoPreviewImpressaoCard({
@@ -1590,70 +1620,247 @@ export default function EspacoPage() {
           url: urlCard,
           rotaCard,
           urlCard,
-          qrStatus: podeCriarQrRastreavel ? "gerando" : "direto",
+          qrStatus: "direto",
+          qrErro: "",
+          criandoQr: false,
+          descricaoRegistro: "",
+          printSelecionadoId: "",
         })
       );
+    },
+    [montarRotaCardDoBloco, montarUrlAbsolutaCard]
+  );
 
-      if (!podeCriarQrRastreavel) return;
+  const carregarHistoricoQrPrintsCard = useCallback(
+    async ({ bloco = null, card = null } = {}) => {
+      const blocoIdAtual = String(bloco?.id || "").trim();
+      const cardIdAtual = String(card?.id || "").trim();
+      if (!ownerUserId || !espacoId || !blocoIdAtual || !cardIdAtual) {
+        setQrPrintsHistorico({ loading: false, erro: "", itens: [] });
+        return;
+      }
 
+      setQrPrintsHistorico((prev) => ({ ...prev, loading: true, erro: "" }));
       try {
-        const qrPrint = await criarQrPrintCard({
+        const itens = await listarQrPrintsDoCard({
           ownerUserId,
           espacoId,
-          espacoNome,
-          skinsUsername,
-          oneOwnerPublicaAtiva: oneOwnerPublicaAtivaEfetiva,
-          bloco,
-          card,
-          rotaCard,
-          urlCard,
+          blocoId: blocoIdAtual,
+          cardId: cardIdAtual,
         });
-
-        setPreviewImpressaoCard((prev) => {
-          const mesmoCard =
-            prev?.aberto &&
-            String(prev?.card?.id || "") === cardIdAtual &&
-            String(prev?.bloco?.id || "") === blocoIdAtual;
-          if (!mesmoCard) return prev;
-
-          return {
-            ...prev,
-            rotaQr: qrPrint.rotaQr || "",
-            urlQr: qrPrint.urlQr || "",
-            printId: qrPrint.printId || "",
-            url: qrPrint.urlQr || prev.url,
-            qrStatus: qrPrint.printId ? "rastreavel" : "direto",
-            qrErro: "",
-          };
-        });
+        setQrPrintsHistorico({ loading: false, erro: "", itens });
       } catch (error) {
-        console.error("Erro ao criar QR rastreavel do card:", error);
-        setPreviewImpressaoCard((prev) => {
-          const mesmoCard =
-            prev?.aberto &&
-            String(prev?.card?.id || "") === cardIdAtual &&
-            String(prev?.bloco?.id || "") === blocoIdAtual;
-          if (!mesmoCard) return prev;
-
-          return {
-            ...prev,
-            qrStatus: "direto",
-            qrErro: "Nao foi possivel criar QR rastreavel. Usando rota direta do card.",
-            url: prev.urlCard || prev.url,
-          };
+        setQrPrintsHistorico({
+          loading: false,
+          erro:
+            error?.code === "permission-denied"
+              ? "Sem permissao para carregar o historico deste QR."
+              : error?.message || "Falha ao carregar historico do QR.",
+          itens: [],
         });
       }
     },
-    [
-      espacoId,
-      espacoNome,
-      montarRotaCardDoBloco,
-      montarUrlAbsolutaCard,
-      oneOwnerPublicaAtivaEfetiva,
-      ownerUserId,
-      podeGerenciar,
-      skinsUsername,
-    ]
+    [espacoId, ownerUserId]
+  );
+
+  const criarQrRastreavelPreviewImpressao = useCallback(async () => {
+    const blocoAtual = previewImpressaoCard?.bloco || null;
+    const cardAtual = previewImpressaoCard?.card || null;
+    const blocoIdAtual = String(blocoAtual?.id || "").trim();
+    const cardIdAtual = String(cardAtual?.id || "").trim();
+    const rotaCard = String(previewImpressaoCard?.rotaCard || previewImpressaoCard?.rota || "").trim();
+    const urlCard = String(previewImpressaoCard?.urlCard || previewImpressaoCard?.url || "").trim();
+
+    const podeCriarQrRastreavel = Boolean(
+      podeGerenciar &&
+        ownerUserId &&
+        espacoId &&
+        blocoIdAtual &&
+        cardIdAtual &&
+        rotaCard &&
+        urlCard
+    );
+
+    if (!podeCriarQrRastreavel || previewImpressaoCard?.criandoQr) {
+      return;
+    }
+
+    setPreviewImpressaoCard((prev) => ({
+      ...prev,
+      criandoQr: true,
+      qrStatus: "gerando",
+      qrErro: "",
+    }));
+
+    try {
+      const qrPrint = await criarQrPrintCard({
+        ownerUserId,
+        espacoId,
+        espacoNome,
+        skinsUsername,
+        oneOwnerPublicaAtiva: oneOwnerPublicaAtivaEfetiva,
+        bloco: blocoAtual,
+        card: cardAtual,
+        rotaCard,
+        urlCard,
+        descricaoRegistro: previewImpressaoCard?.descricaoRegistro || "",
+      });
+
+      setPreviewImpressaoCard((prev) => {
+        const mesmoCard =
+          prev?.aberto &&
+          String(prev?.card?.id || "") === cardIdAtual &&
+          String(prev?.bloco?.id || "") === blocoIdAtual;
+        if (!mesmoCard) return prev;
+
+        return {
+          ...prev,
+          rotaQr: qrPrint.rotaQr || "",
+          urlQr: qrPrint.urlQr || "",
+          printId: qrPrint.printId || "",
+          url: qrPrint.urlQr || prev.urlCard || prev.url,
+          qrStatus: qrPrint.printId ? "rastreavel" : "direto",
+          qrErro: "",
+          criandoQr: false,
+          descricaoRegistro: "",
+          printSelecionadoId: "",
+        };
+      });
+    } catch (error) {
+      console.error("Erro ao criar QR rastreavel do card:", error);
+      setPreviewImpressaoCard((prev) => ({
+        ...prev,
+        criandoQr: false,
+        qrStatus: prev?.printId ? "rastreavel" : "direto",
+        qrErro:
+          error?.code === "permission-denied"
+            ? "Sem permissao para criar QR rastreavel deste card."
+            : error?.message || "Nao foi possivel criar QR rastreavel.",
+      }));
+    }
+  }, [
+    espacoId,
+    espacoNome,
+    oneOwnerPublicaAtivaEfetiva,
+    ownerUserId,
+    podeGerenciar,
+    previewImpressaoCard,
+    skinsUsername,
+  ]);
+
+  const alternarLeiturasQrPrint = useCallback(
+    async (printId = "") => {
+      const printIdNormalizado = String(printId || "").trim();
+      if (!printIdNormalizado) return;
+
+      const existente = qrPrintLeituras[printIdNormalizado];
+      if (existente?.aberto) {
+        setQrPrintLeituras((prev) => ({
+          ...prev,
+          [printIdNormalizado]: {
+            ...prev[printIdNormalizado],
+            aberto: false,
+          },
+        }));
+        return;
+      }
+
+      if (Array.isArray(existente?.itens)) {
+        setQrPrintLeituras((prev) => ({
+          ...prev,
+          [printIdNormalizado]: {
+            ...prev[printIdNormalizado],
+            aberto: true,
+          },
+        }));
+        return;
+      }
+
+      setQrPrintLeituras((prev) => ({
+        ...prev,
+        [printIdNormalizado]: {
+          aberto: true,
+          loading: true,
+          erro: "",
+          itens: [],
+        },
+      }));
+
+      try {
+        const leituras = await listarLeiturasQrPrint(printIdNormalizado);
+        setQrPrintLeituras((prev) => ({
+          ...prev,
+          [printIdNormalizado]: {
+            aberto: true,
+            loading: false,
+            erro: "",
+            itens: leituras,
+          },
+        }));
+      } catch (error) {
+        setQrPrintLeituras((prev) => ({
+          ...prev,
+          [printIdNormalizado]: {
+            aberto: true,
+            loading: false,
+            erro:
+              error?.code === "permission-denied"
+                ? "Sem permissao para carregar as leituras deste QR."
+                : error?.message || "Falha ao carregar leituras.",
+            itens: [],
+          },
+        }));
+      }
+    },
+    [qrPrintLeituras]
+  );
+
+  const alternarVisualizacaoImpressaoQr = useCallback((printId = "") => {
+    const printIdNormalizado = String(printId || "").trim();
+    if (!printIdNormalizado) return;
+
+    setPreviewImpressaoCard((prev) => ({
+      ...prev,
+      printSelecionadoId:
+        String(prev?.printSelecionadoId || "").trim() === printIdNormalizado
+          ? ""
+          : printIdNormalizado,
+    }));
+  }, []);
+
+  useEffect(() => {
+    if (!previewImpressaoCard.aberto || !previewImpressaoCard.card) {
+      setQrPrintsHistorico({ loading: false, erro: "", itens: [] });
+      setQrPrintLeituras({});
+      return;
+    }
+
+    if (!podeGerenciar) {
+      setQrPrintsHistorico({ loading: false, erro: "", itens: [] });
+      return;
+    }
+
+    carregarHistoricoQrPrintsCard({
+      bloco: previewImpressaoCard.bloco,
+      card: previewImpressaoCard.card,
+    });
+  }, [
+    carregarHistoricoQrPrintsCard,
+    podeGerenciar,
+    previewImpressaoCard.aberto,
+    previewImpressaoCard.bloco,
+    previewImpressaoCard.card,
+    previewImpressaoCard.printId,
+  ]);
+
+  const qrPrintSelecionadoParaImpressao = useMemo(
+    () =>
+      (Array.isArray(qrPrintsHistorico.itens) ? qrPrintsHistorico.itens : []).find(
+        (item) =>
+          String(item?.id || "").trim() ===
+          String(previewImpressaoCard?.printSelecionadoId || "").trim()
+      ) || null,
+    [previewImpressaoCard?.printSelecionadoId, qrPrintsHistorico.itens]
   );
 
   const fecharPreviewImpressaoCard = useCallback(() => {
@@ -5393,8 +5600,8 @@ export default function EspacoPage() {
                                       rota: rotaCardAtivo,
                                     })
                                   }
-                                  title="Gerar visualizacao de impressao"
-                                  aria-label="Gerar visualizacao de impressao"
+                                  title="Historico de Card Rastreaveis"
+                                  aria-label="Historico de Card Rastreaveis"
                                 >
                                   <CardActionIcon type="print" />
                                 </button>
@@ -6699,82 +6906,272 @@ export default function EspacoPage() {
           >
             <div className="card-print-preview-modal__header">
               <div>
-                <strong>Versao para impressao</strong>
+                <strong>Historico de Card Rastreaveis</strong>
                 <p>
-                  Frente com titulo fixo e verso solido com QR para a rota unica do card.
+                  Crie, acompanhe e selecione um card rastreavel para abrir a visualizacao de impressao.
                 </p>
               </div>
               <button
                 type="button"
                 className="card-print-preview-modal__close"
                 onClick={fecharPreviewImpressaoCard}
-                aria-label="Fechar visualizacao de impressao"
+                aria-label="Fechar historico de cards rastreaveis"
                 title="Fechar"
               >
                 <span className="card-print-preview-modal__close-icon" aria-hidden="true" />
               </button>
             </div>
 
-            <div className="card-print-preview-modal__grid">
-              <section className="card-print-preview-modal__section">
-                <h3>Frente</h3>
-                <div className="card-print-preview-front">
-                  <Card
-                    id={previewImpressaoCard.card.id}
-                    ownerUserId={ownerUserId}
-                    espacoId={espacoId}
-                    blocoId={previewImpressaoCard.bloco?.id || ""}
-                    addOnIds={normalizarAddOnIds(previewImpressaoCard.card.addOnIds)}
-                    addOnSubthemes={normalizarAddOnSubthemes(
-                      previewImpressaoCard.card.addOnSubthemes,
-                      previewImpressaoCard.card.addOnIds
-                    )}
-                    usaAddOnsGerenciador={
-                      previewImpressaoCard.card?.usaAddOnsGerenciador === true
-                    }
-                    addOns={previewImpressaoCard.addOns}
-                    nome={previewImpressaoCard.card.nome || "Card"}
-                    descricaoExtra=""
-                    nomeDescricao={previewImpressaoCard.card.nome || ""}
-                    descricao={previewImpressaoCard.card.descricao || ""}
-                    linkExterno={previewImpressaoCard.card.linkExterno || ""}
-                    imagem={previewImpressaoCard.imagem || "/logoNeon.png"}
-                    idNome={`card-print-front-${previewImpressaoCard.card.id}`}
-                    cardDescricaoDiv="cardDescricaoDiv"
-                    cardNome="cardNome"
-                    cardContainerDesktop="cardContainerDesktop"
-                    cardCabecalho="cardCabecalho"
-                    cardImagem="cardImagem"
-                    cardDescricao="cardDescricao"
-                    imgCard="imgCard"
-                  />
-                </div>
-              </section>
-
-              <section className="card-print-preview-modal__section">
-                <h3>Verso</h3>
-                <div className="card-print-preview-back">
-                  <span className="card-print-preview-back__circuit-map" aria-hidden="true" />
-                  <div className="card-print-preview-back__qr">
-                    <QRCodeImage
-                      value={previewImpressaoCard.urlQr || previewImpressaoCard.url}
-                      size={116}
-                      alt="QR code rastreavel da rota unica do card"
-                      className="card-print-preview-back__qr-image"
-                      color="var(--cyberpink-subtheme-card-surface-shadow)"
-                      bgColor="var(--cyberpink-subtheme-text)"
-                    />
+            {podeGerenciar ? (
+              <section className="card-print-history" aria-live="polite">
+                <div className="card-print-history__header">
+                  <div>
+                    <strong>Historico rastreavel do card</strong>
+                    <p>Crie QRs unicos para impressao e acompanhe as leituras deste card.</p>
                   </div>
-                  <span className="card-print-preview-back__track-label">
-                    {previewImpressaoCard.qrStatus === "gerando"
-                      ? "Gerando QR rastreavel..."
-                      : previewImpressaoCard.printId
-                        ? `QR rastreavel ${previewImpressaoCard.printId}`
-                        : "QR direto do card"}
-                  </span>
+                  <button
+                    type="button"
+                    className="card-print-history__button"
+                    onClick={() =>
+                      carregarHistoricoQrPrintsCard({
+                        bloco: previewImpressaoCard.bloco,
+                        card: previewImpressaoCard.card,
+                      })
+                    }
+                    disabled={qrPrintsHistorico.loading}
+                  >
+                    Atualizar
+                  </button>
+                </div>
+
+                <div className="card-print-history__creator">
+                  <label className="card-print-history__creator-field">
+                    <span>Descricao do registro</span>
+                    <textarea
+                      value={previewImpressaoCard.descricaoRegistro || ""}
+                      onChange={(event) =>
+                        setPreviewImpressaoCard((prev) => ({
+                          ...prev,
+                          descricaoRegistro: event.target.value,
+                        }))
+                      }
+                      rows={3}
+                      maxLength={240}
+                      placeholder="Ex.: impressao para processo seletivo front-end, feira de projetos, envio para cliente..."
+                    />
+                  </label>
+
+                  <div className="card-print-history__creator-actions">
+                    <button
+                      type="button"
+                      className="card-print-history__button"
+                      onClick={() => {
+                        void criarQrRastreavelPreviewImpressao();
+                      }}
+                      disabled={previewImpressaoCard.criandoQr}
+                    >
+                      {previewImpressaoCard.criandoQr
+                        ? "Criando QR..."
+                        : "Criar card QR"}
+                    </button>
+                    <span className="card-print-history__creator-current">
+                      {previewImpressaoCard.printId
+                        ? `QR atual: ${previewImpressaoCard.printId}`
+                        : "Ainda nao existe QR rastreavel criado nesta visualizacao."}
+                    </span>
+                  </div>
+
+                  {previewImpressaoCard.urlQr ? (
+                    <div className="card-print-history__creator-meta">
+                      <span>{`URL do QR: ${previewImpressaoCard.urlQr}`}</span>
+                    </div>
+                  ) : null}
+                </div>
+
+                {previewImpressaoCard.qrErro ? (
+                  <p className="card-print-history__error">{previewImpressaoCard.qrErro}</p>
+                ) : null}
+
+                {qrPrintsHistorico.loading ? (
+                  <p className="card-print-history__status">Carregando historico...</p>
+                ) : qrPrintsHistorico.erro ? (
+                  <p className="card-print-history__error">{qrPrintsHistorico.erro}</p>
+                ) : qrPrintsHistorico.itens.length ? (
+                  <div className="card-print-history__list">
+                    {qrPrintsHistorico.itens.map((print) => {
+                      const leituraState = qrPrintLeituras[print.id] || {};
+                      const leituras = Array.isArray(leituraState.itens)
+                        ? leituraState.itens
+                        : [];
+                      const totalLeituras = leituras.length || Number(print.totalLeituras || 0);
+
+                      return (
+                        <article className="card-print-history__item" key={print.id}>
+                          <div className="card-print-history__item-main">
+                            <strong>{print.cardNome || "Card impresso"}</strong>
+                            <span>{`Print: ${print.printId || print.id}`}</span>
+                            <span>{`Criado: ${formatarDataCurta(print.criadoEm)}`}</span>
+                            <span>{`Descricao: ${String(print.descricaoRegistro || "").trim() || "--"}`}</span>
+                            <span>{`URL QR: ${String(print.urlQr || "").trim() || "--"}`}</span>
+                            <span>{`Leituras: ${totalLeituras || "--"}`}</span>
+                          </div>
+                          <div className="card-print-history__item-actions">
+                            <button
+                              type="button"
+                              className="card-print-history__button"
+                              onClick={() => alternarVisualizacaoImpressaoQr(print.id)}
+                            >
+                              {String(previewImpressaoCard?.printSelecionadoId || "").trim() ===
+                              String(print.id || "").trim()
+                                ? "Ocultar impressao"
+                                : "Imprimir card"}
+                            </button>
+                            <button
+                              type="button"
+                              className="card-print-history__button"
+                              onClick={() => alternarLeiturasQrPrint(print.id)}
+                              disabled={leituraState.loading}
+                            >
+                              {leituraState.aberto ? "Ocultar" : "Ver leituras"}
+                            </button>
+                          </div>
+
+                          {leituraState.aberto ? (
+                            <div className="card-print-history__readings">
+                              {leituraState.loading ? (
+                                <p className="card-print-history__status">
+                                  Carregando leituras...
+                                </p>
+                              ) : leituraState.erro ? (
+                                <p className="card-print-history__error">
+                                  {leituraState.erro}
+                                </p>
+                              ) : leituras.length ? (
+                                leituras.map((leitura) => {
+                                  const localizacao = [
+                                    leitura.city || leitura.cidade,
+                                    leitura.uf || leitura.regionCode,
+                                    leitura.country,
+                                  ]
+                                    .map((item) => String(item || "").trim())
+                                    .filter(Boolean)
+                                    .join(" / ");
+                                  const identidade =
+                                    leitura.email ||
+                                    leitura.uid ||
+                                    leitura.hash ||
+                                    leitura.visitorHash ||
+                                    "--";
+
+                                  return (
+                                    <div
+                                      className="card-print-history__reading"
+                                      key={leitura.id}
+                                    >
+                                      <span>{`Data/Hora: ${formatarDataCurta(
+                                        leitura.data || leitura.criadoEm
+                                      )}`}</span>
+                                      <span>{`IP: ${leitura.ip || "--"}`}</span>
+                                      <span>{`Local: ${localizacao || "--"}`}</span>
+                                      <span>{`Identificacao: ${identidade}`}</span>
+                                      <span>{`Rota: ${leitura.fullPath || leitura.path || "--"}`}</span>
+                                    </div>
+                                  );
+                                })
+                              ) : (
+                                <p className="card-print-history__status">
+                                  Nenhuma leitura registrada para este QR ainda.
+                                </p>
+                              )}
+                            </div>
+                          ) : null}
+                        </article>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="card-print-history__status">
+                    Nenhum QR rastreavel encontrado para este card ainda.
+                  </p>
+                )}
+              </section>
+            ) : null}
+
+            {qrPrintSelecionadoParaImpressao ? (
+              <section className="card-print-preview-stage" aria-live="polite">
+                <div className="card-print-preview-stage__header">
+                  <div>
+                    <strong>Imprimir card</strong>
+                    <p>
+                      {`Visualizacao do rastreavel ${qrPrintSelecionadoParaImpressao.printId || qrPrintSelecionadoParaImpressao.id}.`}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="card-print-preview-modal__grid">
+                  <section className="card-print-preview-modal__section">
+                    <h3>Frente</h3>
+                    <div className="card-print-preview-front">
+                      <Card
+                        id={previewImpressaoCard.card.id}
+                        ownerUserId={ownerUserId}
+                        espacoId={espacoId}
+                        blocoId={previewImpressaoCard.bloco?.id || ""}
+                        addOnIds={normalizarAddOnIds(previewImpressaoCard.card.addOnIds)}
+                        addOnSubthemes={normalizarAddOnSubthemes(
+                          previewImpressaoCard.card.addOnSubthemes,
+                          previewImpressaoCard.card.addOnIds
+                        )}
+                        usaAddOnsGerenciador={
+                          previewImpressaoCard.card?.usaAddOnsGerenciador === true
+                        }
+                        addOns={previewImpressaoCard.addOns}
+                        nome={previewImpressaoCard.card.nome || "Card"}
+                        descricaoExtra=""
+                        nomeDescricao={previewImpressaoCard.card.nome || ""}
+                        descricao={previewImpressaoCard.card.descricao || ""}
+                        linkExterno={previewImpressaoCard.card.linkExterno || ""}
+                        imagem={previewImpressaoCard.imagem || "/logoNeon.png"}
+                        idNome={`card-print-front-${previewImpressaoCard.card.id}`}
+                        cardDescricaoDiv="cardDescricaoDiv"
+                        cardNome="cardNome"
+                        cardContainerDesktop="cardContainerDesktop"
+                        cardCabecalho="cardCabecalho"
+                        cardImagem="cardImagem"
+                        cardDescricao="cardDescricao"
+                        imgCard="imgCard"
+                      />
+                    </div>
+                  </section>
+
+                  <section className="card-print-preview-modal__section">
+                    <h3>Verso</h3>
+                    <div className="card-print-preview-back">
+                      <span className="card-print-preview-back__circuit-map" aria-hidden="true" />
+                      <div className="card-print-preview-back__qr">
+                        <QRCodeImage
+                          value={
+                            qrPrintSelecionadoParaImpressao.urlQr ||
+                            qrPrintSelecionadoParaImpressao.urlCard ||
+                            previewImpressaoCard.urlQr ||
+                            previewImpressaoCard.urlCard ||
+                            previewImpressaoCard.url
+                          }
+                          size={116}
+                          alt="QR code rastreavel da rota unica do card"
+                          className="card-print-preview-back__qr-image"
+                          color="var(--cyberpink-subtheme-card-surface-shadow)"
+                          bgColor="var(--cyberpink-subtheme-text)"
+                        />
+                      </div>
+                      <span className="card-print-preview-back__track-label">
+                        {`QR rastreavel ${qrPrintSelecionadoParaImpressao.printId || qrPrintSelecionadoParaImpressao.id}`}
+                      </span>
+                    </div>
+                  </section>
                 </div>
               </section>
-            </div>
+            ) : null}
           </div>
         </div>
       ) : null}
