@@ -98,6 +98,7 @@ import {
 } from "../Temas/cyberpink/subthemes";
 import { seforAdm } from "../../Scripts/verificacoes/verificaAdm";
 import { getEspacoCompleto } from "./firebaseEspacos";
+import { criarQrPrintCard } from "./qrPrintsApi";
 
 const getBlocosCollectionRefs = (ownerUserId, espacoId) =>
   getProjectCollectionCandidates(db, "users", ownerUserId, "espacos", espacoId, "blocos");
@@ -503,6 +504,13 @@ const criarEstadoPreviewImpressaoCard = (overrides = {}) => ({
   imagem: "",
   rota: "",
   url: "",
+  rotaCard: "",
+  urlCard: "",
+  rotaQr: "",
+  urlQr: "",
+  printId: "",
+  qrStatus: "",
+  qrErro: "",
   addOns: [],
   ...overrides,
 });
@@ -1555,10 +1563,22 @@ export default function EspacoPage() {
   }, []);
 
   const abrirPreviewImpressaoCard = useCallback(
-    ({ bloco = null, card = null, imagem = "", addOns = [], rota = "" } = {}) => {
+    async ({ bloco = null, card = null, imagem = "", addOns = [], rota = "" } = {}) => {
       if (!card) return;
       const rotaCard = String(rota || montarRotaCardDoBloco(bloco, card)).trim();
       const urlCard = montarUrlAbsolutaCard(rotaCard);
+      const blocoIdAtual = String(bloco?.id || "").trim();
+      const cardIdAtual = String(card?.id || "").trim();
+      const podeCriarQrRastreavel = Boolean(
+        podeGerenciar &&
+          ownerUserId &&
+          espacoId &&
+          blocoIdAtual &&
+          cardIdAtual &&
+          rotaCard &&
+          urlCard
+      );
+
       setPreviewImpressaoCard(
         criarEstadoPreviewImpressaoCard({
           aberto: true,
@@ -1568,10 +1588,72 @@ export default function EspacoPage() {
           addOns,
           rota: rotaCard,
           url: urlCard,
+          rotaCard,
+          urlCard,
+          qrStatus: podeCriarQrRastreavel ? "gerando" : "direto",
         })
       );
+
+      if (!podeCriarQrRastreavel) return;
+
+      try {
+        const qrPrint = await criarQrPrintCard({
+          ownerUserId,
+          espacoId,
+          espacoNome,
+          skinsUsername,
+          oneOwnerPublicaAtiva: oneOwnerPublicaAtivaEfetiva,
+          bloco,
+          card,
+          rotaCard,
+          urlCard,
+        });
+
+        setPreviewImpressaoCard((prev) => {
+          const mesmoCard =
+            prev?.aberto &&
+            String(prev?.card?.id || "") === cardIdAtual &&
+            String(prev?.bloco?.id || "") === blocoIdAtual;
+          if (!mesmoCard) return prev;
+
+          return {
+            ...prev,
+            rotaQr: qrPrint.rotaQr || "",
+            urlQr: qrPrint.urlQr || "",
+            printId: qrPrint.printId || "",
+            url: qrPrint.urlQr || prev.url,
+            qrStatus: qrPrint.printId ? "rastreavel" : "direto",
+            qrErro: "",
+          };
+        });
+      } catch (error) {
+        console.error("Erro ao criar QR rastreavel do card:", error);
+        setPreviewImpressaoCard((prev) => {
+          const mesmoCard =
+            prev?.aberto &&
+            String(prev?.card?.id || "") === cardIdAtual &&
+            String(prev?.bloco?.id || "") === blocoIdAtual;
+          if (!mesmoCard) return prev;
+
+          return {
+            ...prev,
+            qrStatus: "direto",
+            qrErro: "Nao foi possivel criar QR rastreavel. Usando rota direta do card.",
+            url: prev.urlCard || prev.url,
+          };
+        });
+      }
     },
-    [montarRotaCardDoBloco, montarUrlAbsolutaCard]
+    [
+      espacoId,
+      espacoNome,
+      montarRotaCardDoBloco,
+      montarUrlAbsolutaCard,
+      oneOwnerPublicaAtivaEfetiva,
+      ownerUserId,
+      podeGerenciar,
+      skinsUsername,
+    ]
   );
 
   const fecharPreviewImpressaoCard = useCallback(() => {
@@ -6214,8 +6296,14 @@ export default function EspacoPage() {
                   Ajuste titulo, descricao, imagem e link do card.
                 </p>
               </div>
-              <button type="button" onClick={fecharEditorCard}>
-                Fechar
+              <button
+                type="button"
+                className="card-editor-modal__close"
+                onClick={fecharEditorCard}
+                aria-label="Fechar editor de card"
+                title="Fechar"
+              >
+                <span className="card-editor-modal__close-icon" aria-hidden="true" />
               </button>
             </div>
 
@@ -6616,8 +6704,14 @@ export default function EspacoPage() {
                   Frente com titulo fixo e verso solido com QR para a rota unica do card.
                 </p>
               </div>
-              <button type="button" onClick={fecharPreviewImpressaoCard}>
-                Fechar
+              <button
+                type="button"
+                className="card-print-preview-modal__close"
+                onClick={fecharPreviewImpressaoCard}
+                aria-label="Fechar visualizacao de impressao"
+                title="Fechar"
+              >
+                <span className="card-print-preview-modal__close-icon" aria-hidden="true" />
               </button>
             </div>
 
@@ -6660,14 +6754,24 @@ export default function EspacoPage() {
               <section className="card-print-preview-modal__section">
                 <h3>Verso</h3>
                 <div className="card-print-preview-back">
+                  <span className="card-print-preview-back__circuit-map" aria-hidden="true" />
                   <div className="card-print-preview-back__qr">
                     <QRCodeImage
-                      value={previewImpressaoCard.url}
+                      value={previewImpressaoCard.urlQr || previewImpressaoCard.url}
                       size={116}
-                      alt="QR code da rota unica do card"
+                      alt="QR code rastreavel da rota unica do card"
                       className="card-print-preview-back__qr-image"
+                      color="var(--cyberpink-subtheme-card-surface-shadow)"
+                      bgColor="var(--cyberpink-subtheme-text)"
                     />
                   </div>
+                  <span className="card-print-preview-back__track-label">
+                    {previewImpressaoCard.qrStatus === "gerando"
+                      ? "Gerando QR rastreavel..."
+                      : previewImpressaoCard.printId
+                        ? `QR rastreavel ${previewImpressaoCard.printId}`
+                        : "QR direto do card"}
+                  </span>
                 </div>
               </section>
             </div>

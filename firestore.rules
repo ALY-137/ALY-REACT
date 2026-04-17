@@ -390,6 +390,85 @@ service cloud.firestore {
         (!('criadoPor' in data) || data.criadoPor == request.auth.uid);
     }
 
+    function canCreateQrPrintData(data) {
+      return signedIn() &&
+        (data.ownerUserId is string) &&
+        (data.espacoId is string) &&
+        (data.blocoId is string) &&
+        (data.cardId is string) &&
+        (data.criadoPor is string) &&
+        data.criadoPor == request.auth.uid &&
+        (
+          isAdmin() ||
+          isOwner(data.ownerUserId) ||
+          canManageEspacoByPath(data.ownerUserId, data.espacoId)
+        );
+    }
+
+    function canReadQrPrintData(data) {
+      return data.ativo == true ||
+        isAdmin() ||
+        (
+          (data.ownerUserId is string) &&
+          (data.espacoId is string) &&
+          canManageEspacoByPath(data.ownerUserId, data.espacoId)
+        );
+    }
+
+    function canManageQrPrintData(data) {
+      return isAdmin() ||
+        (
+          (data.ownerUserId is string) &&
+          (data.espacoId is string) &&
+          canManageEspacoByPath(data.ownerUserId, data.espacoId)
+        );
+    }
+
+    function canCreateQrPrintLeituraData(printId, printData, data) {
+      return printData.ativo == true &&
+        (data.printId is string) &&
+        data.printId == printId &&
+        (data.eventoTipo is string) &&
+        data.eventoTipo == "scan_qr";
+    }
+
+    function canCreateProjetoQrPrintData(projectKey, data) {
+      return signedIn() &&
+        (data.ownerUserId is string) &&
+        (data.espacoId is string) &&
+        (data.blocoId is string) &&
+        (data.cardId is string) &&
+        (data.criadoPor is string) &&
+        data.criadoPor == request.auth.uid &&
+        (
+          isAdmin() ||
+          isProjetoAdmin(projectKey) ||
+          isOwner(data.ownerUserId) ||
+          canManageProjetoEspacoByPath(projectKey, data.ownerUserId, data.espacoId)
+        );
+    }
+
+    function canReadProjetoQrPrintData(projectKey, data) {
+      return data.ativo == true ||
+        isAdmin() ||
+        isProjetoAdmin(projectKey) ||
+        (
+          (data.ownerUserId is string) &&
+          (data.espacoId is string) &&
+          canManageProjetoEspacoByPath(projectKey, data.ownerUserId, data.espacoId)
+        );
+    }
+
+    function canManageProjetoQrPrintData(projectKey, data) {
+      return isAdmin() ||
+        isProjetoAdmin(projectKey) ||
+        (
+          (data.ownerUserId is string) &&
+          (data.espacoId is string) &&
+          canManageProjetoEspacoByPath(projectKey, data.ownerUserId, data.espacoId)
+        );
+    }
+
     function canManageLegacyBloco(blocoId) {
       return exists(/databases/$(database)/documents/blocos/$(blocoId)) &&
         canManageBlocoData(get(/databases/$(database)/documents/blocos/$(blocoId)).data);
@@ -680,6 +759,25 @@ service cloud.firestore {
       allow read, update, delete: if isAdmin();
     }
 
+    match /qrPrints/{printId} {
+      allow get: if canReadQrPrintData(resource.data);
+      allow list: if isAdmin();
+      allow create: if canCreateQrPrintData(request.resource.data);
+      allow update, delete: if canManageQrPrintData(resource.data);
+
+      match /leituras/{leituraId} {
+        allow create: if exists(/databases/$(database)/documents/qrPrints/$(printId)) &&
+          canCreateQrPrintLeituraData(
+            printId,
+            get(/databases/$(database)/documents/qrPrints/$(printId)).data,
+            request.resource.data
+          );
+        allow get, list: if exists(/databases/$(database)/documents/qrPrints/$(printId)) &&
+          canManageQrPrintData(get(/databases/$(database)/documents/qrPrints/$(printId)).data);
+        allow update, delete: if isAdmin();
+      }
+    }
+
     match /add_ons/{addonId} {
       allow read: if true;
       allow create: if isAdmin() || (
@@ -790,6 +888,28 @@ service cloud.firestore {
           )
         );
         allow update, delete: if isAdmin() || isProjetoAdmin(projectKey);
+      }
+
+      match /qrPrints/{printId} {
+        allow get: if canReadProjetoQrPrintData(projectKey, resource.data);
+        allow list: if isAdmin() || isProjetoAdmin(projectKey);
+        allow create: if canCreateProjetoQrPrintData(projectKey, request.resource.data);
+        allow update, delete: if canManageProjetoQrPrintData(projectKey, resource.data);
+
+        match /leituras/{leituraId} {
+          allow create: if exists(/databases/$(database)/documents/projetos/$(projectKey)/qrPrints/$(printId)) &&
+            canCreateQrPrintLeituraData(
+              printId,
+              get(/databases/$(database)/documents/projetos/$(projectKey)/qrPrints/$(printId)).data,
+              request.resource.data
+            );
+          allow get, list: if exists(/databases/$(database)/documents/projetos/$(projectKey)/qrPrints/$(printId)) &&
+            canManageProjetoQrPrintData(
+              projectKey,
+              get(/databases/$(database)/documents/projetos/$(projectKey)/qrPrints/$(printId)).data
+            );
+          allow update, delete: if isAdmin() || isProjetoAdmin(projectKey);
+        }
       }
 
       match /users/{userId} {

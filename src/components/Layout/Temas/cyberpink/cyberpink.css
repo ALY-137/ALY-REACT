@@ -3214,11 +3214,11 @@ body.theme-cyberpink .cards-bloco-action-button svg {
 body.theme-cyberpink .cards-bloco-action-button:hover:not(:disabled),
 body.theme-cyberpink .cards-bloco-action-button:focus-visible {
   transform: translateX(2px);
-  border-color: var(--cyberpink-subtheme-text);
-  color: var(--cyberpink-subtheme-text-strong);
+  border-color: color-mix(in srgb, var(--cyberpink-subtheme-primary) 82%, var(--cyberpink-subtheme-text) 18%);
+  color: var(--cyberpink-subtheme-text);
   box-shadow:
-    0 0 14px color-mix(in srgb, var(--cyberpink-subtheme-soft) 75%, transparent),
-    inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 16%, transparent);
+    0 0 10px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 48%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 10%, transparent);
 }
 
 body.theme-cyberpink .cards-bloco-action-button:disabled {
@@ -3677,14 +3677,17 @@ body.theme-cyberpink .card-route-page__back-icon {
   display: block;
   fill: currentColor;
   filter:
-    drop-shadow(0 0 4px var(--cyberpink-subtheme-primary))
-    drop-shadow(0 0 10px var(--cyberpink-subtheme-card-glow));
+    drop-shadow(0 0 3px color-mix(in srgb, var(--cyberpink-subtheme-primary) 74%, transparent))
+    drop-shadow(0 0 6px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 58%, transparent));
 }
 
 body.theme-cyberpink .card-route-page__back:hover,
 body.theme-cyberpink .card-route-page__back:focus-visible {
-  border-color: var(--cyberpink-subtheme-text);
-  color: var(--cyberpink-subtheme-text-strong);
+  border-color: color-mix(in srgb, var(--cyberpink-subtheme-primary) 82%, var(--cyberpink-subtheme-text) 18%);
+  color: var(--cyberpink-subtheme-text);
+  box-shadow:
+    0 0 9px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 48%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 10%, transparent);
 }
 
 body.theme-cyberpink .card-route-page__stage {
@@ -3732,6 +3735,8 @@ body.theme-cyberpink .card-print-preview-modal {
 }
 
 body.theme-cyberpink .card-print-preview-modal__content {
+  position: relative;
+  isolation: isolate;
   width: min(96vw, 760px);
   max-height: 94vh;
   overflow: auto;
@@ -3746,7 +3751,44 @@ body.theme-cyberpink .card-print-preview-modal__content {
     inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 10%, transparent);
 }
 
+body.theme-cyberpink .card-print-preview-modal__content::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background: color-mix(
+    in srgb,
+    var(--cyberpink-subtheme-frame-stroke) 68%,
+    var(--cyberpink-subtheme-text) 32%
+  );
+  -webkit-mask-image:
+    url("./assets/cyberpink-simple-cut-thick.svg"),
+    url("./assets/cyberpink-simple-cut-thick.svg");
+  -webkit-mask-repeat: no-repeat, no-repeat;
+  -webkit-mask-size:
+    18px 18px,
+    18px 18px;
+  -webkit-mask-position:
+    left top,
+    right bottom;
+  mask-image:
+    url("./assets/cyberpink-simple-cut-thick.svg"),
+    url("./assets/cyberpink-simple-cut-thick.svg");
+  mask-repeat: no-repeat, no-repeat;
+  mask-size:
+    18px 18px,
+    18px 18px;
+  mask-position:
+    left top,
+    right bottom;
+  filter:
+    drop-shadow(0 0 6px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 82%, transparent));
+}
+
 body.theme-cyberpink .card-print-preview-modal__header {
+  position: relative;
+  z-index: 1;
   display: flex;
   justify-content: space-between;
   align-items: start;
@@ -3762,7 +3804,112 @@ body.theme-cyberpink .card-print-preview-modal__header p {
   line-height: 1.35;
 }
 
+body.theme-cyberpink .card-print-preview-modal__close,
+body.theme-cyberpink .card-editor-modal__close {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--cyberpink-subtheme-frame-stroke) 78%, transparent);
+  background: color-mix(in srgb, var(--cyberpink-subtheme-card-surface) 78%, black);
+  color: var(--cyberpink-subtheme-text);
+  cursor: pointer;
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 10%, transparent),
+    0 0 10px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 62%, transparent);
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+body.theme-cyberpink .card-print-preview-modal__close::before,
+body.theme-cyberpink .card-editor-modal__close::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: color-mix(
+    in srgb,
+    var(--cyberpink-subtheme-frame-stroke) 72%,
+    var(--cyberpink-subtheme-text) 28%
+  );
+  -webkit-mask-image:
+    var(--cyberpink-simple-cut-tl),
+    var(--cyberpink-simple-cut-br);
+  -webkit-mask-repeat: no-repeat, no-repeat;
+  -webkit-mask-size:
+    10px 10px,
+    10px 10px;
+  -webkit-mask-position:
+    left top,
+    right bottom;
+  mask-image:
+    var(--cyberpink-simple-cut-tl),
+    var(--cyberpink-simple-cut-br);
+  mask-repeat: no-repeat, no-repeat;
+  mask-size:
+    10px 10px,
+    10px 10px;
+  mask-position:
+    left top,
+    right bottom;
+}
+
+body.theme-cyberpink .card-print-preview-modal__close:hover,
+body.theme-cyberpink .card-print-preview-modal__close:focus-visible,
+body.theme-cyberpink .card-editor-modal__close:hover,
+body.theme-cyberpink .card-editor-modal__close:focus-visible {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--cyberpink-subtheme-frame-stroke) 82%, var(--cyberpink-subtheme-text) 18%);
+  outline: none;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 10%, transparent),
+    0 0 10px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 48%, transparent);
+}
+
+body.theme-cyberpink .card-print-preview-modal__close-icon,
+body.theme-cyberpink .card-editor-modal__close-icon {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  display: block;
+  filter:
+    drop-shadow(0 0 3px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 52%, transparent));
+}
+
+body.theme-cyberpink .card-print-preview-modal__close-icon::before,
+body.theme-cyberpink .card-print-preview-modal__close-icon::after,
+body.theme-cyberpink .card-editor-modal__close-icon::before,
+body.theme-cyberpink .card-editor-modal__close-icon::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 20px;
+  height: 2px;
+  background: currentColor;
+  transform-origin: center;
+}
+
+body.theme-cyberpink .card-print-preview-modal__close-icon::before,
+body.theme-cyberpink .card-editor-modal__close-icon::before {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+body.theme-cyberpink .card-print-preview-modal__close-icon::after,
+body.theme-cyberpink .card-editor-modal__close-icon::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+
 body.theme-cyberpink .card-print-preview-modal__grid {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
@@ -3820,30 +3967,15 @@ body.theme-cyberpink .card-print-preview-back {
   position: relative;
   isolation: isolate;
   width: 275px;
+  min-width: 275px;
+  max-width: 275px;
   height: 445px;
+  box-sizing: border-box;
   display: grid;
   place-items: center;
-  background:
-    radial-gradient(circle at 36px 58px, var(--cyberpink-print-circuit-color) 0 2px, transparent 2.4px),
-    radial-gradient(circle at 224px 70px, var(--cyberpink-print-circuit-color) 0 2px, transparent 2.4px),
-    radial-gradient(circle at 55px 350px, var(--cyberpink-print-circuit-soft) 0 1.7px, transparent 2.2px),
-    radial-gradient(circle at 220px 336px, var(--cyberpink-print-circuit-soft) 0 1.7px, transparent 2.2px),
-    linear-gradient(90deg, transparent 0 34px, var(--cyberpink-print-circuit-soft) 34px 36px, transparent 36px 128px, var(--cyberpink-print-circuit-soft) 128px 130px, transparent 130px 100%),
-    linear-gradient(0deg, transparent 0 54px, var(--cyberpink-print-circuit-soft) 54px 56px, transparent 56px 178px, var(--cyberpink-print-circuit-soft) 178px 180px, transparent 180px 100%),
-    linear-gradient(90deg, transparent 0 78px, var(--cyberpink-print-circuit-color) 78px 80px, transparent 80px 195px, var(--cyberpink-print-circuit-color) 195px 197px, transparent 197px 100%),
-    linear-gradient(0deg, transparent 0 112px, var(--cyberpink-print-circuit-color) 112px 114px, transparent 114px 303px, var(--cyberpink-print-circuit-color) 303px 305px, transparent 305px 100%),
-    var(--cyberpink-subtheme-card-surface);
+  background: var(--cyberpink-subtheme-card-surface);
   background-repeat: no-repeat;
-  background-size:
-    100% 100%,
-    100% 100%,
-    100% 100%,
-    100% 100%,
-    100% 100%,
-    100% 100%,
-    100% 100%,
-    100% 100%,
-    auto;
+  background-size: auto;
   border: 2px solid var(--cyberpink-subtheme-card-frame);
   clip-path: polygon(
     14px 0,
@@ -3858,6 +3990,29 @@ body.theme-cyberpink .card-print-preview-back {
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 10%, transparent),
     0 0 14px var(--cyberpink-subtheme-card-glow);
+}
+
+body.theme-cyberpink .card-print-preview-back__circuit-map {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: color-mix(
+    in srgb,
+    var(--cyberpink-subtheme-card-surface) 54%,
+    var(--cyberpink-subtheme-text) 46%
+  );
+  opacity: 0.86;
+  -webkit-mask-image: url("./assets/verso_card.svg");
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  -webkit-mask-position: center;
+  mask-image: url("./assets/verso_card.svg");
+  mask-repeat: no-repeat;
+  mask-size: 100% 100%;
+  mask-position: center;
+  filter:
+    drop-shadow(0 0 5px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 58%, transparent));
 }
 
 body.theme-cyberpink .card-print-preview-back::before,
@@ -3919,60 +4074,55 @@ body.theme-cyberpink .card-print-preview-back::after {
 
 body.theme-cyberpink .card-print-preview-back__qr {
   position: relative;
-  z-index: 2;
-  width: 138px;
-  height: 138px;
+  z-index: 3;
+  width: 116px;
+  height: 116px;
   display: grid;
   place-items: center;
-  padding: 13px;
-  overflow: hidden;
-  background:
-    radial-gradient(circle at 16px 18px, var(--cyberpink-print-circuit-color) 0 2px, transparent 2.4px),
-    radial-gradient(circle at calc(100% - 16px) 20px, var(--cyberpink-print-circuit-color) 0 2px, transparent 2.4px),
-    radial-gradient(circle at 20px calc(100% - 18px), var(--cyberpink-print-circuit-color) 0 2px, transparent 2.4px),
-    radial-gradient(circle at calc(100% - 18px) calc(100% - 16px), var(--cyberpink-print-circuit-color) 0 2px, transparent 2.4px),
-    color-mix(in srgb, var(--cyberpink-subtheme-card-surface-shadow) 72%, var(--cyberpink-subtheme-text) 28%);
-  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 22%, transparent),
-    inset 0 0 18px color-mix(in srgb, black 58%, transparent),
-    0 0 16px color-mix(in srgb, var(--cyberpink-subtheme-soft) 65%, transparent);
+  padding: 0;
+  overflow: visible;
+  background: transparent;
+  clip-path: none;
+  filter:
+    drop-shadow(0 0 9px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 76%, transparent))
+    drop-shadow(0 0 16px color-mix(in srgb, var(--cyberpink-subtheme-text) 28%, transparent));
+  box-shadow: none;
 }
 
 body.theme-cyberpink .card-print-preview-back__qr::before,
 body.theme-cyberpink .card-print-preview-back__qr::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-}
-
-body.theme-cyberpink .card-print-preview-back__qr::before {
-  background:
-    linear-gradient(90deg, transparent 0 9px, var(--cyberpink-print-circuit-color) 9px 11px, transparent 11px 42px, var(--cyberpink-print-circuit-color) 42px 44px, transparent 44px 94px, var(--cyberpink-print-circuit-color) 94px 96px, transparent 96px 100%),
-    linear-gradient(0deg, transparent 0 12px, var(--cyberpink-print-circuit-color) 12px 14px, transparent 14px 47px, var(--cyberpink-print-circuit-soft) 47px 49px, transparent 49px 96px, var(--cyberpink-print-circuit-color) 96px 98px, transparent 98px 100%);
-  opacity: 0.82;
-}
-
-body.theme-cyberpink .card-print-preview-back__qr::after {
-  inset: 7px;
-  border: 1px solid color-mix(in srgb, var(--cyberpink-subtheme-text) 28%, transparent);
-  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
-  box-shadow:
-    0 0 9px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 56%, transparent),
-    inset 0 0 0 1px color-mix(in srgb, black 36%, transparent);
+  content: none;
 }
 
 body.theme-cyberpink .card-print-preview-back__qr-image {
   position: relative;
-  z-index: 3;
+  z-index: 1;
   width: 116px;
   height: 116px;
   display: block;
   box-shadow:
-    0 0 0 2px color-mix(in srgb, var(--cyberpink-subtheme-card-surface) 72%, black),
-    0 0 12px color-mix(in srgb, var(--cyberpink-subtheme-text) 40%, transparent);
+    0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-card-surface-shadow) 74%, black),
+    0 0 13px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 62%, transparent);
+}
+
+body.theme-cyberpink .card-print-preview-back__track-label {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: 28px;
+  z-index: 3;
+  color: color-mix(in srgb, var(--cyberpink-subtheme-text) 82%, var(--cyberpink-subtheme-card-surface));
+  font-family: "DotGothic16", sans-serif;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-align: center;
+  text-transform: uppercase;
+  text-shadow:
+    0 0 3px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 56%, transparent),
+    0 0 8px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 32%, transparent);
+  opacity: 0.9;
+  pointer-events: none;
 }
 
 @media (max-width: 720px) {
@@ -5001,7 +5151,7 @@ body.theme-cyberpink .gavetaOption.highlight {
   background-color: transparent;
 }
 
-body.theme-cyberpink .menuContentArea button,
+body.theme-cyberpink .menuContentArea button:not(.card-editor-modal__close),
 body.theme-cyberpink .menuContentArea input,
 body.theme-cyberpink .menuContentArea select,
 body.theme-cyberpink .menuContentArea textarea {
@@ -5011,8 +5161,8 @@ body.theme-cyberpink .menuContentArea textarea {
   color: var(--cyberpink-text-main) !important;
 }
 
-body.theme-cyberpink .menuContentArea button:hover,
-body.theme-cyberpink .menuContentArea button:focus-visible,
+body.theme-cyberpink .menuContentArea button:not(.card-editor-modal__close):hover,
+body.theme-cyberpink .menuContentArea button:not(.card-editor-modal__close):focus-visible,
 body.theme-cyberpink .menuContentArea input:focus,
 body.theme-cyberpink .menuContentArea select:focus,
 body.theme-cyberpink .menuContentArea textarea:focus {
@@ -5021,7 +5171,7 @@ body.theme-cyberpink .menuContentArea textarea:focus {
   outline: none;
 }
 
-body.theme-cyberpink .menuContentArea button:disabled {
+body.theme-cyberpink .menuContentArea button:not(.card-editor-modal__close):disabled {
   opacity: 0.6;
 }
 
@@ -5069,6 +5219,87 @@ body.theme-cyberpink .menuContentArea .gerenciador-acessos__refresh:hover,
 body.theme-cyberpink .menuContentArea .gerenciador-acessos__more:hover,
 body.theme-cyberpink .menuContentArea .gerenciador-acessos__pagination button:hover:not(:disabled) {
   border-color: var(--cyberpink-subtheme-focus-border) !important;
+}
+
+body.theme-cyberpink .menuContentArea button:not(.gavetaOption):not(.image-zoom-trigger):not(.cards-bloco-action-button):not(.cards-bloco-thumb-edit):not(.cards-bloco-nav):not(.card-editor-modal__close),
+body.theme-cyberpink .loginCadastroButton {
+  position: relative;
+  isolation: isolate;
+  min-height: 34px;
+  display: inline-grid;
+  place-items: center;
+  padding: 7px 12px;
+  border-radius: 0 !important;
+  border: 1px solid color-mix(in srgb, var(--cyberpink-subtheme-frame-stroke) 76%, transparent) !important;
+  background: color-mix(in srgb, var(--cyberpink-subtheme-card-surface) 78%, black) !important;
+  color: var(--cyberpink-subtheme-text) !important;
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 10%, transparent),
+    0 0 10px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 48%, transparent) !important;
+  cursor: pointer;
+  font-family: "DotGothic16", sans-serif;
+  font-size: 12px;
+  line-height: 1.1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow:
+    0 0 1px var(--cyberpink-subtheme-primary),
+    0 0 3px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 42%, transparent);
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+body.theme-cyberpink .menuContentArea button:not(.gavetaOption):not(.image-zoom-trigger):not(.cards-bloco-action-button):not(.cards-bloco-thumb-edit):not(.cards-bloco-nav):not(.card-editor-modal__close)::after,
+body.theme-cyberpink .loginCadastroButton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: color-mix(
+    in srgb,
+    var(--cyberpink-subtheme-frame-stroke) 72%,
+    var(--cyberpink-subtheme-text) 28%
+  );
+  -webkit-mask-image:
+    var(--cyberpink-simple-cut-tl),
+    var(--cyberpink-simple-cut-br);
+  -webkit-mask-repeat: no-repeat, no-repeat;
+  -webkit-mask-size:
+    10px 10px,
+    10px 10px;
+  -webkit-mask-position:
+    left top,
+    right bottom;
+  mask-image:
+    var(--cyberpink-simple-cut-tl),
+    var(--cyberpink-simple-cut-br);
+  mask-repeat: no-repeat, no-repeat;
+  mask-size:
+    10px 10px,
+    10px 10px;
+  mask-position:
+    left top,
+    right bottom;
+  filter:
+    drop-shadow(0 0 2px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 42%, transparent));
+}
+
+body.theme-cyberpink .menuContentArea button:not(.gavetaOption):not(.image-zoom-trigger):not(.cards-bloco-action-button):not(.cards-bloco-thumb-edit):not(.cards-bloco-nav):not(.card-editor-modal__close):hover:not(:disabled),
+body.theme-cyberpink .menuContentArea button:not(.gavetaOption):not(.image-zoom-trigger):not(.cards-bloco-action-button):not(.cards-bloco-thumb-edit):not(.cards-bloco-nav):not(.card-editor-modal__close):focus-visible,
+body.theme-cyberpink .loginCadastroButton:hover:not(:disabled),
+body.theme-cyberpink .loginCadastroButton:focus-visible {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--cyberpink-subtheme-frame-stroke) 82%, var(--cyberpink-subtheme-text) 18%) !important;
+  color: var(--cyberpink-subtheme-text) !important;
+  outline: none;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 10%, transparent),
+    0 0 10px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 48%, transparent) !important;
 }
 
 body.theme-cyberpink .loginCadastroInput,

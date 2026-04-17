@@ -30,3 +30,6 @@ yarn-error.log*
 firebase-debug.log
 
 .vercel
+
+# documentos locais de trabalhos e aulas
+docs/seguranca-auditoria-ti-qrcode-rastreavel.md
