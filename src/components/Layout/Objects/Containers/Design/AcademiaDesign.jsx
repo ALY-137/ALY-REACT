@@ -16,10 +16,10 @@ function AcademiaDesign(){
         <div className="containerDesign" >
 
         <EstiloContainerTop tituloDesign='ACADEMIA' icon='./design/academiaDesign.png'/>
-        
-            
-        <Card 
-            nome='DESIGN GRÁFICO' 
+
+
+        <Card
+            nome='DESIGN GRÁFICO'
             nomeDescricao='POA RS'
             idNome='DESIGNGRAFICO'
             descricao={(
@@ -28,22 +28,22 @@ function AcademiaDesign(){
                     <br /><br />
                      Após a conclusão do curso, dei um passo além e coloquei meus conhecimentos em prática ao realizar meu primeiro projeto de diagramação de um livro utilizando o InDesign. Esta experiência não só consolidou o que aprendi no curso, mas também me proporcionou um grande aprendizado prático."
                 </>
-            )}   
+            )}
             data='2017'
             atividade='CURSO'
             criador='SAVANNA OLIVEIRA'
             imagem='./design/designgrafico.png'
 
 
-            cardDescricaoDiv='cardDescricaoDivDesign' 
-            cardNome='cardNomeDesign' 
-            cardContainerDesktop='cardContainerDesktopDesign' 
-            cardCabecalho='cardCabecalhoDesign' 
-            cardImagem='cardImagemDesign' 
-            cardDescricao='cardDescricaoDesign'
-            checkboxhab='checkBoxHabDesign'
-            imgCard='imgCardDesign'
-            
+            cardDescricaoDiv='cardDescricaoDiv'
+            cardNome='cardNome'
+            cardContainerDesktop='cardContainerDesktop'
+            cardCabecalho='cardCabecalho'
+            cardImagem='cardImagem'
+            cardDescricao='cardDescricao'
+            checkboxhab='checkBoxHab'
+            imgCard='imgCard'
+
             //Icones Ativos
             classStatusPS='checkIconAtivo'
             classStatusAI='checkIconAtivo'

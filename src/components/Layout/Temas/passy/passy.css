@@ -277,7 +277,7 @@ body.theme-passy .espaco-restricao-balao {
 
 body.theme-passy .espaco-restricao-balao-ponteiro {
   border-left: 1px solid #ffa2b9;
-  
+
   border-bottom: 1px solid #ffa2b9;
   background: linear-gradient(180deg, #f3dfdf, #ffd4e9);
 }
@@ -526,7 +526,7 @@ body.theme-passy .buttonExcluirForm {
   letter-spacing: 0.05em;
   text-transform: uppercase;
 
-  
+
 }
 
 body.theme-passy button:hover,
@@ -558,30 +558,18 @@ body.theme-passy .bloco-container__title {
   letter-spacing: 0.06em;
 }
 
-body.theme-passy .cardContainerDesktopDev,
-body.theme-passy .cardContainerDesktopHome,
-body.theme-passy .cardContainerDesktopDesign {
+body.theme-passy .cardContainerDesktop {
   border-radius: 14px;
   border: 1px solid rgba(94, 137, 255, 0.3);
   background: linear-gradient(170deg, #ffaaca, #ffffff);
   overflow: hidden;
 }
 
-body.theme-passy .cardCabecalhoDev,
-body.theme-passy .cardCabecalhoHome,
-body.theme-passy .cardCabecalhoDesign,
-body.theme-passy .cardImagemDev,
-body.theme-passy .cardImagemHome,
-body.theme-passy .cardImagemDesign,
-body.theme-passy .cardDescricaoDev,
-body.theme-passy .cardDescricaoHome,
-body.theme-passy .cardDescricaoDesign,
-body.theme-passy .cardDescricaoDivDev,
-body.theme-passy .cardDescricaoDivHome,
-body.theme-passy .cardDescricaoDivDesign,
-body.theme-passy .cardNomeDev,
-body.theme-passy .cardNomeHome,
-body.theme-passy .cardNomeDesign {
+body.theme-passy .cardCabecalho,
+body.theme-passy .cardImagem,
+body.theme-passy .cardDescricao,
+body.theme-passy .cardDescricaoDiv,
+body.theme-passy .cardNome {
   border-color: rgba(94, 137, 255, 0.35);
   color: var(--passy-text);
 }
@@ -662,7 +650,3 @@ body.theme-passy .txtDescricao {
   color: #ff3694;
   font-family: "Space Grotesk", "Manrope", sans-serif;
 }
-
-
-
-

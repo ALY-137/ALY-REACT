@@ -94,6 +94,15 @@ function Card({
 }) {
   const cardRef = useRef(null);
   const [addOns, setAddOns] = useState([]);
+  const cardContainerClassName = useMemo(() => {
+    const classes = String(cardContainerDesktop || "")
+      .split(/\s+/)
+      .map((classe) => classe.trim())
+      .filter(Boolean)
+      .filter((classe) => !/^cardContainerDesktop(?:Home|Dev|Design)$/.test(classe));
+
+    return Array.from(new Set(["cardContainerDesktop", ...classes])).join(" ");
+  }, [cardContainerDesktop]);
   const addOnIdsNormalizados = useMemo(() => normalizarAddOnIds(addOnIds), [addOnIds]);
   const addOnSubthemesNormalizados = useMemo(
     () => normalizarAddOnSubthemes(addOnSubthemes, addOnIdsNormalizados),
@@ -219,7 +228,8 @@ function Card({
   ]);
 
   return (
-    <div id={idNome} ref={cardRef} className={cardContainerDesktop}>
+    <div id={idNome} ref={cardRef} className={cardContainerClassName}>
+      <span className="cyberpink-card-top-rail" aria-hidden="true" />
       <div className={cardCabecalho}>
         <div className="cardTituloPanel">
           <p className={cardNome}>

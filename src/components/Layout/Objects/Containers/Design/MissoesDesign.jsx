@@ -13,12 +13,12 @@ function MissoesDesign(){
         return(
 
             <div className="containerDesign" >
-    
+
             <EstiloContainerTop tituloDesign='MISSÕES' icon='./design/missoesDesign.png'/>
-            
-                
-            <Card 
-                nome='HELL MANS' 
+
+
+            <Card
+                nome='HELL MANS'
                 nomeDescricao='HELL MANS'
                 idNome='HELLMANS'
                 descricao='Criação da marca do time brasileiro de eSports HELL MANS.'
@@ -28,27 +28,27 @@ function MissoesDesign(){
                 imagem='./design/hellmans.png'
 
 
-                cardDescricaoDiv='cardDescricaoDivDesign' 
-                cardNome='cardNomeDesign' 
-                cardContainerDesktop='cardContainerDesktopDesign' 
-                cardCabecalho='cardCabecalhoDesign' 
-                cardImagem='cardImagemDesign' 
-                cardDescricao='cardDescricaoDesign'
-                checkboxhab='checkBoxHabDesign'
-                imgCard='imgCardDesign'
-                
+                cardDescricaoDiv='cardDescricaoDiv'
+                cardNome='cardNome'
+                cardContainerDesktop='cardContainerDesktop'
+                cardCabecalho='cardCabecalho'
+                cardImagem='cardImagem'
+                cardDescricao='cardDescricao'
+                checkboxhab='checkBoxHab'
+                imgCard='imgCard'
+
 
                 classStatusPS='checkIconAtivo'
                 classStatusAI='checkIconAtivo'
-                
+
             />
 
             <EstiloContainerBot />
-    
-    
-    
+
+
+
             </div>
-    
+
             )
 
     }

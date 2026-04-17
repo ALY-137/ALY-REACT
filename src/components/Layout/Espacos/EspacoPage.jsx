@@ -89,6 +89,7 @@ import {
   parseIconSelectionValue,
 } from "../Sistema/iconCollectionsUtils";
 import { solicitarSolicitacaoPixManualBloco } from "../Pagamentos/mercadoPagoApi";
+import QRCodeImage from "../../Funcionalidades/QRCode/QRCodeImage";
 import {
   CYBERPINK_SUBTHEMES,
   getCyberpinkSubthemeIconColor,
@@ -435,6 +436,37 @@ const PLACEHOLDER_HOME_CONTENT = "conteudo da pagina principal";
 const capitalizar = (texto = "") =>
   texto ? texto.charAt(0).toUpperCase() + texto.slice(1) : "";
 
+const encodeRouteSegment = (value = "") => encodeURIComponent(String(value || "").trim());
+
+function CardActionIcon({ type }) {
+  if (type === "eye") {
+    return (
+      <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+        <path d="M3.5 16s4.8-8 12.5-8 12.5 8 12.5 8-4.8 8-12.5 8S3.5 16 3.5 16Z" />
+        <circle cx="16" cy="16" r="4.2" />
+      </svg>
+    );
+  }
+
+  if (type === "gear") {
+    return (
+      <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+        <path d="M18.8 3.5 19.7 7a10.8 10.8 0 0 1 2.2.9l3-1.8 2.4 4.1-2.8 2.3c.1.6.2 1.2.2 1.9s-.1 1.3-.2 1.9l2.8 2.3-2.4 4.1-3-1.8c-.7.4-1.4.7-2.2.9l-.9 3.5h-5.6l-.9-3.5a10.8 10.8 0 0 1-2.2-.9l-3 1.8-2.4-4.1 2.8-2.3a11 11 0 0 1-.2-1.9c0-.7.1-1.3.2-1.9L4.7 10.2l2.4-4.1 3 1.8c.7-.4 1.4-.7 2.2-.9l.9-3.5h5.6Z" />
+        <circle cx="16" cy="16" r="4.6" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+      <path d="M8 3.5h11l5 5V28H8V3.5Z" />
+      <path d="M19 3.5V9h5" />
+      <path d="M11 20h10M11 23h7" />
+      <path d="M11 12h10v5H11z" />
+    </svg>
+  );
+}
+
 const criarEstadoEditorCard = (overrides = {}) => ({
   aberto: false,
   bloco: null,
@@ -461,6 +493,17 @@ const criarEstadoEditorBlocoCards = (overrides = {}) => ({
   titulo: "",
   icone: "",
   iconeSelecao: "",
+  ...overrides,
+});
+
+const criarEstadoPreviewImpressaoCard = (overrides = {}) => ({
+  aberto: false,
+  bloco: null,
+  card: null,
+  imagem: "",
+  rota: "",
+  url: "",
+  addOns: [],
   ...overrides,
 });
 
@@ -694,7 +737,7 @@ async function gerarPreviewDesfocado(file) {
 export default function EspacoPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { espacoNome } = useParams();
+  const { skinsUsername, espacoNome } = useParams();
   const {
     espacos,
     skinIdAtual,
@@ -795,6 +838,9 @@ export default function EspacoPage() {
     titulo: "",
     alt: "Imagem ampliada",
   });
+  const [previewImpressaoCard, setPreviewImpressaoCard] = useState(() =>
+    criarEstadoPreviewImpressaoCard()
+  );
   const [editorCardModal, setEditorCardModal] = useState(() => criarEstadoEditorCard());
   const [editorBlocoCardsModal, setEditorBlocoCardsModal] = useState(() =>
     criarEstadoEditorBlocoCards()
@@ -1481,6 +1527,57 @@ export default function EspacoPage() {
     setBuscaAddOnEditor("");
   }, []);
 
+  const montarRotaCardDoBloco = useCallback(
+    (bloco = {}, card = {}) => {
+      const blocoIdRota = encodeRouteSegment(bloco?.id || "");
+      const cardIdRota = encodeRouteSegment(card?.id || "");
+      const espacoNomeRota = encodeRouteSegment(espacoNome || "");
+      const skinsUsernameRota = encodeRouteSegment(skinsUsername || "");
+
+      if (!blocoIdRota || !cardIdRota || !espacoNomeRota) return "";
+      if (oneOwnerPublicaAtivaEfetiva) {
+        return `/${espacoNomeRota}/card/${blocoIdRota}/${cardIdRota}`;
+      }
+      if (!skinsUsernameRota) return "";
+      return `/${skinsUsernameRota}/${espacoNomeRota}/card/${blocoIdRota}/${cardIdRota}`;
+    },
+    [espacoNome, oneOwnerPublicaAtivaEfetiva, skinsUsername]
+  );
+
+  const montarUrlAbsolutaCard = useCallback((rota = "") => {
+    const rotaNormalizada = String(rota || "").trim();
+    if (!rotaNormalizada) return "";
+    try {
+      return new URL(rotaNormalizada, window.location.origin).href;
+    } catch {
+      return rotaNormalizada;
+    }
+  }, []);
+
+  const abrirPreviewImpressaoCard = useCallback(
+    ({ bloco = null, card = null, imagem = "", addOns = [], rota = "" } = {}) => {
+      if (!card) return;
+      const rotaCard = String(rota || montarRotaCardDoBloco(bloco, card)).trim();
+      const urlCard = montarUrlAbsolutaCard(rotaCard);
+      setPreviewImpressaoCard(
+        criarEstadoPreviewImpressaoCard({
+          aberto: true,
+          bloco,
+          card,
+          imagem,
+          addOns,
+          rota: rotaCard,
+          url: urlCard,
+        })
+      );
+    },
+    [montarRotaCardDoBloco, montarUrlAbsolutaCard]
+  );
+
+  const fecharPreviewImpressaoCard = useCallback(() => {
+    setPreviewImpressaoCard(criarEstadoPreviewImpressaoCard());
+  }, []);
+
   const abrirEditorBlocoCards = useCallback((bloco = null) => {
     setErroAcaoBloco("");
     setBuscaAddOnEditor("");
@@ -1641,6 +1738,25 @@ export default function EspacoPage() {
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [imagemModal.aberto]);
+
+  useEffect(() => {
+    if (!previewImpressaoCard.aberto) return undefined;
+
+    const overflowAnterior = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        fecharPreviewImpressaoCard();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = overflowAnterior;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [fecharPreviewImpressaoCard, previewImpressaoCard.aberto]);
 
   useEffect(() => {
     if (!editorCardModal.aberto) return undefined;
@@ -5021,6 +5137,10 @@ export default function EspacoPage() {
                         const imagemCardFinal = isRenderableUrl(cardAtivo.imagem)
                           ? cardAtivo.imagem
                           : imagemCardResolvida || "/logoNeon.png";
+                        const addOnsCardAtivo = normalizarAddOnIds(cardAtivo.addOnIds)
+                          .map((addOnId) => addOnsDisponiveisProjetoPorId[addOnId])
+                          .filter(Boolean);
+                        const rotaCardAtivo = montarRotaCardDoBloco(bloco, cardAtivo);
                         const estadoArrasteAtual = cardArrastePorBloco?.[bloco.id] || {};
                         const deslocamentoArraste = Number(estadoArrasteAtual.deltaX) || 0;
                         const arrasteAtivo = Boolean(estadoArrasteAtual.dragging);
@@ -5120,9 +5240,7 @@ export default function EspacoPage() {
                                       cardAtivo.addOnIds
                                     )}
                                     usaAddOnsGerenciador={cardAtivo?.usaAddOnsGerenciador === true}
-                                    addOns={normalizarAddOnIds(cardAtivo.addOnIds)
-                                      .map((addOnId) => addOnsDisponiveisProjetoPorId[addOnId])
-                                      .filter(Boolean)}
+                                    addOns={addOnsCardAtivo}
                                     nome={cardAtivo.nome || `Card ${indiceCardAtivo + 1}`}
                                     descricaoExtra={cardAtivo.descricaoExtra || ""}
                                     nomeDescricao={cardAtivo.nome || ""}
@@ -5130,13 +5248,13 @@ export default function EspacoPage() {
                                     linkExterno={cardAtivo.linkExterno || ""}
                                     imagem={imagemCardFinal}
                                     idNome={`${bloco.id}-card-${indiceCardAtivo}`}
-                                    cardDescricaoDiv="cardDescricaoDivHome"
-                                    cardNome="cardNomeHome"
-                                    cardContainerDesktop="cardContainerDesktopHome"
-                                    cardCabecalho="cardCabecalhoHome"
-                                    cardImagem="cardImagemHome"
-                                    cardDescricao="cardDescricaoHome"
-                                    imgCard="imgCardHome"
+                                    cardDescricaoDiv="cardDescricaoDiv"
+                                    cardNome="cardNome"
+                                    cardContainerDesktop="cardContainerDesktop"
+                                    cardCabecalho="cardCabecalho"
+                                    cardImagem="cardImagem"
+                                    cardDescricao="cardDescricao"
+                                    imgCard="imgCard"
                                     onImagemClick={(imagemUrl) =>
                                       abrirModalImagem({
                                         url: imagemUrl,
@@ -5147,6 +5265,57 @@ export default function EspacoPage() {
                                     }
                                   />
                                 </div>
+                              </div>
+
+                              <div className="cards-bloco-actions" aria-label="Acoes do card">
+                                <button
+                                  type="button"
+                                  className="cards-bloco-action-button"
+                                  onClick={() => {
+                                    if (rotaCardAtivo) navigate(rotaCardAtivo);
+                                  }}
+                                  disabled={!rotaCardAtivo}
+                                  title="Ver card ampliado"
+                                  aria-label="Ver card ampliado"
+                                >
+                                  <CardActionIcon type="eye" />
+                                </button>
+
+                                {podeGerenciar ? (
+                                  <button
+                                    type="button"
+                                    className="cards-bloco-action-button"
+                                    onClick={() => {
+                                      abrirEditorCardDoBloco(bloco, cardAtivo);
+                                    }}
+                                    disabled={
+                                      cardEmAtualizacaoId ===
+                                      `${bloco.id}:${cardAtivo.id || indiceCardAtivo}`
+                                    }
+                                    title="Editar card"
+                                    aria-label="Editar card"
+                                  >
+                                    <CardActionIcon type="gear" />
+                                  </button>
+                                ) : null}
+
+                                <button
+                                  type="button"
+                                  className="cards-bloco-action-button"
+                                  onClick={() =>
+                                    abrirPreviewImpressaoCard({
+                                      bloco,
+                                      card: cardAtivo,
+                                      imagem: imagemCardFinal,
+                                      addOns: addOnsCardAtivo,
+                                      rota: rotaCardAtivo,
+                                    })
+                                  }
+                                  title="Gerar visualizacao de impressao"
+                                  aria-label="Gerar visualizacao de impressao"
+                                >
+                                  <CardActionIcon type="print" />
+                                </button>
                               </div>
 
                               {cardsDoBloco.length > 1 ? (
@@ -5184,7 +5353,6 @@ export default function EspacoPage() {
                               ? card.imagem
                               : imagemCardResolvida || "/logoNeon.png";
                             const ativo = cardIndex === indiceCardAtivo;
-                            const cardThumbKey = `${bloco.id}:${card.id || cardIndex}`;
                             return (
                               <div
                                 key={`${bloco.id}-thumb-${card.id || cardIndex}`}
@@ -5211,44 +5379,10 @@ export default function EspacoPage() {
                                     </span>
                                   </span>
                                 </button>
-
-                                {ativo && podeGerenciar ? (
-                                  <button
-                                    type="button"
-                                    className="cards-bloco-thumb-edit"
-                                    onClick={() => {
-                                      abrirEditorCardDoBloco(bloco, card);
-                                    }}
-                                    disabled={cardEmAtualizacaoId === cardThumbKey}
-                                  >
-                                    {cardEmAtualizacaoId === cardThumbKey
-                                      ? "Salvando..."
-                                      : "Editar"}
-                                  </button>
-                                ) : null}
                               </div>
                             );
                           })}
                         </div>
-                      ) : null}
-
-                      {cardAtivo && podeGerenciar && cardsDoBloco.length <= 1 ? (
-                        <button
-                          type="button"
-                          className="cards-bloco-thumb-edit cards-bloco-thumb-edit--solo"
-                          onClick={() => {
-                            abrirEditorCardDoBloco(bloco, cardAtivo);
-                          }}
-                          disabled={
-                            cardEmAtualizacaoId ===
-                            `${bloco.id}:${cardAtivo.id || indiceCardAtivo}`
-                          }
-                        >
-                          {cardEmAtualizacaoId ===
-                          `${bloco.id}:${cardAtivo.id || indiceCardAtivo}`
-                            ? "Salvando..."
-                            : "Editar"}
-                        </button>
                       ) : null}
                     </div>
                   ) : null}
@@ -6464,6 +6598,83 @@ export default function EspacoPage() {
         </div>
       ) : null}
 
+      {previewImpressaoCard.aberto && previewImpressaoCard.card ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="card-print-preview-modal"
+          onClick={fecharPreviewImpressaoCard}
+        >
+          <div
+            className="card-print-preview-modal__content"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="card-print-preview-modal__header">
+              <div>
+                <strong>Versao para impressao</strong>
+                <p>
+                  Frente com titulo fixo e verso solido com QR para a rota unica do card.
+                </p>
+              </div>
+              <button type="button" onClick={fecharPreviewImpressaoCard}>
+                Fechar
+              </button>
+            </div>
+
+            <div className="card-print-preview-modal__grid">
+              <section className="card-print-preview-modal__section">
+                <h3>Frente</h3>
+                <div className="card-print-preview-front">
+                  <Card
+                    id={previewImpressaoCard.card.id}
+                    ownerUserId={ownerUserId}
+                    espacoId={espacoId}
+                    blocoId={previewImpressaoCard.bloco?.id || ""}
+                    addOnIds={normalizarAddOnIds(previewImpressaoCard.card.addOnIds)}
+                    addOnSubthemes={normalizarAddOnSubthemes(
+                      previewImpressaoCard.card.addOnSubthemes,
+                      previewImpressaoCard.card.addOnIds
+                    )}
+                    usaAddOnsGerenciador={
+                      previewImpressaoCard.card?.usaAddOnsGerenciador === true
+                    }
+                    addOns={previewImpressaoCard.addOns}
+                    nome={previewImpressaoCard.card.nome || "Card"}
+                    descricaoExtra=""
+                    nomeDescricao={previewImpressaoCard.card.nome || ""}
+                    descricao={previewImpressaoCard.card.descricao || ""}
+                    linkExterno={previewImpressaoCard.card.linkExterno || ""}
+                    imagem={previewImpressaoCard.imagem || "/logoNeon.png"}
+                    idNome={`card-print-front-${previewImpressaoCard.card.id}`}
+                    cardDescricaoDiv="cardDescricaoDiv"
+                    cardNome="cardNome"
+                    cardContainerDesktop="cardContainerDesktop"
+                    cardCabecalho="cardCabecalho"
+                    cardImagem="cardImagem"
+                    cardDescricao="cardDescricao"
+                    imgCard="imgCard"
+                  />
+                </div>
+              </section>
+
+              <section className="card-print-preview-modal__section">
+                <h3>Verso</h3>
+                <div className="card-print-preview-back">
+                  <div className="card-print-preview-back__qr">
+                    <QRCodeImage
+                      value={previewImpressaoCard.url}
+                      size={116}
+                      alt="QR code da rota unica do card"
+                      className="card-print-preview-back__qr-image"
+                    />
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {imagemModal.aberto && imagemModal.url ? (
         <div
           role="dialog"
@@ -6520,6 +6731,3 @@ export default function EspacoPage() {
     </div>
   );
 }
-
-
-

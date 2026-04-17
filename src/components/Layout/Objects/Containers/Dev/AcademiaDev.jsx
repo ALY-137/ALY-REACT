@@ -13,12 +13,12 @@ function AcademiaDev(){
         return(
 
             <div className="containerDev" >
-    
+
             <EstiloContainerTop tituloDev='ACADEMIA' icon='./dev/academiaDev.png'/>
-            
-                
-            <Card 
-                nome='SISTEMAS PARA INTERNET' 
+
+
+            <Card
+                nome='SISTEMAS PARA INTERNET'
                 nomeDescricao='IFRS'
                 idNome='SISTEMASPARAINTERNET'
                 descricao={(
@@ -50,22 +50,22 @@ function AcademiaDev(){
                         Este curso está me preparando para enfrentar os desafios do mercado de trabalho, capacitando-me a criar soluções inovadoras e eficientes no desenvolvimento de aplicações web. Com um enfoque prático e atualizado, estou sendo incentivado a desenvolver projetos que integram teoria e prática, proporcionando uma formação completa e alinhada com as demandas atuais da indústria."
                     </>
                 )}
-                
+
                 data={'ATUAL'}
                 atividade='GRADUAÇÃO'
                 criador='SAVANNA OLIVEIRA'
                 imagem='./dev/sistemas.png'
-                
 
-                cardDescricaoDiv='cardDescricaoDivDev' 
-                cardNome='cardNomeDev' 
-                cardContainerDesktop='cardContainerDesktopDev' 
-                cardCabecalho='cardCabecalhoDev' 
-                cardImagem='cardImagemDev' 
-                cardDescricao='cardDescricaoDev'
-                imgCard='imgCardDev'
-                
-                
+
+                cardDescricaoDiv='cardDescricaoDiv'
+                cardNome='cardNome'
+                cardContainerDesktop='cardContainerDesktop'
+                cardCabecalho='cardCabecalho'
+                cardImagem='cardImagem'
+                cardDescricao='cardDescricao'
+                imgCard='imgCard'
+
+
                 classStatusC='checkIconAtivo'
                 classStatusIFRS='checkIconAtivo'
                 classStatusJAVA='checkIconAtivo'
@@ -73,13 +73,13 @@ function AcademiaDev(){
 
 
                 />
-   
+
 
             <EstiloContainerBot />
-    
+
 
             </div>
-    
+
             )
 
     }

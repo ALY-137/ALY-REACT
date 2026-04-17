@@ -13,19 +13,19 @@ body.theme-cyberpink .optionsAbas{
     text-align: center;
     text-decoration: none;
     color: #a353ff;
-    font-family: 'Special Elite', cursive;  
+    font-family: 'Special Elite', cursive;
     font-size: 15px;
   }
-  
+
 body.theme-cyberpink .optionsAbasFoco{
     height: 40px;
     width: 50%;
     border: 1px solid #7e0eff;
     margin: auto;
-    z-index: 25;  
+    z-index: 25;
     transition: all ease 1,5s;
     background-color: #050035;
-    font-family: 'Special Elite', cursive;  
+    font-family: 'Special Elite', cursive;
     color: #e8d4ff;
     text-shadow:
     0 0 1px #7e0eff,
@@ -42,10 +42,10 @@ body.theme-cyberpink .optionsAbasFoco{
     margin-left: 3px;
     font-size: 16px;
   }
-  
+
   #txtAba{
     font-size: 16px;
-    position: relative;  
+    position: relative;
     transition: all ease 3s;
     display: flex;
     align-items: center;
@@ -543,17 +543,17 @@ body.theme-cyberpink:not(.layout-oneowner-header-active) #cardProfile {
 
 body.theme-cyberpink .openMenu {
     display: flex;
-    flex-direction: column; 
+    flex-direction: column;
     justify-content: center;
     align-items: center;
     text-align: center;
-    height: 100dvh; 
-    z-index: 35; 
+    height: 100dvh;
+    z-index: 35;
     backdrop-filter: blur(0.1px);
     background-color: rgba(0, 0, 0, 0);
-    overflow: auto; 
+    overflow: auto;
 
-    margin: 0; 
+    margin: 0;
     overflow-y: hidden;
     overflow-x: hidden;
     margin-left: auto;
@@ -565,10 +565,10 @@ body.theme-cyberpink .headMenu {
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   column-gap: 12px;
-  top: 0; 
+  top: 0;
   min-height: 40px;
-  padding: 4px 8px; 
-  z-index: 20000; 
+  padding: 4px 8px;
+  z-index: 20000;
   background: transparent;
   position: sticky;
   width: calc(100% - 10px);
@@ -590,12 +590,12 @@ body.theme-cyberpink .back {
     margin: 0 0 0 10px;
     color: var(--cyberpink-subtheme-text);
     font-size: 16px;
-    z-index: 37; 
+    z-index: 37;
     display: inline-flex;
     align-items: center;
     align-self: center;
     line-height: 1;
-    flex: 0 1 auto; 
+    flex: 0 1 auto;
 }
 
 body.theme-cyberpink .pageAtual {
@@ -603,8 +603,8 @@ body.theme-cyberpink .pageAtual {
     display: flex;
     align-items: center;
     align-self: center;
-    flex: 1 1 auto; 
-    font-size: 24px; 
+    flex: 1 1 auto;
+    font-size: 24px;
     margin: 0;
     min-width: 0;
     text-align: left;
@@ -638,10 +638,10 @@ body.theme-cyberpink .scroll-lock {
 
 body.theme-cyberpink .gavetaOption {
     position: relative;
-    padding: 5px; 
+    padding: 5px;
     margin: 5px 0;
-    border-radius: 0; 
-    transition: font-size 0.3s ease, background-color 0.3s ease; 
+    border-radius: 0;
+    transition: font-size 0.3s ease, background-color 0.3s ease;
     cursor: pointer;
     color: var(--cyberpink-subtheme-text-soft);
     text-shadow:
@@ -653,16 +653,16 @@ body.theme-cyberpink .gavetaOption::before,
 body.theme-cyberpink .gavetaOption::after {
     content: '';
     position: absolute;
-    opacity: 0; 
+    opacity: 0;
     transition: opacity 0.3s ease;
 }
 
 body.theme-cyberpink .gavetaOption::before {
-    left: -20px; 
+    left: -20px;
 }
 
 body.theme-cyberpink .gavetaOption::after {
-    right: -20px; 
+    right: -20px;
 }
 
 body.theme-cyberpink .gavetaOption.highlight,
@@ -681,7 +681,7 @@ body.theme-cyberpink .gavetaOption:hover {
   0 0 8px var(--cyberpink-subtheme-primary);
 }
 body.theme-cyberpink .gavetaOption.highlight, body.theme-cyberpink .gavetaOption:active {
-  
+
     color: var(--cyberpink-subtheme-text);
     text-shadow:
     0 0 1px var(--cyberpink-subtheme-primary),
@@ -698,13 +698,13 @@ body.theme-cyberpink .gavetaOption.highlight, body.theme-cyberpink .gavetaOption
 body.theme-cyberpink .gavetaOption.highlight::before,
 body.theme-cyberpink .gavetaOption:hover::before {
     content: '>';
-    opacity: 1; 
+    opacity: 1;
 }
 
 body.theme-cyberpink .gavetaOption.highlight::after,
 body.theme-cyberpink .gavetaOption:hover::after {
     content: '<';
-    opacity: 1; 
+    opacity: 1;
 }
 
 body.theme-cyberpink .gavetaOption__badge {
@@ -732,11 +732,11 @@ body.theme-cyberpink .back-detail {
     top: 11px;
     left: 30px;
     z-index: 38;
-    font-size: 22px;    
+    font-size: 22px;
 }
 
 body.theme-cyberpink #MenuContainer{
-    
+
         left: 0px;
         right: 0px;
         height: 100v;
@@ -753,7 +753,7 @@ body.theme-cyberpink #Gavetas{
   transform: translate(-50%, -50%); /* Centraliza no meio da tela */
   padding: 1rem; /* opcional: adiciona espaço interno */
   box-sizing: border-box;
-}  
+}
 
 
 /* Layout resiliente do Menu (Cyberpink) */
@@ -1716,42 +1716,43 @@ body.theme-cyberpink .cardcaptor-card {
   --cyberpink-corner-accent: var(--cyberpink-subtheme-secondary);
   --cyberpink-surface-a: var(--cyberpink-subtheme-surface-a);
   --cyberpink-surface-b: var(--cyberpink-subtheme-surface-b);
-  --cyberpink-card-home-frame: var(--cyberpink-subtheme-card-frame);
-  --cyberpink-card-home-frame-bright: var(--cyberpink-subtheme-card-frame-bright);
-  --cyberpink-card-home-glow: var(--cyberpink-subtheme-card-glow);
-  --cyberpink-card-home-surface: var(--cyberpink-subtheme-card-surface);
-  --cyberpink-card-home-surface-shadow: var(--cyberpink-subtheme-card-surface-shadow);
-  --cyberpink-card-home-side-detail-y: 39%;
-  --cyberpink-card-home-side-detail-y-top: calc(var(--cyberpink-card-home-side-detail-y) - 18%);
-  --cyberpink-card-home-side-detail-y-bottom: calc(var(--cyberpink-card-home-side-detail-y) + 18%);
-  --cyberpink-card-home-side-detail-width: 14px;
-  --cyberpink-card-home-side-detail-height: 57px;
-  --cyberpink-card-home-side-detail-left-x: 0px;
-  --cyberpink-card-home-side-detail-right-x: 0px;
-  --cyberpink-card-home-bottom-detail-offset: 24px;
-  --cyberpink-card-home-side-detail-glow: transparent;
+  --cyberpink-card-frame: var(--cyberpink-subtheme-card-frame);
+  --cyberpink-card-frame-bright: var(--cyberpink-subtheme-card-frame-bright);
+  --cyberpink-card-glow: var(--cyberpink-subtheme-card-glow);
+  --cyberpink-card-surface: var(--cyberpink-subtheme-card-surface);
+  --cyberpink-card-surface-shadow: var(--cyberpink-subtheme-card-surface-shadow);
+  --cyberpink-card-side-detail-y: 39%;
+  --cyberpink-card-side-detail-y-top: calc(var(--cyberpink-card-side-detail-y) - 18%);
+  --cyberpink-card-side-detail-y-bottom: calc(var(--cyberpink-card-side-detail-y) + 18%);
+  --cyberpink-card-side-detail-width: 14px;
+  --cyberpink-card-side-detail-height: 57px;
+  --cyberpink-card-side-detail-left-x: 0px;
+  --cyberpink-card-side-detail-right-x: 0px;
+  --cyberpink-card-bottom-detail-offset: 24px;
+  --cyberpink-card-side-detail-glow: transparent;
   --cyberpink-card-detail-main: var(--cyberpink-subtheme-secondary);
   --cyberpink-card-detail-side: color-mix(
     in srgb,
-    var(--cyberpink-card-home-surface) 54%,
+    var(--cyberpink-card-surface) 54%,
     white 46%
   );
   --cyberpink-card-detail-bottom-rail: color-mix(
     in srgb,
-    var(--cyberpink-card-home-surface-shadow) 88%,
-    var(--cyberpink-card-home-surface) 12%
+    var(--cyberpink-card-surface-shadow) 88%,
+    var(--cyberpink-card-surface) 12%
   );
-  --cyberpink-card-detail-top-start: var(--cyberpink-card-home-surface);
+  --cyberpink-card-detail-top-start: var(--cyberpink-card-surface);
   --cyberpink-card-detail-top-mid: color-mix(
     in srgb,
-    var(--cyberpink-card-home-surface) 88%,
+    var(--cyberpink-card-surface) 88%,
     white 12%
   );
   --cyberpink-card-detail-top-base: color-mix(
     in srgb,
-    var(--cyberpink-card-home-surface) 88%,
+    var(--cyberpink-card-surface) 88%,
     black 12%
   );
+  --cyberpink-card-top-rail-y: -2px;
 }
 
 body.theme-cyberpink .cardcaptor-card::before {
@@ -1759,8 +1760,8 @@ body.theme-cyberpink .cardcaptor-card::before {
   position: absolute;
   inset: 0;
   display: block;
-  background: var(--cyberpink-card-home-surface);
-  border: 2px solid var(--cyberpink-card-home-frame);
+  background: var(--cyberpink-card-surface);
+  border: 2px solid var(--cyberpink-card-frame);
   clip-path: polygon(
     14px 0,
     calc(100% - 14px) 0,
@@ -1777,7 +1778,7 @@ body.theme-cyberpink .cardcaptor-card::before {
   );
   box-shadow:
     inset 0 0 0 1px var(--cyberpink-subtheme-card-inner-stroke),
-    0 0 14px var(--cyberpink-card-home-glow);
+    0 0 14px var(--cyberpink-card-glow);
   z-index: 1;
 }
 
@@ -1817,29 +1818,26 @@ body.theme-cyberpink .cardcaptor-card::after {
     linear-gradient(
       var(--cyberpink-card-detail-bottom-rail),
       var(--cyberpink-card-detail-bottom-rail)
-    ),
-    linear-gradient(var(--cyberpink-card-detail-main), var(--cyberpink-card-detail-main));
-  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+    );
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
   background-size:
-    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
-    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
-    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
-    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
-    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
-    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
-    100% 14px,
-    100% 14px,
-    118px 48px;
+    var(--cyberpink-card-side-detail-width) var(--cyberpink-card-side-detail-height),
+    var(--cyberpink-card-side-detail-width) var(--cyberpink-card-side-detail-height),
+    var(--cyberpink-card-side-detail-width) var(--cyberpink-card-side-detail-height),
+    var(--cyberpink-card-side-detail-width) var(--cyberpink-card-side-detail-height),
+    var(--cyberpink-card-side-detail-width) var(--cyberpink-card-side-detail-height),
+    var(--cyberpink-card-side-detail-width) var(--cyberpink-card-side-detail-height),
+    var(--cyberpink-card-top-rail-layer-width, var(--cyberpink-card-top-rail-width, 100%)) var(--cyberpink-card-top-rail-layer-height, var(--cyberpink-card-top-rail-height, 14px)),
+    100% 14px;
   background-position:
-    left var(--cyberpink-card-home-side-detail-left-x) top var(--cyberpink-card-home-side-detail-y-top),
-    left var(--cyberpink-card-home-side-detail-left-x) top var(--cyberpink-card-home-side-detail-y),
-    left var(--cyberpink-card-home-side-detail-left-x) top var(--cyberpink-card-home-side-detail-y-bottom),
-    right var(--cyberpink-card-home-side-detail-right-x) top var(--cyberpink-card-home-side-detail-y-top),
-    right var(--cyberpink-card-home-side-detail-right-x) top var(--cyberpink-card-home-side-detail-y),
-    right var(--cyberpink-card-home-side-detail-right-x) top var(--cyberpink-card-home-side-detail-y-bottom),
-    center top,
-    center bottom,
-    center calc(100% + var(--cyberpink-card-home-bottom-detail-offset));
+    left var(--cyberpink-card-side-detail-left-x) top var(--cyberpink-card-side-detail-y-top),
+    left var(--cyberpink-card-side-detail-left-x) top var(--cyberpink-card-side-detail-y),
+    left var(--cyberpink-card-side-detail-left-x) top var(--cyberpink-card-side-detail-y-bottom),
+    right var(--cyberpink-card-side-detail-right-x) top var(--cyberpink-card-side-detail-y-top),
+    right var(--cyberpink-card-side-detail-right-x) top var(--cyberpink-card-side-detail-y),
+    right var(--cyberpink-card-side-detail-right-x) top var(--cyberpink-card-side-detail-y-bottom),
+    center var(--cyberpink-card-top-rail-y, 0px),
+    center bottom;
   -webkit-mask-image:
     url("./assets/cyberpink-card-side-right.svg"),
     url("./assets/cyberpink-card-side-right.svg"),
@@ -1848,29 +1846,26 @@ body.theme-cyberpink .cardcaptor-card::after {
     url("./assets/cyberpink-card-side-left.svg"),
     url("./assets/cyberpink-card-side-left.svg"),
     url("./assets/cyberpink-card-top-rail.svg"),
-    url("./assets/cyberpink-card-bottom-rail.svg"),
-    url("./assets/cyberpink-card-bottom.svg");
-  -webkit-mask-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+    url("./assets/cyberpink-card-bottom-rail.svg");
+  -webkit-mask-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
   -webkit-mask-size:
-    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
-    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
-    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
-    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
-    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
-    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
-    100% 14px,
-    100% 14px,
-    118px 48px;
+    var(--cyberpink-card-side-detail-width) var(--cyberpink-card-side-detail-height),
+    var(--cyberpink-card-side-detail-width) var(--cyberpink-card-side-detail-height),
+    var(--cyberpink-card-side-detail-width) var(--cyberpink-card-side-detail-height),
+    var(--cyberpink-card-side-detail-width) var(--cyberpink-card-side-detail-height),
+    var(--cyberpink-card-side-detail-width) var(--cyberpink-card-side-detail-height),
+    var(--cyberpink-card-side-detail-width) var(--cyberpink-card-side-detail-height),
+    var(--cyberpink-card-top-rail-layer-width, var(--cyberpink-card-top-rail-width, 100%)) var(--cyberpink-card-top-rail-layer-height, var(--cyberpink-card-top-rail-height, 14px)),
+    100% 14px;
   -webkit-mask-position:
-    left var(--cyberpink-card-home-side-detail-left-x) top var(--cyberpink-card-home-side-detail-y-top),
-    left var(--cyberpink-card-home-side-detail-left-x) top var(--cyberpink-card-home-side-detail-y),
-    left var(--cyberpink-card-home-side-detail-left-x) top var(--cyberpink-card-home-side-detail-y-bottom),
-    right var(--cyberpink-card-home-side-detail-right-x) top var(--cyberpink-card-home-side-detail-y-top),
-    right var(--cyberpink-card-home-side-detail-right-x) top var(--cyberpink-card-home-side-detail-y),
-    right var(--cyberpink-card-home-side-detail-right-x) top var(--cyberpink-card-home-side-detail-y-bottom),
-    center top,
-    center bottom,
-    center calc(100% + var(--cyberpink-card-home-bottom-detail-offset));
+    left var(--cyberpink-card-side-detail-left-x) top var(--cyberpink-card-side-detail-y-top),
+    left var(--cyberpink-card-side-detail-left-x) top var(--cyberpink-card-side-detail-y),
+    left var(--cyberpink-card-side-detail-left-x) top var(--cyberpink-card-side-detail-y-bottom),
+    right var(--cyberpink-card-side-detail-right-x) top var(--cyberpink-card-side-detail-y-top),
+    right var(--cyberpink-card-side-detail-right-x) top var(--cyberpink-card-side-detail-y),
+    right var(--cyberpink-card-side-detail-right-x) top var(--cyberpink-card-side-detail-y-bottom),
+    center var(--cyberpink-card-top-rail-y, 0px),
+    center bottom;
   mask-image:
     url("./assets/cyberpink-card-side-right.svg"),
     url("./assets/cyberpink-card-side-right.svg"),
@@ -1879,31 +1874,28 @@ body.theme-cyberpink .cardcaptor-card::after {
     url("./assets/cyberpink-card-side-left.svg"),
     url("./assets/cyberpink-card-side-left.svg"),
     url("./assets/cyberpink-card-top-rail.svg"),
-    url("./assets/cyberpink-card-bottom-rail.svg"),
-    url("./assets/cyberpink-card-bottom.svg");
-  mask-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+    url("./assets/cyberpink-card-bottom-rail.svg");
+  mask-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
   mask-size:
-    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
-    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
-    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
-    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
-    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
-    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
-    100% 14px,
-    100% 14px,
-    118px 48px;
+    var(--cyberpink-card-side-detail-width) var(--cyberpink-card-side-detail-height),
+    var(--cyberpink-card-side-detail-width) var(--cyberpink-card-side-detail-height),
+    var(--cyberpink-card-side-detail-width) var(--cyberpink-card-side-detail-height),
+    var(--cyberpink-card-side-detail-width) var(--cyberpink-card-side-detail-height),
+    var(--cyberpink-card-side-detail-width) var(--cyberpink-card-side-detail-height),
+    var(--cyberpink-card-side-detail-width) var(--cyberpink-card-side-detail-height),
+    var(--cyberpink-card-top-rail-layer-width, var(--cyberpink-card-top-rail-width, 100%)) var(--cyberpink-card-top-rail-layer-height, var(--cyberpink-card-top-rail-height, 14px)),
+    100% 14px;
   mask-position:
-    left var(--cyberpink-card-home-side-detail-left-x) top var(--cyberpink-card-home-side-detail-y-top),
-    left var(--cyberpink-card-home-side-detail-left-x) top var(--cyberpink-card-home-side-detail-y),
-    left var(--cyberpink-card-home-side-detail-left-x) top var(--cyberpink-card-home-side-detail-y-bottom),
-    right var(--cyberpink-card-home-side-detail-right-x) top var(--cyberpink-card-home-side-detail-y-top),
-    right var(--cyberpink-card-home-side-detail-right-x) top var(--cyberpink-card-home-side-detail-y),
-    right var(--cyberpink-card-home-side-detail-right-x) top var(--cyberpink-card-home-side-detail-y-bottom),
-    center top,
-    center bottom,
-    center calc(100% + var(--cyberpink-card-home-bottom-detail-offset));
+    left var(--cyberpink-card-side-detail-left-x) top var(--cyberpink-card-side-detail-y-top),
+    left var(--cyberpink-card-side-detail-left-x) top var(--cyberpink-card-side-detail-y),
+    left var(--cyberpink-card-side-detail-left-x) top var(--cyberpink-card-side-detail-y-bottom),
+    right var(--cyberpink-card-side-detail-right-x) top var(--cyberpink-card-side-detail-y-top),
+    right var(--cyberpink-card-side-detail-right-x) top var(--cyberpink-card-side-detail-y),
+    right var(--cyberpink-card-side-detail-right-x) top var(--cyberpink-card-side-detail-y-bottom),
+    center var(--cyberpink-card-top-rail-y, 0px),
+    center bottom;
   filter:
-    drop-shadow(0 0 4px color-mix(in srgb, var(--cyberpink-card-home-glow) 70%, transparent));
+    drop-shadow(0 0 4px color-mix(in srgb, var(--cyberpink-card-glow) 70%, transparent));
 }
 
 body.theme-cyberpink .cardcaptor-card > * {
@@ -1923,7 +1915,7 @@ body.theme-cyberpink .cardcaptor-card__header {
   flex-direction: column;
   justify-content: center;
   gap: 1px;
-  border: 2px solid var(--cyberpink-card-home-frame);
+  border: 2px solid var(--cyberpink-card-frame);
   background: transparent;
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 10%, transparent),
@@ -1987,8 +1979,8 @@ body.theme-cyberpink .cardcaptor-card__media {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  border: 2px solid var(--cyberpink-card-home-frame);
-  background: var(--cyberpink-card-home-surface);
+  border: 2px solid var(--cyberpink-card-frame);
+  background: var(--cyberpink-card-surface);
   clip-path: polygon(
     0 0,
     100% 0,
@@ -2047,8 +2039,8 @@ body.theme-cyberpink .cardcaptor-card__description {
   grid-template-columns: minmax(0, 1fr) 96px;
   gap: 10px;
   align-items: start;
-  border: 2px solid var(--cyberpink-card-home-frame);
-  background: var(--cyberpink-card-home-surface);
+  border: 2px solid var(--cyberpink-card-frame);
+  background: var(--cyberpink-card-surface);
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 10%, transparent),
     0 0 10px var(--cyberpink-subtheme-card-glow);
@@ -2150,6 +2142,7 @@ body.theme-cyberpink {
   --cyberpink-warning-triangle: url("./assets/cyberpink-warning-triangle.svg");
   --cyberpink-simple-cut-size: 10px;
   --cyberpink-simple-cut-corner-color: var(--cyberpink-subtheme-frame-stroke);
+  --cyberpink-card-top-rail-y: -2px;
   --cyberpink-cut-lg: 22px;
   --cyberpink-cut-md: 16px;
   --cyberpink-corner-overhang: 36px;
@@ -2189,7 +2182,7 @@ body.theme-cyberpink {
   --cyberpink-navbar-corner-br-y: 0px;
 }
 
-body.theme-cyberpink .cardContainerDesktopHome::after{
+body.theme-cyberpink .cardContainerDesktop::after{
   background: var(--cyberpink-subtheme-card-surface);
 }
 
@@ -2197,7 +2190,7 @@ body.theme-cyberpink #navbar-menu,
 body.theme-cyberpink .headMenu,
 body.theme-cyberpink .bloco-container,
 body.theme-cyberpink .bloco-creator,
-body.theme-cyberpink .cardContainerDesktopDesign {
+body.theme-cyberpink .cardContainerDesktop {
   position: relative;
   isolation: isolate;
   overflow: visible;
@@ -2215,14 +2208,10 @@ body.theme-cyberpink .bloco-creator {
 
 body.theme-cyberpink .bloco-container::before,
 body.theme-cyberpink .bloco-creator::before,
-body.theme-cyberpink .cardContainerDesktopDev::before,
-body.theme-cyberpink .cardContainerDesktopHome::before,
-body.theme-cyberpink .cardContainerDesktopDesign::before,
+body.theme-cyberpink .cardContainerDesktop::before,
 body.theme-cyberpink .bloco-container::after,
 body.theme-cyberpink .bloco-creator::after,
-body.theme-cyberpink .cardContainerDesktopDev::after,
-body.theme-cyberpink .cardContainerDesktopHome::after,
-body.theme-cyberpink .cardContainerDesktopDesign::after,
+body.theme-cyberpink .cardContainerDesktop::after,
 body.theme-cyberpink #navbar-menu::before,
 body.theme-cyberpink .headMenu::before,
 body.theme-cyberpink #navbar-menu::after,
@@ -2234,26 +2223,20 @@ body.theme-cyberpink .headMenu::after {
 
 body.theme-cyberpink .bloco-container::before,
 body.theme-cyberpink .bloco-creator::before,
-body.theme-cyberpink .cardContainerDesktopDev::before,
-body.theme-cyberpink .cardContainerDesktopHome::before,
-body.theme-cyberpink .cardContainerDesktopDesign::before,
+body.theme-cyberpink .cardContainerDesktop::before,
 body.theme-cyberpink .bloco-container::after,
 body.theme-cyberpink .bloco-creator::after,
-body.theme-cyberpink .cardContainerDesktopDev::after,
-body.theme-cyberpink .cardContainerDesktopHome::after,
-body.theme-cyberpink .cardContainerDesktopDesign::after {
+body.theme-cyberpink .cardContainerDesktop::after {
   inset: 0;
 }
 
 body.theme-cyberpink .bloco-container::before,
 body.theme-cyberpink .bloco-creator::before,
-body.theme-cyberpink .cardContainerDesktopDev::before,
-body.theme-cyberpink .cardContainerDesktopHome::before,
-body.theme-cyberpink .cardContainerDesktopDesign::before {
+body.theme-cyberpink .cardContainerDesktop::before {
   inset: 0;
   background:
     linear-gradient(180deg, var(--cyberpink-surface-a), var(--cyberpink-surface-b));
-  border: var(--cyberpink-frame-width) solid var(--cyberpink-frame-stroke);
+
   clip-path: polygon(
     var(--cyberpink-cut-lg) 0,
     calc(100% - var(--cyberpink-cut-lg)) 0,
@@ -2270,19 +2253,18 @@ body.theme-cyberpink .cardContainerDesktopDesign::before {
     0 0 16px var(--cyberpink-frame-glow);
 }
 
-body.theme-cyberpink .cardContainerDesktopDev::after,
-body.theme-cyberpink .cardContainerDesktopHome::after,
-body.theme-cyberpink .cardContainerDesktopDesign::after {
+body.theme-cyberpink .cardContainerDesktop::after {
   content: none;
   display: none;
 }
 
-body.theme-cyberpink .cardContainerDesktopHome::before {
+body.theme-cyberpink .cardContainerDesktop::before {
   content: "";
   display: block;
   inset: 0;
-  background: var(--cyberpink-card-home-surface);
-  border: 2px solid var(--cyberpink-card-home-frame);
+  background: var(--cyberpink-card-surface);
+  border: 2px solid var(--cyberpink-card-frame);
+  border-bottom: 0;
   clip-path: polygon(
     14px 0,
     calc(100% - 14px) 0,
@@ -2298,11 +2280,13 @@ body.theme-cyberpink .cardContainerDesktopHome::before {
     0 14px
   );
   box-shadow:
-    inset 0 0 0 1px var(--cyberpink-subtheme-card-inner-stroke),
-    0 0 14px var(--cyberpink-card-home-glow);
+    inset 1px 0 0 0 var(--cyberpink-subtheme-card-inner-stroke),
+    inset -1px 0 0 0 var(--cyberpink-subtheme-card-inner-stroke),
+    inset 0 1px 0 0 var(--cyberpink-subtheme-card-inner-stroke),
+    0 0 14px var(--cyberpink-card-glow);
 }
 
-body.theme-cyberpink .cardContainerDesktopHome::after {
+body.theme-cyberpink .cardContainerDesktop::after {
   content: "";
   display: block;
   inset: 0;
@@ -2337,29 +2321,26 @@ body.theme-cyberpink .cardContainerDesktopHome::after {
     linear-gradient(
       var(--cyberpink-card-detail-bottom-rail),
       var(--cyberpink-card-detail-bottom-rail)
-    ),
-    linear-gradient(var(--cyberpink-card-detail-main), var(--cyberpink-card-detail-main));
-  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+    );
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
   background-size:
-    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
-    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
-    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
-    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
-    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
-    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
-    100% 14px,
-    100% 14px,
-    118px 48px;
+    var(--cyberpink-card-side-detail-width) var(--cyberpink-card-side-detail-height),
+    var(--cyberpink-card-side-detail-width) var(--cyberpink-card-side-detail-height),
+    var(--cyberpink-card-side-detail-width) var(--cyberpink-card-side-detail-height),
+    var(--cyberpink-card-side-detail-width) var(--cyberpink-card-side-detail-height),
+    var(--cyberpink-card-side-detail-width) var(--cyberpink-card-side-detail-height),
+    var(--cyberpink-card-side-detail-width) var(--cyberpink-card-side-detail-height),
+    var(--cyberpink-card-top-rail-layer-width, var(--cyberpink-card-top-rail-width, 100%)) var(--cyberpink-card-top-rail-layer-height, var(--cyberpink-card-top-rail-height, 14px)),
+    100% 14px;
   background-position:
-    left var(--cyberpink-card-home-side-detail-left-x) top var(--cyberpink-card-home-side-detail-y-top),
-    left var(--cyberpink-card-home-side-detail-left-x) top var(--cyberpink-card-home-side-detail-y),
-    left var(--cyberpink-card-home-side-detail-left-x) top var(--cyberpink-card-home-side-detail-y-bottom),
-    right var(--cyberpink-card-home-side-detail-right-x) top var(--cyberpink-card-home-side-detail-y-top),
-    right var(--cyberpink-card-home-side-detail-right-x) top var(--cyberpink-card-home-side-detail-y),
-    right var(--cyberpink-card-home-side-detail-right-x) top var(--cyberpink-card-home-side-detail-y-bottom),
-    center top,
-    center bottom,
-    center calc(100% + var(--cyberpink-card-home-bottom-detail-offset));
+    left var(--cyberpink-card-side-detail-left-x) top var(--cyberpink-card-side-detail-y-top),
+    left var(--cyberpink-card-side-detail-left-x) top var(--cyberpink-card-side-detail-y),
+    left var(--cyberpink-card-side-detail-left-x) top var(--cyberpink-card-side-detail-y-bottom),
+    right var(--cyberpink-card-side-detail-right-x) top var(--cyberpink-card-side-detail-y-top),
+    right var(--cyberpink-card-side-detail-right-x) top var(--cyberpink-card-side-detail-y),
+    right var(--cyberpink-card-side-detail-right-x) top var(--cyberpink-card-side-detail-y-bottom),
+    center var(--cyberpink-card-top-rail-y, 0px),
+    center bottom;
   -webkit-mask-image:
     url("./assets/cyberpink-card-side-right.svg"),
     url("./assets/cyberpink-card-side-right.svg"),
@@ -2368,29 +2349,26 @@ body.theme-cyberpink .cardContainerDesktopHome::after {
     url("./assets/cyberpink-card-side-left.svg"),
     url("./assets/cyberpink-card-side-left.svg"),
     url("./assets/cyberpink-card-top-rail.svg"),
-    url("./assets/cyberpink-card-bottom-rail.svg"),
-    url("./assets/cyberpink-card-bottom.svg");
-  -webkit-mask-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+    url("./assets/cyberpink-card-bottom-rail.svg");
+  -webkit-mask-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
   -webkit-mask-size:
-    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
-    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
-    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
-    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
-    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
-    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
-    100% 14px,
-    100% 14px,
-    118px 48px;
+    var(--cyberpink-card-side-detail-width) var(--cyberpink-card-side-detail-height),
+    var(--cyberpink-card-side-detail-width) var(--cyberpink-card-side-detail-height),
+    var(--cyberpink-card-side-detail-width) var(--cyberpink-card-side-detail-height),
+    var(--cyberpink-card-side-detail-width) var(--cyberpink-card-side-detail-height),
+    var(--cyberpink-card-side-detail-width) var(--cyberpink-card-side-detail-height),
+    var(--cyberpink-card-side-detail-width) var(--cyberpink-card-side-detail-height),
+    var(--cyberpink-card-top-rail-layer-width, var(--cyberpink-card-top-rail-width, 100%)) var(--cyberpink-card-top-rail-layer-height, var(--cyberpink-card-top-rail-height, 14px)),
+    100% 14px;
   -webkit-mask-position:
-    left var(--cyberpink-card-home-side-detail-left-x) top var(--cyberpink-card-home-side-detail-y-top),
-    left var(--cyberpink-card-home-side-detail-left-x) top var(--cyberpink-card-home-side-detail-y),
-    left var(--cyberpink-card-home-side-detail-left-x) top var(--cyberpink-card-home-side-detail-y-bottom),
-    right var(--cyberpink-card-home-side-detail-right-x) top var(--cyberpink-card-home-side-detail-y-top),
-    right var(--cyberpink-card-home-side-detail-right-x) top var(--cyberpink-card-home-side-detail-y),
-    right var(--cyberpink-card-home-side-detail-right-x) top var(--cyberpink-card-home-side-detail-y-bottom),
-    center top,
-    center bottom,
-    center calc(100% + var(--cyberpink-card-home-bottom-detail-offset));
+    left var(--cyberpink-card-side-detail-left-x) top var(--cyberpink-card-side-detail-y-top),
+    left var(--cyberpink-card-side-detail-left-x) top var(--cyberpink-card-side-detail-y),
+    left var(--cyberpink-card-side-detail-left-x) top var(--cyberpink-card-side-detail-y-bottom),
+    right var(--cyberpink-card-side-detail-right-x) top var(--cyberpink-card-side-detail-y-top),
+    right var(--cyberpink-card-side-detail-right-x) top var(--cyberpink-card-side-detail-y),
+    right var(--cyberpink-card-side-detail-right-x) top var(--cyberpink-card-side-detail-y-bottom),
+    center var(--cyberpink-card-top-rail-y, 0px),
+    center bottom;
   mask-image:
     url("./assets/cyberpink-card-side-right.svg"),
     url("./assets/cyberpink-card-side-right.svg"),
@@ -2399,31 +2377,28 @@ body.theme-cyberpink .cardContainerDesktopHome::after {
     url("./assets/cyberpink-card-side-left.svg"),
     url("./assets/cyberpink-card-side-left.svg"),
     url("./assets/cyberpink-card-top-rail.svg"),
-    url("./assets/cyberpink-card-bottom-rail.svg"),
-    url("./assets/cyberpink-card-bottom.svg");
-  mask-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+    url("./assets/cyberpink-card-bottom-rail.svg");
+  mask-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
   mask-size:
-    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
-    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
-    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
-    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
-    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
-    var(--cyberpink-card-home-side-detail-width) var(--cyberpink-card-home-side-detail-height),
-    100% 14px,
-    100% 14px,
-    118px 48px;
+    var(--cyberpink-card-side-detail-width) var(--cyberpink-card-side-detail-height),
+    var(--cyberpink-card-side-detail-width) var(--cyberpink-card-side-detail-height),
+    var(--cyberpink-card-side-detail-width) var(--cyberpink-card-side-detail-height),
+    var(--cyberpink-card-side-detail-width) var(--cyberpink-card-side-detail-height),
+    var(--cyberpink-card-side-detail-width) var(--cyberpink-card-side-detail-height),
+    var(--cyberpink-card-side-detail-width) var(--cyberpink-card-side-detail-height),
+    var(--cyberpink-card-top-rail-layer-width, var(--cyberpink-card-top-rail-width, 100%)) var(--cyberpink-card-top-rail-layer-height, var(--cyberpink-card-top-rail-height, 14px)),
+    100% 14px;
   mask-position:
-    left var(--cyberpink-card-home-side-detail-left-x) top var(--cyberpink-card-home-side-detail-y-top),
-    left var(--cyberpink-card-home-side-detail-left-x) top var(--cyberpink-card-home-side-detail-y),
-    left var(--cyberpink-card-home-side-detail-left-x) top var(--cyberpink-card-home-side-detail-y-bottom),
-    right var(--cyberpink-card-home-side-detail-right-x) top var(--cyberpink-card-home-side-detail-y-top),
-    right var(--cyberpink-card-home-side-detail-right-x) top var(--cyberpink-card-home-side-detail-y),
-    right var(--cyberpink-card-home-side-detail-right-x) top var(--cyberpink-card-home-side-detail-y-bottom),
-    center top,
-    center bottom,
-    center calc(100% + var(--cyberpink-card-home-bottom-detail-offset));
+    left var(--cyberpink-card-side-detail-left-x) top var(--cyberpink-card-side-detail-y-top),
+    left var(--cyberpink-card-side-detail-left-x) top var(--cyberpink-card-side-detail-y),
+    left var(--cyberpink-card-side-detail-left-x) top var(--cyberpink-card-side-detail-y-bottom),
+    right var(--cyberpink-card-side-detail-right-x) top var(--cyberpink-card-side-detail-y-top),
+    right var(--cyberpink-card-side-detail-right-x) top var(--cyberpink-card-side-detail-y),
+    right var(--cyberpink-card-side-detail-right-x) top var(--cyberpink-card-side-detail-y-bottom),
+    center var(--cyberpink-card-top-rail-y, 0px),
+    center bottom;
   filter:
-    drop-shadow(0 0 4px color-mix(in srgb, var(--cyberpink-card-home-glow) 70%, transparent));
+    drop-shadow(0 0 4px color-mix(in srgb, var(--cyberpink-card-glow) 70%, transparent));
 }
 
 body.theme-cyberpink .bloco-container::after,
@@ -2479,11 +2454,37 @@ body.theme-cyberpink .bloco-creator::after {
 
 body.theme-cyberpink .bloco-container > *,
 body.theme-cyberpink .bloco-creator > *,
-body.theme-cyberpink .cardContainerDesktopDev > *,
-body.theme-cyberpink .cardContainerDesktopHome > *,
-body.theme-cyberpink .cardContainerDesktopDesign > * {
+body.theme-cyberpink .cardContainerDesktop > * {
   position: relative;
   z-index: 3;
+}
+
+body.theme-cyberpink .cardContainerDesktop > .cyberpink-card-top-rail {
+  position: absolute;
+  z-index: 5;
+  top: var(--cyberpink-card-top-rail-y, -4px);
+  left: 0;
+  right: 0;
+  width: var(--cyberpink-card-top-rail-width, 100%);
+  height: var(--cyberpink-card-top-rail-height, 14px);
+  pointer-events: none;
+  background:
+    linear-gradient(
+      0deg,
+      var(--cyberpink-card-detail-top-mid) 0,
+      var(--cyberpink-card-detail-top-base) 4px,
+      var(--cyberpink-card-detail-top-base) 100%
+    );
+  -webkit-mask-image: url("./assets/cyberpink-card-top-rail.svg");
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  -webkit-mask-position: center;
+  mask-image: url("./assets/cyberpink-card-top-rail.svg");
+  mask-repeat: no-repeat;
+  mask-size: 100% 100%;
+  mask-position: center;
+  filter:
+    drop-shadow(0 0 4px color-mix(in srgb, var(--cyberpink-card-glow) 70%, transparent));
 }
 
 body.theme-cyberpink #navbar-menu {
@@ -3089,9 +3090,7 @@ body.theme-cyberpink .bloco-container input[type="radio"] {
 }
 
 /* Objetos (Card) - tema Cyberpink */
-body.theme-cyberpink .cardContainerDesktopDev,
-body.theme-cyberpink .cardContainerDesktopHome,
-body.theme-cyberpink .cardContainerDesktopDesign {
+body.theme-cyberpink .cardContainerDesktop {
   position: relative;
   width: 275px;
   height: 445px;
@@ -3122,10 +3121,11 @@ body.theme-cyberpink .cards-bloco-viewer {
   --cyberpink-card-nav-size: 58px;
   --cyberpink-card-nav-glow: var(--cyberpink-subtheme-frame-glow);
   --cyberpink-card-nav-offset: clamp(-12px, -2vw, -6px);
+  --cyberpink-card-viewer-side-space: clamp(42px, 12vw, 58px);
   --cyberpink-card-nav-font-size: clamp(18px, 6vw, 28px);
   --cyberpink-card-nav-letter-spacing: clamp(-4px, -0.14em, -2px);
   max-width: min(100%, 367px) !important;
-  padding: 0 clamp(42px, 12vw, 58px) !important;
+  padding: 0 var(--cyberpink-card-viewer-side-space) !important;
   box-sizing: border-box;
 }
 
@@ -3138,7 +3138,92 @@ body.theme-cyberpink .cards-bloco-stage {
 body.theme-cyberpink .cards-bloco-card-shell {
   position: relative;
   z-index: 2;
+  width: 275px;
+  min-width: 275px;
+  max-width: 275px;
+  display: flex;
+  justify-content: center;
   animation: cyberpink-card-viewer-enter 220ms ease;
+}
+
+body.theme-cyberpink .cards-bloco-actions {
+  position: absolute;
+  right: max(8px, calc((100% - 275px) / 2 - 38px));
+  top: calc(var(--cyberpink-card-top-rail-y, 0px) + 34px);
+  transform: none;
+  z-index: 6;
+  display: grid;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+body.theme-cyberpink .cards-bloco-action-button {
+  position: relative;
+  isolation: isolate;
+  width: 30px;
+  height: 30px;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  justify-items: center;
+  align-items: center;
+  line-height: 0;
+  box-sizing: border-box;
+  border: 1px solid color-mix(in srgb, var(--cyberpink-subtheme-primary) 70%, transparent);
+  background: color-mix(in srgb, var(--cyberpink-subtheme-card-surface) 74%, transparent);
+  color: var(--cyberpink-subtheme-text);
+  clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+  --cyberpink-button-cut-size: 8px;
+  --cyberpink-button-corner-color: color-mix(
+    in srgb,
+    var(--cyberpink-subtheme-primary) 84%,
+    var(--cyberpink-subtheme-text) 16%
+  );
+  box-shadow:
+    0 0 10px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 72%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 10%, transparent);
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+body.theme-cyberpink .cards-bloco-action-button svg {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  top: 50%;
+  width: 17px;
+  height: 17px;
+  display: block;
+  margin: auto;
+  justify-self: center;
+  align-self: center;
+  transform: translate(-50%, -50%);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+body.theme-cyberpink .cards-bloco-action-button:hover:not(:disabled),
+body.theme-cyberpink .cards-bloco-action-button:focus-visible {
+  transform: translateX(2px);
+  border-color: var(--cyberpink-subtheme-text);
+  color: var(--cyberpink-subtheme-text-strong);
+  box-shadow:
+    0 0 14px color-mix(in srgb, var(--cyberpink-subtheme-soft) 75%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 16%, transparent);
+}
+
+body.theme-cyberpink .cards-bloco-action-button:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
 }
 
 body.theme-cyberpink .cards-bloco-thumbs {
@@ -3499,6 +3584,424 @@ body.theme-cyberpink .cards-bloco-nav:active {
   box-shadow: none !important;
 }
 
+body.theme-cyberpink .card-route-page {
+  position: relative;
+  min-height: min(720px, calc(100vh - 40px));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 30px 16px 72px;
+  box-sizing: border-box;
+}
+
+body.theme-cyberpink .card-route-page__viewer {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  --cyberpink-card-route-scale: 1.16;
+  gap: 0;
+}
+
+body.theme-cyberpink .card-route-page__back {
+  position: fixed;
+  isolation: isolate;
+  z-index: 8;
+  top: 14px;
+  left: 14px;
+  width: 36px;
+  height: 58px;
+  min-width: 0;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--cyberpink-subtheme-primary) 72%, transparent);
+  background: color-mix(in srgb, var(--cyberpink-subtheme-card-surface) 72%, transparent);
+  color: var(--cyberpink-subtheme-text);
+  font-family: "DotGothic16", sans-serif;
+  font-size: 0;
+  line-height: 1;
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  --cyberpink-button-cut-size: 9px;
+  --cyberpink-button-corner-color: color-mix(
+    in srgb,
+    var(--cyberpink-subtheme-primary) 88%,
+    var(--cyberpink-subtheme-text) 12%
+  );
+  box-shadow:
+    0 0 10px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 64%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 10%, transparent);
+}
+
+body.theme-cyberpink .card-route-page__back::after,
+body.theme-cyberpink .cards-bloco-action-button::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background: linear-gradient(
+    var(--cyberpink-button-corner-color),
+    var(--cyberpink-button-corner-color)
+  );
+  -webkit-mask-image:
+    var(--cyberpink-simple-cut-tl),
+    var(--cyberpink-simple-cut-br);
+  -webkit-mask-repeat: no-repeat, no-repeat;
+  -webkit-mask-size:
+    var(--cyberpink-button-cut-size) var(--cyberpink-button-cut-size),
+    var(--cyberpink-button-cut-size) var(--cyberpink-button-cut-size);
+  -webkit-mask-position:
+    left top,
+    right bottom;
+  mask-image:
+    var(--cyberpink-simple-cut-tl),
+    var(--cyberpink-simple-cut-br);
+  mask-repeat: no-repeat, no-repeat;
+  mask-size:
+    var(--cyberpink-button-cut-size) var(--cyberpink-button-cut-size),
+    var(--cyberpink-button-cut-size) var(--cyberpink-button-cut-size);
+  mask-position:
+    left top,
+    right bottom;
+  filter: drop-shadow(0 0 2px var(--cyberpink-button-corner-color));
+}
+
+body.theme-cyberpink .card-route-page__back-icon {
+  position: relative;
+  z-index: 2;
+  width: 19px;
+  height: 19px;
+  display: block;
+  fill: currentColor;
+  filter:
+    drop-shadow(0 0 4px var(--cyberpink-subtheme-primary))
+    drop-shadow(0 0 10px var(--cyberpink-subtheme-card-glow));
+}
+
+body.theme-cyberpink .card-route-page__back:hover,
+body.theme-cyberpink .card-route-page__back:focus-visible {
+  border-color: var(--cyberpink-subtheme-text);
+  color: var(--cyberpink-subtheme-text-strong);
+}
+
+body.theme-cyberpink .card-route-page__stage {
+  position: relative;
+  z-index: 2;
+  transform: scale(var(--cyberpink-card-route-scale));
+  transform-origin: center top;
+  filter:
+    drop-shadow(0 0 20px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 80%, transparent));
+}
+
+body.theme-cyberpink .card-route-page .cardContainerDesktop {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+body.theme-cyberpink .card-route-page__status,
+body.theme-cyberpink .card-route-page__error {
+  color: var(--cyberpink-subtheme-text);
+  font-family: "DotGothic16", sans-serif;
+  letter-spacing: 0.1em;
+  text-align: center;
+  text-shadow:
+    0 0 4px var(--cyberpink-subtheme-primary),
+    0 0 12px var(--cyberpink-subtheme-card-glow);
+}
+
+body.theme-cyberpink .card-route-page__error {
+  width: min(92vw, 420px);
+  padding: 18px;
+  border: 1px solid color-mix(in srgb, var(--cyberpink-subtheme-primary) 68%, transparent);
+  background: color-mix(in srgb, var(--cyberpink-subtheme-card-surface) 72%, transparent);
+  clip-path: polygon(18px 0, 100% 0, 100% calc(100% - 18px), calc(100% - 18px) 100%, 0 100%, 0 18px);
+}
+
+body.theme-cyberpink .card-print-preview-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  box-sizing: border-box;
+  background: rgba(0, 0, 0, 0.84);
+}
+
+body.theme-cyberpink .card-print-preview-modal__content {
+  width: min(96vw, 760px);
+  max-height: 94vh;
+  overflow: auto;
+  padding: 18px;
+  display: grid;
+  gap: 16px;
+  border: 1px solid color-mix(in srgb, var(--cyberpink-subtheme-primary) 70%, transparent);
+  background: color-mix(in srgb, var(--cyberpink-subtheme-card-surface) 38%, rgba(0, 0, 0, 0.82));
+  clip-path: polygon(18px 0, 100% 0, 100% calc(100% - 18px), calc(100% - 18px) 100%, 0 100%, 0 18px);
+  box-shadow:
+    0 0 24px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 76%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 10%, transparent);
+}
+
+body.theme-cyberpink .card-print-preview-modal__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 14px;
+  color: var(--cyberpink-subtheme-text);
+  font-family: "DotGothic16", sans-serif;
+}
+
+body.theme-cyberpink .card-print-preview-modal__header p {
+  margin: 4px 0 0;
+  color: var(--cyberpink-subtheme-text-soft);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+body.theme-cyberpink .card-print-preview-modal__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+body.theme-cyberpink .card-print-preview-modal__section {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+body.theme-cyberpink .card-print-preview-modal__section h3 {
+  margin: 0;
+  color: var(--cyberpink-subtheme-soft);
+  font-family: "DotGothic16", sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+body.theme-cyberpink .card-print-preview-front .cardContainerDesktop {
+  margin: 0;
+}
+
+body.theme-cyberpink .card-print-preview-front .cardNome {
+  justify-content: center;
+  text-align: center;
+}
+
+body.theme-cyberpink .card-print-preview-front .cardNome .cardNomeTicker {
+  min-width: 0;
+  width: 100%;
+  transform: none;
+  animation: none;
+  text-align: center;
+}
+
+body.theme-cyberpink .card-print-preview-front .cardNome .cardNomeTickerExtra {
+  display: none;
+}
+
+body.theme-cyberpink .card-print-preview-back {
+  --cyberpink-print-circuit-color: color-mix(
+    in srgb,
+    var(--cyberpink-subtheme-card-surface) 70%,
+    var(--cyberpink-subtheme-text) 30%
+  );
+  --cyberpink-print-circuit-soft: color-mix(
+    in srgb,
+    var(--cyberpink-subtheme-card-surface) 84%,
+    var(--cyberpink-subtheme-text) 16%
+  );
+  position: relative;
+  isolation: isolate;
+  width: 275px;
+  height: 445px;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 36px 58px, var(--cyberpink-print-circuit-color) 0 2px, transparent 2.4px),
+    radial-gradient(circle at 224px 70px, var(--cyberpink-print-circuit-color) 0 2px, transparent 2.4px),
+    radial-gradient(circle at 55px 350px, var(--cyberpink-print-circuit-soft) 0 1.7px, transparent 2.2px),
+    radial-gradient(circle at 220px 336px, var(--cyberpink-print-circuit-soft) 0 1.7px, transparent 2.2px),
+    linear-gradient(90deg, transparent 0 34px, var(--cyberpink-print-circuit-soft) 34px 36px, transparent 36px 128px, var(--cyberpink-print-circuit-soft) 128px 130px, transparent 130px 100%),
+    linear-gradient(0deg, transparent 0 54px, var(--cyberpink-print-circuit-soft) 54px 56px, transparent 56px 178px, var(--cyberpink-print-circuit-soft) 178px 180px, transparent 180px 100%),
+    linear-gradient(90deg, transparent 0 78px, var(--cyberpink-print-circuit-color) 78px 80px, transparent 80px 195px, var(--cyberpink-print-circuit-color) 195px 197px, transparent 197px 100%),
+    linear-gradient(0deg, transparent 0 112px, var(--cyberpink-print-circuit-color) 112px 114px, transparent 114px 303px, var(--cyberpink-print-circuit-color) 303px 305px, transparent 305px 100%),
+    var(--cyberpink-subtheme-card-surface);
+  background-repeat: no-repeat;
+  background-size:
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    auto;
+  border: 2px solid var(--cyberpink-subtheme-card-frame);
+  clip-path: polygon(
+    14px 0,
+    calc(100% - 14px) 0,
+    100% 14px,
+    100% calc(100% - 12px),
+    calc(100% - 18px) 100%,
+    18px 100%,
+    0 calc(100% - 12px),
+    0 14px
+  );
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 10%, transparent),
+    0 0 14px var(--cyberpink-subtheme-card-glow);
+}
+
+body.theme-cyberpink .card-print-preview-back::before,
+body.theme-cyberpink .card-print-preview-back::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 14px;
+  z-index: 1;
+  pointer-events: none;
+  background: color-mix(
+    in srgb,
+    var(--cyberpink-subtheme-card-surface) 84%,
+    var(--cyberpink-subtheme-text) 16%
+  );
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  background-position: center;
+  filter:
+    drop-shadow(0 0 4px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 70%, transparent));
+}
+
+body.theme-cyberpink .card-print-preview-back::before {
+  top: 0;
+  background:
+    linear-gradient(
+      0deg,
+      color-mix(in srgb, var(--cyberpink-subtheme-card-surface) 88%, white 12%) 0,
+      color-mix(in srgb, var(--cyberpink-subtheme-card-surface) 88%, black 12%) 4px,
+      color-mix(in srgb, var(--cyberpink-subtheme-card-surface) 88%, black 12%) 100%
+    );
+  -webkit-mask-image: url("./assets/cyberpink-card-top-rail.svg");
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  -webkit-mask-position: center;
+  mask-image: url("./assets/cyberpink-card-top-rail.svg");
+  mask-repeat: no-repeat;
+  mask-size: 100% 100%;
+  mask-position: center;
+}
+
+body.theme-cyberpink .card-print-preview-back::after {
+  bottom: 0;
+  background: color-mix(
+    in srgb,
+    var(--cyberpink-subtheme-card-surface-shadow) 88%,
+    var(--cyberpink-subtheme-card-surface) 12%
+  );
+  -webkit-mask-image: url("./assets/cyberpink-card-bottom-rail.svg");
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  -webkit-mask-position: center;
+  mask-image: url("./assets/cyberpink-card-bottom-rail.svg");
+  mask-repeat: no-repeat;
+  mask-size: 100% 100%;
+  mask-position: center;
+}
+
+body.theme-cyberpink .card-print-preview-back__qr {
+  position: relative;
+  z-index: 2;
+  width: 138px;
+  height: 138px;
+  display: grid;
+  place-items: center;
+  padding: 13px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 16px 18px, var(--cyberpink-print-circuit-color) 0 2px, transparent 2.4px),
+    radial-gradient(circle at calc(100% - 16px) 20px, var(--cyberpink-print-circuit-color) 0 2px, transparent 2.4px),
+    radial-gradient(circle at 20px calc(100% - 18px), var(--cyberpink-print-circuit-color) 0 2px, transparent 2.4px),
+    radial-gradient(circle at calc(100% - 18px) calc(100% - 16px), var(--cyberpink-print-circuit-color) 0 2px, transparent 2.4px),
+    color-mix(in srgb, var(--cyberpink-subtheme-card-surface-shadow) 72%, var(--cyberpink-subtheme-text) 28%);
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 22%, transparent),
+    inset 0 0 18px color-mix(in srgb, black 58%, transparent),
+    0 0 16px color-mix(in srgb, var(--cyberpink-subtheme-soft) 65%, transparent);
+}
+
+body.theme-cyberpink .card-print-preview-back__qr::before,
+body.theme-cyberpink .card-print-preview-back__qr::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+body.theme-cyberpink .card-print-preview-back__qr::before {
+  background:
+    linear-gradient(90deg, transparent 0 9px, var(--cyberpink-print-circuit-color) 9px 11px, transparent 11px 42px, var(--cyberpink-print-circuit-color) 42px 44px, transparent 44px 94px, var(--cyberpink-print-circuit-color) 94px 96px, transparent 96px 100%),
+    linear-gradient(0deg, transparent 0 12px, var(--cyberpink-print-circuit-color) 12px 14px, transparent 14px 47px, var(--cyberpink-print-circuit-soft) 47px 49px, transparent 49px 96px, var(--cyberpink-print-circuit-color) 96px 98px, transparent 98px 100%);
+  opacity: 0.82;
+}
+
+body.theme-cyberpink .card-print-preview-back__qr::after {
+  inset: 7px;
+  border: 1px solid color-mix(in srgb, var(--cyberpink-subtheme-text) 28%, transparent);
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  box-shadow:
+    0 0 9px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 56%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, black 36%, transparent);
+}
+
+body.theme-cyberpink .card-print-preview-back__qr-image {
+  position: relative;
+  z-index: 3;
+  width: 116px;
+  height: 116px;
+  display: block;
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--cyberpink-subtheme-card-surface) 72%, black),
+    0 0 12px color-mix(in srgb, var(--cyberpink-subtheme-text) 40%, transparent);
+}
+
+@media (max-width: 720px) {
+  body.theme-cyberpink .card-route-page__viewer {
+    --cyberpink-card-route-scale: 1;
+    gap: 0;
+  }
+
+  body.theme-cyberpink .card-route-page__back {
+    width: 30px;
+    height: 48px;
+    top: 10px;
+    left: 10px;
+  }
+
+  body.theme-cyberpink .card-route-page__back-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  body.theme-cyberpink .card-route-page__stage {
+    transform: scale(1);
+  }
+
+  body.theme-cyberpink .card-print-preview-modal__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @keyframes cyberpink-card-viewer-enter {
   0% {
     opacity: 0;
@@ -3510,60 +4013,46 @@ body.theme-cyberpink .cards-bloco-nav:active {
   }
 }
 
-body.theme-cyberpink .cardContainerDesktopDev {
-  --cyberpink-frame-stroke: var(--cyberpink-subtheme-frame-stroke);
-  --cyberpink-frame-inner: var(--cyberpink-subtheme-frame-inner);
-  --cyberpink-frame-glow: var(--cyberpink-subtheme-card-glow);
-  --cyberpink-frame-width: 1px;
-  --cyberpink-corner-main: var(--cyberpink-subtheme-secondary);
-  --cyberpink-corner-accent: var(--cyberpink-subtheme-secondary);
-  --cyberpink-surface-a: var(--cyberpink-subtheme-surface-a);
-  --cyberpink-surface-b: var(--cyberpink-subtheme-surface-b);
-}
-
-body.theme-cyberpink .cardContainerDesktopHome {
-  --cyberpink-frame-stroke: var(--cyberpink-subtheme-frame-stroke);
-  --cyberpink-frame-inner: var(--cyberpink-subtheme-frame-inner);
-  --cyberpink-frame-glow: var(--cyberpink-subtheme-card-glow);
-  --cyberpink-frame-width: 1px;
-  --cyberpink-corner-main: var(--cyberpink-subtheme-secondary);
-  --cyberpink-corner-accent: var(--cyberpink-subtheme-secondary);
-  --cyberpink-surface-a: var(--cyberpink-subtheme-surface-a);
-  --cyberpink-surface-b: var(--cyberpink-subtheme-surface-b);
-  --cyberpink-card-home-frame: var(--cyberpink-subtheme-card-frame);
-  --cyberpink-card-home-frame-bright: var(--cyberpink-subtheme-card-frame-bright);
-  --cyberpink-card-home-glow: var(--cyberpink-subtheme-card-glow);
-  --cyberpink-card-home-surface: var(--cyberpink-subtheme-card-surface);
-  --cyberpink-card-home-surface-shadow: var(--cyberpink-subtheme-card-surface-shadow);
-  --cyberpink-card-home-side-detail-y: 39%;
-  --cyberpink-card-home-side-detail-y-top: calc(var(--cyberpink-card-home-side-detail-y) - 18%);
-  --cyberpink-card-home-side-detail-y-bottom: calc(var(--cyberpink-card-home-side-detail-y) + 18%);
-  --cyberpink-card-home-side-detail-width: 14px;
-  --cyberpink-card-home-side-detail-height: 57px;
-  --cyberpink-card-home-side-detail-left-x: 0px;
-  --cyberpink-card-home-side-detail-right-x: 0px;
-  --cyberpink-card-home-bottom-detail-offset: 24px;
-  --cyberpink-card-home-side-detail-glow: transparent;
+body.theme-cyberpink .cardContainerDesktop {
+  --cyberpink-cut-lg: 18px;
+  --cyberpink-card-inner-gap: 7px;
+  --cyberpink-card-image-inline-gap: 17px;
+  --cyberpink-card-top-rail-layer-width: 0px;
+  --cyberpink-card-top-rail-layer-height: 0px;
+  --cyberpink-card-frame: var(--cyberpink-subtheme-card-frame);
+  --cyberpink-card-frame-bright: var(--cyberpink-subtheme-card-frame-bright);
+  --cyberpink-card-glow: var(--cyberpink-subtheme-card-glow);
+  --cyberpink-card-surface: var(--cyberpink-subtheme-card-surface);
+  --cyberpink-card-surface-shadow: var(--cyberpink-subtheme-card-surface-shadow);
+  --cyberpink-card-side-detail-y: 39%;
+  --cyberpink-card-side-detail-y-top: calc(var(--cyberpink-card-side-detail-y) - 18%);
+  --cyberpink-card-side-detail-y-bottom: calc(var(--cyberpink-card-side-detail-y) + 18%);
+  --cyberpink-card-side-detail-width: 14px;
+  --cyberpink-card-side-detail-height: 57px;
+  --cyberpink-card-side-detail-left-x: 0px;
+  --cyberpink-card-side-detail-right-x: 0px;
+  --cyberpink-card-bottom-detail-offset: 24px;
+  --cyberpink-card-side-detail-glow: transparent;
   --cyberpink-card-detail-main: var(--cyberpink-subtheme-secondary);
   --cyberpink-card-detail-side: color-mix(
     in srgb,
-    var(--cyberpink-card-home-surface) 54%,
+    var(--cyberpink-card-surface) 54%,
     white 46%
   );
   --cyberpink-card-detail-bottom-rail: color-mix(
     in srgb,
-    var(--cyberpink-card-home-surface-shadow) 88%,
-    var(--cyberpink-card-home-surface) 12%
+    var(--cyberpink-card-surface-shadow) 88%,
+    var(--cyberpink-card-surface) 12%
   );
-  --cyberpink-card-detail-top-start: var(--cyberpink-card-home-surface);
+  --cyberpink-card-detail-top-start: var(--cyberpink-card-surface);
   --cyberpink-card-detail-top-mid: color-mix(
     in srgb,
-    var(--cyberpink-card-home-surface) 88%,
+    var(--cyberpink-card-surface) 88%,
     white 12%
   );
   --cyberpink-card-detail-top-base: color-mix(
     in srgb,
-    var(--cyberpink-card-home-surface) 88%,
+    var(--cyberpink-card-surface) 88%,
     black 12%
   );
   margin-top: 20px;
@@ -3571,25 +4060,6 @@ body.theme-cyberpink .cardContainerDesktopHome {
   padding: 12px 0 14px;
   background: transparent;
   box-shadow: none;
-}
-
-body.theme-cyberpink .cardContainerDesktopDesign {
-  --cyberpink-frame-stroke: var(--cyberpink-subtheme-frame-stroke);
-  --cyberpink-frame-inner: var(--cyberpink-subtheme-frame-inner);
-  --cyberpink-frame-glow: var(--cyberpink-subtheme-card-glow);
-  --cyberpink-frame-width: 1px;
-  --cyberpink-corner-main: var(--cyberpink-subtheme-secondary);
-  --cyberpink-corner-accent: var(--cyberpink-subtheme-secondary);
-  --cyberpink-surface-a: var(--cyberpink-subtheme-surface-a);
-  --cyberpink-surface-b: var(--cyberpink-subtheme-surface-b);
-}
-
-body.theme-cyberpink .cardContainerDesktopDev,
-body.theme-cyberpink .cardContainerDesktopHome,
-body.theme-cyberpink .cardContainerDesktopDesign {
-  --cyberpink-cut-lg: 18px;
-  --cyberpink-card-inner-gap: 7px;
-  --cyberpink-card-image-inline-gap: 17px;
   --cyberpink-corner-tl-x: -7px;
   --cyberpink-corner-tr-x: 7px;
   --cyberpink-corner-bl-x: -7px;
@@ -3604,9 +4074,7 @@ body.theme-cyberpink .cardContainerDesktopDesign {
 
   body.theme-cyberpink .bloco-container,
   body.theme-cyberpink .bloco-creator,
-  body.theme-cyberpink .cardContainerDesktopDev,
-  body.theme-cyberpink .cardContainerDesktopHome,
-  body.theme-cyberpink .cardContainerDesktopDesign {
+  body.theme-cyberpink .cardContainerDesktop {
     --cyberpink-cut-lg: var(--cyberpink-cut-md);
     --cyberpink-corner-size: 52px;
     --cyberpink-corner-tl-y: -13px;
@@ -3646,26 +4114,14 @@ body.theme-cyberpink .cardContainerDesktopDesign {
   }
 }
 
-body.theme-cyberpink .cardCabecalhoDev,
-body.theme-cyberpink .cardDescricaoDev {
-  background-color: #02102c;
+body.theme-cyberpink .cardCabecalho{
+  background: var(--cyberpink-card-surface);
 }
-
-body.theme-cyberpink .cardCabecalhoHome{
-  background: var(--cyberpink-card-home-surface);
-}
-body.theme-cyberpink .cardDescricaoHome {
+body.theme-cyberpink .cardDescricao {
   background: transparent;
 }
 
-body.theme-cyberpink .cardCabecalhoDesign,
-body.theme-cyberpink .cardDescricaoDesign {
-  background-color: #35011d;
-}
-
-body.theme-cyberpink .cardCabecalhoDev,
-body.theme-cyberpink .cardCabecalhoHome,
-body.theme-cyberpink .cardCabecalhoDesign {
+body.theme-cyberpink .cardCabecalho {
   width: 100%;
   flex: 0 0 auto;
   border-bottom: none;
@@ -3677,60 +4133,41 @@ body.theme-cyberpink .cardCabecalhoDesign {
 }
 
 body.theme-cyberpink .cardTituloPanel {
-  width: calc(100% - (var(--cyberpink-card-inner-gap) * 2));
-  max-width: calc(100% - (var(--cyberpink-card-inner-gap) * 2));
+  width: 100%;
+  max-width: 100%;
   display: block;
   box-sizing: border-box;
   padding-inline: 4px;
+  border: 2px solid var(--cyberpink-card-frame);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 10%, transparent),
+    0 0 10px var(--cyberpink-subtheme-card-glow);
 }
 
-body.theme-cyberpink .cardTituloPanel .cardNomeHome {
+body.theme-cyberpink .cardTituloPanel .cardNome {
   width: 100%;
   max-width: 100%;
 }
 
-body.theme-cyberpink .cardCabecalhoDev,
-body.theme-cyberpink .cardImagemDev,
-body.theme-cyberpink .cardDescricaoDev,
-body.theme-cyberpink .cardDescricaoDivDev,
-body.theme-cyberpink .cardNomeDev {
-  border: 1px solid #0e62ff;
-}
-
-body.theme-cyberpink .cardCabecalhoHome{
+body.theme-cyberpink .cardCabecalho{
    border: none;
 }
 
-body.theme-cyberpink .cardImagemHome{
-  background: var(--cyberpink-card-home-surface);
+body.theme-cyberpink .cardImagem{
+  background: var(--cyberpink-card-surface);
 }
 
-body.theme-cyberpink .cardDescricaoHome{
-  background: var(--cyberpink-card-home-surface);
+body.theme-cyberpink .cardDescricao{
+  background: var(--cyberpink-card-surface);
 }
 
-body.theme-cyberpink .cardDescricaoDivHome,
-body.theme-cyberpink .cardNomeHome {
-  border: 1px solid var(--cyberpink-subtheme-primary);
-}
-
-body.theme-cyberpink .cardDescricaoHome{
+body.theme-cyberpink .cardDescricao{
   border-bottom: none;
 }
 
-body.theme-cyberpink .cardCabecalhoDesign,
-body.theme-cyberpink .cardImagemDesign,
-body.theme-cyberpink .cardDescricaoDesign,
-body.theme-cyberpink .cardDescricaoDivDesign,
-body.theme-cyberpink .cardNomeDesign {
-  border: 1px solid var(--cyberpink-subtheme-primary);
-}
-
-body.theme-cyberpink .cardNomeDev,
-body.theme-cyberpink .cardNomeHome,
-body.theme-cyberpink .cardNomeDesign {
-  width: calc(100% - (var(--cyberpink-card-inner-gap) * 2));
-  max-width: calc(100% - (var(--cyberpink-card-inner-gap) * 2));
+body.theme-cyberpink .cardNome {
+  width: 100%;
+  max-width: 100%;
   height: 40px;
   min-height: 40px;
   box-sizing: border-box;
@@ -3742,25 +4179,18 @@ body.theme-cyberpink .cardNomeDesign {
   letter-spacing: 1px;
 }
 
-body.theme-cyberpink .cardNomeDev {
-  color: var(--cyberpink-subtheme-text);
-  background-color: var(--cyberpink-subtheme-card-surface);
-}
-
-body.theme-cyberpink .cardNomeHome {
+body.theme-cyberpink .cardNome {
   color: var(--cyberpink-subtheme-text);
   background: transparent;
-  border: 2px solid var(--cyberpink-card-home-frame);
+  border: none;
   justify-content: flex-start;
   text-align: left;
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 10%, transparent),
-    0 0 10px var(--cyberpink-subtheme-card-glow);
+  box-shadow: none;
   position: relative;
   overflow: hidden;
 }
 
-body.theme-cyberpink .cardNomeHome .cardNomeTicker {
+body.theme-cyberpink .cardNome .cardNomeTicker {
   display: inline-block;
   min-width: max-content;
   white-space: nowrap;
@@ -3778,7 +4208,7 @@ body.theme-cyberpink .cardNomeHome .cardNomeTicker {
   animation: cyberpink-card-title-marquee 8.5s linear infinite;
 }
 
-body.theme-cyberpink .cardNomeHome .cardNomeTickerExtra {
+body.theme-cyberpink .cardNome .cardNomeTickerExtra {
   color: var(--cyberpink-subtheme-soft);
   opacity: 0.92;
   text-shadow:
@@ -3795,14 +4225,7 @@ body.theme-cyberpink .cardNomeHome .cardNomeTickerExtra {
   }
 }
 
-body.theme-cyberpink .cardNomeDesign {
-  color: var(--cyberpink-subtheme-text);
-  background-color: var(--cyberpink-subtheme-card-surface);
-}
-
-body.theme-cyberpink .cardImagemDev,
-body.theme-cyberpink .cardImagemHome,
-body.theme-cyberpink .cardImagemDesign {
+body.theme-cyberpink .cardImagem {
   width: 100%;
   flex: 0 0 auto;
   height: auto;
@@ -3814,12 +4237,12 @@ body.theme-cyberpink .cardImagemDesign {
   padding: 0 var(--cyberpink-card-image-inline-gap);
 }
 
-body.theme-cyberpink .cardImagemHome {
+body.theme-cyberpink .cardImagem {
   width: calc(100% - 34px);
   max-width: calc(100% - 34px);
   padding: 10px;
-  border: 2px solid var(--cyberpink-card-home-frame);
-  background: var(--cyberpink-card-home-surface);
+  border: 2px solid var(--cyberpink-card-frame);
+  background: var(--cyberpink-card-surface);
   clip-path: polygon(
     0 0,
     100% 0,
@@ -3837,9 +4260,7 @@ body.theme-cyberpink .cardImagemHome {
     0 0 12px var(--cyberpink-subtheme-card-glow);
 }
 
-body.theme-cyberpink .cardDescricaoDev,
-body.theme-cyberpink .cardDescricaoHome,
-body.theme-cyberpink .cardDescricaoDesign {
+body.theme-cyberpink .cardDescricao {
   width: 100%;
   flex: 1 1 auto;
   min-height: 0;
@@ -3852,10 +4273,10 @@ body.theme-cyberpink .cardDescricaoDesign {
   padding: 0;
 }
 
-body.theme-cyberpink .cardDescricaoHome {
+body.theme-cyberpink .cardDescricao {
   border: none;
-  background: var(--cyberpink-card-home-surface);
-  --cyberpink-card-home-window-height: 115px;
+  background: var(--cyberpink-card-surface);
+  --cyberpink-card-window-height: 115px;
   position: relative;
   display: flex;
   align-items: stretch;
@@ -3864,9 +4285,7 @@ body.theme-cyberpink .cardDescricaoHome {
   isolation: isolate;
 }
 
-body.theme-cyberpink .cardDescricaoDivDev,
-body.theme-cyberpink .cardDescricaoDivHome,
-body.theme-cyberpink .cardDescricaoDivDesign {
+body.theme-cyberpink .cardDescricaoDiv {
   height: 100%;
   width: calc(100% - (var(--cyberpink-card-inner-gap) * 2));
   max-width: calc(100% - (var(--cyberpink-card-inner-gap) * 2));
@@ -3878,25 +4297,20 @@ body.theme-cyberpink .cardDescricaoDivDesign {
   background-color: var(--cyberpink-subtheme-card-surface-shadow);
 }
 
-body.theme-cyberpink .cardDescricaoDivDev {
-  color: var(--cyberpink-subtheme-text-soft);
-  background-color: var(--cyberpink-subtheme-card-surface-shadow);
-}
-
-body.theme-cyberpink .cardDescricaoDivHome {
+body.theme-cyberpink .cardDescricaoDiv {
   color: var(--cyberpink-subtheme-text-soft);
   flex: 1 1 auto;
   min-height: 100%;
   align-self: stretch;
   margin: 0 auto;
-  background-color: var(--cyberpink-card-home-surface);
+  background-color: var(--cyberpink-card-surface);
   background-image:
     linear-gradient(
       180deg,
       rgba(0, 0, 0, 0) 0,
-      rgba(0, 0, 0, 0) var(--cyberpink-card-home-window-height),
-      var(--cyberpink-card-home-surface) var(--cyberpink-card-home-window-height),
-      var(--cyberpink-card-home-surface) 100%
+      rgba(0, 0, 0, 0) var(--cyberpink-card-window-height),
+      var(--cyberpink-card-surface) var(--cyberpink-card-window-height),
+      var(--cyberpink-card-surface) 100%
     ),
     var(--system-wallpaper);
   background-size:
@@ -3911,7 +4325,7 @@ body.theme-cyberpink .cardDescricaoDivHome {
   background-attachment:
     scroll,
     scroll;
-  border: 2px solid var(--cyberpink-card-home-frame);
+  border: 2px solid var(--cyberpink-card-frame);
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 10%, transparent),
     0 0 10px var(--cyberpink-subtheme-card-glow);
@@ -3921,28 +4335,28 @@ body.theme-cyberpink .cardDescricaoDivHome {
   z-index: 1;
 }
 
-body.theme-cyberpink .cardDescricaoDivHome .cardDescricaoDiv__scroll {
+body.theme-cyberpink .cardDescricaoDiv .cardDescricaoDiv__scroll {
   height: 100%;
   min-height: 0;
   overflow: auto;
   box-sizing: border-box;
 }
 
-body.theme-cyberpink .cardDescricaoHome::before,
-body.theme-cyberpink .cardDescricaoHome::after {
+body.theme-cyberpink .cardDescricao::before,
+body.theme-cyberpink .cardDescricao::after {
   display: none;
 }
 
-body.theme-cyberpink .cardNomeHome::before,
-body.theme-cyberpink .cardDescricaoHome::before,
-body.theme-cyberpink .cardDescricaoHome::after {
+body.theme-cyberpink .cardNome::before,
+body.theme-cyberpink .cardDescricao::before,
+body.theme-cyberpink .cardDescricao::after {
   content: "";
   position: absolute;
   pointer-events: none;
   z-index: 3;
 }
 
-body.theme-cyberpink .cardNomeHome::before {
+body.theme-cyberpink .cardNome::before {
   inset: 2px;
   background-image: var(--system-wallpaper);
   background-color: #0d0d16;
@@ -3953,7 +4367,7 @@ body.theme-cyberpink .cardNomeHome::before {
   z-index: 0;
 }
 
-body.theme-cyberpink .cardDescricaoHome::before {
+body.theme-cyberpink .cardDescricao::before {
   left: calc(var(--cyberpink-card-inner-gap) + 2px);
   right: calc(var(--cyberpink-card-inner-gap) + 2px);
   top: 2px;
@@ -3961,13 +4375,13 @@ body.theme-cyberpink .cardDescricaoHome::before {
   background:
     linear-gradient(
       180deg,
-      color-mix(in srgb, var(--cyberpink-card-home-surface-shadow) 72%, transparent) 0%,
-      color-mix(in srgb, var(--cyberpink-card-home-surface) 28%, transparent) 58%,
+      color-mix(in srgb, var(--cyberpink-card-surface-shadow) 72%, transparent) 0%,
+      color-mix(in srgb, var(--cyberpink-card-surface) 28%, transparent) 58%,
       transparent 100%
     );
 }
 
-body.theme-cyberpink .cardDescricaoHome::after {
+body.theme-cyberpink .cardDescricao::after {
   left: calc(var(--cyberpink-card-inner-gap) + 2px);
   right: calc(var(--cyberpink-card-inner-gap) + 2px);
   bottom: 2px;
@@ -3975,32 +4389,26 @@ body.theme-cyberpink .cardDescricaoHome::after {
   background:
     linear-gradient(
       0deg,
-      color-mix(in srgb, var(--cyberpink-card-home-surface-shadow) 76%, transparent) 0%,
-      color-mix(in srgb, var(--cyberpink-card-home-surface) 30%, transparent) 62%,
+      color-mix(in srgb, var(--cyberpink-card-surface-shadow) 76%, transparent) 0%,
+      color-mix(in srgb, var(--cyberpink-card-surface) 30%, transparent) 62%,
       transparent 100%
     );
 }
 
-body.theme-cyberpink .cardDescricaoDivHome > * {
+body.theme-cyberpink .cardDescricaoDiv > * {
   position: relative;
   z-index: 1;
 }
 
-body.theme-cyberpink .cardDescricaoDivHome .txtTituloPri,
-body.theme-cyberpink .cardDescricaoDivHome .txtTitulo,
-body.theme-cyberpink .cardDescricaoDivHome .txtTituloLink,
-body.theme-cyberpink .cardDescricaoDivHome .txtDescricao {
+body.theme-cyberpink .cardDescricaoDiv .txtTituloPri,
+body.theme-cyberpink .cardDescricaoDiv .txtTitulo,
+body.theme-cyberpink .cardDescricaoDiv .txtTituloLink,
+body.theme-cyberpink .cardDescricaoDiv .txtDescricao {
   margin-left: 0;
   margin-right: 0;
 }
 
-body.theme-cyberpink .cardDescricaoDivDesign {
-  color: #ff8aca;
-}
-
-body.theme-cyberpink .imgCardDev,
-body.theme-cyberpink .imgCardHome,
-body.theme-cyberpink .imgCardDesign {
+body.theme-cyberpink .imgCard {
   width: 100%;
   max-width: 100%;
   aspect-ratio: 1 / 1;
@@ -4013,22 +4421,18 @@ body.theme-cyberpink .imgCardDesign {
   user-select: none;
 }
 
-body.theme-cyberpink .imgCardDev {
-  border-color: #0e62ff;
-}
-
-body.theme-cyberpink .imgCardHome {
+body.theme-cyberpink .imgCard {
   border: 1px solid rgba(216, 181, 255, 0.28);
   box-shadow:
     0 0 0 1px rgba(215, 168, 255, 0.12),
     0 0 12px var(--cyberpink-subtheme-button-glow);
 }
 
-body.theme-cyberpink .image-zoom-trigger--card.imgCardHome {
+body.theme-cyberpink .image-zoom-trigger--card.imgCard {
   border: 3px double var(--cyberpink-subtheme-primary);
 }
 
-body.theme-cyberpink .imgCardDesign {
+body.theme-cyberpink .imgCard {
   border-color: var(--cyberpink-subtheme-primary);
 }
 
@@ -4183,16 +4587,21 @@ body.theme-cyberpink .bloco-addons-editor__subbloco::after {
 body.theme-cyberpink .addons-bloco-subbloco-title {
   margin: 0 0 18px;
   color: var(--cyberpink-subtheme-text);
-  font-family: "Rajdhani", sans-serif;
-  font-size: 17px;
-  line-height: 1;
-  letter-spacing: 0.08em;
+  font-family: "DotGothic16", "Rajdhani", sans-serif;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  text-shadow: 0 0 6px var(--cyberpink-subtheme-primary);
+  text-shadow:
+    0 0 1px var(--cyberpink-subtheme-primary),
+    0 0 2px var(--cyberpink-subtheme-primary),
+    0 0 4px var(--cyberpink-subtheme-primary),
+    0 0 7px var(--cyberpink-subtheme-primary);
 }
 
 body.theme-cyberpink .addons-bloco-item {
-  --cyberpink-addon-chip-cut: 8px;
+  --cyberpink-addon-chip-cut: 10px;
   --cyberpink-addon-chip-circuit: color-mix(in srgb, var(--cyberpink-subtheme-frame-stroke) 84%, white 16%);
   --cyberpink-addon-chip-top-detail: color-mix(
     in srgb,
@@ -4301,8 +4710,8 @@ body.theme-cyberpink .addons-bloco-chip-pins--bottom {
 body.theme-cyberpink .addons-bloco-chip-corner {
   position: absolute;
   z-index: 2;
-  width: var(--cyberpink-addon-chip-cut);
-  height: var(--cyberpink-addon-chip-cut);
+  width: calc(var(--cyberpink-addon-chip-cut) + 1px);
+  height: calc(var(--cyberpink-addon-chip-cut) + 1px);
   color: color-mix(in srgb, var(--cyberpink-subtheme-frame-stroke) 84%, white 16%);
   pointer-events: none;
   overflow: visible;
@@ -4313,28 +4722,28 @@ body.theme-cyberpink .addons-bloco-chip-corner path {
   fill: none;
   stroke: currentColor;
   stroke-width: 1;
-  stroke-linecap: square;
+  stroke-linecap: butt;
   vector-effect: non-scaling-stroke;
 }
 
 body.theme-cyberpink .addons-bloco-chip-corner--tl {
-  top: 0;
-  left: 0;
+  top: -0.5px;
+  left: -0.5px;
 }
 
 body.theme-cyberpink .addons-bloco-chip-corner--tr {
-  top: 0;
-  right: 0;
+  top: -0.5px;
+  right: -0.5px;
 }
 
 body.theme-cyberpink .addons-bloco-chip-corner--bl {
-  bottom: 0;
-  left: 0;
+  bottom: -0.5px;
+  left: -0.5px;
 }
 
 body.theme-cyberpink .addons-bloco-chip-corner--br {
-  right: 0;
-  bottom: 0;
+  right: -0.5px;
+  bottom: -0.5px;
 }
 
 body.theme-cyberpink .addons-bloco-item:hover {
@@ -4852,8 +5261,6 @@ body.theme-cyberpink .espaco-restricao-texto {
 body.theme-cyberpink{
   color: var(--cyberpink-text-soft);
 }
-
-
 
 
 

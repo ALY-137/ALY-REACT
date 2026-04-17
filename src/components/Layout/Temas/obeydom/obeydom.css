@@ -515,9 +515,7 @@ body.theme-obeydom button:disabled {
   cursor: not-allowed;
 }
 
-body.theme-obeydom .cardContainerDesktopDev,
-body.theme-obeydom .cardContainerDesktopHome,
-body.theme-obeydom .cardContainerDesktopDesign {
+body.theme-obeydom .cardContainerDesktop {
   border-radius: var(--obey-radius);
   border: 1px solid var(--obey-gray-3);
   background: var(--obey-gray-1);
@@ -525,21 +523,11 @@ body.theme-obeydom .cardContainerDesktopDesign {
   overflow: hidden;
 }
 
-body.theme-obeydom .cardCabecalhoDev,
-body.theme-obeydom .cardCabecalhoHome,
-body.theme-obeydom .cardCabecalhoDesign,
-body.theme-obeydom .cardImagemDev,
-body.theme-obeydom .cardImagemHome,
-body.theme-obeydom .cardImagemDesign,
-body.theme-obeydom .cardDescricaoDev,
-body.theme-obeydom .cardDescricaoHome,
-body.theme-obeydom .cardDescricaoDesign,
-body.theme-obeydom .cardDescricaoDivDev,
-body.theme-obeydom .cardDescricaoDivHome,
-body.theme-obeydom .cardDescricaoDivDesign,
-body.theme-obeydom .cardNomeDev,
-body.theme-obeydom .cardNomeHome,
-body.theme-obeydom .cardNomeDesign {
+body.theme-obeydom .cardCabecalho,
+body.theme-obeydom .cardImagem,
+body.theme-obeydom .cardDescricao,
+body.theme-obeydom .cardDescricaoDiv,
+body.theme-obeydom .cardNome {
   border-color: var(--obey-gray-3);
   background: var(--obey-gray-1);
   color: var(--obey-offwhite);
@@ -581,6 +569,3 @@ body.theme-obeydom a:hover {
     font-size: 12px;
   }
 }
-
-
-

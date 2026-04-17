@@ -355,6 +355,9 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
     .split("/")
     .map((segmento) => decodeURIComponent(segmento || "").trim())
     .filter(Boolean);
+  const isCardViewerRoute = oneOwnerPublicaAtiva
+    ? segmentosRota[1] === "card"
+    : segmentosRota[2] === "card";
   const nomeEspacoAtualRota = oneOwnerPublicaAtiva
     ? String(segmentosRota[0] || "").trim()
     : String(segmentosRota[1] || "").trim();
@@ -1293,6 +1296,15 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
   if (loading || isLoading || !theme) return loaderVisualJSX;
 
   const exibirBadgeProjetoFirebase = configSistemaAtual?.exibirBadgeProjetoFirebase !== false;
+  const configSistemaLayoutEfetiva = isCardViewerRoute
+    ? {
+        ...configSistemaAtual,
+        layoutTema: {
+          ...(configSistemaAtual?.layoutTema || {}),
+          headerVisible: false,
+        },
+      }
+    : configSistemaAtual;
 
   return (
     <>
@@ -1300,15 +1312,15 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
       <div style={!layoutThemeReady ? { visibility: "hidden" } : undefined}>
         <Layout
           theme={theme}
-          profile={profileJSX}
-          navigation={navigationJSX}
+          profile={isCardViewerRoute ? null : profileJSX}
+          navigation={isCardViewerRoute ? null : navigationJSX}
           content={contentJSX}
           spaceSubtheme={subtemaCyberpinkAtivo}
-          configSistemaOverride={configSistemaAtual}
+          configSistemaOverride={configSistemaLayoutEfetiva}
           cardProfileDimensionsOverride={cardProfileDimensions}
           onThemeReadyChange={setLayoutThemeReady}
         />
-        <FirebaseProjectBadge visible={exibirBadgeProjetoFirebase} />
+        <FirebaseProjectBadge visible={isCardViewerRoute ? false : exibirBadgeProjetoFirebase} />
       </div>
     </>
   );

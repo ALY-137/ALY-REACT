@@ -1,9 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<svg
-  version="1.1"
-  xmlns="http://www.w3.org/2000/svg"
-  viewBox="0 0 57 8"
-  aria-hidden="true"
->
-  <polygon fill="#5E37DB" points="6,8 0,0 57,0 51,8" />
+<!-- Generator: Adobe Illustrator 19.0.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<svg version="1.1" id="Camada_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 viewBox="-277 393 57 8" style="enable-background:new -277 393 57 8;" xml:space="preserve">
+<style type="text/css">
+	.st0{fill:#500BB2;}
+	.st1{fill:#3A0C84;}
+	.st2{fill:#330C72;}
+	.st3{fill:#1E0644;}
+</style>
+<polygon class="st0" points="-235.4,399.4 -224.8,393 -220,393 -230.5,399.4 "/>
+<polygon class="st1" points="-242,399.4 -231.3,393 -226.5,393 -237,399.4 "/>
+<polygon class="st2" points="-248.5,399.4 -237.9,393 -233,393 -243.6,399.4 "/>
+<polygon class="st0" points="-261.6,399.4 -272.1,393 -277,393 -266.5,399.4 "/>
+<polygon class="st1" points="-255,399.4 -265.6,393 -270.5,393 -260,399.4 "/>
+<polygon class="st2" points="-248.5,399.4 -259.1,393 -264,393 -253.4,399.4 "/>
+<polygon class="st3" points="-248.5,393 -257.1,393 -252.8,395.6 -248.5,398.3 -244.2,395.6 -239.8,393 "/>
 </svg>

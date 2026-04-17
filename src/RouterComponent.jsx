@@ -32,6 +32,7 @@ import GerenciadorProjetos from "./components/Layout/Menu/Gerenciador/Gerenciado
 import GerenciadorIcones from "./components/Layout/Menu/Gerenciador/GerenciadorIcones";
 import GerenciadorAddOns from "./components/Layout/Menu/Gerenciador/GerenciadorAddOns";
 import SolicitacoesPixManual from "./components/Layout/Pagamentos/SolicitacoesPixManual";
+import CardRoutePage from "./components/Layout/Espacos/CardRoutePage";
 
 function RedirectOneOwnerLegacyPath() {
   const { espacoNome } = useParams();
@@ -114,7 +115,11 @@ export default function RouterComponent() {
           {
             path: ":espacoNome",
             element: <Estrutura />,
-            children: [{ index: true, element: <EspacoPage /> }, ...routes],
+            children: [
+              { path: "card/:blocoId/:cardId", element: <CardRoutePage /> },
+              { index: true, element: <EspacoPage /> },
+              ...routes,
+            ],
           },
           {
             path: ":skinsUsername/:espacoNome",
@@ -125,7 +130,11 @@ export default function RouterComponent() {
           {
             path: ":skinsUsername",
             element: <Estrutura />,
-            children: [{ path: ":espacoNome", element: <EspacoPage /> }, ...routes],
+            children: [
+              { path: ":espacoNome/card/:blocoId/:cardId", element: <CardRoutePage /> },
+              { path: ":espacoNome", element: <EspacoPage /> },
+              ...routes,
+            ],
           },
         ]
     : [];
