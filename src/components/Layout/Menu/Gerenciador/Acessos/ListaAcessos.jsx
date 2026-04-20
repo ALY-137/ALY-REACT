@@ -56,8 +56,10 @@ function resolveTipoUsuario(acesso) {
   return perfil === "owner" ? "owner" : "viewer";
 }
 
-function resolveAccessHash(acesso) {
-  return normalizeText(acesso?.visitorHash || acesso?.hash);
+function resolveAccessNavigationId(acesso) {
+  return normalizeText(
+    acesso?.navigationId || acesso?.visitorHash || acesso?.hash || acesso?.navegacaoHash
+  );
 }
 
 function resolveAccessIp(acesso) {
@@ -188,7 +190,7 @@ function ListaAcessos() {
   const [filtroProjeto, setFiltroProjeto] = useState("");
   const [filtroOrigem, setFiltroOrigem] = useState("");
   const [filtroTipoUsuario, setFiltroTipoUsuario] = useState("");
-  const [filtroHash, setFiltroHash] = useState("");
+  const [filtroNavigationId, setFiltroNavigationId] = useState("");
   const [filtroIp, setFiltroIp] = useState("");
   const [filtroDataInicio, setFiltroDataInicio] = useState("");
   const [filtroDataFim, setFiltroDataFim] = useState("");
@@ -500,7 +502,7 @@ function ListaAcessos() {
   const acessosFiltrados = useMemo(() => {
     return acessos.filter((acesso) => {
       const projectKey = resolveAccessProjectKey(acesso);
-      const hashAtual = resolveAccessHash(acesso).toLowerCase();
+      const navigationIdAtual = resolveAccessNavigationId(acesso).toLowerCase();
       const ipAtual = resolveAccessIp(acesso).toLowerCase();
       const acessoTimestamp = resolveDataTimestampMs(acesso?.data || acesso?.criadoEm);
       const lido = isAccessRead(acesso);
@@ -510,7 +512,9 @@ function ListaAcessos() {
       if (filtroTipoUsuario && resolveTipoUsuario(acesso) !== filtroTipoUsuario) return false;
       if (filtroStatusLeitura === "lido" && !lido) return false;
       if (filtroStatusLeitura === "nao-lido" && lido) return false;
-      if (filtroHash && !hashAtual.includes(filtroHash.toLowerCase())) return false;
+      if (filtroNavigationId && !navigationIdAtual.includes(filtroNavigationId.toLowerCase())) {
+        return false;
+      }
       if (filtroIp && !ipAtual.includes(filtroIp.toLowerCase())) return false;
       if (filtroDataInicio) {
         const dataInicio = new Date(`${filtroDataInicio}T00:00:00`).getTime();
@@ -526,7 +530,7 @@ function ListaAcessos() {
     acessos,
     filtroDataFim,
     filtroDataInicio,
-    filtroHash,
+    filtroNavigationId,
     filtroIp,
     filtroOrigem,
     filtroProjeto,
@@ -551,7 +555,7 @@ function ListaAcessos() {
   }, [
     filtroDataFim,
     filtroDataInicio,
-    filtroHash,
+    filtroNavigationId,
     filtroIp,
     filtroOrigem,
     filtroProjeto,
@@ -574,17 +578,17 @@ function ListaAcessos() {
     const gruposMap = new Map();
 
     acessosFiltrados.forEach((acesso, index) => {
-      const hash = resolveAccessHash(acesso);
+      const navigationId = resolveAccessNavigationId(acesso);
       const projectKey = resolveAccessProjectKey(acesso) || "sem-projeto";
       const fallbackKey =
         normalizeText(acesso?.uid || acesso?.email || resolveAccessIp(acesso) || acesso?.id) ||
         String(index);
-      const groupKey = `${projectKey}|${hash || `sem-hash:${fallbackKey}`}`;
+      const groupKey = `${projectKey}|${navigationId || `sem-navigation-id:${fallbackKey}`}`;
 
       if (!gruposMap.has(groupKey)) {
         gruposMap.set(groupKey, {
           key: groupKey,
-          hash,
+          navigationId,
           projectKey,
           items: [],
           projetosSet: new Set(),
@@ -634,7 +638,7 @@ function ListaAcessos() {
 
         return {
           key: grupo.key,
-          hash: grupo.hash,
+          navigationId: grupo.navigationId,
           projectKey: grupo.projectKey,
           items: itemsOrdenados,
           total: itemsOrdenados.length,
@@ -735,12 +739,12 @@ function ListaAcessos() {
 
           <div className="gerenciador-acessos__filter-pair">
             <label className="gerenciador-acessos__filter gerenciador-acessos__filter--compact">
-              <span>Hash</span>
+              <span>Identificador</span>
               <input
                 type="text"
-                value={filtroHash}
-                onChange={(event) => setFiltroHash(event.target.value)}
-                placeholder="Digite o hash"
+                value={filtroNavigationId}
+                onChange={(event) => setFiltroNavigationId(event.target.value)}
+                placeholder="Digite o identificador"
               />
             </label>
 
@@ -847,7 +851,7 @@ function ListaAcessos() {
           <p>
             UIDs ou emails nesta lista nao geram novos registros de navegacao/acesso
             quando o visitante estiver logado. Visitantes anonimos continuam dependendo
-            de hash ou IP.
+            do identificador de navegacao ou IP.
           </p>
         </div>
 
@@ -992,7 +996,7 @@ function ListaAcessos() {
                 <div className="gerenciador-acessos__group-header">
                   <div>
                     <strong>{grupo.usuario}</strong>
-                    <span>{`Hash navegacao: ${grupo.hash || "--"}`}</span>
+                    <span>{`Identificador de navegacao: ${grupo.navigationId || "--"}`}</span>
                   </div>
                   {grupo.total > ACCESS_GROUP_PREVIEW_SIZE ? (
                     <button
@@ -1120,7 +1124,7 @@ function ListaAcessos() {
                   {eventosVisiveis.map((acesso) => {
                     const projectKey = resolveAccessProjectKey(acesso);
                     const projeto = projetosMap.get(projectKey);
-                    const hashNavegacao = resolveAccessHash(acesso) || "--";
+                    const navigationId = resolveAccessNavigationId(acesso) || "--";
                     const ipAcesso = resolveAccessIp(acesso) || "--";
                     const origemAcesso = resolveOrigemAcesso(acesso) || "--";
                     const tipoUsuario = resolveTipoUsuario(acesso);
@@ -1186,12 +1190,16 @@ function ListaAcessos() {
                           <span>{`Tempo aba: ${tempoAba}`}</span>
                           <span>{`Origem: ${origemAcesso}`}</span>
                           <span>{`Tipo usuario: ${tipoUsuario}`}</span>
+                          <span>{`Origem rastreavel: ${normalizeText(acesso?.origemRastreavel) || "--"}`}</span>
+                          <span>{`Tracking ID: ${normalizeText(acesso?.trackingId) || "--"}`}</span>
+                          <span>{`Origem planejada: ${normalizeText(acesso?.trackingOrigemPlanejada) || "--"}`}</span>
+                          <span>{`Destino rastreavel: ${normalizeText(acesso?.trackingDestinoUrl) || "--"}`}</span>
                           <span>{`Runtime: ${normalizeText(acesso?.runtimeProjectId) || "--"}`}</span>
                           <span>{`Host: ${normalizeText(acesso?.hostname) || "--"}`}</span>
                           <span>{`IP: ${ipAcesso}`}</span>
                           <span>{`UID: ${normalizeText(acesso?.uid) || "--"}`}</span>
                           <span>{`Email: ${normalizeText(acesso?.email) || "--"}`}</span>
-                          <span>{`Hash: ${hashNavegacao}`}</span>
+                          <span>{`Identificador de navegacao: ${navigationId}`}</span>
                           <span>{`Pais: ${paisAcesso}`}</span>
                           <span>{`Regiao: ${regiaoAcesso}`}</span>
                           <span>{`Cidade: ${cidadeAcesso}`}</span>

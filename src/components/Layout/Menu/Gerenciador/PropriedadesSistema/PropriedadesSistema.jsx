@@ -2019,6 +2019,49 @@ function PropriedadesSistema({
           <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <input
               type="checkbox"
+              checked={!!config.rastreabilidadeAcessosHabilitada}
+              onChange={(event) =>
+                setConfig((prev) => ({
+                  ...prev,
+                  rastreabilidadeAcessosHabilitada: event.target.checked,
+                  modoRastreabilidadeAcessos: event.target.checked
+                    ? prev.modoRastreabilidadeAcessos || "preferencial"
+                    : prev.modoRastreabilidadeAcessos || "preferencial",
+                }))
+              }
+            />
+            Habilitar rastreabilidade de acessos
+          </label>
+
+          {config.rastreabilidadeAcessosHabilitada ? (
+            <div style={{ display: "grid", gap: 8, margin: "0 0 12px 24px" }}>
+              <label htmlFor="modoRastreabilidadeAcessos">
+                Modo de rastreabilidade
+              </label>
+              <select
+                id="modoRastreabilidadeAcessos"
+                value={config.modoRastreabilidadeAcessos || "preferencial"}
+                onChange={(event) =>
+                  setConfig((prev) => ({
+                    ...prev,
+                    modoRastreabilidadeAcessos: event.target.value,
+                  }))
+                }
+              >
+                <option value="livre">Livre</option>
+                <option value="preferencial">Preferencial</option>
+                <option value="obrigatorio">Obrigatorio</option>
+              </select>
+              <p style={{ margin: 0, opacity: 0.8, fontSize: 12 }}>
+                Preferencial mantem a URL fixa funcionando, mas o compartilhamento usa links
+                rastreaveis que registram origem e redirecionam para o mesmo espaco.
+              </p>
+            </div>
+          ) : null}
+
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <input
+              type="checkbox"
               checked={!!config.addOnsHabilitados}
               onChange={(event) =>
                 setConfig((prev) => ({

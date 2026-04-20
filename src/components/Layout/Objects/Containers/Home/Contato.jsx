@@ -12,7 +12,7 @@ function Contato() {
 
 
 
-  const valorHash = localStorage.getItem('navegacaoHash');
+  const valorNavigationId = localStorage.getItem('navegacaoHash');
   const skinLogadoUser = localStorage.getItem('skinLogadoUser');
 
   const userId = localStorage.getItem('userId'); // USUARIO LOGADO
@@ -27,7 +27,7 @@ const handleClick = () => {
       if(skinLogadoUser){
         enviarMensagem(skinLogadoUser, 'savannaoliveira', valorSelecionado, valorTextarea, valorEmail);
       }else{
-        enviarMensagem(valorHash, 'savannaoliveira', valorSelecionado, valorTextarea, valorEmail);
+        enviarMensagem(valorNavigationId, 'savannaoliveira', valorSelecionado, valorTextarea, valorEmail);
       }
 
 

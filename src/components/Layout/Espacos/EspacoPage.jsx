@@ -100,9 +100,15 @@ import { seforAdm } from "../../Scripts/verificacoes/verificaAdm";
 import { getEspacoCompleto } from "./firebaseEspacos";
 import {
   criarQrPrintCard,
+  excluirQrPrintCard,
   listarLeiturasQrPrint,
   listarQrPrintsDoCard,
 } from "./qrPrintsApi";
+import {
+  criarLinkRastreavelEspaco,
+  excluirLinkRastreavelEspaco,
+  listarLinksRastreaveisEspaco,
+} from "./trackableLinksApi";
 
 const getBlocosCollectionRefs = (ownerUserId, espacoId) =>
   getProjectCollectionCandidates(db, "users", ownerUserId, "espacos", espacoId, "blocos");
@@ -545,7 +551,6 @@ const criarEstadoPreviewImpressaoCard = (overrides = {}) => ({
   qrErro: "",
   criandoQr: false,
   descricaoRegistro: "",
-  printSelecionadoId: "",
   addOns: [],
   ...overrides,
 });
@@ -884,12 +889,26 @@ export default function EspacoPage() {
   const [previewImpressaoCard, setPreviewImpressaoCard] = useState(() =>
     criarEstadoPreviewImpressaoCard()
   );
+  const [previewImpressaoPopup, setPreviewImpressaoPopup] = useState({
+    aberto: false,
+    printId: "",
+  });
   const [qrPrintsHistorico, setQrPrintsHistorico] = useState({
     loading: false,
     erro: "",
     itens: [],
   });
+  const [qrPrintExcluindoId, setQrPrintExcluindoId] = useState("");
   const [qrPrintLeituras, setQrPrintLeituras] = useState({});
+  const [linksRastreaveisEspaco, setLinksRastreaveisEspaco] = useState({
+    loading: false,
+    erro: "",
+    itens: [],
+    descricao: "",
+    criando: false,
+    excluindoId: "",
+    mensagem: "",
+  });
   const [editorCardModal, setEditorCardModal] = useState(() => criarEstadoEditorCard());
   const [editorBlocoCardsModal, setEditorBlocoCardsModal] = useState(() =>
     criarEstadoEditorBlocoCards()
@@ -989,6 +1008,13 @@ export default function EspacoPage() {
   const addOnsProjetoHabilitados =
     configSistemaAtual?.addOnsHabilitados === true;
   const blocoAddOnsProjetoHabilitado = configSistemaAtual?.blocoAddOnsHabilitado === true;
+  const rastreabilidadeAcessosHabilitada =
+    configSistemaAtual?.rastreabilidadeAcessosHabilitada === true;
+  const modoRastreabilidadeAcessos = String(
+    configSistemaAtual?.modoRastreabilidadeAcessos || "preferencial"
+  ).trim().toLowerCase();
+  const rastreabilidadePreferencialAtiva =
+    rastreabilidadeAcessosHabilitada && modoRastreabilidadeAcessos === "preferencial";
   const projetoPossuiColecoesIcones = iconCollectionsFiltradas.length > 0;
   const cardsEditorBlocoAtual = useMemo(
     () => normalizarCardsDoBloco(blocoEditorCardsAtual?.cards),
@@ -1603,6 +1629,26 @@ export default function EspacoPage() {
     }
   }, []);
 
+  const montarRotaEspacoAtual = useCallback(() => {
+    const espacoNomeRota = encodeRouteSegment(espacoNome || "");
+    const skinsUsernameRota = encodeRouteSegment(skinsUsername || "");
+    if (!espacoNomeRota) return "";
+    if (oneOwnerPublicaAtivaEfetiva || !skinsUsernameRota) {
+      return `/${espacoNomeRota}`;
+    }
+    return `/${skinsUsernameRota}/${espacoNomeRota}`;
+  }, [espacoNome, oneOwnerPublicaAtivaEfetiva, skinsUsername]);
+
+  const montarUrlAbsoluta = useCallback((rota = "") => {
+    const rotaNormalizada = String(rota || "").trim();
+    if (!rotaNormalizada) return "";
+    try {
+      return new URL(rotaNormalizada, window.location.origin).href;
+    } catch {
+      return rotaNormalizada;
+    }
+  }, []);
+
   const abrirPreviewImpressaoCard = useCallback(
     ({ bloco = null, card = null, imagem = "", addOns = [], rota = "" } = {}) => {
       if (!card) return;
@@ -1624,7 +1670,6 @@ export default function EspacoPage() {
           qrErro: "",
           criandoQr: false,
           descricaoRegistro: "",
-          printSelecionadoId: "",
         })
       );
     },
@@ -1662,6 +1707,177 @@ export default function EspacoPage() {
     },
     [espacoId, ownerUserId]
   );
+
+  const carregarLinksRastreaveisEspaco = useCallback(async () => {
+    if (!ownerUserId || !espacoId || !podeGerenciar || !rastreabilidadePreferencialAtiva) {
+      setLinksRastreaveisEspaco((prev) => ({
+        ...prev,
+        loading: false,
+        erro: "",
+        itens: [],
+      }));
+      return;
+    }
+
+    setLinksRastreaveisEspaco((prev) => ({ ...prev, loading: true, erro: "", mensagem: "" }));
+    try {
+      const itens = await listarLinksRastreaveisEspaco({
+        ownerUserId,
+        espacoId,
+      });
+      setLinksRastreaveisEspaco((prev) => ({
+        ...prev,
+        loading: false,
+        erro: "",
+        itens,
+      }));
+    } catch (error) {
+      setLinksRastreaveisEspaco((prev) => ({
+        ...prev,
+        loading: false,
+        erro:
+          error?.code === "permission-denied"
+            ? "Sem permissao para carregar links rastreaveis deste espaco."
+            : error?.message || "Falha ao carregar links rastreaveis.",
+        itens: [],
+      }));
+    }
+  }, [espacoId, ownerUserId, podeGerenciar, rastreabilidadePreferencialAtiva]);
+
+  const criarLinkRastreavelDoEspaco = useCallback(async () => {
+    const destinoUrl = montarRotaEspacoAtual();
+    if (
+      !ownerUserId ||
+      !espacoId ||
+      !destinoUrl ||
+      !podeGerenciar ||
+      !rastreabilidadePreferencialAtiva ||
+      linksRastreaveisEspaco.criando
+    ) {
+      return;
+    }
+
+    setLinksRastreaveisEspaco((prev) => ({
+      ...prev,
+      criando: true,
+      erro: "",
+      mensagem: "",
+    }));
+
+    try {
+      const link = await criarLinkRastreavelEspaco({
+        ownerUserId,
+        espacoId,
+        espacoNome,
+        skinsUsername,
+        destinoUrl,
+        descricao: linksRastreaveisEspaco.descricao,
+        origemPlanejada: linksRastreaveisEspaco.descricao,
+      });
+
+      setLinksRastreaveisEspaco((prev) => ({
+        ...prev,
+        criando: false,
+        descricao: "",
+        mensagem: "Link rastreavel criado.",
+        itens: [
+          {
+            id: link.trackingId,
+            trackingId: link.trackingId,
+            destinoUrl: link.destinoUrl,
+            urlRastreavel: link.urlRastreavel,
+            trackingRoute: link.trackingRoute,
+            descricao: prev.descricao,
+            origemPlanejada: prev.descricao,
+            criadoEm: new Date().toISOString(),
+          },
+          ...(Array.isArray(prev.itens) ? prev.itens : []),
+        ],
+      }));
+    } catch (error) {
+      setLinksRastreaveisEspaco((prev) => ({
+        ...prev,
+        criando: false,
+        erro:
+          error?.code === "permission-denied"
+            ? "Sem permissao para criar link rastreavel deste espaco."
+            : error?.message || "Falha ao criar link rastreavel.",
+      }));
+    }
+  }, [
+    espacoId,
+    espacoNome,
+    linksRastreaveisEspaco.criando,
+    linksRastreaveisEspaco.descricao,
+    montarRotaEspacoAtual,
+    ownerUserId,
+    podeGerenciar,
+    rastreabilidadePreferencialAtiva,
+    skinsUsername,
+  ]);
+
+  const copiarLinkRastreavelEspaco = useCallback(async (url = "") => {
+    const urlNormalizada = String(url || "").trim();
+    if (!urlNormalizada || typeof navigator === "undefined" || !navigator.clipboard) return;
+    try {
+      await navigator.clipboard.writeText(urlNormalizada);
+      setLinksRastreaveisEspaco((prev) => ({
+        ...prev,
+        mensagem: "Link copiado.",
+        erro: "",
+      }));
+    } catch (error) {
+      setLinksRastreaveisEspaco((prev) => ({
+        ...prev,
+        erro: "Nao foi possivel copiar o link automaticamente.",
+      }));
+    }
+  }, []);
+
+  const excluirLinkRastreavelDoEspaco = useCallback(
+    async (trackingId = "") => {
+      const trackingIdNormalizado = String(trackingId || "").trim();
+      if (!trackingIdNormalizado || linksRastreaveisEspaco.excluindoId) return;
+
+      const confirmado =
+        typeof window === "undefined" ||
+        window.confirm("Excluir este link rastreavel? Ele sera desativado para novos acessos.");
+      if (!confirmado) return;
+
+      setLinksRastreaveisEspaco((prev) => ({
+        ...prev,
+        excluindoId: trackingIdNormalizado,
+        erro: "",
+        mensagem: "",
+      }));
+
+      try {
+        await excluirLinkRastreavelEspaco(trackingIdNormalizado);
+        setLinksRastreaveisEspaco((prev) => ({
+          ...prev,
+          excluindoId: "",
+          mensagem: "Link rastreavel excluido.",
+          itens: (Array.isArray(prev.itens) ? prev.itens : []).filter(
+            (item) => String(item?.id || item?.trackingId || "").trim() !== trackingIdNormalizado
+          ),
+        }));
+      } catch (error) {
+        setLinksRastreaveisEspaco((prev) => ({
+          ...prev,
+          excluindoId: "",
+          erro:
+            error?.code === "permission-denied"
+              ? "Sem permissao para excluir este link rastreavel."
+              : error?.message || "Falha ao excluir link rastreavel.",
+        }));
+      }
+    },
+    [linksRastreaveisEspaco.excluindoId]
+  );
+
+  useEffect(() => {
+    void carregarLinksRastreaveisEspaco();
+  }, [carregarLinksRastreaveisEspaco]);
 
   const criarQrRastreavelPreviewImpressao = useCallback(async () => {
     const blocoAtual = previewImpressaoCard?.bloco || null;
@@ -1723,7 +1939,6 @@ export default function EspacoPage() {
           qrErro: "",
           criandoQr: false,
           descricaoRegistro: "",
-          printSelecionadoId: "",
         };
       });
     } catch (error) {
@@ -1815,18 +2030,84 @@ export default function EspacoPage() {
     [qrPrintLeituras]
   );
 
-  const alternarVisualizacaoImpressaoQr = useCallback((printId = "") => {
+  const abrirVisualizacaoImpressaoQr = useCallback((printId = "") => {
     const printIdNormalizado = String(printId || "").trim();
     if (!printIdNormalizado) return;
-
-    setPreviewImpressaoCard((prev) => ({
-      ...prev,
-      printSelecionadoId:
-        String(prev?.printSelecionadoId || "").trim() === printIdNormalizado
-          ? ""
-          : printIdNormalizado,
-    }));
+    setPreviewImpressaoPopup({
+      aberto: true,
+      printId: printIdNormalizado,
+    });
   }, []);
+
+  const fecharVisualizacaoImpressaoQr = useCallback(() => {
+    setPreviewImpressaoPopup({
+      aberto: false,
+      printId: "",
+    });
+  }, []);
+
+  const excluirQrRastreavelPreviewImpressao = useCallback(
+    async (printId = "") => {
+      const printIdNormalizado = String(printId || "").trim();
+      if (!printIdNormalizado || qrPrintExcluindoId) return;
+
+      const confirmado =
+        typeof window === "undefined" ||
+        window.confirm(
+          "Excluir este card rastreavel? O QR sera desativado e deixara de aparecer na lista."
+        );
+      if (!confirmado) return;
+
+      setQrPrintExcluindoId(printIdNormalizado);
+      setQrPrintsHistorico((prev) => ({ ...prev, erro: "" }));
+
+      try {
+        await excluirQrPrintCard(printIdNormalizado);
+
+        setQrPrintsHistorico((prev) => ({
+          ...prev,
+          itens: (Array.isArray(prev.itens) ? prev.itens : []).filter(
+            (item) =>
+              String(item?.id || item?.printId || "").trim() !== printIdNormalizado
+          ),
+        }));
+
+        setQrPrintLeituras((prev) => {
+          const next = { ...prev };
+          delete next[printIdNormalizado];
+          return next;
+        });
+
+        if (String(previewImpressaoPopup?.printId || "").trim() === printIdNormalizado) {
+          fecharVisualizacaoImpressaoQr();
+        }
+
+        setPreviewImpressaoCard((prev) => {
+          if (String(prev?.printId || "").trim() !== printIdNormalizado) return prev;
+          return {
+            ...prev,
+            printId: "",
+            rotaQr: "",
+            urlQr: "",
+            url: prev?.urlCard || prev?.url || "",
+            qrStatus: "direto",
+          };
+        });
+      } catch (error) {
+        console.error("Erro ao excluir QR rastreavel do card:", error);
+        setQrPrintsHistorico((prev) => ({
+          ...prev,
+          erro:
+            error?.code === "permission-denied"
+              ? "Sem permissao para excluir este card rastreavel."
+              : error?.message || "Falha ao excluir card rastreavel.",
+        }));
+      } finally {
+        setQrPrintExcluindoId("");
+      }
+    },
+    [fecharVisualizacaoImpressaoQr, previewImpressaoPopup?.printId, qrPrintExcluindoId]
+  );
 
   useEffect(() => {
     if (!previewImpressaoCard.aberto || !previewImpressaoCard.card) {
@@ -1857,14 +2138,17 @@ export default function EspacoPage() {
     () =>
       (Array.isArray(qrPrintsHistorico.itens) ? qrPrintsHistorico.itens : []).find(
         (item) =>
-          String(item?.id || "").trim() ===
-          String(previewImpressaoCard?.printSelecionadoId || "").trim()
+          String(item?.id || "").trim() === String(previewImpressaoPopup?.printId || "").trim()
       ) || null,
-    [previewImpressaoCard?.printSelecionadoId, qrPrintsHistorico.itens]
+    [previewImpressaoPopup?.printId, qrPrintsHistorico.itens]
   );
 
   const fecharPreviewImpressaoCard = useCallback(() => {
     setPreviewImpressaoCard(criarEstadoPreviewImpressaoCard());
+    setPreviewImpressaoPopup({
+      aberto: false,
+      printId: "",
+    });
   }, []);
 
   const abrirEditorBlocoCards = useCallback((bloco = null) => {
@@ -5123,6 +5407,117 @@ export default function EspacoPage() {
         />
       )}
 
+      {podeGerenciar && rastreabilidadePreferencialAtiva ? (
+        <section className="espaco-trackable-links" aria-live="polite">
+          <div className="espaco-trackable-links__header">
+            <div>
+              <strong>Links rastreaveis do espaco</strong>
+              <p>
+                Crie links de compartilhamento que registram a origem e redirecionam para este
+                mesmo {nomeEspacoSingular}.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="espaco-trackable-links__button"
+              onClick={() => {
+                void carregarLinksRastreaveisEspaco();
+              }}
+              disabled={linksRastreaveisEspaco.loading}
+            >
+              {linksRastreaveisEspaco.loading ? "Atualizando..." : "Atualizar"}
+            </button>
+          </div>
+
+          <div className="espaco-trackable-links__creator">
+            <label>
+              <span>Descricao / origem planejada</span>
+              <textarea
+                rows={2}
+                value={linksRastreaveisEspaco.descricao}
+                onChange={(event) =>
+                  setLinksRastreaveisEspaco((prev) => ({
+                    ...prev,
+                    descricao: event.target.value,
+                  }))
+                }
+                maxLength={220}
+                placeholder="Ex.: curriculo PDF, LinkedIn, evento da faculdade..."
+              />
+            </label>
+            <button
+              type="button"
+              className="espaco-trackable-links__button"
+              onClick={() => {
+                void criarLinkRastreavelDoEspaco();
+              }}
+              disabled={linksRastreaveisEspaco.criando}
+            >
+              {linksRastreaveisEspaco.criando ? "Criando..." : "Criar link rastreavel"}
+            </button>
+          </div>
+
+          {linksRastreaveisEspaco.erro ? (
+            <p className="espaco-trackable-links__error">{linksRastreaveisEspaco.erro}</p>
+          ) : null}
+          {linksRastreaveisEspaco.mensagem ? (
+            <p className="espaco-trackable-links__success">{linksRastreaveisEspaco.mensagem}</p>
+          ) : null}
+
+          {linksRastreaveisEspaco.itens.length ? (
+            <div className="espaco-trackable-links__list">
+              {linksRastreaveisEspaco.itens.map((link) => {
+                const trackingId = String(link?.trackingId || link?.id || "").trim();
+                const urlRastreavel = String(
+                  link?.urlRastreavel ||
+                    montarUrlAbsoluta(link?.trackingRoute || (trackingId ? `/r/${trackingId}` : ""))
+                ).trim();
+
+                return (
+                  <article className="espaco-trackable-links__item" key={trackingId}>
+                    <div className="espaco-trackable-links__item-main">
+                      <strong>{String(link?.origemPlanejada || link?.descricao || "Link rastreavel").trim()}</strong>
+                      <span>{`Tracking ID: ${trackingId || "--"}`}</span>
+                      <span>{`Destino: ${String(link?.destinoUrl || montarRotaEspacoAtual()).trim() || "--"}`}</span>
+                      <span>{`URL: ${urlRastreavel || "--"}`}</span>
+                      <span>{`Criado: ${formatarDataCurta(link?.criadoEm)}`}</span>
+                    </div>
+                    <div className="espaco-trackable-links__actions">
+                      <button
+                        type="button"
+                        className="espaco-trackable-links__button"
+                        onClick={() => {
+                          void copiarLinkRastreavelEspaco(urlRastreavel);
+                        }}
+                        disabled={!urlRastreavel}
+                      >
+                        Copiar
+                      </button>
+                      <button
+                        type="button"
+                        className="espaco-trackable-links__button espaco-trackable-links__button--danger"
+                        onClick={() => {
+                          void excluirLinkRastreavelDoEspaco(trackingId);
+                        }}
+                        disabled={linksRastreaveisEspaco.excluindoId === trackingId}
+                      >
+                        {linksRastreaveisEspaco.excluindoId === trackingId
+                          ? "Excluindo..."
+                          : "Excluir"}
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="espaco-trackable-links__empty">
+              Nenhum link rastreavel criado para este {nomeEspacoSingular} ainda.
+            </p>
+          )}
+        </section>
+      ) : null}
+
       {!!erroBlocos && <p style={{ color: "red" }}>{erroBlocos}</p>}
       {!!erroAcaoBloco && <p style={{ color: "red" }}>{erroAcaoBloco}</p>}
 
@@ -6901,7 +7296,7 @@ export default function EspacoPage() {
           onClick={fecharPreviewImpressaoCard}
         >
           <div
-            className="card-print-preview-modal__content"
+            className="card-print-preview-modal__content card-print-preview-modal__content--history"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="card-print-preview-modal__header">
@@ -6924,11 +7319,10 @@ export default function EspacoPage() {
 
             {podeGerenciar ? (
               <section className="card-print-history" aria-live="polite">
-                <div className="card-print-history__header">
-                  <div>
-                    <strong>Historico rastreavel do card</strong>
-                    <p>Crie QRs unicos para impressao e acompanhe as leituras deste card.</p>
-                  </div>
+                <div className="card-print-history__toolbar">
+                  <span className="card-print-history__toolbar-label">
+                    {`${qrPrintsHistorico.itens.length} registro(s) rastreavel(is)`}
+                  </span>
                   <button
                     type="button"
                     className="card-print-history__button"
@@ -7019,12 +7413,9 @@ export default function EspacoPage() {
                             <button
                               type="button"
                               className="card-print-history__button"
-                              onClick={() => alternarVisualizacaoImpressaoQr(print.id)}
+                              onClick={() => abrirVisualizacaoImpressaoQr(print.id)}
                             >
-                              {String(previewImpressaoCard?.printSelecionadoId || "").trim() ===
-                              String(print.id || "").trim()
-                                ? "Ocultar impressao"
-                                : "Imprimir card"}
+                              Imprimir card
                             </button>
                             <button
                               type="button"
@@ -7033,6 +7424,21 @@ export default function EspacoPage() {
                               disabled={leituraState.loading}
                             >
                               {leituraState.aberto ? "Ocultar" : "Ver leituras"}
+                            </button>
+                          </div>
+
+                          <div className="card-print-history__delete-row">
+                            <button
+                              type="button"
+                              className="card-print-history__button card-print-history__button--danger"
+                              onClick={() => {
+                                void excluirQrRastreavelPreviewImpressao(print.id);
+                              }}
+                              disabled={qrPrintExcluindoId === print.id}
+                            >
+                              {qrPrintExcluindoId === print.id
+                                ? "Excluindo card rastreavel..."
+                                : "Excluir card rastreavel"}
                             </button>
                           </div>
 
@@ -7057,10 +7463,15 @@ export default function EspacoPage() {
                                     .filter(Boolean)
                                     .join(" / ");
                                   const identidade =
-                                    leitura.email ||
-                                    leitura.uid ||
+                                    leitura.navigationId ||
                                     leitura.hash ||
                                     leitura.visitorHash ||
+                                    leitura.email ||
+                                    leitura.uid ||
+                                    "--";
+                                  const contaAutenticada =
+                                    leitura.email ||
+                                    leitura.uid ||
                                     "--";
 
                                   return (
@@ -7073,7 +7484,10 @@ export default function EspacoPage() {
                                       )}`}</span>
                                       <span>{`IP: ${leitura.ip || "--"}`}</span>
                                       <span>{`Local: ${localizacao || "--"}`}</span>
-                                      <span>{`Identificacao: ${identidade}`}</span>
+                                      <span>{`Identificador de navegacao: ${identidade}`}</span>
+                                      {Boolean(leitura.email || leitura.uid) ? (
+                                        <span>{`Conta: ${contaAutenticada}`}</span>
+                                      ) : null}
                                       <span>{`Rota: ${leitura.fullPath || leitura.path || "--"}`}</span>
                                     </div>
                                   );
@@ -7097,81 +7511,101 @@ export default function EspacoPage() {
               </section>
             ) : null}
 
-            {qrPrintSelecionadoParaImpressao ? (
-              <section className="card-print-preview-stage" aria-live="polite">
-                <div className="card-print-preview-stage__header">
-                  <div>
-                    <strong>Imprimir card</strong>
-                    <p>
-                      {`Visualizacao do rastreavel ${qrPrintSelecionadoParaImpressao.printId || qrPrintSelecionadoParaImpressao.id}.`}
-                    </p>
-                  </div>
-                </div>
+          </div>
+        </div>
+      ) : null}
 
-                <div className="card-print-preview-modal__grid">
-                  <section className="card-print-preview-modal__section">
-                    <h3>Frente</h3>
-                    <div className="card-print-preview-front">
-                      <Card
-                        id={previewImpressaoCard.card.id}
-                        ownerUserId={ownerUserId}
-                        espacoId={espacoId}
-                        blocoId={previewImpressaoCard.bloco?.id || ""}
-                        addOnIds={normalizarAddOnIds(previewImpressaoCard.card.addOnIds)}
-                        addOnSubthemes={normalizarAddOnSubthemes(
-                          previewImpressaoCard.card.addOnSubthemes,
-                          previewImpressaoCard.card.addOnIds
-                        )}
-                        usaAddOnsGerenciador={
-                          previewImpressaoCard.card?.usaAddOnsGerenciador === true
-                        }
-                        addOns={previewImpressaoCard.addOns}
-                        nome={previewImpressaoCard.card.nome || "Card"}
-                        descricaoExtra=""
-                        nomeDescricao={previewImpressaoCard.card.nome || ""}
-                        descricao={previewImpressaoCard.card.descricao || ""}
-                        linkExterno={previewImpressaoCard.card.linkExterno || ""}
-                        imagem={previewImpressaoCard.imagem || "/logoNeon.png"}
-                        idNome={`card-print-front-${previewImpressaoCard.card.id}`}
-                        cardDescricaoDiv="cardDescricaoDiv"
-                        cardNome="cardNome"
-                        cardContainerDesktop="cardContainerDesktop"
-                        cardCabecalho="cardCabecalho"
-                        cardImagem="cardImagem"
-                        cardDescricao="cardDescricao"
-                        imgCard="imgCard"
-                      />
-                    </div>
-                  </section>
+      {previewImpressaoPopup.aberto && qrPrintSelecionadoParaImpressao ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="card-print-preview-modal"
+          onClick={fecharVisualizacaoImpressaoQr}
+        >
+          <div
+            className="card-print-preview-modal__content"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="card-print-preview-modal__header">
+              <div>
+                <strong>Imprimir card</strong>
+                <p>
+                  {`Visualizacao do rastreavel ${qrPrintSelecionadoParaImpressao.printId || qrPrintSelecionadoParaImpressao.id}.`}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="card-print-preview-modal__close"
+                onClick={fecharVisualizacaoImpressaoQr}
+                aria-label="Fechar visualizacao de impressao do card"
+                title="Fechar"
+              >
+                <span className="card-print-preview-modal__close-icon" aria-hidden="true" />
+              </button>
+            </div>
 
-                  <section className="card-print-preview-modal__section">
-                    <h3>Verso</h3>
-                    <div className="card-print-preview-back">
-                      <span className="card-print-preview-back__circuit-map" aria-hidden="true" />
-                      <div className="card-print-preview-back__qr">
-                        <QRCodeImage
-                          value={
-                            qrPrintSelecionadoParaImpressao.urlQr ||
-                            qrPrintSelecionadoParaImpressao.urlCard ||
-                            previewImpressaoCard.urlQr ||
-                            previewImpressaoCard.urlCard ||
-                            previewImpressaoCard.url
-                          }
-                          size={116}
-                          alt="QR code rastreavel da rota unica do card"
-                          className="card-print-preview-back__qr-image"
-                          color="var(--cyberpink-subtheme-card-surface-shadow)"
-                          bgColor="var(--cyberpink-subtheme-text)"
-                        />
-                      </div>
-                      <span className="card-print-preview-back__track-label">
-                        {`QR rastreavel ${qrPrintSelecionadoParaImpressao.printId || qrPrintSelecionadoParaImpressao.id}`}
-                      </span>
-                    </div>
-                  </section>
+            <div className="card-print-preview-modal__grid">
+              <section className="card-print-preview-modal__section">
+                <h3>Frente</h3>
+                <div className="card-print-preview-front">
+                  <Card
+                    id={previewImpressaoCard.card.id}
+                    ownerUserId={ownerUserId}
+                    espacoId={espacoId}
+                    blocoId={previewImpressaoCard.bloco?.id || ""}
+                    addOnIds={normalizarAddOnIds(previewImpressaoCard.card.addOnIds)}
+                    addOnSubthemes={normalizarAddOnSubthemes(
+                      previewImpressaoCard.card.addOnSubthemes,
+                      previewImpressaoCard.card.addOnIds
+                    )}
+                    usaAddOnsGerenciador={
+                      previewImpressaoCard.card?.usaAddOnsGerenciador === true
+                    }
+                    addOns={previewImpressaoCard.addOns}
+                    nome={previewImpressaoCard.card.nome || "Card"}
+                    descricaoExtra=""
+                    nomeDescricao={previewImpressaoCard.card.nome || ""}
+                    descricao={previewImpressaoCard.card.descricao || ""}
+                    linkExterno={previewImpressaoCard.card.linkExterno || ""}
+                    imagem={previewImpressaoCard.imagem || "/logoNeon.png"}
+                    idNome={`card-print-front-${previewImpressaoCard.card.id}`}
+                    cardDescricaoDiv="cardDescricaoDiv"
+                    cardNome="cardNome"
+                    cardContainerDesktop="cardContainerDesktop"
+                    cardCabecalho="cardCabecalho"
+                    cardImagem="cardImagem"
+                    cardDescricao="cardDescricao"
+                    imgCard="imgCard"
+                  />
                 </div>
               </section>
-            ) : null}
+
+              <section className="card-print-preview-modal__section">
+                <h3>Verso</h3>
+                <div className="card-print-preview-back">
+                  <span className="card-print-preview-back__circuit-map" aria-hidden="true" />
+                  <div className="card-print-preview-back__qr">
+                    <QRCodeImage
+                      value={
+                        qrPrintSelecionadoParaImpressao.urlQr ||
+                        qrPrintSelecionadoParaImpressao.urlCard ||
+                        previewImpressaoCard.urlQr ||
+                        previewImpressaoCard.urlCard ||
+                        previewImpressaoCard.url
+                      }
+                      size={116}
+                      alt="QR code rastreavel da rota unica do card"
+                      className="card-print-preview-back__qr-image"
+                      color="var(--cyberpink-subtheme-card-surface-shadow)"
+                      bgColor="var(--cyberpink-subtheme-text)"
+                    />
+                  </div>
+                  <span className="card-print-preview-back__track-label">
+                    {`QR rastreavel ${qrPrintSelecionadoParaImpressao.printId || qrPrintSelecionadoParaImpressao.id}`}
+                  </span>
+                </div>
+              </section>
+            </div>
           </div>
         </div>
       ) : null}

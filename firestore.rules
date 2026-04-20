@@ -432,6 +432,47 @@ service cloud.firestore {
         data.eventoTipo == "scan_qr";
     }
 
+    function canCreateTrackableLinkData(data) {
+      return signedIn() &&
+        (data.ownerUserId is string) &&
+        (data.espacoId is string) &&
+        (data.trackingId is string) &&
+        (data.criadoPor is string) &&
+        data.criadoPor == request.auth.uid &&
+        (
+          isAdmin() ||
+          isOwner(data.ownerUserId) ||
+          canManageEspacoByPath(data.ownerUserId, data.espacoId)
+        );
+    }
+
+    function canReadTrackableLinkData(data) {
+      return data.ativo == true ||
+        isAdmin() ||
+        (
+          (data.ownerUserId is string) &&
+          (data.espacoId is string) &&
+          canManageEspacoByPath(data.ownerUserId, data.espacoId)
+        );
+    }
+
+    function canManageTrackableLinkData(data) {
+      return isAdmin() ||
+        (
+          (data.ownerUserId is string) &&
+          (data.espacoId is string) &&
+          canManageEspacoByPath(data.ownerUserId, data.espacoId)
+        );
+    }
+
+    function canCreateTrackableLinkAccessData(trackingId, linkData, data) {
+      return linkData.ativo == true &&
+        (data.trackingId is string) &&
+        data.trackingId == trackingId &&
+        (data.eventoTipo is string) &&
+        data.eventoTipo == "access_link";
+    }
+
     function canCreateProjetoQrPrintData(projectKey, data) {
       return signedIn() &&
         (data.ownerUserId is string) &&
@@ -451,6 +492,42 @@ service cloud.firestore {
     function canReadProjetoQrPrintData(projectKey, data) {
       return data.ativo == true ||
         isAdmin() ||
+        isProjetoAdmin(projectKey) ||
+        (
+          (data.ownerUserId is string) &&
+          (data.espacoId is string) &&
+          canManageProjetoEspacoByPath(projectKey, data.ownerUserId, data.espacoId)
+        );
+    }
+
+    function canCreateProjetoTrackableLinkData(projectKey, data) {
+      return signedIn() &&
+        (data.ownerUserId is string) &&
+        (data.espacoId is string) &&
+        (data.trackingId is string) &&
+        (data.criadoPor is string) &&
+        data.criadoPor == request.auth.uid &&
+        (
+          isAdmin() ||
+          isProjetoAdmin(projectKey) ||
+          isOwner(data.ownerUserId) ||
+          canManageProjetoEspacoByPath(projectKey, data.ownerUserId, data.espacoId)
+        );
+    }
+
+    function canReadProjetoTrackableLinkData(projectKey, data) {
+      return data.ativo == true ||
+        isAdmin() ||
+        isProjetoAdmin(projectKey) ||
+        (
+          (data.ownerUserId is string) &&
+          (data.espacoId is string) &&
+          canManageProjetoEspacoByPath(projectKey, data.ownerUserId, data.espacoId)
+        );
+    }
+
+    function canManageProjetoTrackableLinkData(projectKey, data) {
+      return isAdmin() ||
         isProjetoAdmin(projectKey) ||
         (
           (data.ownerUserId is string) &&
@@ -778,6 +855,25 @@ service cloud.firestore {
       }
     }
 
+    match /trackableLinks/{trackingId} {
+      allow get: if canReadTrackableLinkData(resource.data);
+      allow list: if canManageTrackableLinkData(resource.data);
+      allow create: if canCreateTrackableLinkData(request.resource.data);
+      allow update, delete: if canManageTrackableLinkData(resource.data);
+
+      match /acessos/{accessId} {
+        allow create: if exists(/databases/$(database)/documents/trackableLinks/$(trackingId)) &&
+          canCreateTrackableLinkAccessData(
+            trackingId,
+            get(/databases/$(database)/documents/trackableLinks/$(trackingId)).data,
+            request.resource.data
+          );
+        allow get, list: if exists(/databases/$(database)/documents/trackableLinks/$(trackingId)) &&
+          canManageTrackableLinkData(get(/databases/$(database)/documents/trackableLinks/$(trackingId)).data);
+        allow update, delete: if isAdmin();
+      }
+    }
+
     match /add_ons/{addonId} {
       allow read: if true;
       allow create: if isAdmin() || (
@@ -907,6 +1003,28 @@ service cloud.firestore {
             canManageProjetoQrPrintData(
               projectKey,
               get(/databases/$(database)/documents/projetos/$(projectKey)/qrPrints/$(printId)).data
+            );
+          allow update, delete: if isAdmin() || isProjetoAdmin(projectKey);
+        }
+      }
+
+      match /trackableLinks/{trackingId} {
+        allow get: if canReadProjetoTrackableLinkData(projectKey, resource.data);
+        allow list: if canManageProjetoTrackableLinkData(projectKey, resource.data);
+        allow create: if canCreateProjetoTrackableLinkData(projectKey, request.resource.data);
+        allow update, delete: if canManageProjetoTrackableLinkData(projectKey, resource.data);
+
+        match /acessos/{accessId} {
+          allow create: if exists(/databases/$(database)/documents/projetos/$(projectKey)/trackableLinks/$(trackingId)) &&
+            canCreateTrackableLinkAccessData(
+              trackingId,
+              get(/databases/$(database)/documents/projetos/$(projectKey)/trackableLinks/$(trackingId)).data,
+              request.resource.data
+            );
+          allow get, list: if exists(/databases/$(database)/documents/projetos/$(projectKey)/trackableLinks/$(trackingId)) &&
+            canManageProjetoTrackableLinkData(
+              projectKey,
+              get(/databases/$(database)/documents/projetos/$(projectKey)/trackableLinks/$(trackingId)).data
             );
           allow update, delete: if isAdmin() || isProjetoAdmin(projectKey);
         }

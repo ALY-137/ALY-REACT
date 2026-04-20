@@ -13,9 +13,10 @@ import {
 } from "../../../Sistema/configSistema";
 import { seforAdm } from "../../../../Scripts/verificacoes/verificaAdm";
 import { normalizeProjectStatus } from "../../../Sistema/projectStatus";
+import { obterTrackingContextSessao } from "../../../Espacos/trackableLinksApi";
 
-const UX_VISITOR_HASH_STORAGE_KEY = "uxVisitorHash";
-const NAVIGATION_HASH_STORAGE_KEY = "navegacaoHash";
+const LEGACY_VISITOR_ID_STORAGE_KEY = "uxVisitorHash";
+const NAVIGATION_ID_STORAGE_KEY = "navegacaoHash";
 const UX_DEDUPE_WINDOW_MS = 1500;
 const RESERVED_ROOT_SEGMENTS = new Set([
   "",
@@ -74,7 +75,7 @@ function buildRuntimeAccessMeta({ pageOpenedAtMs = null, registroMotivo = "" } =
   };
 }
 
-function hashString(value = "") {
+function buildNavigationId(value = "") {
   const input = normalizeText(value) || `${Date.now()}_${Math.random()}`;
   let hash = 5381;
   for (let index = 0; index < input.length; index += 1) {
@@ -83,46 +84,46 @@ function hashString(value = "") {
   return `nav_${(hash >>> 0).toString(16)}`;
 }
 
-function normalizeNavigationHash(value = "") {
-  const hash = normalizeText(value);
-  if (!hash) return "";
-  return hash.startsWith("anon_") ? `nav_${hash.slice(5)}` : hash;
+function normalizeNavigationId(value = "") {
+  const navigationId = normalizeText(value);
+  if (!navigationId) return "";
+  return navigationId.startsWith("anon_") ? `nav_${navigationId.slice(5)}` : navigationId;
 }
 
-function getOrCreateVisitorHash() {
-  if (typeof window === "undefined") return hashString("server");
+function getOrCreateNavigationId() {
+  if (typeof window === "undefined") return buildNavigationId("server");
 
   try {
-    const navigationHash = normalizeNavigationHash(
-      localStorage.getItem(NAVIGATION_HASH_STORAGE_KEY)
+    const navigationId = normalizeNavigationId(
+      localStorage.getItem(NAVIGATION_ID_STORAGE_KEY)
     );
-    if (navigationHash) {
-      localStorage.setItem(NAVIGATION_HASH_STORAGE_KEY, navigationHash);
-      localStorage.setItem(UX_VISITOR_HASH_STORAGE_KEY, navigationHash);
-      return navigationHash;
+    if (navigationId) {
+      localStorage.setItem(NAVIGATION_ID_STORAGE_KEY, navigationId);
+      localStorage.setItem(LEGACY_VISITOR_ID_STORAGE_KEY, navigationId);
+      return navigationId;
     }
 
-    const stored = normalizeNavigationHash(localStorage.getItem(UX_VISITOR_HASH_STORAGE_KEY));
+    const stored = normalizeNavigationId(localStorage.getItem(LEGACY_VISITOR_ID_STORAGE_KEY));
     if (stored) {
-      localStorage.setItem(NAVIGATION_HASH_STORAGE_KEY, stored);
-      localStorage.setItem(UX_VISITOR_HASH_STORAGE_KEY, stored);
+      localStorage.setItem(NAVIGATION_ID_STORAGE_KEY, stored);
+      localStorage.setItem(LEGACY_VISITOR_ID_STORAGE_KEY, stored);
       return stored;
     }
 
     const seed =
       (typeof window.crypto?.randomUUID === "function" && window.crypto.randomUUID()) ||
       `${Date.now()}_${Math.random()}_${window.location.hostname}`;
-    const hash = hashString(seed);
-    localStorage.setItem(NAVIGATION_HASH_STORAGE_KEY, hash);
-    localStorage.setItem(UX_VISITOR_HASH_STORAGE_KEY, hash);
-    return hash;
+    const navigationIdFromSeed = buildNavigationId(seed);
+    localStorage.setItem(NAVIGATION_ID_STORAGE_KEY, navigationIdFromSeed);
+    localStorage.setItem(LEGACY_VISITOR_ID_STORAGE_KEY, navigationIdFromSeed);
+    return navigationIdFromSeed;
   } catch {
-    return hashString(`${Date.now()}_${Math.random()}`);
+    return buildNavigationId(`${Date.now()}_${Math.random()}`);
   }
 }
 
-function resolvePersistentAccessHash() {
-  return getOrCreateVisitorHash();
+function resolvePersistentNavigationId() {
+  return getOrCreateNavigationId();
 }
 
 function resolvePerfilAcesso({ user, configSistema }) {
@@ -189,8 +190,11 @@ function buildAcessoPayload({ user, configSistema, location }) {
   const search = normalizeText(location?.search);
   const urlHash = normalizeText(location?.hash);
   const skinContext = resolveSkinContext(location);
-  const accessHash = resolvePersistentAccessHash();
-  const visitorHash = accessHash;
+  const navigationId = resolvePersistentNavigationId();
+  const trackingContext =
+    configSistema?.persistirOrigemRastreabilidadeSessao === false
+      ? null
+      : obterTrackingContextSessao();
   const statusProjeto = normalizeProjectStatus(configSistema?.statusProjeto, {
     projectSystemKey: projectSystemKey,
     firebaseProjectId: activeFirebaseProjectId,
@@ -205,8 +209,13 @@ function buildAcessoPayload({ user, configSistema, location }) {
     displayName: normalizeText(user?.displayName) || null,
     autenticado: Boolean(user?.uid),
     perfilAcesso: resolvePerfilAcesso({ user, configSistema }),
-    hash: accessHash,
-    visitorHash,
+    navigationId,
+    trackingId: normalizeText(trackingContext?.trackingId) || null,
+    trackingTipo: normalizeText(trackingContext?.tipo) || null,
+    trackingDestinoTipo: normalizeText(trackingContext?.destinoTipo) || null,
+    trackingDestinoUrl: normalizeText(trackingContext?.destinoUrl) || null,
+    trackingOrigemPlanejada: normalizeText(trackingContext?.origemPlanejada) || null,
+    origemRastreavel: trackingContext ? "link_rastreavel" : "direto",
 
     projectSystemKey: projectSystemKey || null,
     projectNome:
@@ -256,7 +265,7 @@ function buildGeoFallbackPayload(geo = null) {
 function buildPageSessionId(basePayload, location) {
   return [
     basePayload.projectSystemKey || basePayload.runtimeProjectKey || "sem-projeto",
-    basePayload.uid || basePayload.hash || "anon",
+    basePayload.uid || basePayload.navigationId || "anon",
     normalizeText(location?.key) || "sem-key",
     basePayload.fullPath || "/",
     Date.now(),
@@ -465,7 +474,7 @@ function Acesso({ configSistema = {}, user = null }) {
       {
         registroMotivo: startedFromHiddenTab ? "visibility_return" : "page_load",
         dedupeKey: `view|${basePayload.projectSystemKey || basePayload.runtimeProjectKey}|${
-          basePayload.uid || basePayload.hash || "anon"
+          basePayload.uid || basePayload.navigationId || "anon"
         }|${currentSignature}`,
       }
     );

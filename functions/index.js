@@ -750,8 +750,9 @@ async function resolveAccessRegistrationUserBlockMatch(managerDb, payload = {}) 
   };
 }
 
-function resolveAccessHashCandidates(payload = {}) {
+function resolveAccessNavigationIdCandidates(payload = {}) {
   return normalizeStringList([
+    payload?.navigationId,
     payload?.visitorHash,
     payload?.hash,
     payload?.navegacaoHash,
@@ -797,22 +798,28 @@ async function updateAccessDocsAsBlocked(managerDb, refs = [], payload = {}) {
   return updated;
 }
 
-async function markAccessRecordsBlockedByHashes(managerDb, hashes = [], payload = {}) {
-  const hashList = normalizeStringList(hashes).slice(0, 30);
-  if (!hashList.length) return 0;
+async function markAccessRecordsBlockedByNavigationIds(
+  managerDb,
+  navigationIds = [],
+  payload = {}
+) {
+  const navigationIdList = normalizeStringList(navigationIds).slice(0, 30);
+  if (!navigationIdList.length) return 0;
 
   const refs = [];
-  for (const hash of hashList) {
-    const [visitorSnap, hashSnap] = await Promise.all([
-      managerDb.collection("acessos").where("visitorHash", "==", hash).limit(300).get(),
-      managerDb.collection("acessos").where("hash", "==", hash).limit(300).get(),
+  for (const navigationId of navigationIdList) {
+    const [navigationIdSnap, visitorSnap, hashSnap] = await Promise.all([
+      managerDb.collection("acessos").where("navigationId", "==", navigationId).limit(300).get(),
+      managerDb.collection("acessos").where("visitorHash", "==", navigationId).limit(300).get(),
+      managerDb.collection("acessos").where("hash", "==", navigationId).limit(300).get(),
     ]);
+    navigationIdSnap.docs.forEach((docItem) => refs.push(docItem.ref));
     visitorSnap.docs.forEach((docItem) => refs.push(docItem.ref));
     hashSnap.docs.forEach((docItem) => refs.push(docItem.ref));
   }
 
   return updateAccessDocsAsBlocked(managerDb, refs, {
-    hashBloqueado: hashList[0] || null,
+    navigationIdBloqueado: navigationIdList[0] || null,
     ...payload,
   });
 }
@@ -831,7 +838,7 @@ async function markAccessRecordsBlockedByUsers(
   }
 
   const refs = [];
-  const hashes = new Set();
+  const navigationIds = new Set();
 
   for (const identifier of userIdentifiers) {
     const field = identifier.includes("@") ? "email" : "uid";
@@ -844,7 +851,9 @@ async function markAccessRecordsBlockedByUsers(
     snap.docs.forEach((docItem) => {
       const data = docItem.data() || {};
       refs.push(docItem.ref);
-      resolveAccessHashCandidates(data).forEach((hash) => hashes.add(hash));
+      resolveAccessNavigationIdCandidates(data).forEach((navigationId) =>
+        navigationIds.add(navigationId)
+      );
     });
   }
 
@@ -852,19 +861,19 @@ async function markAccessRecordsBlockedByUsers(
     usuarioBloqueado: userIdentifiers[0] || null,
     ...payload,
   });
-  const hashUpdates = await markAccessRecordsBlockedByHashes(
+  const navigationIdUpdates = await markAccessRecordsBlockedByNavigationIds(
     managerDb,
-    Array.from(hashes),
+    Array.from(navigationIds),
     {
       usuarioBloqueado: userIdentifiers[0] || null,
       ...payload,
     }
   );
 
-  return {
-    docs: directUpdates,
-    hashes: hashUpdates,
-  };
+    return {
+      docs: directUpdates,
+      hashes: navigationIdUpdates,
+    };
 }
 
 async function markAccessRecordsAsRead(managerDb, ids = [], payload = {}) {
@@ -2773,9 +2782,9 @@ exports.registrarAcessoPublico = onRequest(
 
       const userBlockMatch = await resolveAccessRegistrationUserBlockMatch(managerDb, body);
       if (userBlockMatch.blocked) {
-        const markedCount = await markAccessRecordsBlockedByHashes(
+        const markedCount = await markAccessRecordsBlockedByNavigationIds(
           managerDb,
-          resolveAccessHashCandidates(body),
+          resolveAccessNavigationIdCandidates(body),
           {
             bloqueadoPor: "user_blocked",
             uidBloqueado: sanitizeString(body?.uid) || null,
@@ -2840,8 +2849,16 @@ exports.registrarAcessoPublico = onRequest(
         displayName: sanitizeString(body?.displayName) || null,
         perfilAcesso: sanitizeString(body?.perfilAcesso) || "visitante",
         autenticado: Boolean(body?.autenticado),
-        hash: sanitizeString(body?.hash) || null,
-        visitorHash: sanitizeString(body?.visitorHash) || null,
+        navigationId:
+          sanitizeString(
+            body?.navigationId || body?.visitorHash || body?.hash || body?.navegacaoHash
+          ) || null,
+        trackingId: sanitizeString(body?.trackingId) || null,
+        trackingTipo: sanitizeString(body?.trackingTipo) || null,
+        trackingDestinoTipo: sanitizeString(body?.trackingDestinoTipo) || null,
+        trackingDestinoUrl: sanitizeString(body?.trackingDestinoUrl) || null,
+        trackingOrigemPlanejada: sanitizeString(body?.trackingOrigemPlanejada) || null,
+        origemRastreavel: sanitizeString(body?.origemRastreavel) || null,
 
         projectSystemKey: sanitizeString(body?.projectSystemKey) || null,
         projectNome: sanitizeString(body?.projectNome) || null,

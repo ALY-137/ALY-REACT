@@ -3751,6 +3751,10 @@ body.theme-cyberpink .card-print-preview-modal__content {
     inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 10%, transparent);
 }
 
+body.theme-cyberpink .card-print-preview-modal__content--history {
+  overflow: hidden;
+}
+
 body.theme-cyberpink .card-print-preview-modal__content::before {
   content: "";
   position: absolute;
@@ -4151,6 +4155,7 @@ body.theme-cyberpink .card-print-history {
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 8%, transparent),
     0 0 12px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 20%, transparent);
+  min-height: 0;
 }
 
 body.theme-cyberpink .card-print-history::before,
@@ -4182,7 +4187,7 @@ body.theme-cyberpink .card-print-history::after {
   mask-image: url("./assets/cyberpink-simple-cut-br.svg");
 }
 
-body.theme-cyberpink .card-print-history__header {
+body.theme-cyberpink .card-print-history__toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -4190,7 +4195,7 @@ body.theme-cyberpink .card-print-history__header {
   margin-bottom: 12px;
 }
 
-body.theme-cyberpink .card-print-history__header strong,
+body.theme-cyberpink .card-print-history__toolbar-label,
 body.theme-cyberpink .card-print-history__item-main strong {
   display: block;
   color: var(--cyberpink-subtheme-text);
@@ -4201,13 +4206,6 @@ body.theme-cyberpink .card-print-history__item-main strong {
   text-shadow:
     0 0 3px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 55%, transparent),
     0 0 8px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 28%, transparent);
-}
-
-body.theme-cyberpink .card-print-history__header p {
-  margin: 3px 0 0;
-  color: color-mix(in srgb, var(--cyberpink-subtheme-text) 72%, var(--cyberpink-subtheme-card-surface));
-  font-size: 11px;
-  line-height: 1.35;
 }
 
 body.theme-cyberpink .card-print-history__button {
@@ -4241,9 +4239,147 @@ body.theme-cyberpink .card-print-history__button:disabled {
   opacity: 0.62;
 }
 
+body.theme-cyberpink .card-print-history__button--danger {
+  color: #ff7ac8;
+  border-color: color-mix(in srgb, #ff3aa6 72%, var(--cyberpink-subtheme-card-frame) 28%);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, #ff7ac8 12%, transparent),
+    0 0 8px color-mix(in srgb, #ff3aa6 18%, transparent);
+}
+
+body.theme-cyberpink .card-print-history__button--danger:hover,
+body.theme-cyberpink .card-print-history__button--danger:focus-visible {
+  background: color-mix(in srgb, var(--cyberpink-subtheme-card-surface-shadow) 74%, #ff3aa6 12%);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, #ff7ac8 18%, transparent),
+    0 0 10px color-mix(in srgb, #ff3aa6 28%, transparent);
+}
+
+body.theme-cyberpink .espaco-trackable-links {
+  position: relative;
+  display: grid;
+  gap: 12px;
+  width: min(920px, calc(100% - 20px));
+  margin: 18px auto 22px;
+  padding: 14px;
+  color: var(--cyberpink-subtheme-text);
+  background: color-mix(in srgb, var(--cyberpink-subtheme-card-surface) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cyberpink-subtheme-card-frame) 58%, transparent);
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 8%, transparent),
+    0 0 14px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 16%, transparent);
+}
+
+body.theme-cyberpink .espaco-trackable-links__header,
+body.theme-cyberpink .espaco-trackable-links__creator,
+body.theme-cyberpink .espaco-trackable-links__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+
+body.theme-cyberpink .espaco-trackable-links strong {
+  font-family: "DotGothic16", sans-serif;
+  font-size: 14px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-shadow:
+    0 0 4px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 45%, transparent),
+    0 0 9px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 24%, transparent);
+}
+
+body.theme-cyberpink .espaco-trackable-links p,
+body.theme-cyberpink .espaco-trackable-links span {
+  margin: 0;
+  color: color-mix(in srgb, var(--cyberpink-subtheme-text) 76%, var(--cyberpink-subtheme-card-surface));
+  font-family: "DotGothic16", sans-serif;
+  font-size: 11px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+body.theme-cyberpink .espaco-trackable-links__creator label,
+body.theme-cyberpink .espaco-trackable-links__item-main {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+body.theme-cyberpink .espaco-trackable-links textarea {
+  min-height: 54px;
+  resize: vertical;
+  color: var(--cyberpink-subtheme-text);
+  font-family: "DotGothic16", sans-serif;
+  background: color-mix(in srgb, var(--cyberpink-subtheme-card-surface-shadow) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cyberpink-subtheme-card-frame) 62%, transparent);
+  outline: none;
+}
+
+body.theme-cyberpink .espaco-trackable-links__button {
+  min-height: 30px;
+  padding: 6px 10px;
+  color: var(--cyberpink-subtheme-text);
+  font-family: "DotGothic16", sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: color-mix(in srgb, var(--cyberpink-subtheme-card-surface-shadow) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cyberpink-subtheme-card-frame) 86%, transparent);
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  cursor: pointer;
+}
+
+body.theme-cyberpink .espaco-trackable-links__button--danger {
+  color: #ff7ac8;
+  border-color: color-mix(in srgb, #ff3aa6 72%, var(--cyberpink-subtheme-card-frame) 28%);
+}
+
+body.theme-cyberpink .espaco-trackable-links__list {
+  display: grid;
+  gap: 10px;
+}
+
+body.theme-cyberpink .espaco-trackable-links__item {
+  padding: 10px;
+  background: color-mix(in srgb, var(--cyberpink-subtheme-card-surface-shadow) 56%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cyberpink-subtheme-card-frame) 40%, transparent);
+}
+
+body.theme-cyberpink .espaco-trackable-links__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+body.theme-cyberpink .espaco-trackable-links__error {
+  color: #ff7ac8;
+}
+
+body.theme-cyberpink .espaco-trackable-links__success {
+  color: var(--cyberpink-subtheme-text);
+}
+
+@media (max-width: 720px) {
+  body.theme-cyberpink .espaco-trackable-links__header,
+  body.theme-cyberpink .espaco-trackable-links__creator,
+  body.theme-cyberpink .espaco-trackable-links__item {
+    grid-template-columns: 1fr;
+  }
+
+  body.theme-cyberpink .espaco-trackable-links__actions {
+    justify-content: flex-start;
+  }
+}
+
 body.theme-cyberpink .card-print-history__list {
   display: grid;
   gap: 10px;
+  max-height: min(46vh, 480px);
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 body.theme-cyberpink .card-print-history__creator {
@@ -4341,6 +4477,14 @@ body.theme-cyberpink .card-print-history__item-actions {
   flex-wrap: wrap;
 }
 
+body.theme-cyberpink .card-print-history__delete-row {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 8px;
+  border-top: 1px solid color-mix(in srgb, #ff3aa6 24%, transparent);
+}
+
 body.theme-cyberpink .card-print-history__readings {
   grid-column: 1 / -1;
   display: grid;
@@ -4364,90 +4508,6 @@ body.theme-cyberpink .card-print-history__error {
 
 body.theme-cyberpink .card-print-history__error {
   color: color-mix(in srgb, #ff4f8f 76%, var(--cyberpink-subtheme-text));
-}
-
-body.theme-cyberpink .card-print-preview-stage {
-  position: relative;
-  z-index: 1;
-  margin-top: 18px;
-  padding: 14px;
-  width: 100%;
-  box-sizing: border-box;
-  color: var(--cyberpink-subtheme-text);
-  background:
-    linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--cyberpink-subtheme-card-surface) 76%, transparent),
-      color-mix(in srgb, var(--cyberpink-subtheme-card-surface-shadow) 82%, transparent)
-    );
-  border: 1px solid color-mix(in srgb, var(--cyberpink-subtheme-card-frame) 78%, transparent);
-  clip-path: polygon(
-    12px 0,
-    100% 0,
-    100% calc(100% - 12px),
-    calc(100% - 12px) 100%,
-    0 100%,
-    0 12px
-  );
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 8%, transparent),
-    0 0 12px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 20%, transparent);
-}
-
-body.theme-cyberpink .card-print-preview-stage::before,
-body.theme-cyberpink .card-print-preview-stage::after {
-  content: "";
-  position: absolute;
-  width: 14px;
-  height: 14px;
-  z-index: 1;
-  pointer-events: none;
-  background: var(--cyberpink-subtheme-card-frame);
-  -webkit-mask-repeat: no-repeat;
-  -webkit-mask-size: 100% 100%;
-  mask-repeat: no-repeat;
-  mask-size: 100% 100%;
-}
-
-body.theme-cyberpink .card-print-preview-stage::before {
-  top: 0;
-  left: 0;
-  -webkit-mask-image: url("./assets/cyberpink-simple-cut-tl.svg");
-  mask-image: url("./assets/cyberpink-simple-cut-tl.svg");
-}
-
-body.theme-cyberpink .card-print-preview-stage::after {
-  right: 0;
-  bottom: 0;
-  -webkit-mask-image: url("./assets/cyberpink-simple-cut-br.svg");
-  mask-image: url("./assets/cyberpink-simple-cut-br.svg");
-}
-
-body.theme-cyberpink .card-print-preview-stage__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
-}
-
-body.theme-cyberpink .card-print-preview-stage__header strong {
-  display: block;
-  color: var(--cyberpink-subtheme-text);
-  font-family: "DotGothic16", sans-serif;
-  font-size: 13px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  text-shadow:
-    0 0 3px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 55%, transparent),
-    0 0 8px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 28%, transparent);
-}
-
-body.theme-cyberpink .card-print-preview-stage__header p {
-  margin: 3px 0 0;
-  color: color-mix(in srgb, var(--cyberpink-subtheme-text) 72%, var(--cyberpink-subtheme-card-surface));
-  font-size: 11px;
-  line-height: 1.35;
 }
 
 @media (max-width: 720px) {

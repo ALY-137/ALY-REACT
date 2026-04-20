@@ -34,6 +34,7 @@ import GerenciadorAddOns from "./components/Layout/Menu/Gerenciador/GerenciadorA
 import SolicitacoesPixManual from "./components/Layout/Pagamentos/SolicitacoesPixManual";
 import CardRoutePage from "./components/Layout/Espacos/CardRoutePage";
 import CardPrintRedirectPage from "./components/Layout/Espacos/CardPrintRedirectPage";
+import TrackableLinkRedirectPage from "./components/Layout/Espacos/TrackableLinkRedirectPage";
 
 function RedirectOneOwnerLegacyPath() {
   const { espacoNome } = useParams();
@@ -171,6 +172,11 @@ export default function RouterComponent() {
     {
       path: "/loginowner",
       element: <App />,
+      errorElement: <Error />,
+    },
+    {
+      path: "r/:trackingId",
+      element: <TrackableLinkRedirectPage />,
       errorElement: <Error />,
     },
     {

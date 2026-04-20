@@ -14,23 +14,45 @@ import {
 
 const Navegacoes = () => {
   const location = useLocation();
-  const sessionId = useRef(null);
+  const navigationIdRef = useRef(null);
   const trackingBloqueado = useRef(false);
 
-  // Create or recover a local session hash
-  useEffect(() => {
-    let savedSession = localStorage.getItem("navegacaoHash");
-    if (!savedSession) {
-      savedSession = crypto.randomUUID();
-      localStorage.setItem("navegacaoHash", savedSession);
+  const normalizeNavigationId = (value = "") => {
+    const navigationId = String(value || "").trim();
+    if (!navigationId) return "";
+    return navigationId.startsWith("anon_") ? `nav_${navigationId.slice(5)}` : navigationId;
+  };
+
+  const buildNavigationId = (value = "") => {
+    const input = String(value || "").trim() || `${Date.now()}_${Math.random()}`;
+    let hash = 5381;
+    for (let index = 0; index < input.length; index += 1) {
+      hash = (hash * 33) ^ input.charCodeAt(index);
     }
-    sessionId.current = savedSession;
+    return `nav_${(hash >>> 0).toString(16)}`;
+  };
+
+  // Create or recover a local navigation identifier
+  useEffect(() => {
+    let savedNavigationId = normalizeNavigationId(localStorage.getItem("navegacaoHash"));
+    if (!savedNavigationId) {
+      savedNavigationId = normalizeNavigationId(localStorage.getItem("uxVisitorHash"));
+    }
+    if (!savedNavigationId) {
+      const seed =
+        (typeof crypto?.randomUUID === "function" && crypto.randomUUID()) ||
+        `${Date.now()}_${Math.random()}_${window.location.hostname}`;
+      savedNavigationId = buildNavigationId(seed);
+    }
+    localStorage.setItem("navegacaoHash", savedNavigationId);
+    localStorage.setItem("uxVisitorHash", savedNavigationId);
+    navigationIdRef.current = savedNavigationId;
   }, []);
 
   useEffect(() => {
     if (trackingBloqueado.current) return;
     const userId = localStorage.getItem("userId");
-    if (!sessionId.current || !userId) return;
+    if (!navigationIdRef.current || !userId) return;
     if (seforAdm({ uid: userId })) return;
 
     const registro = {
@@ -45,7 +67,7 @@ const Navegacoes = () => {
           "users",
           userId,
           "navegacoes_users",
-          sessionId.current
+          navigationIdRef.current
         );
 
         await setDoc(
@@ -53,7 +75,7 @@ const Navegacoes = () => {
           {
             registros: arrayUnion(registro),
             criadoEm: serverTimestamp(),
-            navegacaoHash: sessionId.current,
+            navigationId: navigationIdRef.current,
           },
           { merge: true }
         );

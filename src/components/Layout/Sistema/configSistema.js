@@ -139,6 +139,10 @@ export const DEFAULT_SISTEMA_CONFIG = {
   permitirTemasSkinSecundarios: true,
   metodosLoginHabilitados: { ...METODOS_LOGIN_PADRAO },
   chatHabilitado: true,
+  rastreabilidadeAcessosHabilitada: false,
+  modoRastreabilidadeAcessos: "preferencial",
+  registrarAcessoDiretoRastreabilidade: true,
+  persistirOrigemRastreabilidadeSessao: true,
   addOnsHabilitados: false,
   blocoAddOnsHabilitado: false,
   aly137Habilitado: false,
@@ -1175,6 +1179,23 @@ export function normalizarConfigSistema(data = {}) {
     chatHabilitado: normalizarBoolean(
       data.chatHabilitado,
       DEFAULT_SISTEMA_CONFIG.chatHabilitado
+    ),
+    rastreabilidadeAcessosHabilitada: normalizarBoolean(
+      data.rastreabilidadeAcessosHabilitada,
+      DEFAULT_SISTEMA_CONFIG.rastreabilidadeAcessosHabilitada
+    ),
+    modoRastreabilidadeAcessos: ["livre", "preferencial", "obrigatorio"].includes(
+      normalizarTexto(data.modoRastreabilidadeAcessos, "preferencial", 40)
+    )
+      ? normalizarTexto(data.modoRastreabilidadeAcessos, "preferencial", 40)
+      : DEFAULT_SISTEMA_CONFIG.modoRastreabilidadeAcessos,
+    registrarAcessoDiretoRastreabilidade: normalizarBoolean(
+      data.registrarAcessoDiretoRastreabilidade,
+      DEFAULT_SISTEMA_CONFIG.registrarAcessoDiretoRastreabilidade
+    ),
+    persistirOrigemRastreabilidadeSessao: normalizarBoolean(
+      data.persistirOrigemRastreabilidadeSessao,
+      DEFAULT_SISTEMA_CONFIG.persistirOrigemRastreabilidadeSessao
     ),
     addOnsHabilitados: addOnsHabilitadosNormalizado,
     blocoAddOnsHabilitado: blocoAddOnsHabilitadoNormalizado,

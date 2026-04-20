@@ -1,5 +1,4 @@
 import {
-  addDoc,
   collection,
   doc,
   getDoc,
@@ -26,7 +25,8 @@ import { obterGeoAcessoAtual } from "../Sistema/acessoGeo";
 
 const NAVIGATION_ID_STORAGE_KEY = "navegacaoHash";
 const LEGACY_VISITOR_ID_STORAGE_KEY = "uxVisitorHash";
-const QR_SCAN_DEDUPE_MS = 2500;
+const TRACKING_CONTEXT_STORAGE_KEY = "alyTrackingContext";
+const TRACKABLE_ACCESS_DEDUPE_MS = 2500;
 
 function normalizeText(value = "") {
   return String(value || "").trim();
@@ -81,11 +81,7 @@ function getOrCreateNavigationId() {
   }
 }
 
-function encodeRouteSegment(value = "") {
-  return encodeURIComponent(normalizeText(value));
-}
-
-function createFirestoreId(collectionName = "_qrPrintIds") {
+function createFirestoreId(collectionName = "_trackableLinkIds") {
   try {
     return doc(collection(db, collectionName)).id;
   } catch {
@@ -104,25 +100,16 @@ function cleanPayload(payload = {}) {
   }, {});
 }
 
-function buildCardKey(ownerUserId = "", espacoId = "", blocoId = "", cardId = "") {
-  return [
-    normalizeText(ownerUserId),
-    normalizeText(espacoId),
-    normalizeText(blocoId),
-    normalizeText(cardId),
-  ].join("|");
-}
-
 function getTimestampMs(value = null) {
   if (!value) return 0;
-  if (typeof value?.toDate === "function") {
-    return value.toDate().getTime();
-  }
-  if (Number.isFinite(Number(value?.seconds))) {
-    return Number(value.seconds) * 1000;
-  }
+  if (typeof value?.toDate === "function") return value.toDate().getTime();
+  if (Number.isFinite(Number(value?.seconds))) return Number(value.seconds) * 1000;
   const parsed = Date.parse(String(value));
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function encodeRouteSegment(value = "") {
+  return encodeURIComponent(normalizeText(value));
 }
 
 function buildAbsoluteUrl(route = "") {
@@ -135,34 +122,8 @@ function buildAbsoluteUrl(route = "") {
   }
 }
 
-function buildQrRoute({ oneOwnerPublicaAtiva = false, skinsUsername = "", espacoNome = "", printId = "" } = {}) {
-  const printIdSegment = encodeRouteSegment(printId);
-  const espacoSegment = encodeRouteSegment(espacoNome);
-  const skinSegment = encodeRouteSegment(skinsUsername);
-
-  if (!printIdSegment || !espacoSegment) return "";
-  if (oneOwnerPublicaAtiva || !skinSegment) {
-    return `/${espacoSegment}/card/r/${printIdSegment}`;
-  }
-  return `/${skinSegment}/${espacoSegment}/card/r/${printIdSegment}`;
-}
-
-function getQrPrintDocRefs(printId = "") {
-  const normalizedPrintId = normalizeText(printId);
-  if (!normalizedPrintId) return [];
-  return getProjectDocCandidates(db, "qrPrints", normalizedPrintId);
-}
-
-function getPrimaryQrPrintDocRef(printId = "") {
-  const normalizedPrintId = normalizeText(printId);
-  if (!normalizedPrintId) return null;
-  return getPrimaryProjectDoc(db, "qrPrints", normalizedPrintId);
-}
-
-function getPrimaryQrPrintLeiturasCollection(printId = "") {
-  const normalizedPrintId = normalizeText(printId);
-  if (!normalizedPrintId) return null;
-  return getPrimaryProjectCollection(db, "qrPrints", normalizedPrintId, "leituras");
+function buildSpaceKey(ownerUserId = "", espacoId = "") {
+  return [normalizeText(ownerUserId), normalizeText(espacoId)].join("|");
 }
 
 function buildClientContext() {
@@ -207,97 +168,120 @@ function buildGeoFields(geo = null) {
     regionCode: normalizeText(geo.regionCode || geo.uf) || null,
     uf: normalizeText(geo.uf || geo.regionCode) || null,
     org: normalizeText(geo.org) || null,
-    cep: normalizeText(geo.cep) || null,
-    logradouro: normalizeText(geo.logradouro) || null,
-    bairro: normalizeText(geo.bairro) || null,
     cidade: normalizeText(geo.cidade || geo.city) || null,
     latitude: Number.isFinite(Number(geo.latitude)) ? Number(geo.latitude) : null,
     longitude: Number.isFinite(Number(geo.longitude)) ? Number(geo.longitude) : null,
   };
 }
 
-function shouldSkipScanByDedupe(printId = "") {
-  if (typeof window === "undefined") return false;
+function getTrackableLinkDocRefs(trackingId = "") {
+  const normalizedTrackingId = normalizeText(trackingId);
+  if (!normalizedTrackingId) return [];
+  return getProjectDocCandidates(db, "trackableLinks", normalizedTrackingId);
+}
 
+function getPrimaryTrackableLinkDocRef(trackingId = "") {
+  const normalizedTrackingId = normalizeText(trackingId);
+  if (!normalizedTrackingId) return null;
+  return getPrimaryProjectDoc(db, "trackableLinks", normalizedTrackingId);
+}
+
+function getPrimaryTrackableAccessCollection(trackingId = "") {
+  const normalizedTrackingId = normalizeText(trackingId);
+  if (!normalizedTrackingId) return null;
+  return getPrimaryProjectCollection(db, "trackableLinks", normalizedTrackingId, "acessos");
+}
+
+function shouldSkipAccessByDedupe(trackingId = "") {
+  if (typeof window === "undefined") return false;
   try {
-    const key = `qrPrintScan:${normalizeText(printId)}`;
+    const key = `trackableAccess:${normalizeText(trackingId)}`;
     const now = Date.now();
     const previous = Number(window.sessionStorage.getItem(key) || 0);
-    if (previous > 0 && now - previous <= QR_SCAN_DEDUPE_MS) {
-      return true;
-    }
+    if (previous > 0 && now - previous <= TRACKABLE_ACCESS_DEDUPE_MS) return true;
     window.sessionStorage.setItem(key, String(now));
   } catch {
     // Se sessionStorage falhar, registra normalmente.
   }
-
   return false;
 }
 
-export async function criarQrPrintCard({
+export function salvarTrackingContext(link = {}) {
+  if (typeof window === "undefined") return;
+  const trackingId = normalizeText(link?.trackingId || link?.id);
+  if (!trackingId) return;
+  try {
+    window.sessionStorage.setItem(
+      TRACKING_CONTEXT_STORAGE_KEY,
+      JSON.stringify({
+        trackingId,
+        tipo: normalizeText(link?.tipo) || "link_espaco",
+        destinoTipo: normalizeText(link?.destinoTipo) || "espaco",
+        destinoUrl: normalizeText(link?.destinoUrl),
+        origemPlanejada: normalizeText(link?.origemPlanejada || link?.descricao),
+        registradoEmMs: Date.now(),
+      })
+    );
+  } catch {
+    // Contexto de rastreio e util, mas nao pode bloquear a navegacao.
+  }
+}
+
+export function obterTrackingContextSessao() {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(TRACKING_CONTEXT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function criarLinkRastreavelEspaco({
   ownerUserId = "",
   espacoId = "",
   espacoNome = "",
   skinsUsername = "",
-  oneOwnerPublicaAtiva = false,
-  bloco = null,
-  card = null,
-  rotaCard = "",
-  urlCard = "",
-  descricaoRegistro = "",
+  destinoUrl = "",
+  descricao = "",
+  origemPlanejada = "",
 } = {}) {
-  const printId = createFirestoreId("qrPrints");
+  const trackingId = createFirestoreId("trackableLinks");
   const normalizedOwnerUserId = normalizeText(ownerUserId);
   const normalizedEspacoId = normalizeText(espacoId);
-  const normalizedBlocoId = normalizeText(bloco?.id);
-  const normalizedCardId = normalizeText(card?.id);
-  const cardKey = buildCardKey(
-    normalizedOwnerUserId,
-    normalizedEspacoId,
-    normalizedBlocoId,
-    normalizedCardId
-  );
-  const normalizedRotaCard = normalizeText(rotaCard);
-  const normalizedUrlCard = normalizeText(urlCard) || buildAbsoluteUrl(normalizedRotaCard);
-  const normalizedDescricaoRegistro = normalizeText(descricaoRegistro);
-  const rotaQr = buildQrRoute({
-    oneOwnerPublicaAtiva,
-    skinsUsername,
-    espacoNome,
-    printId,
-  });
-  const urlQr = buildAbsoluteUrl(rotaQr);
-  const printRef = getPrimaryQrPrintDocRef(printId);
+  const normalizedDestinoUrl = normalizeText(destinoUrl);
+  const trackingRoute = `/r/${encodeRouteSegment(trackingId)}`;
+  const urlRastreavel = buildAbsoluteUrl(trackingRoute);
+  const linkRef = getPrimaryTrackableLinkDocRef(trackingId);
   const currentUser = auth.currentUser;
 
-  if (!printRef || !normalizedOwnerUserId || !normalizedEspacoId || !normalizedBlocoId || !normalizedCardId) {
-    throw new Error("Dados insuficientes para criar QR rastreavel.");
+  if (!linkRef || !normalizedOwnerUserId || !normalizedEspacoId || !normalizedDestinoUrl) {
+    throw new Error("Dados insuficientes para criar link rastreavel.");
   }
 
   await setDoc(
-    printRef,
+    linkRef,
     cleanPayload({
-      id: printId,
-      printId,
-      alvoTipo: "card",
-      targetType: "card",
+      id: trackingId,
+      trackingId,
+      tipo: "link_espaco",
+      targetType: "espaco",
+      destinoTipo: "espaco",
       ownerUserId: normalizedOwnerUserId,
       espacoId: normalizedEspacoId,
       espacoNome: normalizeText(espacoNome) || null,
       skinsUsername: normalizeText(skinsUsername) || null,
-      oneOwnerPublicaAtiva: Boolean(oneOwnerPublicaAtiva),
-      blocoId: normalizedBlocoId,
-      blocoTitulo: normalizeText(bloco?.titulo || bloco?.nome) || null,
-      cardId: normalizedCardId,
-      cardKey,
-      cardNome: normalizeText(card?.nome) || null,
-      descricaoRegistro: normalizedDescricaoRegistro || null,
-      rotaCard: normalizedRotaCard || null,
-      urlCard: normalizedUrlCard || null,
-      rotaQr: rotaQr || null,
-      urlQr: urlQr || null,
+      spaceKey: buildSpaceKey(normalizedOwnerUserId, normalizedEspacoId),
+      destinoUrl: normalizedDestinoUrl,
+      trackingRoute,
+      urlRastreavel,
+      descricao: normalizeText(descricao) || null,
+      origemPlanejada: normalizeText(origemPlanejada || descricao) || null,
       ativo: true,
       status: "ativo",
+      modoRastreabilidade: "preferencial",
       runtimeProjectKey: normalizeText(activeFirebaseProjectKey) || null,
       runtimeProjectId: normalizeText(activeFirebaseProjectId) || null,
       criadoPor: normalizeText(currentUser?.uid) || null,
@@ -308,43 +292,29 @@ export async function criarQrPrintCard({
   );
 
   return {
-    printId,
-    rotaQr,
-    urlQr,
-    rotaCard: normalizedRotaCard,
-    urlCard: normalizedUrlCard,
+    trackingId,
+    trackingRoute,
+    urlRastreavel,
+    destinoUrl: normalizedDestinoUrl,
   };
 }
 
-export async function listarQrPrintsDoCard({
+export async function listarLinksRastreaveisEspaco({
   ownerUserId = "",
   espacoId = "",
-  blocoId = "",
-  cardId = "",
   limite = 50,
 } = {}) {
   const normalizedOwnerUserId = normalizeText(ownerUserId);
   const normalizedEspacoId = normalizeText(espacoId);
-  const normalizedBlocoId = normalizeText(blocoId);
-  const normalizedCardId = normalizeText(cardId);
-  const cardKey = buildCardKey(
-    normalizedOwnerUserId,
-    normalizedEspacoId,
-    normalizedBlocoId,
-    normalizedCardId
-  );
+  if (!normalizedOwnerUserId || !normalizedEspacoId) return [];
 
-  if (!normalizedOwnerUserId || !normalizedEspacoId || !normalizedBlocoId || !normalizedCardId) {
-    return [];
-  }
-
-  const printsRef = getPrimaryProjectCollection(db, "qrPrints");
-  const printsQuery = query(
-    printsRef,
-    where("cardKey", "==", cardKey),
+  const linksRef = getPrimaryProjectCollection(db, "trackableLinks");
+  const linksQuery = query(
+    linksRef,
+    where("spaceKey", "==", buildSpaceKey(normalizedOwnerUserId, normalizedEspacoId)),
     limit(Math.max(1, Math.min(Number(limite) || 50, 100)))
   );
-  const snapshot = await getDocs(printsQuery);
+  const snapshot = await getDocs(linksQuery);
 
   return snapshot.docs
     .map((item) => ({ id: item.id, ...item.data() }))
@@ -359,22 +329,20 @@ export async function listarQrPrintsDoCard({
     );
 }
 
-export async function excluirQrPrintCard(printId = "", { motivo = "exclusao_manual" } = {}) {
-  const normalizedPrintId = normalizeText(printId);
-  const printRef = getPrimaryQrPrintDocRef(normalizedPrintId);
+export async function excluirLinkRastreavelEspaco(trackingId = "") {
+  const normalizedTrackingId = normalizeText(trackingId);
+  const linkRef = getPrimaryTrackableLinkDocRef(normalizedTrackingId);
   const currentUser = auth.currentUser;
-
-  if (!normalizedPrintId || !printRef) {
-    throw new Error("QR rastreavel invalido para exclusao.");
+  if (!normalizedTrackingId || !linkRef) {
+    throw new Error("Link rastreavel invalido para exclusao.");
   }
 
   await setDoc(
-    printRef,
+    linkRef,
     cleanPayload({
       ativo: false,
       excluido: true,
       status: "excluido",
-      motivoExclusao: normalizeText(motivo) || "exclusao_manual",
       excluidoPor: normalizeText(currentUser?.uid) || null,
       excluidoPorEmail: normalizeText(currentUser?.email) || null,
       excluidoEm: serverTimestamp(),
@@ -386,100 +354,55 @@ export async function excluirQrPrintCard(printId = "", { motivo = "exclusao_manu
   return true;
 }
 
-export async function listarLeiturasQrPrint(printId = "", { limite = 80 } = {}) {
-  const normalizedPrintId = normalizeText(printId);
-  const leiturasRef = getPrimaryQrPrintLeiturasCollection(normalizedPrintId);
-  if (!normalizedPrintId || !leiturasRef) return [];
-
-  const leiturasQuery = query(
-    leiturasRef,
-    limit(Math.max(1, Math.min(Number(limite) || 80, 150)))
-  );
-  const snapshot = await getDocs(leiturasQuery);
-
-  return snapshot.docs
-    .map((item) => ({ id: item.id, ...item.data() }))
-    .sort(
-      (a, b) =>
-        getTimestampMs(b.data || b.criadoEm) -
-        getTimestampMs(a.data || a.criadoEm)
-    );
-}
-
-export async function obterQrPrint(printId = "") {
-  const refs = getQrPrintDocRefs(printId);
+export async function obterLinkRastreavel(trackingId = "") {
+  const refs = getTrackableLinkDocRefs(trackingId);
   for (const refItem of refs) {
-    const snapshot = await getDoc(refItem).catch(() => null);
-    if (snapshot?.exists?.()) {
-      return {
-        id: snapshot.id,
-        ...snapshot.data(),
-      };
+    const snap = await getDoc(refItem);
+    if (snap.exists()) {
+      return { id: snap.id, ...snap.data() };
     }
   }
   return null;
 }
 
-export function montarRotaCardDeQrPrint(
-  print = {},
-  { espacoNome = "", skinsUsername = "", oneOwnerPublicaAtiva = false } = {}
-) {
-  const rotaCard = normalizeText(print?.rotaCard);
-  if (rotaCard) return rotaCard;
-
-  const blocoSegment = encodeRouteSegment(print?.blocoId);
-  const cardSegment = encodeRouteSegment(print?.cardId);
-  const espacoSegment = encodeRouteSegment(print?.espacoNome || espacoNome);
-  const skinSegment = encodeRouteSegment(print?.skinsUsername || skinsUsername);
-
-  if (!blocoSegment || !cardSegment || !espacoSegment) return "";
-  if (oneOwnerPublicaAtiva || print?.oneOwnerPublicaAtiva || !skinSegment) {
-    return `/${espacoSegment}/card/${blocoSegment}/${cardSegment}`;
-  }
-  return `/${skinSegment}/${espacoSegment}/card/${blocoSegment}/${cardSegment}`;
-}
-
-export async function registrarLeituraQrPrint({
-  printId = "",
-  print = null,
-  origem = "qr_print_route",
+export async function registrarAcessoLinkRastreavel({
+  trackingId = "",
+  link = null,
+  origem = "trackable_link_route",
 } = {}) {
-  const normalizedPrintId = normalizeText(printId || print?.printId || print?.id);
-  const leituraCollection = getPrimaryQrPrintLeiturasCollection(normalizedPrintId);
-
-  if (!normalizedPrintId || !leituraCollection || shouldSkipScanByDedupe(normalizedPrintId)) {
+  const normalizedTrackingId = normalizeText(trackingId || link?.trackingId || link?.id);
+  const acessosRef = getPrimaryTrackableAccessCollection(normalizedTrackingId);
+  if (!normalizedTrackingId || !acessosRef || shouldSkipAccessByDedupe(normalizedTrackingId)) {
     return null;
   }
 
   const geo = await obterGeoAcessoAtual({ forceRefresh: false }).catch(() => null);
   const currentUser = auth.currentUser;
   const payload = cleanPayload({
-    printId: normalizedPrintId,
-    qrPrintId: normalizedPrintId,
-    eventoTipo: "scan_qr",
-    tipo: "scan_qr",
-    origem: normalizeText(origem) || "qr_print_route",
+    trackingId: normalizedTrackingId,
+    eventoTipo: "access_link",
+    tipo: "access_link",
+    origem: normalizeText(origem) || "trackable_link_route",
     data: serverTimestamp(),
     criadoEm: serverTimestamp(),
     navigationId: getOrCreateNavigationId(),
     uid: normalizeText(currentUser?.uid) || null,
     email: normalizeText(currentUser?.email) || null,
     autenticado: Boolean(currentUser?.uid),
-    ownerUserId: normalizeText(print?.ownerUserId) || null,
-    espacoId: normalizeText(print?.espacoId) || null,
-    espacoNome: normalizeText(print?.espacoNome) || null,
-    skinsUsername: normalizeText(print?.skinsUsername) || null,
-    blocoId: normalizeText(print?.blocoId) || null,
-    blocoTitulo: normalizeText(print?.blocoTitulo) || null,
-    cardId: normalizeText(print?.cardId) || null,
-    cardNome: normalizeText(print?.cardNome) || null,
-    rotaCard: normalizeText(print?.rotaCard) || null,
-    urlCard: normalizeText(print?.urlCard) || null,
+    ownerUserId: normalizeText(link?.ownerUserId) || null,
+    espacoId: normalizeText(link?.espacoId) || null,
+    espacoNome: normalizeText(link?.espacoNome) || null,
+    skinsUsername: normalizeText(link?.skinsUsername) || null,
+    destinoTipo: normalizeText(link?.destinoTipo) || null,
+    destinoUrl: normalizeText(link?.destinoUrl) || null,
+    origemPlanejada: normalizeText(link?.origemPlanejada || link?.descricao) || null,
     runtimeProjectKey: normalizeText(activeFirebaseProjectKey) || null,
     runtimeProjectId: normalizeText(activeFirebaseProjectId) || null,
     ...buildClientContext(),
     ...buildGeoFields(geo),
   });
 
-  return addDoc(leituraCollection, payload);
+  const accessRef = doc(acessosRef);
+  await setDoc(accessRef, payload);
+  return { id: accessRef.id, ...payload };
 }

@@ -138,8 +138,10 @@ function resolverChaveUsuario(item = {}, fallbackId = "") {
   const uid = normalizarTexto(item?.uid || item?.ownerUid || item?.userUid);
   if (uid) return `uid:${uid}`;
 
-  const hash = normalizarTexto(item?.visitorHash || item?.hash);
-  if (hash) return `hash:${hash}`;
+  const navigationId = normalizarTexto(
+    item?.navigationId || item?.visitorHash || item?.hash || item?.navegacaoHash
+  );
+  if (navigationId) return `navigation:${navigationId}`;
 
   const fallback = normalizarTexto(fallbackId);
   return fallback ? `fallback:${fallback}` : "";
@@ -246,7 +248,7 @@ function consolidarUsuarios({ usuariosEspelhados, acessos, projetosMap, agoraMs 
         email: "",
         nome: "",
         avatar: "",
-        hashNavegacao: "",
+        navigationId: "",
         projetosMap: new Map(),
         skinsResumoMap: new Map(),
         skinsPorProjetoBaseMap: new Map(),
@@ -341,7 +343,11 @@ function consolidarUsuarios({ usuariosEspelhados, acessos, projetosMap, agoraMs 
     registro.email = registro.email || normalizarTexto(acesso?.email);
     registro.nome =
       registro.nome || normalizarTexto(acesso?.displayName || acesso?.nome || acesso?.email);
-    registro.hashNavegacao = registro.hashNavegacao || normalizarTexto(acesso?.visitorHash || acesso?.hash);
+    registro.navigationId =
+      registro.navigationId ||
+      normalizarTexto(
+        acesso?.navigationId || acesso?.visitorHash || acesso?.hash || acesso?.navegacaoHash
+      );
 
     const projectKey = normalizarTexto(
       acesso?.projectSystemKey || acesso?.runtimeProjectKey
@@ -491,7 +497,7 @@ function consolidarUsuarios({ usuariosEspelhados, acessos, projetosMap, agoraMs 
 
     return {
       ...usuario,
-      nome: usuario.nome || usuario.email || usuario.uid || usuario.hashNavegacao || "Usuario",
+      nome: usuario.nome || usuario.email || usuario.uid || usuario.navigationId || "Usuario",
       email: usuario.email || "--",
       avatar: usuario.avatar || "/favicon.ico",
       projetos,
@@ -880,7 +886,7 @@ function Users() {
 
                   <span>{usuario.email}</span>
                   <span>{`ID user: ${usuario.uid || "--"}`}</span>
-                  <span>{`Hash navegacao: ${usuario.hashNavegacao || "--"}`}</span>
+                  <span>{`Identificador de navegacao: ${usuario.navigationId || "--"}`}</span>
                   <span>{`Ultima navegacao: ${formatarData(usuario.ultimaNavegacaoRaw)}`}</span>
                   <span>{`Ultima rota: ${usuario.ultimaRota || "--"}`}</span>
                   <span>{`Host: ${usuario.ultimoHost || "--"}`}</span>
