@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   arrayRemove,
   arrayUnion,
@@ -36,6 +36,11 @@ import {
   removerEstruturaPublicaEspaco,
   sincronizarEstruturaPublicaEspaco,
 } from "./firebaseEspacos";
+import {
+  criarLinkRastreavelEspaco,
+  excluirLinkRastreavelEspaco,
+  listarLinksRastreaveisEspaco,
+} from "./trackableLinksApi";
 
 const capitalizar = (texto = "") =>
   texto ? texto.charAt(0).toUpperCase() + texto.slice(1) : "";
@@ -57,6 +62,42 @@ const LABEL_VISIBILIDADE_ESPACO = {
   exclusivo_assinante: "Exclusivo assinante",
 };
 const CYBERPINK_THEME_KEY = "CYBERPINK";
+
+const criarEstadoLinksRastreaveis = (patch = {}) => ({
+  aberto: false,
+  loading: false,
+  erro: "",
+  itens: [],
+  descricao: "",
+  criando: false,
+  excluindoId: "",
+  mensagem: "",
+  ...patch,
+});
+
+const encodeRouteSegment = (value = "") => encodeURIComponent(String(value || "").trim());
+
+const montarUrlAbsoluta = (rota = "") => {
+  const rotaNormalizada = String(rota || "").trim();
+  if (!rotaNormalizada) return "";
+  try {
+    return new URL(rotaNormalizada, window.location.origin).href;
+  } catch {
+    return rotaNormalizada;
+  }
+};
+
+const formatarDataCurta = (value = null) => {
+  if (!value) return "--";
+  const date =
+    typeof value?.toDate === "function"
+      ? value.toDate()
+      : Number.isFinite(Number(value?.seconds))
+        ? new Date(Number(value.seconds) * 1000)
+        : new Date(value);
+  if (Number.isNaN(date.getTime())) return "--";
+  return date.toLocaleString("pt-BR");
+};
 
 const buildIconSelectionValue = (espaco = {}) => {
   const collectionId = String(espaco?.iconCollectionId || "").trim();
@@ -131,6 +172,7 @@ export default function EspacoManager() {
   const [skinIdResolvida, setSkinIdResolvida] = useState("");
   const [configSistemaAtual, setConfigSistemaAtual] = useState(DEFAULT_SISTEMA_CONFIG);
   const [iconCollectionsDisponiveis, setIconCollectionsDisponiveis] = useState([]);
+  const [linksRastreaveisPorEspaco, setLinksRastreaveisPorEspaco] = useState({});
 
   const authUidAtual = auth.currentUser?.uid || "";
   const userId = userIdResolvido || authUidAtual || "";
@@ -161,6 +203,14 @@ export default function EspacoManager() {
     [iconCollectionsDisponiveis, colecoesIconesPermitidas, temaProjeto]
   );
   const projetoPossuiColecoesIcones = iconCollectionsFiltradas.length > 0;
+  const rastreabilidadeAcessosHabilitada =
+    configSistemaAtual?.rastreabilidadeAcessosHabilitada === true;
+  const modoRastreabilidadeAcessos = String(
+    configSistemaAtual?.modoRastreabilidadeAcessos || "preferencial"
+  ).trim().toLowerCase();
+  const rastreabilidadePreferencialAtiva =
+    rastreabilidadeAcessosHabilitada && modoRastreabilidadeAcessos === "preferencial";
+  const oneOwnerPublicaAtiva = isOneOwnerComEntradaPublica(configSistemaAtual);
 
   useEffect(() => {
     if (userId && skinIdAtual) carregarEspacos();
@@ -593,6 +643,345 @@ export default function EspacoManager() {
     carregarEspacos();
   };
 
+  const atualizarEstadoLinksEspaco = useCallback((espacoId = "", patch = {}) => {
+    const chave = String(espacoId || "").trim();
+    if (!chave) return;
+    setLinksRastreaveisPorEspaco((prev) => {
+      const atual = prev[chave] || criarEstadoLinksRastreaveis();
+      const proximoPatch = typeof patch === "function" ? patch(atual) : patch;
+      return {
+        ...prev,
+        [chave]: {
+          ...atual,
+          ...proximoPatch,
+        },
+      };
+    });
+  }, []);
+
+  const obterSkinUsernameAtual = useCallback(() => {
+    if (typeof window === "undefined") return "";
+    return String(
+      window.localStorage.getItem("skinLogadoUser") ||
+        window.localStorage.getItem("targetUsername") ||
+        ""
+    ).trim();
+  }, []);
+
+  const montarRotaEspacoGerenciado = useCallback(
+    (espaco = {}) => {
+      const nomeEspaco = encodeRouteSegment(espaco?.nome || "");
+      if (!nomeEspaco) return "";
+      const skinUsername = encodeRouteSegment(obterSkinUsernameAtual());
+      if (oneOwnerPublicaAtiva || !skinUsername) return `/${nomeEspaco}`;
+      return `/${skinUsername}/${nomeEspaco}`;
+    },
+    [obterSkinUsernameAtual, oneOwnerPublicaAtiva]
+  );
+
+  const carregarLinksRastreaveisEspaco = useCallback(
+    async (espaco = {}) => {
+      const espacoIdAtual = String(espaco?.id || espaco?.id_espaco || "").trim();
+      const ownerUserId = String(espaco?.ownerUserId || userId || "").trim();
+      if (!espacoIdAtual || !ownerUserId || !rastreabilidadePreferencialAtiva) return;
+
+      atualizarEstadoLinksEspaco(espacoIdAtual, {
+        aberto: true,
+        loading: true,
+        erro: "",
+        mensagem: "",
+      });
+
+      try {
+        const itens = await listarLinksRastreaveisEspaco({
+          ownerUserId,
+          espacoId: espacoIdAtual,
+        });
+        atualizarEstadoLinksEspaco(espacoIdAtual, {
+          loading: false,
+          erro: "",
+          itens,
+        });
+      } catch (error) {
+        atualizarEstadoLinksEspaco(espacoIdAtual, {
+          loading: false,
+          erro:
+            error?.code === "permission-denied"
+              ? "Sem permissao para carregar links rastreaveis deste espaco."
+              : error?.message || "Falha ao carregar links rastreaveis.",
+          itens: [],
+        });
+      }
+    },
+    [atualizarEstadoLinksEspaco, rastreabilidadePreferencialAtiva, userId]
+  );
+
+  const alternarLinksRastreaveisEspaco = useCallback(
+    (espaco = {}) => {
+      const espacoIdAtual = String(espaco?.id || espaco?.id_espaco || "").trim();
+      if (!espacoIdAtual) return;
+      const estadoAtual = linksRastreaveisPorEspaco[espacoIdAtual] || criarEstadoLinksRastreaveis();
+      if (estadoAtual.aberto) {
+        atualizarEstadoLinksEspaco(espacoIdAtual, { aberto: false });
+        return;
+      }
+      void carregarLinksRastreaveisEspaco(espaco);
+    },
+    [atualizarEstadoLinksEspaco, carregarLinksRastreaveisEspaco, linksRastreaveisPorEspaco]
+  );
+
+  const criarLinkRastreavelDoEspaco = useCallback(
+    async (espaco = {}) => {
+      const espacoIdAtual = String(espaco?.id || espaco?.id_espaco || "").trim();
+      const ownerUserId = String(espaco?.ownerUserId || userId || "").trim();
+      const estadoAtual = linksRastreaveisPorEspaco[espacoIdAtual] || criarEstadoLinksRastreaveis();
+      const destinoUrl = montarRotaEspacoGerenciado(espaco);
+      if (
+        !espacoIdAtual ||
+        !ownerUserId ||
+        !destinoUrl ||
+        !rastreabilidadePreferencialAtiva ||
+        estadoAtual.criando
+      ) {
+        return;
+      }
+
+      atualizarEstadoLinksEspaco(espacoIdAtual, {
+        criando: true,
+        erro: "",
+        mensagem: "",
+      });
+
+      try {
+        const descricao = String(estadoAtual.descricao || "").trim();
+        const link = await criarLinkRastreavelEspaco({
+          ownerUserId,
+          espacoId: espacoIdAtual,
+          espacoNome: espaco?.nome || "",
+          skinsUsername: obterSkinUsernameAtual(),
+          destinoUrl,
+          descricao,
+          origemPlanejada: descricao,
+        });
+
+        atualizarEstadoLinksEspaco(espacoIdAtual, (prev) => ({
+          criando: false,
+          descricao: "",
+          mensagem: "Link rastreavel criado.",
+          itens: [
+            {
+              id: link.trackingId,
+              trackingId: link.trackingId,
+              destinoUrl: link.destinoUrl,
+              urlRastreavel: link.urlRastreavel,
+              trackingRoute: link.trackingRoute,
+              descricao,
+              origemPlanejada: descricao,
+              criadoEm: new Date().toISOString(),
+            },
+            ...(Array.isArray(prev.itens) ? prev.itens : []),
+          ],
+        }));
+      } catch (error) {
+        atualizarEstadoLinksEspaco(espacoIdAtual, {
+          criando: false,
+          erro:
+            error?.code === "permission-denied"
+              ? "Sem permissao para criar link rastreavel deste espaco."
+              : error?.message || "Falha ao criar link rastreavel.",
+        });
+      }
+    },
+    [
+      atualizarEstadoLinksEspaco,
+      linksRastreaveisPorEspaco,
+      montarRotaEspacoGerenciado,
+      obterSkinUsernameAtual,
+      rastreabilidadePreferencialAtiva,
+      userId,
+    ]
+  );
+
+  const copiarLinkRastreavelEspaco = useCallback(
+    async (espacoId = "", url = "") => {
+      const espacoIdAtual = String(espacoId || "").trim();
+      const urlNormalizada = String(url || "").trim();
+      if (!espacoIdAtual || !urlNormalizada || typeof navigator === "undefined" || !navigator.clipboard) {
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(urlNormalizada);
+        atualizarEstadoLinksEspaco(espacoIdAtual, {
+          mensagem: "Link copiado.",
+          erro: "",
+        });
+      } catch {
+        atualizarEstadoLinksEspaco(espacoIdAtual, {
+          erro: "Nao foi possivel copiar o link automaticamente.",
+        });
+      }
+    },
+    [atualizarEstadoLinksEspaco]
+  );
+
+  const excluirLinkRastreavelDoEspaco = useCallback(
+    async (espacoId = "", trackingId = "") => {
+      const espacoIdAtual = String(espacoId || "").trim();
+      const trackingIdNormalizado = String(trackingId || "").trim();
+      const estadoAtual = linksRastreaveisPorEspaco[espacoIdAtual] || criarEstadoLinksRastreaveis();
+      if (!espacoIdAtual || !trackingIdNormalizado || estadoAtual.excluindoId) return;
+
+      const confirmado =
+        typeof window === "undefined" ||
+        window.confirm("Excluir este link rastreavel? Ele sera desativado para novos acessos.");
+      if (!confirmado) return;
+
+      atualizarEstadoLinksEspaco(espacoIdAtual, {
+        excluindoId: trackingIdNormalizado,
+        erro: "",
+        mensagem: "",
+      });
+
+      try {
+        await excluirLinkRastreavelEspaco(trackingIdNormalizado);
+        atualizarEstadoLinksEspaco(espacoIdAtual, (prev) => ({
+          excluindoId: "",
+          mensagem: "Link rastreavel excluido.",
+          itens: (Array.isArray(prev.itens) ? prev.itens : []).filter(
+            (item) => String(item?.id || item?.trackingId || "").trim() !== trackingIdNormalizado
+          ),
+        }));
+      } catch (error) {
+        atualizarEstadoLinksEspaco(espacoIdAtual, {
+          excluindoId: "",
+          erro:
+            error?.code === "permission-denied"
+              ? "Sem permissao para excluir este link rastreavel."
+              : error?.message || "Falha ao excluir link rastreavel.",
+        });
+      }
+    },
+    [atualizarEstadoLinksEspaco, linksRastreaveisPorEspaco]
+  );
+
+  const renderizarPainelLinksRastreaveis = (espaco = {}) => {
+    const espacoIdAtual = String(espaco?.id || espaco?.id_espaco || "").trim();
+    if (!rastreabilidadePreferencialAtiva || !espacoIdAtual) return null;
+
+    const estado = linksRastreaveisPorEspaco[espacoIdAtual] || criarEstadoLinksRastreaveis();
+    if (!estado.aberto) return null;
+
+    return (
+      <section className="espaco-trackable-links espaco-trackable-links--manager" aria-live="polite">
+        <div className="espaco-trackable-links__header">
+          <div>
+            <strong>Links rastreaveis do espaco</strong>
+            <p>
+              Crie URLs diferentes para compartilhar este {nomeEspacoSingular}, mantendo o destino
+              final igual e registrando a origem de cada acesso.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="espaco-trackable-links__button"
+            onClick={() => {
+              void carregarLinksRastreaveisEspaco(espaco);
+            }}
+            disabled={estado.loading}
+          >
+            {estado.loading ? "Atualizando..." : "Atualizar"}
+          </button>
+        </div>
+
+        <div className="espaco-trackable-links__creator">
+          <label>
+            <span>Descricao / origem planejada</span>
+            <textarea
+              rows={2}
+              value={estado.descricao}
+              onChange={(event) =>
+                atualizarEstadoLinksEspaco(espacoIdAtual, {
+                  descricao: event.target.value,
+                })
+              }
+              maxLength={220}
+              placeholder="Ex.: curriculo PDF, LinkedIn, evento da faculdade..."
+            />
+          </label>
+          <button
+            type="button"
+            className="espaco-trackable-links__button"
+            onClick={() => {
+              void criarLinkRastreavelDoEspaco(espaco);
+            }}
+            disabled={estado.criando}
+          >
+            {estado.criando ? "Criando..." : "Criar link rastreavel"}
+          </button>
+        </div>
+
+        {estado.erro ? <p className="espaco-trackable-links__error">{estado.erro}</p> : null}
+        {estado.mensagem ? (
+          <p className="espaco-trackable-links__success">{estado.mensagem}</p>
+        ) : null}
+
+        {estado.itens.length ? (
+          <div className="espaco-trackable-links__list">
+            {estado.itens.map((link) => {
+              const trackingId = String(link?.trackingId || link?.id || "").trim();
+              const urlRastreavel = String(
+                link?.urlRastreavel ||
+                  montarUrlAbsoluta(link?.trackingRoute || (trackingId ? `/r/${trackingId}` : ""))
+              ).trim();
+
+              return (
+                <article className="espaco-trackable-links__item" key={trackingId}>
+                  <div className="espaco-trackable-links__item-main">
+                    <strong>
+                      {String(link?.origemPlanejada || link?.descricao || "Link rastreavel").trim()}
+                    </strong>
+                    <span>{`Identificador: ${trackingId || "--"}`}</span>
+                    <span>{`Destino: ${String(
+                      link?.destinoUrl || montarRotaEspacoGerenciado(espaco)
+                    ).trim() || "--"}`}</span>
+                    <span>{`URL: ${urlRastreavel || "--"}`}</span>
+                    <span>{`Criado: ${formatarDataCurta(link?.criadoEm)}`}</span>
+                  </div>
+                  <div className="espaco-trackable-links__actions">
+                    <button
+                      type="button"
+                      className="espaco-trackable-links__button"
+                      onClick={() => {
+                        void copiarLinkRastreavelEspaco(espacoIdAtual, urlRastreavel);
+                      }}
+                      disabled={!urlRastreavel}
+                    >
+                      Copiar
+                    </button>
+                    <button
+                      type="button"
+                      className="espaco-trackable-links__button espaco-trackable-links__button--danger"
+                      onClick={() => {
+                        void excluirLinkRastreavelDoEspaco(espacoIdAtual, trackingId);
+                      }}
+                      disabled={estado.excluindoId === trackingId}
+                    >
+                      {estado.excluindoId === trackingId ? "Excluindo..." : "Excluir"}
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="espaco-trackable-links__empty">
+            Nenhum link rastreavel criado para este {nomeEspacoSingular} ainda.
+          </p>
+        )}
+      </section>
+    );
+  };
+
   if (!contextoCarregado) {
     return <ProjectLoadingFallback text="Carregando..." />;
   }
@@ -670,6 +1059,19 @@ export default function EspacoManager() {
                 </select>
               ) : null}
             </div>
+
+            {rastreabilidadePreferencialAtiva ? (
+              <div className="espaco-manager__actions">
+                <button
+                  type="button"
+                  onClick={() => alternarLinksRastreaveisEspaco(homeDaSkin)}
+                >
+                  Links rastreaveis
+                </button>
+              </div>
+            ) : null}
+
+            {renderizarPainelLinksRastreaveis(homeDaSkin)}
           </div>
         ) : (
           <p className="espaco-manager__empty">Home nao encontrada.</p>
@@ -724,6 +1126,11 @@ export default function EspacoManager() {
                   Descer
                 </button>
                 <button onClick={() => iniciarEdicao(e)}>Editar</button>
+                {rastreabilidadePreferencialAtiva ? (
+                  <button type="button" onClick={() => alternarLinksRastreaveisEspaco(e)}>
+                    Links rastreaveis
+                  </button>
+                ) : null}
                 <button onClick={() => excluirEspaco(e)} className="espaco-manager__danger">
                   Excluir
                 </button>
@@ -788,6 +1195,8 @@ export default function EspacoManager() {
                   </div>
                 </div>
               ) : null}
+
+              {renderizarPainelLinksRastreaveis(e)}
             </article>
           ))}
         </div>
@@ -882,4 +1291,3 @@ export default function EspacoManager() {
     </div>
   );
 }
-
