@@ -773,6 +773,38 @@ export async function marcarAcessosComoLidosNoGerenciador({ ids = [] } = {}) {
   };
 }
 
+export async function removerAcessosNoGerenciador({ ids = [] } = {}) {
+  const accessIds = Array.from(
+    new Set((Array.isArray(ids) ? ids : []).map((item) => normalizeText(item)).filter(Boolean))
+  ).slice(0, 500);
+  if (!accessIds.length) return { total: 0, ids: [] };
+
+  const managerDb = getManagerDb();
+
+  try {
+    const response = await callSharedManagerAction("removerAcessosGerenciadorHttp", {
+      ids: accessIds,
+    });
+    return {
+      total: Number(response?.total) || accessIds.length,
+      ids: Array.isArray(response?.ids) ? response.ids : accessIds,
+    };
+  } catch (error) {
+    if (!managerDb || !shouldFallbackToDirectManagerRead(error)) {
+      throw error;
+    }
+  }
+
+  await Promise.all(
+    accessIds.map((accessId) => deleteDoc(doc(managerDb, "acessos", accessId)))
+  );
+
+  return {
+    total: accessIds.length,
+    ids: accessIds,
+  };
+}
+
 export async function obterConfigAcessosNoGerenciador() {
   const managerDb = getManagerDb();
 

@@ -4354,6 +4354,49 @@ body.theme-cyberpink .espaco-trackable-links__actions {
   justify-content: flex-end;
 }
 
+body.theme-cyberpink .espaco-trackable-links__timeline {
+  display: grid;
+  gap: 8px;
+  grid-column: 1 / -1;
+  min-width: 0;
+  padding: 10px;
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--cyberpink-subtheme-card-frame) 18%, transparent),
+      transparent 42%,
+      color-mix(in srgb, var(--cyberpink-subtheme-card-frame) 14%, transparent)
+    ),
+    color-mix(in srgb, var(--cyberpink-subtheme-card-surface-shadow) 72%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cyberpink-subtheme-card-frame) 48%, transparent);
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+}
+
+body.theme-cyberpink .espaco-trackable-links__timeline-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+body.theme-cyberpink .espaco-trackable-links__timeline-list {
+  display: grid;
+  gap: 7px;
+  max-height: 280px;
+  margin: 0;
+  padding: 0 4px 0 18px;
+  overflow-y: auto;
+}
+
+body.theme-cyberpink .espaco-trackable-links__timeline-event {
+  display: grid;
+  gap: 3px;
+  padding: 7px 8px;
+  background: color-mix(in srgb, var(--cyberpink-subtheme-card-surface) 52%, transparent);
+  border-left: 1px solid color-mix(in srgb, var(--cyberpink-subtheme-card-frame) 82%, transparent);
+}
+
 body.theme-cyberpink .espaco-trackable-links__error {
   color: #ff7ac8;
 }

@@ -31,6 +31,10 @@ import {
   obterConfigSistema,
   obterRotulosEspaco,
 } from "../Sistema/configSistema";
+import {
+  normalizarPermissaoGestaoModulo,
+  usuarioPodeGerenciarPorPermissao,
+} from "../Sistema/modulosPermissoes";
 import { listarIconCollectionsNoGerenciador } from "../Sistema/gerenciadorProjetosApi";
 import {
   removerEstruturaPublicaEspaco,
@@ -39,6 +43,7 @@ import {
 import {
   criarLinkRastreavelEspaco,
   excluirLinkRastreavelEspaco,
+  listarAcessosLinkRastreavelEspaco,
   listarLinksRastreaveisEspaco,
 } from "./trackableLinksApi";
 
@@ -68,10 +73,19 @@ const criarEstadoLinksRastreaveis = (patch = {}) => ({
   loading: false,
   erro: "",
   itens: [],
+  historicos: {},
   descricao: "",
   criando: false,
   excluindoId: "",
   mensagem: "",
+  ...patch,
+});
+
+const criarEstadoHistoricoLinkRastreavel = (patch = {}) => ({
+  aberto: false,
+  loading: false,
+  erro: "",
+  itens: [],
   ...patch,
 });
 
@@ -175,6 +189,7 @@ export default function EspacoManager() {
   const [linksRastreaveisPorEspaco, setLinksRastreaveisPorEspaco] = useState({});
 
   const authUidAtual = auth.currentUser?.uid || "";
+  const authEmailAtual = auth.currentUser?.email || "";
   const userId = userIdResolvido || authUidAtual || "";
   const skinIdAtual = skinIdResolvida || localStorage.getItem("skinIdAtual") || "";
   const nomeEspacoSingularCapitalizado = capitalizar(nomeEspacoSingular);
@@ -211,6 +226,14 @@ export default function EspacoManager() {
   const rastreabilidadePreferencialAtiva =
     rastreabilidadeAcessosHabilitada && modoRastreabilidadeAcessos === "preferencial";
   const oneOwnerPublicaAtiva = isOneOwnerComEntradaPublica(configSistemaAtual);
+  const rastreabilidadeCriarLinksPermissao = normalizarPermissaoGestaoModulo(
+    configSistemaAtual?.rastreabilidadeCriarLinksPermissao,
+    DEFAULT_SISTEMA_CONFIG.rastreabilidadeCriarLinksPermissao
+  );
+  const rastreabilidadeHistoricoLinksPermissao = normalizarPermissaoGestaoModulo(
+    configSistemaAtual?.rastreabilidadeHistoricoLinksPermissao,
+    DEFAULT_SISTEMA_CONFIG.rastreabilidadeHistoricoLinksPermissao
+  );
 
   useEffect(() => {
     if (userId && skinIdAtual) carregarEspacos();
@@ -679,11 +702,49 @@ export default function EspacoManager() {
     [obterSkinUsernameAtual, oneOwnerPublicaAtiva]
   );
 
+  const usuarioPodePorPermissaoRastreabilidade = useCallback(
+    (espaco = {}, permissao = "dono_espaco") =>
+      usuarioPodeGerenciarPorPermissao({
+        permissao,
+        usuarioUid: authUidAtual,
+        usuarioEmail: authEmailAtual,
+        ownerProjetoUid:
+          configSistemaAtual?.ownerUid ||
+          configSistemaAtual?.adminUid ||
+          configSistemaAtual?.projectOwnerUid,
+        ownerProjetoEmail: configSistemaAtual?.ownerEmail || configSistemaAtual?.adminEmail,
+        adminProjetoUid: configSistemaAtual?.adminUid,
+        adminProjetoEmail: configSistemaAtual?.adminEmail,
+        recursoOwnerUid: espaco?.ownerUserId || userId,
+        coCriadoresUids: espaco?.coCriadoresUids,
+      }),
+    [authEmailAtual, authUidAtual, configSistemaAtual, userId]
+  );
+
+  const usuarioPodeCriarLinksRastreaveisEspaco = useCallback(
+    (espaco = {}) =>
+      usuarioPodePorPermissaoRastreabilidade(espaco, rastreabilidadeCriarLinksPermissao),
+    [rastreabilidadeCriarLinksPermissao, usuarioPodePorPermissaoRastreabilidade]
+  );
+
+  const usuarioPodeVerHistoricoLinksRastreaveisEspaco = useCallback(
+    (espaco = {}) =>
+      usuarioPodePorPermissaoRastreabilidade(espaco, rastreabilidadeHistoricoLinksPermissao),
+    [rastreabilidadeHistoricoLinksPermissao, usuarioPodePorPermissaoRastreabilidade]
+  );
+
   const carregarLinksRastreaveisEspaco = useCallback(
     async (espaco = {}) => {
       const espacoIdAtual = String(espaco?.id || espaco?.id_espaco || "").trim();
       const ownerUserId = String(espaco?.ownerUserId || userId || "").trim();
-      if (!espacoIdAtual || !ownerUserId || !rastreabilidadePreferencialAtiva) return;
+      if (
+        !espacoIdAtual ||
+        !ownerUserId ||
+        !rastreabilidadePreferencialAtiva ||
+        !usuarioPodeVerHistoricoLinksRastreaveisEspaco(espaco)
+      ) {
+        return;
+      }
 
       atualizarEstadoLinksEspaco(espacoIdAtual, {
         aberto: true,
@@ -713,7 +774,12 @@ export default function EspacoManager() {
         });
       }
     },
-    [atualizarEstadoLinksEspaco, rastreabilidadePreferencialAtiva, userId]
+    [
+      atualizarEstadoLinksEspaco,
+      rastreabilidadePreferencialAtiva,
+      userId,
+      usuarioPodeVerHistoricoLinksRastreaveisEspaco,
+    ]
   );
 
   const alternarLinksRastreaveisEspaco = useCallback(
@@ -725,9 +791,28 @@ export default function EspacoManager() {
         atualizarEstadoLinksEspaco(espacoIdAtual, { aberto: false });
         return;
       }
+      if (
+        usuarioPodeCriarLinksRastreaveisEspaco(espaco) &&
+        !usuarioPodeVerHistoricoLinksRastreaveisEspaco(espaco)
+      ) {
+        atualizarEstadoLinksEspaco(espacoIdAtual, {
+          aberto: true,
+          loading: false,
+          erro: "",
+          mensagem: "",
+          itens: [],
+        });
+        return;
+      }
       void carregarLinksRastreaveisEspaco(espaco);
     },
-    [atualizarEstadoLinksEspaco, carregarLinksRastreaveisEspaco, linksRastreaveisPorEspaco]
+    [
+      atualizarEstadoLinksEspaco,
+      carregarLinksRastreaveisEspaco,
+      linksRastreaveisPorEspaco,
+      usuarioPodeCriarLinksRastreaveisEspaco,
+      usuarioPodeVerHistoricoLinksRastreaveisEspaco,
+    ]
   );
 
   const criarLinkRastreavelDoEspaco = useCallback(
@@ -741,6 +826,7 @@ export default function EspacoManager() {
         !ownerUserId ||
         !destinoUrl ||
         !rastreabilidadePreferencialAtiva ||
+        !usuarioPodeCriarLinksRastreaveisEspaco(espaco) ||
         estadoAtual.criando
       ) {
         return;
@@ -762,6 +848,8 @@ export default function EspacoManager() {
           destinoUrl,
           descricao,
           origemPlanejada: descricao,
+          permissaoCriarLinks: rastreabilidadeCriarLinksPermissao,
+          permissaoHistoricoLinks: rastreabilidadeHistoricoLinksPermissao,
         });
 
         atualizarEstadoLinksEspaco(espacoIdAtual, (prev) => ({
@@ -798,7 +886,10 @@ export default function EspacoManager() {
       montarRotaEspacoGerenciado,
       obterSkinUsernameAtual,
       rastreabilidadePreferencialAtiva,
+      rastreabilidadeCriarLinksPermissao,
+      rastreabilidadeHistoricoLinksPermissao,
       userId,
+      usuarioPodeCriarLinksRastreaveisEspaco,
     ]
   );
 
@@ -822,6 +913,78 @@ export default function EspacoManager() {
       }
     },
     [atualizarEstadoLinksEspaco]
+  );
+
+  const alternarHistoricoAcessosLinkRastreavel = useCallback(
+    async (espacoId = "", trackingId = "") => {
+      const espacoIdAtual = String(espacoId || "").trim();
+      const trackingIdNormalizado = String(trackingId || "").trim();
+      if (!espacoIdAtual || !trackingIdNormalizado) return;
+
+      const estadoAtual = linksRastreaveisPorEspaco[espacoIdAtual] || criarEstadoLinksRastreaveis();
+      const historicoAtual =
+        estadoAtual.historicos?.[trackingIdNormalizado] ||
+        criarEstadoHistoricoLinkRastreavel();
+
+      if (historicoAtual.aberto && !historicoAtual.loading) {
+        atualizarEstadoLinksEspaco(espacoIdAtual, (prev) => ({
+          historicos: {
+            ...(prev.historicos || {}),
+            [trackingIdNormalizado]: {
+              ...historicoAtual,
+              aberto: false,
+            },
+          },
+        }));
+        return;
+      }
+
+      atualizarEstadoLinksEspaco(espacoIdAtual, (prev) => ({
+        historicos: {
+          ...(prev.historicos || {}),
+          [trackingIdNormalizado]: {
+            ...historicoAtual,
+            aberto: true,
+            loading: true,
+            erro: "",
+          },
+        },
+      }));
+
+      try {
+        const itens = await listarAcessosLinkRastreavelEspaco({
+          trackingId: trackingIdNormalizado,
+          limite: 50,
+        });
+        atualizarEstadoLinksEspaco(espacoIdAtual, (prev) => ({
+          historicos: {
+            ...(prev.historicos || {}),
+            [trackingIdNormalizado]: {
+              aberto: true,
+              loading: false,
+              erro: "",
+              itens,
+            },
+          },
+        }));
+      } catch (error) {
+        atualizarEstadoLinksEspaco(espacoIdAtual, (prev) => ({
+          historicos: {
+            ...(prev.historicos || {}),
+            [trackingIdNormalizado]: {
+              aberto: true,
+              loading: false,
+              erro:
+                error?.code === "permission-denied"
+                  ? "Sem permissao para carregar os acessos deste link."
+                  : error?.message || "Falha ao carregar acessos deste link.",
+              itens: [],
+            },
+          },
+        }));
+      }
+    },
+    [atualizarEstadoLinksEspaco, linksRastreaveisPorEspaco]
   );
 
   const excluirLinkRastreavelDoEspaco = useCallback(
@@ -867,6 +1030,9 @@ export default function EspacoManager() {
   const renderizarPainelLinksRastreaveis = (espaco = {}) => {
     const espacoIdAtual = String(espaco?.id || espaco?.id_espaco || "").trim();
     if (!rastreabilidadePreferencialAtiva || !espacoIdAtual) return null;
+    const podeCriarLinks = usuarioPodeCriarLinksRastreaveisEspaco(espaco);
+    const podeVerHistoricoLinks = usuarioPodeVerHistoricoLinksRastreaveisEspaco(espaco);
+    if (!podeCriarLinks && !podeVerHistoricoLinks) return null;
 
     const estado = linksRastreaveisPorEspaco[espacoIdAtual] || criarEstadoLinksRastreaveis();
     if (!estado.aberto) return null;
@@ -881,51 +1047,60 @@ export default function EspacoManager() {
               final igual e registrando a origem de cada acesso.
             </p>
           </div>
-          <button
-            type="button"
-            className="espaco-trackable-links__button"
-            onClick={() => {
-              void carregarLinksRastreaveisEspaco(espaco);
-            }}
-            disabled={estado.loading}
-          >
-            {estado.loading ? "Atualizando..." : "Atualizar"}
-          </button>
+          {podeVerHistoricoLinks ? (
+            <button
+              type="button"
+              className="espaco-trackable-links__button"
+              onClick={() => {
+                void carregarLinksRastreaveisEspaco(espaco);
+              }}
+              disabled={estado.loading}
+            >
+              {estado.loading ? "Atualizando..." : "Atualizar"}
+            </button>
+          ) : null}
         </div>
 
-        <div className="espaco-trackable-links__creator">
-          <label>
-            <span>Descricao / origem planejada</span>
-            <textarea
-              rows={2}
-              value={estado.descricao}
-              onChange={(event) =>
-                atualizarEstadoLinksEspaco(espacoIdAtual, {
-                  descricao: event.target.value,
-                })
-              }
-              maxLength={220}
-              placeholder="Ex.: curriculo PDF, LinkedIn, evento da faculdade..."
-            />
-          </label>
-          <button
-            type="button"
-            className="espaco-trackable-links__button"
-            onClick={() => {
-              void criarLinkRastreavelDoEspaco(espaco);
-            }}
-            disabled={estado.criando}
-          >
-            {estado.criando ? "Criando..." : "Criar link rastreavel"}
-          </button>
-        </div>
+        {podeCriarLinks ? (
+          <div className="espaco-trackable-links__creator">
+            <label>
+              <span>Descricao / origem planejada</span>
+              <textarea
+                rows={2}
+                value={estado.descricao}
+                onChange={(event) =>
+                  atualizarEstadoLinksEspaco(espacoIdAtual, {
+                    descricao: event.target.value,
+                  })
+                }
+                maxLength={220}
+                placeholder="Ex.: curriculo PDF, LinkedIn, evento da faculdade..."
+              />
+            </label>
+            <button
+              type="button"
+              className="espaco-trackable-links__button"
+              onClick={() => {
+                void criarLinkRastreavelDoEspaco(espaco);
+              }}
+              disabled={estado.criando}
+            >
+              {estado.criando ? "Criando..." : "Criar link rastreavel"}
+            </button>
+          </div>
+        ) : null}
 
         {estado.erro ? <p className="espaco-trackable-links__error">{estado.erro}</p> : null}
         {estado.mensagem ? (
           <p className="espaco-trackable-links__success">{estado.mensagem}</p>
         ) : null}
 
-        {estado.itens.length ? (
+        {!podeVerHistoricoLinks ? (
+          <p className="espaco-trackable-links__empty">
+            Seu perfil pode criar links, mas nao tem permissao para ver o historico/lista deste
+            {` ${nomeEspacoSingular}`}.
+          </p>
+        ) : estado.itens.length ? (
           <div className="espaco-trackable-links__list">
             {estado.itens.map((link) => {
               const trackingId = String(link?.trackingId || link?.id || "").trim();
@@ -933,6 +1108,11 @@ export default function EspacoManager() {
                 link?.urlRastreavel ||
                   montarUrlAbsoluta(link?.trackingRoute || (trackingId ? `/r/${trackingId}` : ""))
               ).trim();
+              const historicoLink =
+                estado.historicos?.[trackingId] || criarEstadoHistoricoLinkRastreavel();
+              const acessosHistorico = Array.isArray(historicoLink.itens)
+                ? historicoLink.itens
+                : [];
 
               return (
                 <article className="espaco-trackable-links__item" key={trackingId}>
@@ -952,23 +1132,90 @@ export default function EspacoManager() {
                       type="button"
                       className="espaco-trackable-links__button"
                       onClick={() => {
+                        void alternarHistoricoAcessosLinkRastreavel(espacoIdAtual, trackingId);
+                      }}
+                      disabled={!trackingId || historicoLink.loading}
+                    >
+                      {historicoLink.loading
+                        ? "Carregando..."
+                        : historicoLink.aberto
+                          ? "Ocultar acessos"
+                          : "Ver acessos"}
+                    </button>
+                    <button
+                      type="button"
+                      className="espaco-trackable-links__button"
+                      onClick={() => {
                         void copiarLinkRastreavelEspaco(espacoIdAtual, urlRastreavel);
                       }}
                       disabled={!urlRastreavel}
                     >
                       Copiar
                     </button>
-                    <button
-                      type="button"
-                      className="espaco-trackable-links__button espaco-trackable-links__button--danger"
-                      onClick={() => {
-                        void excluirLinkRastreavelDoEspaco(espacoIdAtual, trackingId);
-                      }}
-                      disabled={estado.excluindoId === trackingId}
-                    >
-                      {estado.excluindoId === trackingId ? "Excluindo..." : "Excluir"}
-                    </button>
+                    {podeCriarLinks ? (
+                      <button
+                        type="button"
+                        className="espaco-trackable-links__button espaco-trackable-links__button--danger"
+                        onClick={() => {
+                          void excluirLinkRastreavelDoEspaco(espacoIdAtual, trackingId);
+                        }}
+                        disabled={estado.excluindoId === trackingId}
+                      >
+                        {estado.excluindoId === trackingId ? "Excluindo..." : "Excluir"}
+                      </button>
+                    ) : null}
                   </div>
+                  {historicoLink.aberto ? (
+                    <div className="espaco-trackable-links__timeline">
+                      <div className="espaco-trackable-links__timeline-head">
+                        <strong>Linha do tempo de acessos</strong>
+                        <span>{`${acessosHistorico.length} evento(s)`}</span>
+                      </div>
+                      {historicoLink.erro ? (
+                        <p className="espaco-trackable-links__error">{historicoLink.erro}</p>
+                      ) : historicoLink.loading ? (
+                        <p className="espaco-trackable-links__empty">Carregando acessos...</p>
+                      ) : acessosHistorico.length ? (
+                        <ol className="espaco-trackable-links__timeline-list">
+                          {acessosHistorico.map((acesso) => {
+                            const acessoId = String(acesso?.id || "").trim();
+                            const navigationId = String(
+                              acesso?.navigationId ||
+                                acesso?.visitorHash ||
+                                acesso?.hash ||
+                                "--"
+                            ).trim();
+                            const cidade = String(acesso?.city || acesso?.cidade || "").trim();
+                            const pais = String(acesso?.country || acesso?.pais || "").trim();
+                            const localizacao =
+                              [cidade, pais].filter(Boolean).join(", ") || "--";
+                            const usuario =
+                              String(acesso?.email || acesso?.uid || "").trim() || "Visitante";
+
+                            return (
+                              <li
+                                className="espaco-trackable-links__timeline-event"
+                                key={acessoId || `${trackingId}-${navigationId}-${formatarDataCurta(acesso?.data)}`}
+                              >
+                                <span>{formatarDataCurta(acesso?.data || acesso?.criadoEm)}</span>
+                                <span>{`Identificador: ${navigationId || "--"}`}</span>
+                                <span>{`Usuario: ${usuario}`}</span>
+                                <span>{`Local: ${localizacao}`}</span>
+                                <span>{`IP: ${String(acesso?.ip || "").trim() || "--"}`}</span>
+                                <span>{`Dispositivo: ${
+                                  String(acesso?.userAgent || "").trim() || "--"
+                                }`}</span>
+                              </li>
+                            );
+                          })}
+                        </ol>
+                      ) : (
+                        <p className="espaco-trackable-links__empty">
+                          Nenhum acesso registrado para este link ainda.
+                        </p>
+                      )}
+                    </div>
+                  ) : null}
                 </article>
               );
             })}
@@ -1060,7 +1307,11 @@ export default function EspacoManager() {
               ) : null}
             </div>
 
-            {rastreabilidadePreferencialAtiva ? (
+            {rastreabilidadePreferencialAtiva &&
+            (
+              usuarioPodeCriarLinksRastreaveisEspaco(homeDaSkin) ||
+              usuarioPodeVerHistoricoLinksRastreaveisEspaco(homeDaSkin)
+            ) ? (
               <div className="espaco-manager__actions">
                 <button
                   type="button"
@@ -1126,7 +1377,11 @@ export default function EspacoManager() {
                   Descer
                 </button>
                 <button onClick={() => iniciarEdicao(e)}>Editar</button>
-                {rastreabilidadePreferencialAtiva ? (
+                {rastreabilidadePreferencialAtiva &&
+                (
+                  usuarioPodeCriarLinksRastreaveisEspaco(e) ||
+                  usuarioPodeVerHistoricoLinksRastreaveisEspaco(e)
+                ) ? (
                   <button type="button" onClick={() => alternarLinksRastreaveisEspaco(e)}>
                     Links rastreaveis
                   </button>

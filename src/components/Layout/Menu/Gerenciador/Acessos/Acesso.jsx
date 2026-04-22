@@ -330,6 +330,12 @@ function Acesso({ configSistema = {}, user = null }) {
       if (dedupeKey && isDuplicateEvent(dedupeKey)) return;
 
       const eventoTipo = normalizeText(payload?.eventoTipo);
+      const rastreabilidadeAtiva = configSistema?.rastreabilidadeAcessosHabilitada === true;
+      const registrarAcessoDireto = configSistema?.registrarAcessoDiretoRastreabilidade !== false;
+      const origemRastreavel = normalizeText(payload?.origemRastreavel);
+      if (rastreabilidadeAtiva && !registrarAcessoDireto && origemRastreavel !== "link_rastreavel") {
+        return;
+      }
       if (!documentIsVisible() && eventoTipo !== "page_leave") return;
 
       const geoPayload = buildGeoFallbackPayload(geoRef.current);
@@ -371,7 +377,7 @@ function Acesso({ configSistema = {}, user = null }) {
         })
         .catch(reportarErro);
     },
-    [registrarAcessoUrl, reportarErro]
+    [configSistema, registrarAcessoUrl, reportarErro]
   );
 
   useEffect(() => {

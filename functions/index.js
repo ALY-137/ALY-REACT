@@ -903,6 +903,24 @@ async function markAccessRecordsAsRead(managerDb, ids = [], payload = {}) {
   return updated;
 }
 
+async function deleteAccessRecords(managerDb, ids = []) {
+  const accessIds = normalizeAccessDocIds(ids);
+  if (!accessIds.length) return 0;
+
+  let deleted = 0;
+  for (let index = 0; index < accessIds.length; index += 450) {
+    const batch = managerDb.batch();
+    const chunk = accessIds.slice(index, index + 450);
+    chunk.forEach((accessId) => {
+      batch.delete(managerDb.collection("acessos").doc(accessId));
+    });
+    await batch.commit();
+    deleted += chunk.length;
+  }
+
+  return deleted;
+}
+
 function isPrivateOrLocalIp(ip = "") {
   const value = sanitizeString(ip).toLowerCase();
   if (!value) return true;
@@ -2779,6 +2797,44 @@ exports.registrarAcessoPublico = onRequest(
       const fullPath = sanitizeString(body?.fullPath || body?.path || "/").slice(0, 300);
       const managerDb = getSystemManagerDb();
       const requestIp = extractClientIp(req) || sanitizeString(body?.ip || body?.geo?.ip);
+      const projectSystemKey = normalizeProjectSystemKey(body?.projectSystemKey);
+
+      let accessConfig = {};
+      try {
+        const configRefs = projectSystemKey
+          ? [
+              managerDb.doc(`projetos/${projectSystemKey}/add_ons/sistema_config`),
+              managerDb.doc("add_ons/sistema_config"),
+            ]
+          : [managerDb.doc("add_ons/sistema_config")];
+        for (const configRef of configRefs) {
+          const configSnap = await configRef.get();
+          if (configSnap.exists) {
+            accessConfig = configSnap.data() || {};
+            break;
+          }
+        }
+      } catch {
+        accessConfig = {};
+      }
+
+      const origemRastreavel = sanitizeString(body?.origemRastreavel);
+      const trackingId = sanitizeString(body?.trackingId);
+      const acessoDireto =
+        origemRastreavel !== "link_rastreavel" &&
+        !trackingId;
+      if (
+        accessConfig?.rastreabilidadeAcessosHabilitada === true &&
+        accessConfig?.registrarAcessoDiretoRastreabilidade === false &&
+        acessoDireto
+      ) {
+        res.json({
+          ok: true,
+          skipped: true,
+          reason: "direct_access_tracking_disabled",
+        });
+        return;
+      }
 
       const userBlockMatch = await resolveAccessRegistrationUserBlockMatch(managerDb, body);
       if (userBlockMatch.blocked) {
@@ -3191,6 +3247,44 @@ exports.marcarAcessosLidosGerenciadorHttp = onRequest(
         lidoPorUid: sanitizeString(decoded?.uid) || null,
         lidoPorEmail: sanitizeString(decoded?.email) || null,
       });
+
+      res.json({
+        ok: true,
+        total,
+        ids,
+      });
+    } catch (error) {
+      sendHttpError(res, error);
+    }
+  }
+);
+
+exports.removerAcessosGerenciadorHttp = onRequest(
+  HTTP_OPTIONS,
+  async (req, res) => {
+    if (handleHttpCorsPreflight(req, res)) return;
+
+    try {
+      if (req.method !== "POST") {
+        res.status(405).json({ ok: false, error: "Metodo nao permitido." });
+        return;
+      }
+
+      const body = normalizeRequestBody(req);
+      const token = getBearerToken(req);
+      const { decoded } = await verifySharedBucketIdToken(token);
+      await assertSystemManagerAdminIdentity({
+        uid: decoded?.uid,
+        email: decoded?.email,
+      });
+
+      const ids = normalizeAccessDocIds(body?.ids || body?.accessIds);
+      if (!ids.length) {
+        throw new HttpsError("invalid-argument", "Informe ao menos um acesso.");
+      }
+
+      const managerDb = getSystemManagerDb();
+      const total = await deleteAccessRecords(managerDb, ids);
 
       res.json({
         ok: true,

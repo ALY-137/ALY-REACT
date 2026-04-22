@@ -26,6 +26,7 @@ import {
   normalizeProjectStatus,
   PROJECT_STATUS_ACTIVE,
 } from "../../../Sistema/projectStatus";
+import { RASTREABILIDADE_PERMISSOES_GESTAO } from "../../../Sistema/modulosPermissoes";
 import ProjectLoadingFallback from "../../../Geral/ProjectLoadingFallback";
 import {
   listarIconCollectionsNoGerenciador,
@@ -2056,6 +2057,74 @@ function PropriedadesSistema({
                 Preferencial mantem a URL fixa funcionando, mas o compartilhamento usa links
                 rastreaveis que registram origem e redirecionam para o mesmo espaco.
               </p>
+
+              <label htmlFor="rastreabilidadeCriarLinksPermissao">
+                Quem pode criar links rastreaveis
+              </label>
+              <select
+                id="rastreabilidadeCriarLinksPermissao"
+                value={config.rastreabilidadeCriarLinksPermissao || "dono_espaco"}
+                onChange={(event) =>
+                  setConfig((prev) => ({
+                    ...prev,
+                    rastreabilidadeCriarLinksPermissao: event.target.value,
+                  }))
+                }
+              >
+                {RASTREABILIDADE_PERMISSOES_GESTAO.map((opcao) => (
+                  <option key={opcao.value} value={opcao.value}>
+                    {opcao.label}
+                  </option>
+                ))}
+              </select>
+
+              <label htmlFor="rastreabilidadeHistoricoLinksPermissao">
+                Quem pode ver historico de links rastreaveis
+              </label>
+              <select
+                id="rastreabilidadeHistoricoLinksPermissao"
+                value={config.rastreabilidadeHistoricoLinksPermissao || "dono_espaco"}
+                onChange={(event) =>
+                  setConfig((prev) => ({
+                    ...prev,
+                    rastreabilidadeHistoricoLinksPermissao: event.target.value,
+                  }))
+                }
+              >
+                {RASTREABILIDADE_PERMISSOES_GESTAO.map((opcao) => (
+                  <option key={opcao.value} value={opcao.value}>
+                    {opcao.label}
+                  </option>
+                ))}
+              </select>
+
+              <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={config.registrarAcessoDiretoRastreabilidade !== false}
+                  onChange={(event) =>
+                    setConfig((prev) => ({
+                      ...prev,
+                      registrarAcessoDiretoRastreabilidade: event.target.checked,
+                    }))
+                  }
+                />
+                Registrar acesso direto sem link rastreavel
+              </label>
+
+              <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={config.persistirOrigemRastreabilidadeSessao !== false}
+                  onChange={(event) =>
+                    setConfig((prev) => ({
+                      ...prev,
+                      persistirOrigemRastreabilidadeSessao: event.target.checked,
+                    }))
+                  }
+                />
+                Manter origem rastreavel durante a sessao
+              </label>
             </div>
           ) : null}
 

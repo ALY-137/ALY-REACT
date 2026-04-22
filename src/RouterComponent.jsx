@@ -3,16 +3,20 @@ import {
   createBrowserRouter,
   Navigate,
   RouterProvider,
+  useLocation,
   useParams,
 } from "react-router-dom";
 import { useRoutesContext } from "./context/RoutesContext";
 import {
   DEFAULT_SISTEMA_CONFIG,
+  aplicarTemaNoBody,
   isManagerProjectRuntime,
   isOneOwnerComEntradaPublica,
   obterConfigSistema,
   obterConfigSistemaCacheLocal,
 } from "./components/Layout/Sistema/configSistema";
+import { isProjectInMaintenance } from "./components/Layout/Sistema/projectStatus";
+import { normalizarTemaRegistrado } from "./components/Layout/Temas/themesRegistry";
 
 import App from "./App";
 import Error from "./components/Scripts/routes/Error";
@@ -35,10 +39,44 @@ import SolicitacoesPixManual from "./components/Layout/Pagamentos/SolicitacoesPi
 import CardRoutePage from "./components/Layout/Espacos/CardRoutePage";
 import CardPrintRedirectPage from "./components/Layout/Espacos/CardPrintRedirectPage";
 import TrackableLinkRedirectPage from "./components/Layout/Espacos/TrackableLinkRedirectPage";
+import ProjectMaintenanceScreen from "./components/Layout/Geral/ProjectMaintenanceScreen";
 
 function RedirectOneOwnerLegacyPath() {
   const { espacoNome } = useParams();
   return <Navigate to={`/${espacoNome || "home"}`} replace />;
+}
+
+function resolveProjectThemeId(configSistema = {}) {
+  const tema = String(configSistema?.temaPadraoSistema || "").trim();
+  if (!tema || tema === "PADRAO_INICIAL") return "CYBERPINK";
+  return normalizarTemaRegistrado(tema);
+}
+
+function isLocalHostRuntime(hostname = "") {
+  const host = String(hostname || "").trim().toLowerCase();
+  return host === "localhost" || host === "127.0.0.1" || host === "::1";
+}
+
+function ProjectMaintenanceRouteGate({ configSistema = {}, children }) {
+  const location = useLocation();
+  const themeId = resolveProjectThemeId(configSistema);
+  const hostnameAtual =
+    typeof window !== "undefined" ? String(window.location.hostname || "") : "";
+  const bloqueadoPorManutencao =
+    !isManagerProjectRuntime(configSistema) &&
+    !isLocalHostRuntime(hostnameAtual) &&
+    isProjectInMaintenance(configSistema);
+
+  useEffect(() => {
+    if (!bloqueadoPorManutencao) return;
+    aplicarTemaNoBody(themeId);
+  }, [bloqueadoPorManutencao, themeId, location.pathname]);
+
+  if (bloqueadoPorManutencao) {
+    return <ProjectMaintenanceScreen configSistema={configSistema} themeId={themeId} />;
+  }
+
+  return children;
 }
 
 export default function RouterComponent() {
@@ -86,6 +124,14 @@ export default function RouterComponent() {
 
   const oneOwnerPublicaAtiva =
     !isManagerProject && isOneOwnerComEntradaPublica(configSistemaCache);
+  const protegerRotaPublica = (element) =>
+    !isManagerProject ? (
+      <ProjectMaintenanceRouteGate configSistema={configSistemaCache}>
+        {element}
+      </ProjectMaintenanceRouteGate>
+    ) : (
+      element
+    );
   const menuChildren = isManagerProject
     ? [
         {
@@ -116,7 +162,7 @@ export default function RouterComponent() {
       ? [
           {
             path: ":espacoNome",
-            element: <Estrutura />,
+            element: protegerRotaPublica(<Estrutura />),
             children: [
               { path: "card/r/:printId", element: <CardPrintRedirectPage /> },
               { path: "card/:blocoId/:cardId", element: <CardRoutePage /> },
@@ -126,13 +172,13 @@ export default function RouterComponent() {
           },
           {
             path: ":skinsUsername/:espacoNome",
-            element: <RedirectOneOwnerLegacyPath />,
+            element: protegerRotaPublica(<RedirectOneOwnerLegacyPath />),
           },
         ]
       : [
           {
             path: ":skinsUsername",
-            element: <Estrutura />,
+            element: protegerRotaPublica(<Estrutura />),
             children: [
               { path: ":espacoNome/card/r/:printId", element: <CardPrintRedirectPage /> },
               { path: ":espacoNome/card/:blocoId/:cardId", element: <CardRoutePage /> },
@@ -176,12 +222,12 @@ export default function RouterComponent() {
     },
     {
       path: "r/:trackingId",
-      element: <TrackableLinkRedirectPage />,
+      element: protegerRotaPublica(<TrackableLinkRedirectPage />),
       errorElement: <Error />,
     },
     {
       path: "menu/:userId",
-      element: <Menu />,
+      element: protegerRotaPublica(<Menu />),
       children: menuChildren,
     },
     {

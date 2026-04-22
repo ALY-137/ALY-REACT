@@ -4,6 +4,7 @@ import {
   getDoc,
   getDocs,
   limit,
+  orderBy,
   query,
   serverTimestamp,
   setDoc,
@@ -247,6 +248,8 @@ export async function criarLinkRastreavelEspaco({
   destinoUrl = "",
   descricao = "",
   origemPlanejada = "",
+  permissaoCriarLinks = "",
+  permissaoHistoricoLinks = "",
 } = {}) {
   const trackingId = createFirestoreId("trackableLinks");
   const normalizedOwnerUserId = normalizeText(ownerUserId);
@@ -279,6 +282,8 @@ export async function criarLinkRastreavelEspaco({
       urlRastreavel,
       descricao: normalizeText(descricao) || null,
       origemPlanejada: normalizeText(origemPlanejada || descricao) || null,
+      permissaoCriarLinks: normalizeText(permissaoCriarLinks) || null,
+      permissaoHistoricoLinks: normalizeText(permissaoHistoricoLinks) || null,
       ativo: true,
       status: "ativo",
       modoRastreabilidade: "preferencial",
@@ -327,6 +332,35 @@ export async function listarLinksRastreaveisEspaco({
         getTimestampMs(b.criadoEm || b.atualizadoEm) -
         getTimestampMs(a.criadoEm || a.atualizadoEm)
     );
+}
+
+export async function listarAcessosLinkRastreavelEspaco({
+  trackingId = "",
+  limite = 50,
+} = {}) {
+  const normalizedTrackingId = normalizeText(trackingId);
+  const acessosRef = getPrimaryTrackableAccessCollection(normalizedTrackingId);
+  const maxItems = Math.max(1, Math.min(Number(limite) || 50, 100));
+  if (!normalizedTrackingId || !acessosRef) return [];
+
+  try {
+    const snapshot = await getDocs(
+      query(acessosRef, orderBy("data", "desc"), limit(maxItems))
+    );
+    return snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+  } catch (error) {
+    if (error?.code !== "failed-precondition") {
+      throw error;
+    }
+
+    const snapshot = await getDocs(query(acessosRef, limit(maxItems)));
+    return snapshot.docs
+      .map((item) => ({ id: item.id, ...item.data() }))
+      .sort(
+        (a, b) =>
+          getTimestampMs(b.data || b.criadoEm) - getTimestampMs(a.data || a.criadoEm)
+      );
+  }
 }
 
 export async function excluirLinkRastreavelEspaco(trackingId = "") {

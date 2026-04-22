@@ -119,6 +119,16 @@ service cloud.firestore {
         );
     }
 
+    function canOwnEspacoByPath(userId, espacoId) {
+      return exists(/databases/$(database)/documents/users/$(userId)/espacos/$(espacoId)) &&
+        (
+          isOwner(userId) ||
+          isEspacoCoCriadorData(
+            get(/databases/$(database)/documents/users/$(userId)/espacos/$(espacoId)).data
+          )
+        );
+    }
+
     function isEspacoAssinante(userId, espacoId) {
       return signedIn() && (
         exists(/databases/$(database)/documents/users/$(userId)/espacos/$(espacoId)/assinantes/$(request.auth.uid)) ||
@@ -316,6 +326,20 @@ service cloud.firestore {
         );
     }
 
+    function canOwnProjetoEspacoByPath(projectKey, userId, espacoId) {
+      return exists(
+        /databases/$(database)/documents/projetos/$(projectKey)/users/$(userId)/espacos/$(espacoId)
+      ) &&
+        (
+          isOwner(userId) ||
+          isProjetoEspacoCoCriadorData(
+            get(
+              /databases/$(database)/documents/projetos/$(projectKey)/users/$(userId)/espacos/$(espacoId)
+            ).data
+          )
+        );
+    }
+
     function isProjetoEspacoAssinante(projectKey, userId, espacoId) {
       return signedIn() && (
         exists(
@@ -439,29 +463,56 @@ service cloud.firestore {
         (data.trackingId is string) &&
         (data.criadoPor is string) &&
         data.criadoPor == request.auth.uid &&
-        (
-          isAdmin() ||
-          isOwner(data.ownerUserId) ||
-          canManageEspacoByPath(data.ownerUserId, data.espacoId)
-        );
+        canManageTrackableLinkByPermission(data, rastreabilidadeCriarLinksPermissao());
     }
 
     function canReadTrackableLinkData(data) {
       return data.ativo == true ||
-        isAdmin() ||
-        (
-          (data.ownerUserId is string) &&
-          (data.espacoId is string) &&
-          canManageEspacoByPath(data.ownerUserId, data.espacoId)
-        );
+        canViewTrackableLinkHistoryData(data);
     }
 
     function canManageTrackableLinkData(data) {
-      return isAdmin() ||
+      return canManageTrackableLinkByPermission(data, rastreabilidadeCriarLinksPermissao());
+    }
+
+    function canViewTrackableLinkHistoryData(data) {
+      return canManageTrackableLinkByPermission(data, rastreabilidadeHistoricoLinksPermissao());
+    }
+
+    function rastreabilidadeCriarLinksPermissao() {
+      return hasSistemaConfig() &&
+        (get(/databases/$(database)/documents/add_ons/sistema_config).data.rastreabilidadeCriarLinksPermissao is string)
+          ? get(/databases/$(database)/documents/add_ons/sistema_config).data.rastreabilidadeCriarLinksPermissao
+          : "dono_espaco";
+    }
+
+    function rastreabilidadeHistoricoLinksPermissao() {
+      return hasSistemaConfig() &&
+        (get(/databases/$(database)/documents/add_ons/sistema_config).data.rastreabilidadeHistoricoLinksPermissao is string)
+          ? get(/databases/$(database)/documents/add_ons/sistema_config).data.rastreabilidadeHistoricoLinksPermissao
+          : "dono_espaco";
+    }
+
+    function canManageTrackableLinkByPermission(data, permissao) {
+      return (data.ownerUserId is string) &&
+        (data.espacoId is string) &&
         (
-          (data.ownerUserId is string) &&
-          (data.espacoId is string) &&
-          canManageEspacoByPath(data.ownerUserId, data.espacoId)
+          (
+            permissao == "owner_projeto" &&
+            isAdmin()
+          ) ||
+          (
+            permissao == "admin_ou_dono_espaco" &&
+            (
+              isAdmin() ||
+              canOwnEspacoByPath(data.ownerUserId, data.espacoId)
+            )
+          ) ||
+          (
+            permissao != "owner_projeto" &&
+            permissao != "admin_ou_dono_espaco" &&
+            canOwnEspacoByPath(data.ownerUserId, data.espacoId)
+          )
         );
     }
 
@@ -507,32 +558,80 @@ service cloud.firestore {
         (data.trackingId is string) &&
         (data.criadoPor is string) &&
         data.criadoPor == request.auth.uid &&
-        (
-          isAdmin() ||
-          isProjetoAdmin(projectKey) ||
-          isOwner(data.ownerUserId) ||
-          canManageProjetoEspacoByPath(projectKey, data.ownerUserId, data.espacoId)
+        canManageProjetoTrackableLinkByPermission(
+          projectKey,
+          data,
+          projetoRastreabilidadeCriarLinksPermissao(projectKey)
         );
     }
 
     function canReadProjetoTrackableLinkData(projectKey, data) {
       return data.ativo == true ||
-        isAdmin() ||
-        isProjetoAdmin(projectKey) ||
-        (
-          (data.ownerUserId is string) &&
-          (data.espacoId is string) &&
-          canManageProjetoEspacoByPath(projectKey, data.ownerUserId, data.espacoId)
-        );
+        canViewProjetoTrackableLinkHistoryData(projectKey, data);
     }
 
     function canManageProjetoTrackableLinkData(projectKey, data) {
-      return isAdmin() ||
-        isProjetoAdmin(projectKey) ||
+      return canManageProjetoTrackableLinkByPermission(
+        projectKey,
+        data,
+        projetoRastreabilidadeCriarLinksPermissao(projectKey)
+      );
+    }
+
+    function canViewProjetoTrackableLinkHistoryData(projectKey, data) {
+      return canManageProjetoTrackableLinkByPermission(
+        projectKey,
+        data,
+        projetoRastreabilidadeHistoricoLinksPermissao(projectKey)
+      );
+    }
+
+    function projetoRastreabilidadeCriarLinksPermissao(projectKey) {
+      return hasProjetoSistemaConfig(projectKey) &&
+        (get(
+          /databases/$(database)/documents/projetos/$(projectKey)/add_ons/sistema_config
+        ).data.rastreabilidadeCriarLinksPermissao is string)
+          ? get(
+            /databases/$(database)/documents/projetos/$(projectKey)/add_ons/sistema_config
+          ).data.rastreabilidadeCriarLinksPermissao
+          : "dono_espaco";
+    }
+
+    function projetoRastreabilidadeHistoricoLinksPermissao(projectKey) {
+      return hasProjetoSistemaConfig(projectKey) &&
+        (get(
+          /databases/$(database)/documents/projetos/$(projectKey)/add_ons/sistema_config
+        ).data.rastreabilidadeHistoricoLinksPermissao is string)
+          ? get(
+            /databases/$(database)/documents/projetos/$(projectKey)/add_ons/sistema_config
+          ).data.rastreabilidadeHistoricoLinksPermissao
+          : "dono_espaco";
+    }
+
+    function canManageProjetoTrackableLinkByPermission(projectKey, data, permissao) {
+      return (data.ownerUserId is string) &&
+        (data.espacoId is string) &&
         (
-          (data.ownerUserId is string) &&
-          (data.espacoId is string) &&
-          canManageProjetoEspacoByPath(projectKey, data.ownerUserId, data.espacoId)
+          (
+            permissao == "owner_projeto" &&
+            (
+              isAdmin() ||
+              isProjetoAdmin(projectKey)
+            )
+          ) ||
+          (
+            permissao == "admin_ou_dono_espaco" &&
+            (
+              isAdmin() ||
+              isProjetoAdmin(projectKey) ||
+              canOwnProjetoEspacoByPath(projectKey, data.ownerUserId, data.espacoId)
+            )
+          ) ||
+          (
+            permissao != "owner_projeto" &&
+            permissao != "admin_ou_dono_espaco" &&
+            canOwnProjetoEspacoByPath(projectKey, data.ownerUserId, data.espacoId)
+          )
         );
     }
 
@@ -857,7 +956,7 @@ service cloud.firestore {
 
     match /trackableLinks/{trackingId} {
       allow get: if canReadTrackableLinkData(resource.data);
-      allow list: if canManageTrackableLinkData(resource.data);
+      allow list: if canViewTrackableLinkHistoryData(resource.data);
       allow create: if canCreateTrackableLinkData(request.resource.data);
       allow update, delete: if canManageTrackableLinkData(resource.data);
 
@@ -869,7 +968,7 @@ service cloud.firestore {
             request.resource.data
           );
         allow get, list: if exists(/databases/$(database)/documents/trackableLinks/$(trackingId)) &&
-          canManageTrackableLinkData(get(/databases/$(database)/documents/trackableLinks/$(trackingId)).data);
+          canViewTrackableLinkHistoryData(get(/databases/$(database)/documents/trackableLinks/$(trackingId)).data);
         allow update, delete: if isAdmin();
       }
     }
@@ -1010,7 +1109,7 @@ service cloud.firestore {
 
       match /trackableLinks/{trackingId} {
         allow get: if canReadProjetoTrackableLinkData(projectKey, resource.data);
-        allow list: if canManageProjetoTrackableLinkData(projectKey, resource.data);
+        allow list: if canViewProjetoTrackableLinkHistoryData(projectKey, resource.data);
         allow create: if canCreateProjetoTrackableLinkData(projectKey, request.resource.data);
         allow update, delete: if canManageProjetoTrackableLinkData(projectKey, resource.data);
 
@@ -1022,7 +1121,7 @@ service cloud.firestore {
               request.resource.data
             );
           allow get, list: if exists(/databases/$(database)/documents/projetos/$(projectKey)/trackableLinks/$(trackingId)) &&
-            canManageProjetoTrackableLinkData(
+            canViewProjetoTrackableLinkHistoryData(
               projectKey,
               get(/databases/$(database)/documents/projetos/$(projectKey)/trackableLinks/$(trackingId)).data
             );

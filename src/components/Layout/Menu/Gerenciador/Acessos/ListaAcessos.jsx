@@ -5,6 +5,7 @@ import {
   marcarAcessosComoLidosNoGerenciador,
   obterConfigAcessosNoGerenciador,
   listarProjetosNoGerenciador,
+  removerAcessosNoGerenciador,
   salvarConfigAcessosNoGerenciador,
 } from "../../../Sistema/gerenciadorSistemasApi";
 import { obterManagerProjectLabel } from "../../../Sistema/configSistema";
@@ -199,6 +200,7 @@ function ListaAcessos() {
   const [paginaAtual, setPaginaAtual] = useState(1);
   const [gruposExpandidos, setGruposExpandidos] = useState({});
   const [marcandoLido, setMarcandoLido] = useState(false);
+  const [removendoAcessoId, setRemovendoAcessoId] = useState("");
   const [mensagemLeitura, setMensagemLeitura] = useState("");
   const [ipsBloqueadosRegistro, setIpsBloqueadosRegistro] = useState([]);
   const [ipBloqueioInput, setIpBloqueioInput] = useState("");
@@ -473,6 +475,36 @@ function ListaAcessos() {
     } finally {
       if (mountedRef.current) {
         setMarcandoLido(false);
+      }
+    }
+  }, []);
+
+  const removerRegistroAcesso = useCallback(async (id = "") => {
+    const accessId = normalizeText(id);
+    if (!accessId) return;
+
+    const confirmar = window.confirm(
+      "Remover este registro de acesso? Esta acao exclui o evento da lista de auditoria."
+    );
+    if (!confirmar) return;
+
+    setRemovendoAcessoId(accessId);
+    setMensagemLeitura("");
+    setErro("");
+
+    try {
+      await removerAcessosNoGerenciador({ ids: [accessId] });
+      if (!mountedRef.current) return;
+      setAcessos((prev) => prev.filter((acesso) => normalizeText(acesso?.id) !== accessId));
+      setMensagemLeitura("Registro de acesso removido.");
+      window.dispatchEvent(new CustomEvent("acessos-resumo-atualizado"));
+    } catch (error) {
+      if (!mountedRef.current) return;
+      console.error("Erro ao remover acesso:", error);
+      setErro("Nao foi possivel remover o registro de acesso.");
+    } finally {
+      if (mountedRef.current) {
+        setRemovendoAcessoId("");
       }
     }
   }, []);
@@ -1143,6 +1175,7 @@ function ListaAcessos() {
                     );
                     const registroBloqueado = isAccessRecordBlocked(acesso);
                     const acessoLido = isAccessRead(acesso);
+                    const removendoEsteAcesso = removendoAcessoId === normalizeText(acesso?.id);
                     const motivoBloqueio = resolveGeoText(
                       acesso?.bloqueadoPor || acesso?.motivoBloqueio
                     );
@@ -1211,20 +1244,30 @@ function ListaAcessos() {
                         <div className="gerenciador-acessos__path">
                           <code>{normalizeText(acesso?.fullPath || acesso?.path) || "/"}</code>
                         </div>
-                        {!acessoLido ? (
-                          <div className="gerenciador-acessos__ip-actions">
+                        <div className="gerenciador-acessos__ip-actions">
+                          {!acessoLido ? (
                             <button
                               type="button"
                               className="gerenciador-acessos__ip-action"
                               onClick={() => {
                                 void marcarComoLido([acesso.id]);
                               }}
-                              disabled={marcandoLido}
+                              disabled={marcandoLido || removendoEsteAcesso}
                             >
                               Marcar como lido
                             </button>
-                          </div>
-                        ) : null}
+                          ) : null}
+                          <button
+                            type="button"
+                            className="gerenciador-acessos__ip-action gerenciador-acessos__ip-action--danger"
+                            onClick={() => {
+                              void removerRegistroAcesso(acesso.id);
+                            }}
+                            disabled={removendoEsteAcesso}
+                          >
+                            {removendoEsteAcesso ? "Removendo..." : "Remover registro"}
+                          </button>
+                        </div>
                       </article>
                     );
                   })}

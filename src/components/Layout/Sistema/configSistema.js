@@ -42,6 +42,11 @@ const MODOS_ACESSO_PROJETO_VALIDOS = [
   "publico_com_area_restrita",
   "publico_sem_login",
 ];
+const RASTREABILIDADE_PERMISSOES_GESTAO_VALIDAS = [
+  "owner_projeto",
+  "dono_espaco",
+  "admin_ou_dono_espaco",
+];
 const DESTINOS_POS_LOGIN_VALIDOS = [
   "home_central_projeto",
   "home_skin_usuario",
@@ -141,6 +146,8 @@ export const DEFAULT_SISTEMA_CONFIG = {
   chatHabilitado: true,
   rastreabilidadeAcessosHabilitada: false,
   modoRastreabilidadeAcessos: "preferencial",
+  rastreabilidadeCriarLinksPermissao: "dono_espaco",
+  rastreabilidadeHistoricoLinksPermissao: "dono_espaco",
   registrarAcessoDiretoRastreabilidade: true,
   persistirOrigemRastreabilidadeSessao: true,
   addOnsHabilitados: false,
@@ -544,12 +551,22 @@ function normalizarTexto(value, fallback, maxLen = 80) {
   return trim.slice(0, maxLen);
 }
 
+function normalizarPermissaoGestaoRastreabilidade(value, fallback = "dono_espaco") {
+  const normalizado = String(value || "").trim().toLowerCase();
+  if (RASTREABILIDADE_PERMISSOES_GESTAO_VALIDAS.includes(normalizado)) {
+    return normalizado;
+  }
+  return RASTREABILIDADE_PERMISSOES_GESTAO_VALIDAS.includes(fallback)
+    ? fallback
+    : DEFAULT_SISTEMA_CONFIG.rastreabilidadeCriarLinksPermissao;
+}
+
 function normalizarBoolean(value, fallback = false) {
   if (typeof value === "boolean") return value;
   if (typeof value === "string") {
     const normalizado = value.trim().toLowerCase();
     if (["true", "1", "sim", "yes"].includes(normalizado)) return true;
-    if (["false", "0", "nao", "nÃ£o", "no"].includes(normalizado)) return false;
+    if (["false", "0", "nao", "não", "no"].includes(normalizado)) return false;
   }
   if (typeof value === "number") return value !== 0;
   return fallback;
@@ -1189,6 +1206,14 @@ export function normalizarConfigSistema(data = {}) {
     )
       ? normalizarTexto(data.modoRastreabilidadeAcessos, "preferencial", 40)
       : DEFAULT_SISTEMA_CONFIG.modoRastreabilidadeAcessos,
+    rastreabilidadeCriarLinksPermissao: normalizarPermissaoGestaoRastreabilidade(
+      data.rastreabilidadeCriarLinksPermissao,
+      DEFAULT_SISTEMA_CONFIG.rastreabilidadeCriarLinksPermissao
+    ),
+    rastreabilidadeHistoricoLinksPermissao: normalizarPermissaoGestaoRastreabilidade(
+      data.rastreabilidadeHistoricoLinksPermissao,
+      DEFAULT_SISTEMA_CONFIG.rastreabilidadeHistoricoLinksPermissao
+    ),
     registrarAcessoDiretoRastreabilidade: normalizarBoolean(
       data.registrarAcessoDiretoRastreabilidade,
       DEFAULT_SISTEMA_CONFIG.registrarAcessoDiretoRastreabilidade

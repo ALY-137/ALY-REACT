@@ -185,6 +185,12 @@
   background: rgba(149, 255, 212, 0.08);
 }
 
+.gerenciador-acessos__ip-action--danger {
+  border-color: rgba(255, 89, 145, 0.38);
+  background: rgba(255, 60, 128, 0.1);
+  color: #ffc1d8;
+}
+
 .gerenciador-acessos__summary {
   display: flex;
   gap: 10px 14px;
