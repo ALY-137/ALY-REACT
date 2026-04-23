@@ -133,6 +133,14 @@ const buildHistoricoLocalizacao = (acesso = {}) => {
   return [cidade, pais].filter(Boolean).join(", ") || "--";
 };
 
+const resolveStatusLinkRastreavel = (link = {}) => {
+  const status = String(link?.status || "").trim().toLowerCase();
+  if (link?.excluido === true || link?.ativo === false || status === "excluido") {
+    return "Excluido";
+  }
+  return "Ativo";
+};
+
 const csvEscape = (value = "") => `"${String(value ?? "").replace(/"/g, '""')}"`;
 
 const buildIconSelectionValue = (espaco = {}) => {
@@ -1257,6 +1265,80 @@ export default function EspacoManager() {
                     }, {})
                   ).sort((a, b) => b.ultimoAcessoMs - a.ultimoAcessoMs)
                 : [];
+              const filtrosAtivos = Boolean(filtroDataInicio || filtroDataFim);
+              const totalAcessos = acessosHistorico.length;
+              const totalAcessosFiltrados = acessosHistoricoFiltrados.length;
+              const uniqueNavigationIds = Array.from(
+                new Set(
+                  acessosHistorico
+                    .map((acesso) => resolveHistoricoNavigationId(acesso))
+                    .filter(Boolean)
+                )
+              );
+              const uniqueNavigationIdsFiltrados = Array.from(
+                new Set(
+                  acessosHistoricoFiltrados
+                    .map((acesso) => resolveHistoricoNavigationId(acesso))
+                    .filter(Boolean)
+                )
+              );
+              const ultimoAcessoMs = acessosHistorico.reduce((maximo, acesso) => {
+                const dataMs = resolveDataTimestampMs(acesso?.data || acesso?.criadoEm);
+                return Math.max(maximo, Number.isFinite(dataMs) ? dataMs : 0);
+              }, 0);
+              const localizacoesUnicas = Array.from(
+                new Set(
+                  acessosHistorico
+                    .map((acesso) => buildHistoricoLocalizacao(acesso))
+                    .filter((localizacao) => localizacao && localizacao !== "--")
+                )
+              );
+              const localizacoesResumo = localizacoesUnicas.length
+                ? localizacoesUnicas.slice(0, 3).join(" • ")
+                : "--";
+              const localizacoesComplemento =
+                localizacoesUnicas.length > 3
+                  ? ` +${localizacoesUnicas.length - 3} local(is)`
+                  : "";
+              const origemPlanejada =
+                String(link?.origemPlanejada || link?.descricao || "").trim() || "--";
+              const statusLink = resolveStatusLinkRastreavel(link);
+              const cardsResumoHistorico = [
+                {
+                  label: "Status",
+                  value: statusLink,
+                  detail: statusLink === "Ativo" ? "Link disponivel para uso" : "Link removido",
+                },
+                {
+                  label: "Origem planejada",
+                  value: origemPlanejada,
+                  detail: `Criado em ${formatarDataCurta(link?.criadoEm)}`,
+                },
+                {
+                  label: "Total de acessos",
+                  value: String(totalAcessos),
+                  detail: filtrosAtivos
+                    ? `${totalAcessosFiltrados} no recorte atual`
+                    : "Sem filtro aplicado",
+                },
+                {
+                  label: "Identificadores",
+                  value: String(uniqueNavigationIds.length),
+                  detail: filtrosAtivos
+                    ? `${uniqueNavigationIdsFiltrados.length} no recorte atual`
+                    : "Navigation IDs unicos",
+                },
+                {
+                  label: "Ultimo acesso",
+                  value: totalAcessos ? formatarDataCurta(ultimoAcessoMs) : "--",
+                  detail: totalAcessos ? "Horario mais recente registrado" : "Sem acessos ainda",
+                },
+                {
+                  label: "Locais vistos",
+                  value: localizacoesResumo,
+                  detail: localizacoesComplemento || "Cidades/paises distintos",
+                },
+              ];
 
               return (
                 <article className="espaco-trackable-links__item" key={trackingId}>
@@ -1314,6 +1396,24 @@ export default function EspacoManager() {
                       <div className="espaco-trackable-links__timeline-head">
                         <strong>Linha do tempo de acessos</strong>
                         <span>{`${acessosHistoricoFiltrados.length} evento(s) exibido(s)`}</span>
+                      </div>
+                      <div className="espaco-trackable-links__summary">
+                        {cardsResumoHistorico.map((card) => (
+                          <article
+                            className="espaco-trackable-links__summary-card"
+                            key={`${trackingId}-${card.label}`}
+                          >
+                            <span className="espaco-trackable-links__summary-label">
+                              {card.label}
+                            </span>
+                            <strong className="espaco-trackable-links__summary-value">
+                              {card.value}
+                            </strong>
+                            <span className="espaco-trackable-links__summary-detail">
+                              {card.detail}
+                            </span>
+                          </article>
+                        ))}
                       </div>
                       <div className="espaco-trackable-links__timeline-controls">
                         <label className="espaco-trackable-links__timeline-filter">

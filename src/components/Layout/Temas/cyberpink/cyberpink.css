@@ -4380,6 +4380,47 @@ body.theme-cyberpink .espaco-trackable-links__timeline-head {
   flex-wrap: wrap;
 }
 
+body.theme-cyberpink .espaco-trackable-links__summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+body.theme-cyberpink .espaco-trackable-links__summary-card {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 8px;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--cyberpink-subtheme-card-frame) 16%, transparent),
+      transparent 46%
+    ),
+    color-mix(in srgb, var(--cyberpink-subtheme-card-surface) 52%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cyberpink-subtheme-card-frame) 34%, transparent);
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+}
+
+body.theme-cyberpink .espaco-trackable-links__summary-label {
+  color: color-mix(in srgb, var(--cyberpink-subtheme-text) 62%, transparent);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+body.theme-cyberpink .espaco-trackable-links__summary-value {
+  color: var(--cyberpink-subtheme-text);
+  font-family: "DotGothic16", sans-serif;
+  font-size: 12px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+body.theme-cyberpink .espaco-trackable-links__summary-detail {
+  color: color-mix(in srgb, var(--cyberpink-subtheme-text) 70%, var(--cyberpink-subtheme-card-surface));
+}
+
 body.theme-cyberpink .espaco-trackable-links__timeline-controls {
   display: flex;
   gap: 8px;
