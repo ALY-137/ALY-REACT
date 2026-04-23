@@ -3,6 +3,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   listarAcessosNoGerenciador,
   listarLinksRastreaveisNoGerenciador,
+  listarLeiturasQrPrintsNoGerenciador,
+  listarQrPrintsNoGerenciador,
   marcarAcessosComoLidosNoGerenciador,
   obterConfigAcessosNoGerenciador,
   listarProjetosNoGerenciador,
@@ -93,6 +95,27 @@ function resolveTrackableSpaceLabel(link = {}) {
     normalizeText(link?.espacoNome) ||
     normalizeText(link?.skinsUsername) ||
     normalizeText(link?.espacoId) ||
+    "--"
+  );
+}
+
+function resolveQrPrintStatus(print = {}) {
+  const status = normalizeText(print?.status).toLowerCase();
+  if (print?.excluido === true || print?.ativo === false || status === "excluido") {
+    return "Excluido";
+  }
+  return "Ativo";
+}
+
+function resolveQrPrintId(print = {}) {
+  return normalizeText(print?.printId || print?.id);
+}
+
+function resolveQrPrintSpaceLabel(print = {}) {
+  return (
+    normalizeText(print?.espacoNome) ||
+    normalizeText(print?.skinsUsername) ||
+    normalizeText(print?.espacoId) ||
     "--"
   );
 }
@@ -196,6 +219,10 @@ function formatarTopLista(items = [], emptyLabel = "--", maxItems = 3) {
   return values.join(" • ");
 }
 
+function buildTrackingLocationLabel(cityValue = "", countryValue = "") {
+  return [cityValue, countryValue].filter((item) => item && item !== "--").join(", ");
+}
+
 function resolveDataTimestampMs(value) {
   if (!value) return NaN;
   if (typeof value?.toDate === "function") {
@@ -220,6 +247,8 @@ function ListaAcessos() {
   const mountedRef = useRef(true);
   const [acessos, setAcessos] = useState([]);
   const [linksRastreaveis, setLinksRastreaveis] = useState([]);
+  const [qrPrintsRastreaveis, setQrPrintsRastreaveis] = useState([]);
+  const [leiturasQrPrints, setLeiturasQrPrints] = useState([]);
   const [projetos, setProjetos] = useState([]);
   const [filtroProjeto, setFiltroProjeto] = useState("");
   const [filtroOrigem, setFiltroOrigem] = useState("");
@@ -247,6 +276,10 @@ function ListaAcessos() {
   const [mensagemBloqueioUsuario, setMensagemBloqueioUsuario] = useState("");
   const [carregandoPainelRastreavel, setCarregandoPainelRastreavel] = useState(false);
   const [erroPainelRastreavel, setErroPainelRastreavel] = useState("");
+  const [filtroPainelTipo, setFiltroPainelTipo] = useState("");
+  const [filtroPainelEspaco, setFiltroPainelEspaco] = useState("");
+  const [filtroPainelOrigem, setFiltroPainelOrigem] = useState("");
+  const [filtroPainelLocal, setFiltroPainelLocal] = useState("");
   const [erro, setErro] = useState("");
   const [carregando, setCarregando] = useState(false);
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState(null);
@@ -476,18 +509,32 @@ function ListaAcessos() {
     setCarregandoPainelRastreavel(true);
 
     try {
-      const lista = await listarLinksRastreaveisNoGerenciador({
-        limit: 300,
-        projectSystemKey: filtroProjeto,
-      });
+      const [links, prints, leituras] = await Promise.all([
+        listarLinksRastreaveisNoGerenciador({
+          limit: 300,
+          projectSystemKey: filtroProjeto,
+        }),
+        listarQrPrintsNoGerenciador({
+          limit: 300,
+          projectSystemKey: filtroProjeto,
+        }),
+        listarLeiturasQrPrintsNoGerenciador({
+          limit: 300,
+          projectSystemKey: filtroProjeto,
+        }),
+      ]);
       if (!mountedRef.current) return;
       setErroPainelRastreavel("");
-      setLinksRastreaveis(Array.isArray(lista) ? lista : []);
+      setLinksRastreaveis(Array.isArray(links) ? links : []);
+      setQrPrintsRastreaveis(Array.isArray(prints) ? prints : []);
+      setLeiturasQrPrints(Array.isArray(leituras) ? leituras : []);
     } catch (error) {
       if (!mountedRef.current) return;
       console.error("Erro ao carregar links rastreaveis no gerenciador:", error);
       setErroPainelRastreavel("Nao foi possivel carregar o painel central de rastreabilidade.");
       setLinksRastreaveis([]);
+      setQrPrintsRastreaveis([]);
+      setLeiturasQrPrints([]);
     } finally {
       if (mountedRef.current) {
         setCarregandoPainelRastreavel(false);
@@ -643,252 +690,391 @@ function ListaAcessos() {
     [acessosFiltrados]
   );
 
-  const painelRastreabilidade = useMemo(() => {
-    const eventosRastreaveis = acessosFiltrados.filter((acesso) => normalizeText(acesso?.trackingId));
+  const painelRastreabilidadeBase = useMemo(() => {
+    const dataInicioMs = filtroDataInicio ? new Date(`${filtroDataInicio}T00:00:00`).getTime() : NaN;
+    const dataFimMs = filtroDataFim ? new Date(`${filtroDataFim}T23:59:59.999`).getTime() : NaN;
     const linksMap = new Map();
+    const qrPrintsMap = new Map();
+
     linksRastreaveis.forEach((link) => {
       const trackingId = resolveTrackableLinkId(link);
       if (!trackingId) return;
       linksMap.set(trackingId, link);
     });
 
-    const rankingLinksMap = new Map();
+    qrPrintsRastreaveis.forEach((print) => {
+      const printId = resolveQrPrintId(print);
+      if (!printId) return;
+      qrPrintsMap.set(printId, print);
+    });
+
+    const eventosLinks = acessosFiltrados
+      .filter((acesso) => normalizeText(acesso?.trackingId))
+      .map((acesso) => {
+        const trackingId = normalizeText(acesso?.trackingId);
+        const link = linksMap.get(trackingId) || null;
+        const projectKey = resolveAccessProjectKey(acesso) || resolveTrackableLinkProjectKey(link);
+        const projectLabel =
+          normalizeText(projetosMap.get(projectKey)?.nomeProjeto) ||
+          projectKey ||
+          managerProjectLabel;
+        const origemLabel =
+          normalizeText(link?.origemPlanejada) ||
+          normalizeText(link?.descricao) ||
+          normalizeText(acesso?.trackingOrigemPlanejada) ||
+          "--";
+        const city = resolveGeoText(acesso?.city, acesso?.cidade);
+        const country = resolveGeoText(acesso?.country, acesso?.pais);
+        const localizacaoLabel = buildTrackingLocationLabel(city, country);
+        const ownerUserId = normalizeText(link?.ownerUserId);
+        const espacoId = normalizeText(link?.espacoId);
+        return {
+          id:
+            normalizeText(acesso?.id) ||
+            `link-${trackingId}-${resolveDataTimestampMs(acesso?.data || acesso?.criadoEm) || 0}`,
+          kind: "link",
+          kindLabel: "Link rastreavel",
+          itemId: trackingId || "--",
+          itemKey: `link:${trackingId || "sem-id"}`,
+          titulo: origemLabel,
+          detail: `Tracking ID: ${trackingId || "--"}`,
+          destino:
+            normalizeText(link?.destinoUrl) || normalizeText(acesso?.trackingDestinoUrl) || "--",
+          status: resolveTrackableLinkStatus(link),
+          projectLabel,
+          spaceLabel: resolveTrackableSpaceLabel(link),
+          spaceKey:
+            normalizeText(link?.spaceKey) ||
+            (ownerUserId || espacoId ? `${ownerUserId}|${espacoId}` : `link:${trackingId}`),
+          origemLabel,
+          localizacaoLabel,
+          dataMs: resolveDataTimestampMs(acesso?.data || acesso?.criadoEm) || 0,
+          data: formatarData(acesso?.data || acesso?.criadoEm),
+          navigationId: resolveAccessNavigationId(acesso),
+          usuario: resolveAccessUserLabel(acesso),
+        };
+      });
+
+    const leiturasCards = leiturasQrPrints
+      .filter((leitura) => {
+        const printId = normalizeText(leitura?.printId || leitura?.qrPrintId);
+        if (!printId) return false;
+        const dataMs = resolveDataTimestampMs(leitura?.data || leitura?.criadoEm);
+        if (Number.isFinite(dataInicioMs) && (!Number.isFinite(dataMs) || dataMs < dataInicioMs)) {
+          return false;
+        }
+        if (Number.isFinite(dataFimMs) && (!Number.isFinite(dataMs) || dataMs > dataFimMs)) {
+          return false;
+        }
+        return true;
+      })
+      .map((leitura) => {
+        const printId = normalizeText(leitura?.printId || leitura?.qrPrintId);
+        const print = qrPrintsMap.get(printId) || null;
+        const projectKey =
+          normalizeText(leitura?.runtimeProjectKey || print?.runtimeProjectKey).toLowerCase();
+        const projectLabel =
+          normalizeText(projetosMap.get(projectKey)?.nomeProjeto) ||
+          projectKey ||
+          managerProjectLabel;
+        const origemLabel =
+          normalizeText(print?.descricaoRegistro) ||
+          normalizeText(print?.cardNome) ||
+          normalizeText(leitura?.cardNome) ||
+          "Card rastreavel";
+        const city = resolveGeoText(leitura?.city, leitura?.cidade);
+        const country = resolveGeoText(leitura?.country, leitura?.pais);
+        const localizacaoLabel = buildTrackingLocationLabel(city, country);
+        const ownerUserId = normalizeText(print?.ownerUserId || leitura?.ownerUserId);
+        const espacoId = normalizeText(print?.espacoId || leitura?.espacoId);
+        return {
+          id:
+            normalizeText(leitura?.id) ||
+            `card-${printId}-${resolveDataTimestampMs(leitura?.data || leitura?.criadoEm) || 0}`,
+          kind: "card",
+          kindLabel: "Card rastreavel",
+          itemId: printId || "--",
+          itemKey: `card:${printId || "sem-id"}`,
+          titulo: origemLabel,
+          detail: normalizeText(print?.cardNome || leitura?.cardNome) || `QR ${printId}`,
+          destino: normalizeText(print?.urlCard || leitura?.urlCard) || "--",
+          status: resolveQrPrintStatus(print),
+          projectLabel,
+          spaceLabel: resolveQrPrintSpaceLabel(print || leitura),
+          spaceKey:
+            ownerUserId || espacoId ? `${ownerUserId}|${espacoId}` : `card:${printId}`,
+          origemLabel,
+          localizacaoLabel,
+          dataMs: resolveDataTimestampMs(leitura?.data || leitura?.criadoEm) || 0,
+          data: formatarData(leitura?.data || leitura?.criadoEm),
+          navigationId: resolveAccessNavigationId(leitura),
+          usuario: resolveAccessUserLabel(leitura),
+        };
+      });
+
+    const eventos = [...eventosLinks, ...leiturasCards].sort((a, b) => b.dataMs - a.dataMs);
+    const opcoesEspaco = Array.from(
+      new Set(eventos.map((evento) => normalizeText(evento.spaceLabel)).filter(Boolean))
+    ).sort((a, b) => a.localeCompare(b));
+    const opcoesOrigem = Array.from(
+      new Set(eventos.map((evento) => normalizeText(evento.titulo)).filter(Boolean))
+    ).sort((a, b) => a.localeCompare(b));
+    const opcoesLocal = Array.from(
+      new Set(eventos.map((evento) => normalizeText(evento.localizacaoLabel)).filter(Boolean))
+    ).sort((a, b) => a.localeCompare(b));
+
+    return {
+      totalLinks: linksRastreaveis.length,
+      totalCards: qrPrintsRastreaveis.length,
+      totalLinksAtivos: linksRastreaveis.filter(
+        (link) => resolveTrackableLinkStatus(link) === "Ativo"
+      ).length,
+      totalCardsAtivos: qrPrintsRastreaveis.filter(
+        (print) => resolveQrPrintStatus(print) === "Ativo"
+      ).length,
+      totalEventosLinks: eventosLinks.length,
+      totalLeiturasCards: leiturasCards.length,
+      eventos,
+      opcoesEspaco,
+      opcoesOrigem,
+      opcoesLocal,
+    };
+  }, [
+    acessosFiltrados,
+    filtroDataFim,
+    filtroDataInicio,
+    leiturasQrPrints,
+    linksRastreaveis,
+    managerProjectLabel,
+    projetosMap,
+    qrPrintsRastreaveis,
+  ]);
+
+  const painelTemFiltrosAtivos = Boolean(
+    filtroPainelTipo || filtroPainelEspaco || filtroPainelOrigem || filtroPainelLocal
+  );
+
+  const painelRastreabilidade = useMemo(() => {
+    const eventosFiltrados = painelRastreabilidadeBase.eventos.filter((evento) => {
+      if (filtroPainelTipo && evento.kind !== filtroPainelTipo) return false;
+      if (filtroPainelEspaco && normalizeText(evento.spaceLabel) !== filtroPainelEspaco) return false;
+      if (filtroPainelOrigem && normalizeText(evento.titulo) !== filtroPainelOrigem) return false;
+      if (filtroPainelLocal && normalizeText(evento.localizacaoLabel) !== filtroPainelLocal) return false;
+      return true;
+    });
+
+    const rankingItensMap = new Map();
     const espacosMap = new Map();
     const origensMap = new Map();
     const locaisMap = new Map();
     let ultimoAcessoMs = 0;
 
-    eventosRastreaveis.forEach((acesso) => {
-      const trackingId = normalizeText(acesso?.trackingId);
-      if (!trackingId) return;
-
-      const link = linksMap.get(trackingId) || null;
-      const dataMs = resolveDataTimestampMs(acesso?.data || acesso?.criadoEm) || 0;
-      const navigationId = resolveAccessNavigationId(acesso);
-      const projectKey = resolveAccessProjectKey(acesso) || resolveTrackableLinkProjectKey(link);
-      const projectLabel =
-        normalizeText(projetosMap.get(projectKey)?.nomeProjeto) ||
-        projectKey ||
-        managerProjectLabel;
-      const city = resolveGeoText(acesso?.city, acesso?.cidade);
-      const country = resolveGeoText(acesso?.country, acesso?.pais);
-      const localizacaoLabel = [city !== "--" ? city : "", country !== "--" ? country : ""]
-        .filter(Boolean)
-        .join(", ");
-      const origemPlanejada =
-        normalizeText(link?.origemPlanejada) ||
-        normalizeText(link?.descricao) ||
-        normalizeText(acesso?.trackingOrigemPlanejada) ||
-        "--";
-      const ownerUserId = normalizeText(link?.ownerUserId);
-      const espacoId = normalizeText(link?.espacoId);
-      const spaceKey =
-        normalizeText(link?.spaceKey) ||
-        (ownerUserId || espacoId ? `${ownerUserId}|${espacoId}` : trackingId);
-      const spaceLabel = resolveTrackableSpaceLabel(link);
-
-      if (!rankingLinksMap.has(trackingId)) {
-        rankingLinksMap.set(trackingId, {
-          trackingId,
+    eventosFiltrados.forEach((evento) => {
+      if (!rankingItensMap.has(evento.itemKey)) {
+        rankingItensMap.set(evento.itemKey, {
+          key: evento.itemKey,
+          tipo: evento.kind,
+          tipoLabel: evento.kindLabel,
+          itemId: evento.itemId,
+          titulo: evento.titulo,
+          detail: evento.detail,
+          status: evento.status,
+          destino: evento.destino,
+          projectLabel: evento.projectLabel,
+          spaceLabel: evento.spaceLabel,
           totalAcessos: 0,
           navigationIds: new Set(),
           ultimoAcessoMs: 0,
-          origemPlanejada,
-          destinoUrl:
-            normalizeText(link?.destinoUrl) || normalizeText(acesso?.trackingDestinoUrl) || "--",
-          status: resolveTrackableLinkStatus(link),
-          spaceLabel,
-          projectLabel,
         });
       }
+      const item = rankingItensMap.get(evento.itemKey);
+      item.totalAcessos += 1;
+      item.ultimoAcessoMs = Math.max(item.ultimoAcessoMs, evento.dataMs);
+      if (evento.navigationId) item.navigationIds.add(evento.navigationId);
 
-      const rankingLink = rankingLinksMap.get(trackingId);
-      rankingLink.totalAcessos += 1;
-      rankingLink.ultimoAcessoMs = Math.max(rankingLink.ultimoAcessoMs, dataMs);
-      if (navigationId) {
-        rankingLink.navigationIds.add(navigationId);
-      }
-
-      if (!espacosMap.has(spaceKey)) {
-        espacosMap.set(spaceKey, {
-          key: spaceKey,
-          label: spaceLabel,
-          projectLabel,
+      if (!espacosMap.has(evento.spaceKey)) {
+        espacosMap.set(evento.spaceKey, {
+          key: evento.spaceKey,
+          label: evento.spaceLabel || "--",
+          projectLabel: evento.projectLabel,
           acessos: 0,
           links: new Set(),
+          cards: new Set(),
           ultimoAcessoMs: 0,
         });
       }
-      const espacoEntry = espacosMap.get(spaceKey);
-      espacoEntry.acessos += 1;
-      espacoEntry.links.add(trackingId);
-      espacoEntry.ultimoAcessoMs = Math.max(espacoEntry.ultimoAcessoMs, dataMs);
+      const espaco = espacosMap.get(evento.spaceKey);
+      espaco.acessos += 1;
+      if (evento.kind === "link") espaco.links.add(evento.itemId);
+      if (evento.kind === "card") espaco.cards.add(evento.itemId);
+      espaco.ultimoAcessoMs = Math.max(espaco.ultimoAcessoMs, evento.dataMs);
 
-      if (origemPlanejada && origemPlanejada !== "--") {
-        if (!origensMap.has(origemPlanejada)) {
-          origensMap.set(origemPlanejada, {
-            label: origemPlanejada,
+      if (evento.origemLabel && evento.origemLabel !== "--") {
+        if (!origensMap.has(evento.origemLabel)) {
+          origensMap.set(evento.origemLabel, {
+            label: evento.origemLabel,
             acessos: 0,
             links: new Set(),
+            cards: new Set(),
             ultimoAcessoMs: 0,
           });
         }
-        const origemEntry = origensMap.get(origemPlanejada);
-        origemEntry.acessos += 1;
-        origemEntry.links.add(trackingId);
-        origemEntry.ultimoAcessoMs = Math.max(origemEntry.ultimoAcessoMs, dataMs);
+        const origem = origensMap.get(evento.origemLabel);
+        origem.acessos += 1;
+        if (evento.kind === "link") origem.links.add(evento.itemId);
+        if (evento.kind === "card") origem.cards.add(evento.itemId);
+        origem.ultimoAcessoMs = Math.max(origem.ultimoAcessoMs, evento.dataMs);
       }
 
-      if (localizacaoLabel) {
-        if (!locaisMap.has(localizacaoLabel)) {
-          locaisMap.set(localizacaoLabel, {
-            label: localizacaoLabel,
+      if (evento.localizacaoLabel) {
+        if (!locaisMap.has(evento.localizacaoLabel)) {
+          locaisMap.set(evento.localizacaoLabel, {
+            label: evento.localizacaoLabel,
             acessos: 0,
             ultimoAcessoMs: 0,
           });
         }
-        const localEntry = locaisMap.get(localizacaoLabel);
-        localEntry.acessos += 1;
-        localEntry.ultimoAcessoMs = Math.max(localEntry.ultimoAcessoMs, dataMs);
+        const local = locaisMap.get(evento.localizacaoLabel);
+        local.acessos += 1;
+        local.ultimoAcessoMs = Math.max(local.ultimoAcessoMs, evento.dataMs);
       }
 
-      ultimoAcessoMs = Math.max(ultimoAcessoMs, dataMs);
+      ultimoAcessoMs = Math.max(ultimoAcessoMs, evento.dataMs);
     });
 
-    const rankingLinks = Array.from(rankingLinksMap.values())
-      .map((item) => ({
-        ...item,
-        navigationIdsTotal: item.navigationIds.size,
-      }))
-      .sort((a, b) => {
-        if (b.totalAcessos !== a.totalAcessos) return b.totalAcessos - a.totalAcessos;
-        return b.ultimoAcessoMs - a.ultimoAcessoMs;
-      });
+    const ordenarRanking = (items = []) =>
+      items
+        .map((item) => ({
+          ...item,
+          navigationIdsTotal: item.navigationIds.size,
+        }))
+        .sort((a, b) => {
+          if (b.totalAcessos !== a.totalAcessos) return b.totalAcessos - a.totalAcessos;
+          return b.ultimoAcessoMs - a.ultimoAcessoMs;
+        });
 
+    const rankingItens = ordenarRanking(Array.from(rankingItensMap.values()));
+    const rankingLinks = rankingItens.filter((item) => item.tipo === "link");
+    const rankingCards = rankingItens.filter((item) => item.tipo === "card");
     const rankingEspacos = Array.from(espacosMap.values())
       .map((item) => ({
         ...item,
         linksTotal: item.links.size,
+        cardsTotal: item.cards.size,
       }))
       .sort((a, b) => {
         if (b.acessos !== a.acessos) return b.acessos - a.acessos;
         return b.ultimoAcessoMs - a.ultimoAcessoMs;
       });
-
     const rankingOrigens = Array.from(origensMap.values())
       .map((item) => ({
         ...item,
         linksTotal: item.links.size,
+        cardsTotal: item.cards.size,
       }))
       .sort((a, b) => {
         if (b.acessos !== a.acessos) return b.acessos - a.acessos;
         return b.ultimoAcessoMs - a.ultimoAcessoMs;
       });
-
     const rankingLocais = Array.from(locaisMap.values()).sort((a, b) => {
       if (b.acessos !== a.acessos) return b.acessos - a.acessos;
       return b.ultimoAcessoMs - a.ultimoAcessoMs;
     });
 
-    const ultimosEventos = [...eventosRastreaveis]
-      .sort((a, b) => {
-        const dataA = resolveDataTimestampMs(a?.data || a?.criadoEm) || 0;
-        const dataB = resolveDataTimestampMs(b?.data || b?.criadoEm) || 0;
-        return dataB - dataA;
-      })
-      .slice(0, 6)
-      .map((acesso) => {
-        const trackingId = normalizeText(acesso?.trackingId);
-        const link = linksMap.get(trackingId) || null;
-        const projectKey = resolveAccessProjectKey(acesso) || resolveTrackableLinkProjectKey(link);
-        return {
-          id: normalizeText(acesso?.id) || `${trackingId}-${resolveDataTimestampMs(acesso?.data || acesso?.criadoEm)}`,
-          trackingId: trackingId || "--",
-          usuario: resolveAccessUserLabel(acesso),
-          data: formatarData(acesso?.data || acesso?.criadoEm),
-          origemPlanejada:
-            normalizeText(link?.origemPlanejada) ||
-            normalizeText(link?.descricao) ||
-            normalizeText(acesso?.trackingOrigemPlanejada) ||
-            "--",
-          spaceLabel: resolveTrackableSpaceLabel(link),
-          localizacao: formatarTopLista(
-            [
-              [resolveGeoText(acesso?.city, acesso?.cidade), resolveGeoText(acesso?.country, acesso?.pais)]
-                .filter((item) => item && item !== "--")
-                .join(", "),
-            ],
-            "--",
-            1
-          ),
-          projectLabel:
-            normalizeText(projetosMap.get(projectKey)?.nomeProjeto) ||
-            projectKey ||
-            managerProjectLabel,
-        };
-      });
-
-    const totalLinksAtivos = linksRastreaveis.filter(
-      (link) => resolveTrackableLinkStatus(link) === "Ativo"
-    ).length;
-
     return {
-      totalLinks: linksRastreaveis.length,
-      totalLinksAtivos,
-      totalEventos: eventosRastreaveis.length,
+      ...painelRastreabilidadeBase,
+      totalEventosFiltrados: eventosFiltrados.length,
+      totalItensComLeitura: rankingItens.length,
       totalLinksComAcesso: rankingLinks.length,
+      totalCardsComLeitura: rankingCards.length,
       totalEspacos: rankingEspacos.length,
       ultimoAcessoMs,
+      rankingItens: rankingItens.slice(0, 6),
       rankingLinks: rankingLinks.slice(0, 6),
+      rankingCards: rankingCards.slice(0, 6),
       rankingEspacos: rankingEspacos.slice(0, 5),
       rankingOrigens: rankingOrigens.slice(0, 5),
       rankingLocais: rankingLocais.slice(0, 5),
-      ultimosEventos,
+      ultimosEventos: eventosFiltrados.slice(0, 8),
       cardItems: [
         {
           label: "Links rastreaveis",
-          value: String(linksRastreaveis.length),
-          detail: `${totalLinksAtivos} ativo(s) no projeto`,
+          value: String(painelRastreabilidadeBase.totalLinks),
+          detail: `${painelRastreabilidadeBase.totalLinksAtivos} ativo(s) no projeto`,
         },
         {
-          label: "Eventos no recorte",
-          value: String(eventosRastreaveis.length),
-          detail: `baseado nos ultimos ${ACCESS_QUERY_LIMIT} registros carregados`,
+          label: "Cards rastreaveis",
+          value: String(painelRastreabilidadeBase.totalCards),
+          detail: `${painelRastreabilidadeBase.totalCardsAtivos} ativo(s) no projeto`,
         },
         {
-          label: "Links com leitura",
-          value: String(rankingLinks.length),
-          detail: rankingLinks[0]
-            ? `topo: ${rankingLinks[0].trackingId} (${rankingLinks[0].totalAcessos})`
+          label: "Eventos de links",
+          value: String(painelRastreabilidadeBase.totalEventosLinks),
+          detail: painelTemFiltrosAtivos
+            ? `${rankingLinks.length} item(ns) no recorte do painel`
+            : `baseado nos ultimos ${ACCESS_QUERY_LIMIT} registros de acesso`,
+        },
+        {
+          label: "Leituras de cards",
+          value: String(painelRastreabilidadeBase.totalLeiturasCards),
+          detail: painelTemFiltrosAtivos
+            ? `${rankingCards.length} item(ns) no recorte do painel`
+            : "leituras QR no recorte atual",
+        },
+        {
+          label: "Itens com leitura",
+          value: String(rankingItens.length),
+          detail: rankingItens[0]
+            ? `topo: ${rankingItens[0].titulo} (${rankingItens[0].totalAcessos})`
             : "Sem leitura rastreavel",
-        },
-        {
-          label: "Espacos alcancados",
-          value: String(rankingEspacos.length),
-          detail: rankingEspacos[0]
-            ? `lider: ${rankingEspacos[0].label} (${rankingEspacos[0].acessos})`
-            : "Sem espacos com entrada",
-        },
-        {
-          label: "Origem mais forte",
-          value: rankingOrigens[0]?.label || "--",
-          detail: rankingOrigens[0]
-            ? `${rankingOrigens[0].acessos} acesso(s) / ${rankingOrigens[0].linksTotal} link(s)`
-            : "Sem origem planejada com leitura",
         },
         {
           label: "Ultima leitura",
           value: ultimoAcessoMs ? formatarData(ultimoAcessoMs) : "--",
-          detail:
-            formatarTopLista(
-              rankingLocais.map((item) => item.label),
-              "Sem localizacao registrada",
-              2
-            ),
+          detail: formatarTopLista(
+            rankingLocais.map((item) => item.label),
+            "Sem localizacao registrada",
+            2
+          ),
         },
       ],
     };
-  }, [acessosFiltrados, linksRastreaveis, managerProjectLabel, projetosMap]);
+  }, [
+    filtroPainelEspaco,
+    filtroPainelLocal,
+    filtroPainelOrigem,
+    filtroPainelTipo,
+    painelRastreabilidadeBase,
+    painelTemFiltrosAtivos,
+  ]);
+
+  useEffect(() => {
+    if (
+      filtroPainelEspaco &&
+      !painelRastreabilidadeBase.opcoesEspaco.includes(filtroPainelEspaco)
+    ) {
+      setFiltroPainelEspaco("");
+    }
+    if (
+      filtroPainelOrigem &&
+      !painelRastreabilidadeBase.opcoesOrigem.includes(filtroPainelOrigem)
+    ) {
+      setFiltroPainelOrigem("");
+    }
+    if (
+      filtroPainelLocal &&
+      !painelRastreabilidadeBase.opcoesLocal.includes(filtroPainelLocal)
+    ) {
+      setFiltroPainelLocal("");
+    }
+  }, [
+    filtroPainelEspaco,
+    filtroPainelLocal,
+    filtroPainelOrigem,
+    painelRastreabilidadeBase.opcoesEspaco,
+    painelRastreabilidadeBase.opcoesLocal,
+    painelRastreabilidadeBase.opcoesOrigem,
+  ]);
 
   useEffect(() => {
     setPaginaAtual(1);
@@ -1267,6 +1453,79 @@ function ListaAcessos() {
           <p className="gerenciador-acessos__error">{erroPainelRastreavel}</p>
         ) : null}
 
+        <div className="gerenciador-acessos__tracking-filters">
+          <label className="gerenciador-acessos__filter gerenciador-acessos__filter--compact">
+            <span>Tipo do rastreavel</span>
+            <select
+              value={filtroPainelTipo}
+              onChange={(event) => setFiltroPainelTipo(event.target.value)}
+            >
+              <option value="">Todos</option>
+              <option value="link">Links</option>
+              <option value="card">Cards</option>
+            </select>
+          </label>
+
+          <label className="gerenciador-acessos__filter">
+            <span>Espaco</span>
+            <select
+              value={filtroPainelEspaco}
+              onChange={(event) => setFiltroPainelEspaco(event.target.value)}
+            >
+              <option value="">Todos</option>
+              {painelRastreabilidadeBase.opcoesEspaco.map((espaco) => (
+                <option key={espaco} value={espaco}>
+                  {espaco}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="gerenciador-acessos__filter">
+            <span>Origem planejada</span>
+            <select
+              value={filtroPainelOrigem}
+              onChange={(event) => setFiltroPainelOrigem(event.target.value)}
+            >
+              <option value="">Todas</option>
+              {painelRastreabilidadeBase.opcoesOrigem.map((origem) => (
+                <option key={origem} value={origem}>
+                  {origem}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="gerenciador-acessos__filter">
+            <span>Cidade/Pais</span>
+            <select
+              value={filtroPainelLocal}
+              onChange={(event) => setFiltroPainelLocal(event.target.value)}
+            >
+              <option value="">Todos</option>
+              {painelRastreabilidadeBase.opcoesLocal.map((local) => (
+                <option key={local} value={local}>
+                  {local}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <button
+            type="button"
+            className="gerenciador-acessos__refresh"
+            onClick={() => {
+              setFiltroPainelTipo("");
+              setFiltroPainelEspaco("");
+              setFiltroPainelOrigem("");
+              setFiltroPainelLocal("");
+            }}
+            disabled={!painelTemFiltrosAtivos}
+          >
+            Limpar filtros do painel
+          </button>
+        </div>
+
         <div className="gerenciador-acessos__tracking-cards">
           {painelRastreabilidade.cardItems.map((item) => (
             <article className="gerenciador-acessos__tracking-card" key={item.label}>
@@ -1278,17 +1537,18 @@ function ListaAcessos() {
         </div>
 
         <div className="gerenciador-acessos__tracking-grid">
-          <article className="gerenciador-acessos__tracking-box">
+          <article className="gerenciador-acessos__tracking-box gerenciador-acessos__tracking-box--wide">
             <div className="gerenciador-acessos__tracking-box-head">
-              <strong>Links mais acessados</strong>
-              <span>{`${painelRastreabilidade.totalLinksComAcesso} com leitura`}</span>
+              <strong>Itens rastreaveis mais lidos</strong>
+              <span>{`${painelRastreabilidade.totalItensComLeitura} item(ns) com leitura`}</span>
             </div>
-            {painelRastreabilidade.rankingLinks.length ? (
+            {painelRastreabilidade.rankingItens.length ? (
               <ol className="gerenciador-acessos__tracking-list">
-                {painelRastreabilidade.rankingLinks.map((item) => (
-                  <li className="gerenciador-acessos__tracking-item" key={item.trackingId}>
-                    <strong>{item.origemPlanejada}</strong>
-                    <span>{`Tracking ID: ${item.trackingId}`}</span>
+                {painelRastreabilidade.rankingItens.map((item) => (
+                  <li className="gerenciador-acessos__tracking-item" key={item.key}>
+                    <strong>{item.titulo}</strong>
+                    <span>{`${item.tipoLabel}: ${item.itemId}`}</span>
+                    <span>{item.detail}</span>
                     <span>{`Espaco: ${item.spaceLabel}`}</span>
                     <span>{`Projeto: ${item.projectLabel}`}</span>
                     <span>{`Acessos: ${item.totalAcessos} / IDs unicos: ${item.navigationIdsTotal}`}</span>
@@ -1299,7 +1559,62 @@ function ListaAcessos() {
               </ol>
             ) : (
               <p className="gerenciador-acessos__empty">
+                Nenhum item rastreavel recebeu leitura neste recorte.
+              </p>
+            )}
+          </article>
+
+          <article className="gerenciador-acessos__tracking-box">
+            <div className="gerenciador-acessos__tracking-box-head">
+              <strong>Links mais acessados</strong>
+              <span>{`${painelRastreabilidade.totalLinksComAcesso} com leitura`}</span>
+            </div>
+            {painelRastreabilidade.rankingLinks.length ? (
+              <ol className="gerenciador-acessos__tracking-list">
+                {painelRastreabilidade.rankingLinks.map((item) => (
+                  <li className="gerenciador-acessos__tracking-item" key={item.itemId}>
+                    <strong>{item.titulo}</strong>
+                    <span>{`Tracking ID: ${item.itemId}`}</span>
+                    <span>{`Espaco: ${item.spaceLabel}`}</span>
+                    <span>{`Projeto: ${item.projectLabel}`}</span>
+                    <span>{`Destino: ${item.destino}`}</span>
+                    <span>{`Acessos: ${item.totalAcessos} / IDs unicos: ${item.navigationIdsTotal}`}</span>
+                    <span>{`Status: ${item.status}`}</span>
+                    <span>{`Ultima leitura: ${formatarData(item.ultimoAcessoMs)}`}</span>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="gerenciador-acessos__empty">
                 Nenhuma leitura rastreavel encontrada neste recorte.
+              </p>
+            )}
+          </article>
+
+          <article className="gerenciador-acessos__tracking-box">
+            <div className="gerenciador-acessos__tracking-box-head">
+              <strong>Cards rastreaveis mais lidos</strong>
+              <span>{`${painelRastreabilidade.totalCardsComLeitura} com leitura`}</span>
+            </div>
+            {painelRastreabilidade.rankingCards.length ? (
+              <ol className="gerenciador-acessos__tracking-list">
+                {painelRastreabilidade.rankingCards.map((item) => (
+                  <li className="gerenciador-acessos__tracking-item" key={item.itemId}>
+                    <strong>{item.titulo}</strong>
+                    <span>{`Print ID: ${item.itemId}`}</span>
+                    <span>{item.detail}</span>
+                    <span>{`Espaco: ${item.spaceLabel}`}</span>
+                    <span>{`Projeto: ${item.projectLabel}`}</span>
+                    <span>{`Destino: ${item.destino}`}</span>
+                    <span>{`Leituras: ${item.totalAcessos} / IDs unicos: ${item.navigationIdsTotal}`}</span>
+                    <span>{`Status: ${item.status}`}</span>
+                    <span>{`Ultima leitura: ${formatarData(item.ultimoAcessoMs)}`}</span>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="gerenciador-acessos__empty">
+                Nenhum card rastreavel foi lido neste recorte.
               </p>
             )}
           </article>
@@ -1316,7 +1631,7 @@ function ListaAcessos() {
                     <strong>{item.label}</strong>
                     <span>{`Projeto: ${item.projectLabel}`}</span>
                     <span>{`Acessos: ${item.acessos}`}</span>
-                    <span>{`Links ativos no recorte: ${item.linksTotal}`}</span>
+                    <span>{`Links: ${item.linksTotal} / Cards: ${item.cardsTotal}`}</span>
                     <span>{`Ultima leitura: ${formatarData(item.ultimoAcessoMs)}`}</span>
                   </li>
                 ))}
@@ -1339,7 +1654,7 @@ function ListaAcessos() {
                   <li className="gerenciador-acessos__tracking-item" key={item.label}>
                     <strong>{item.label}</strong>
                     <span>{`Acessos: ${item.acessos}`}</span>
-                    <span>{`Links relacionados: ${item.linksTotal}`}</span>
+                    <span>{`Links: ${item.linksTotal} / Cards: ${item.cardsTotal}`}</span>
                     <span>{`Ultimo acesso: ${formatarData(item.ultimoAcessoMs)}`}</span>
                   </li>
                 ))}
@@ -1376,14 +1691,15 @@ function ListaAcessos() {
           <article className="gerenciador-acessos__tracking-box gerenciador-acessos__tracking-box--wide">
             <div className="gerenciador-acessos__tracking-box-head">
               <strong>Ultimas leituras rastreaveis</strong>
-              <span>{`${painelRastreabilidade.totalEventos} evento(s)`}</span>
+              <span>{`${painelRastreabilidade.totalEventosFiltrados} evento(s)`}</span>
             </div>
             {painelRastreabilidade.ultimosEventos.length ? (
               <ol className="gerenciador-acessos__tracking-list">
                 {painelRastreabilidade.ultimosEventos.map((item) => (
                   <li className="gerenciador-acessos__tracking-item" key={item.id}>
-                    <strong>{item.origemPlanejada}</strong>
-                    <span>{`Tracking ID: ${item.trackingId}`}</span>
+                    <strong>{item.titulo}</strong>
+                    <span>{`${item.tipo}: ${item.itemId}`}</span>
+                    <span>{item.detail}</span>
                     <span>{`Usuario: ${item.usuario}`}</span>
                     <span>{`Espaco: ${item.spaceLabel}`}</span>
                     <span>{`Projeto: ${item.projectLabel}`}</span>

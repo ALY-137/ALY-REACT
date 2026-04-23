@@ -1,6 +1,7 @@
 ﻿import { initializeApp } from "firebase/app";
 import {
   collection,
+  collectionGroup,
   deleteDoc,
   doc,
   getDoc,
@@ -745,6 +746,109 @@ export async function listarLinksRastreaveisNoGerenciador({
 
   const fallbackSnap = await getDocs(query(collection(managerDb, "trackableLinks"), limit(safeLimit)));
   return sortLinks(filterLinks(fallbackSnap.docs.map(mapLink))).slice(0, safeLimit);
+}
+
+export async function listarQrPrintsNoGerenciador({
+  limit: maxItems = 300,
+  projectSystemKey = "",
+} = {}) {
+  const managerDb = getManagerDb();
+  if (!managerDb) return [];
+
+  const projectSystemKeyNormalizado = normalizeText(projectSystemKey).toLowerCase();
+  const safeLimit = Math.max(1, Math.min(Number(maxItems) || 300, 500));
+
+  const mapPrint = (docItem) => ({
+    id: docItem.id,
+    ...(docItem.data() || {}),
+  });
+
+  const sortPrints = (items = []) =>
+    [...items].sort((a, b) => {
+      const dataA = getAccessTimestampMs(a?.atualizadoEm || a?.criadoEm) || 0;
+      const dataB = getAccessTimestampMs(b?.atualizadoEm || b?.criadoEm) || 0;
+      return dataB - dataA;
+    });
+
+  const filterPrints = (items = []) =>
+    (Array.isArray(items) ? items : []).filter((item) => {
+      const printProjectKey = normalizeText(item?.runtimeProjectKey).toLowerCase();
+      if (projectSystemKeyNormalizado && printProjectKey !== projectSystemKeyNormalizado) {
+        return false;
+      }
+      return true;
+    });
+
+  try {
+    const constraints = [limit(safeLimit)];
+    if (projectSystemKeyNormalizado) {
+      constraints.unshift(where("runtimeProjectKey", "==", projectSystemKeyNormalizado));
+    }
+    const snap = await getDocs(query(collection(managerDb, "qrPrints"), ...constraints));
+    return sortPrints(snap.docs.map(mapPrint)).slice(0, safeLimit);
+  } catch (error) {
+    if (error?.code !== "failed-precondition") {
+      throw error;
+    }
+  }
+
+  const fallbackSnap = await getDocs(query(collection(managerDb, "qrPrints"), limit(safeLimit)));
+  return sortPrints(filterPrints(fallbackSnap.docs.map(mapPrint))).slice(0, safeLimit);
+}
+
+export async function listarLeiturasQrPrintsNoGerenciador({
+  limit: maxItems = 300,
+  projectSystemKey = "",
+} = {}) {
+  const managerDb = getManagerDb();
+  if (!managerDb) return [];
+
+  const projectSystemKeyNormalizado = normalizeText(projectSystemKey).toLowerCase();
+  const safeLimit = Math.max(1, Math.min(Number(maxItems) || 300, 500));
+
+  const sortReadings = (items = []) =>
+    [...items].sort((a, b) => {
+      const dataA = getAccessTimestampMs(a?.data || a?.criadoEm) || 0;
+      const dataB = getAccessTimestampMs(b?.data || b?.criadoEm) || 0;
+      return dataB - dataA;
+    });
+
+  const filterReadings = (items = []) =>
+    (Array.isArray(items) ? items : []).filter((item) => {
+      const readingProjectKey = normalizeText(item?.runtimeProjectKey).toLowerCase();
+      if (projectSystemKeyNormalizado && readingProjectKey !== projectSystemKeyNormalizado) {
+        return false;
+      }
+      return normalizeText(item?.printId || item?.qrPrintId);
+    });
+
+  try {
+    const constraints = [orderBy("data", "desc"), limit(safeLimit)];
+    if (projectSystemKeyNormalizado) {
+      constraints.unshift(where("runtimeProjectKey", "==", projectSystemKeyNormalizado));
+    }
+    const snap = await getDocs(query(collectionGroup(managerDb, "leituras"), ...constraints));
+    return sortReadings(
+      snap.docs.map((docItem) => ({
+        id: docItem.id,
+        ...(docItem.data() || {}),
+      }))
+    ).slice(0, safeLimit);
+  } catch (error) {
+    if (error?.code !== "failed-precondition") {
+      throw error;
+    }
+  }
+
+  const fallbackSnap = await getDocs(query(collectionGroup(managerDb, "leituras"), limit(safeLimit)));
+  return sortReadings(
+    filterReadings(
+      fallbackSnap.docs.map((docItem) => ({
+        id: docItem.id,
+        ...(docItem.data() || {}),
+      }))
+    )
+  ).slice(0, safeLimit);
 }
 
 export async function obterResumoAcessosNoGerenciador({ limit: maxItems = 500 } = {}) {

@@ -141,6 +141,13 @@
   gap: 10px;
 }
 
+.gerenciador-acessos__tracking-filters {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: end;
+}
+
 .gerenciador-acessos__tracking-card,
 .gerenciador-acessos__tracking-box {
   display: grid;
@@ -484,6 +491,10 @@
 
   .gerenciador-acessos__tracking-grid {
     grid-template-columns: 1fr;
+  }
+
+  .gerenciador-acessos__tracking-filters {
+    align-items: stretch;
   }
 
   .gerenciador-acessos__tracking-head,
