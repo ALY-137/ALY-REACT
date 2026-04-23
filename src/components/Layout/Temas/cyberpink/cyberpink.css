@@ -1580,6 +1580,93 @@ body.theme-cyberpink .gerenciador-acessos__tracking-detail-meta span {
   color: var(--cyberpink-subtheme-text-soft);
 }
 
+body.theme-cyberpink .gerenciador-acessos__tracking-geo-map-wrap {
+  --cyberpink-simple-cut-size: 10px;
+  --cyberpink-simple-cut-corner-color: color-mix(
+    in srgb,
+    var(--cyberpink-subtheme-frame-stroke) 74%,
+    transparent
+  );
+  overflow: visible;
+  border-radius: 0;
+  border: 1px solid color-mix(in srgb, var(--cyberpink-subtheme-frame-stroke) 72%, transparent);
+  background:
+    radial-gradient(
+      circle at 50% 50%,
+      color-mix(in srgb, var(--cyberpink-subtheme-primary) 12%, transparent) 0%,
+      transparent 62%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--cyberpink-subtheme-holo-top) 26%, transparent) 0%,
+      color-mix(in srgb, var(--cyberpink-subtheme-surface-a) 96%, transparent) 24%,
+      color-mix(in srgb, var(--cyberpink-subtheme-surface-b) 100%, transparent) 100%
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent 0 24px,
+      color-mix(in srgb, var(--cyberpink-subtheme-frame-inner) 12%, transparent) 24px 25px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0 24px,
+      color-mix(in srgb, var(--cyberpink-subtheme-frame-inner) 10%, transparent) 24px 25px
+    );
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-frame-inner) 56%, transparent),
+    inset 0 0 18px color-mix(in srgb, var(--cyberpink-subtheme-primary) 10%, transparent),
+    0 0 16px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 54%, transparent);
+  clip-path: polygon(
+    10px 0,
+    calc(100% - 10px) 0,
+    100% 10px,
+    100% calc(100% - 10px),
+    calc(100% - 10px) 100%,
+    10px 100%,
+    0 calc(100% - 10px),
+    0 10px
+  );
+}
+
+body.theme-cyberpink .gerenciador-acessos__tracking-geo-region {
+  color: var(--cyberpink-subtheme-text-soft);
+}
+
+body.theme-cyberpink .gerenciador-acessos__tracking-geo-region path {
+  fill: color-mix(in srgb, var(--cyberpink-subtheme-card-surface-shadow) 44%, transparent);
+  stroke: color-mix(in srgb, var(--cyberpink-subtheme-frame-inner) 42%, transparent);
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 18%, transparent));
+}
+
+body.theme-cyberpink .gerenciador-acessos__tracking-geo-region text {
+  fill: var(--cyberpink-subtheme-text-soft);
+  font-family: "DotGothic16", sans-serif;
+  letter-spacing: 0.08em;
+}
+
+body.theme-cyberpink .gerenciador-acessos__tracking-geo-region.is-active path {
+  fill: color-mix(in srgb, var(--cyberpink-subtheme-primary) 16%, transparent);
+  stroke: color-mix(in srgb, var(--cyberpink-subtheme-primary) 88%, white);
+  filter:
+    drop-shadow(0 0 10px color-mix(in srgb, var(--cyberpink-subtheme-primary) 54%, transparent))
+    brightness(calc(1 + (var(--tracking-geo-intensity, 0%) / 240)));
+}
+
+body.theme-cyberpink .gerenciador-acessos__tracking-geo-region.is-active text {
+  fill: var(--cyberpink-subtheme-text);
+  text-shadow:
+    0 0 2px color-mix(in srgb, var(--cyberpink-subtheme-primary) 72%, transparent),
+    0 0 8px color-mix(in srgb, var(--cyberpink-subtheme-primary) 34%, transparent);
+}
+
+body.theme-cyberpink .gerenciador-acessos__tracking-geo-pulse {
+  fill: color-mix(in srgb, var(--cyberpink-subtheme-primary) 76%, white);
+  stroke: color-mix(in srgb, var(--cyberpink-subtheme-text) 88%, transparent);
+  filter:
+    drop-shadow(0 0 4px color-mix(in srgb, var(--cyberpink-subtheme-primary) 80%, transparent))
+    drop-shadow(0 0 14px color-mix(in srgb, var(--cyberpink-subtheme-primary) 42%, transparent));
+}
+
 body.theme-cyberpink .gerenciador-acessos__tracking-actions {
   align-items: center;
 }

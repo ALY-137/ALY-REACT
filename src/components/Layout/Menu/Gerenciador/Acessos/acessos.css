@@ -275,6 +275,62 @@
   background: rgba(0, 0, 0, 0.16);
 }
 
+.gerenciador-acessos__tracking-geo-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.gerenciador-acessos__tracking-geo-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.gerenciador-acessos__tracking-geo-map-wrap {
+  position: relative;
+  min-height: 320px;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.gerenciador-acessos__tracking-geo-map {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.gerenciador-acessos__tracking-geo-summary,
+.gerenciador-acessos__tracking-geo-stacks {
+  display: grid;
+  gap: 12px;
+}
+
+.gerenciador-acessos__tracking-geo-region path {
+  fill: rgba(255, 255, 255, 0.08);
+  stroke: rgba(255, 255, 255, 0.16);
+  stroke-width: 2;
+}
+
+.gerenciador-acessos__tracking-geo-region text {
+  fill: currentColor;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.gerenciador-acessos__tracking-geo-region.is-active path {
+  fill: rgba(255, 126, 168, 0.18);
+  stroke: rgba(255, 126, 168, 0.82);
+}
+
+.gerenciador-acessos__tracking-geo-pulse {
+  fill: rgba(255, 126, 168, 0.68);
+  stroke: rgba(255, 255, 255, 0.8);
+  stroke-width: 2;
+}
+
 .gerenciador-acessos__tracking-timeline-summary {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -664,6 +720,10 @@
 
   .gerenciador-acessos__tracking-detail-actions {
     justify-content: stretch;
+  }
+
+  .gerenciador-acessos__tracking-geo-layout {
+    grid-template-columns: 1fr;
   }
 
   .gerenciador-acessos__tracking-timeline-row {

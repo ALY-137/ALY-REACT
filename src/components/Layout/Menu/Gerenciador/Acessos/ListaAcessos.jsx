@@ -27,9 +27,78 @@ import "./acessos.css";
 const GROUP_PAGE_SIZE = 12;
 const ACCESS_GROUP_PREVIEW_SIZE = 3;
 const ACCESS_QUERY_LIMIT = 100;
+const TRACKING_WORLD_REGIONS = [
+  {
+    key: "america_norte",
+    label: "America do Norte",
+    shortLabel: "AN",
+    path: "M84 74 L158 54 L230 70 L248 118 L216 160 L170 170 L124 154 L96 124 Z",
+    pulseX: 180,
+    pulseY: 104,
+    labelX: 108,
+    labelY: 206,
+  },
+  {
+    key: "america_sul",
+    label: "America do Sul",
+    shortLabel: "AS",
+    path: "M238 188 L288 206 L304 246 L286 304 L258 362 L226 318 L220 260 Z",
+    pulseX: 264,
+    pulseY: 270,
+    labelX: 188,
+    labelY: 386,
+  },
+  {
+    key: "europa",
+    label: "Europa",
+    shortLabel: "EU",
+    path: "M420 82 L474 72 L512 88 L500 116 L452 126 L424 110 Z",
+    pulseX: 468,
+    pulseY: 96,
+    labelX: 410,
+    labelY: 56,
+  },
+  {
+    key: "africa",
+    label: "Africa",
+    shortLabel: "AF",
+    path: "M462 132 L520 144 L548 202 L526 286 L484 328 L446 256 L450 180 Z",
+    pulseX: 496,
+    pulseY: 220,
+    labelX: 454,
+    labelY: 352,
+  },
+  {
+    key: "asia",
+    label: "Asia",
+    shortLabel: "AI",
+    path: "M522 76 L650 62 L760 88 L818 132 L790 196 L706 214 L620 194 L560 170 L520 118 Z",
+    pulseX: 682,
+    pulseY: 128,
+    labelX: 670,
+    labelY: 246,
+  },
+  {
+    key: "oceania",
+    label: "Oceania",
+    shortLabel: "OC",
+    path: "M758 250 L812 240 L872 270 L844 316 L780 322 L742 286 Z",
+    pulseX: 810,
+    pulseY: 282,
+    labelX: 756,
+    labelY: 356,
+  },
+];
 
 function normalizeText(value) {
   return String(value || "").trim();
+}
+
+function normalizeLookupText(value) {
+  return normalizeText(value)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
 }
 
 function resolveFirstText(...candidates) {
@@ -231,6 +300,173 @@ function formatarTopLista(items = [], emptyLabel = "--", maxItems = 3) {
 
 function buildTrackingLocationLabel(cityValue = "", countryValue = "") {
   return [cityValue, countryValue].filter((item) => item && item !== "--").join(", ");
+}
+
+function resolveTrackingContinent(item = {}) {
+  const geoInfo = resolveAccessGeoInfo(item);
+  const latitude = geoInfo.latitude;
+  const longitude = geoInfo.longitude;
+
+  if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+    if (latitude >= 7 && longitude >= -170 && longitude <= -50) return "america_norte";
+    if (latitude <= 15 && latitude >= -60 && longitude >= -92 && longitude <= -30) {
+      return "america_sul";
+    }
+    if (latitude >= 35 && latitude <= 72 && longitude >= -25 && longitude <= 60) return "europa";
+    if (latitude >= -35 && latitude <= 38 && longitude >= -20 && longitude <= 55) return "africa";
+    if (latitude >= -50 && latitude <= 10 && longitude >= 110 && longitude <= 180) {
+      return "oceania";
+    }
+    if (latitude >= -10 && latitude <= 80 && longitude >= 25 && longitude <= 180) return "asia";
+  }
+
+  const country = normalizeLookupText(geoInfo.country);
+  if (!country || country === "--") return "";
+
+  if (
+    [
+      "brasil",
+      "brazil",
+      "argentina",
+      "chile",
+      "peru",
+      "colombia",
+      "colombia",
+      "uruguay",
+      "paraguay",
+      "paraguai",
+      "bolivia",
+      "equador",
+      "ecuador",
+      "venezuela",
+      "guyana",
+      "suriname",
+    ].includes(country)
+  ) {
+    return "america_sul";
+  }
+
+  if (
+    [
+      "united states",
+      "estados unidos",
+      "usa",
+      "canada",
+      "mexico",
+      "costa rica",
+      "guatemala",
+      "panama",
+      "jamaica",
+    ].includes(country)
+  ) {
+    return "america_norte";
+  }
+
+  if (
+    [
+      "portugal",
+      "spain",
+      "espanha",
+      "france",
+      "franca",
+      "germany",
+      "alemanha",
+      "italy",
+      "italia",
+      "united kingdom",
+      "reino unido",
+      "netherlands",
+      "holanda",
+      "belgium",
+      "belgica",
+      "switzerland",
+      "suica",
+      "poland",
+      "polonia",
+      "sweden",
+      "suecia",
+      "norway",
+      "noruega",
+      "ukraine",
+      "ucrania",
+      "romania",
+      "greece",
+      "grecia",
+    ].includes(country)
+  ) {
+    return "europa";
+  }
+
+  if (
+    [
+      "angola",
+      "mozambique",
+      "mocambique",
+      "south africa",
+      "africa do sul",
+      "nigeria",
+      "egypt",
+      "egito",
+      "morocco",
+      "marrocos",
+      "kenya",
+      "ethiopia",
+      "etioopia",
+      "ghana",
+      "tunisia",
+      "tunisia",
+      "algeria",
+      "argelia",
+    ].includes(country)
+  ) {
+    return "africa";
+  }
+
+  if (
+    [
+      "china",
+      "japan",
+      "japao",
+      "india",
+      "south korea",
+      "coreia do sul",
+      "north korea",
+      "coreia do norte",
+      "singapore",
+      "indonesia",
+      "indonesia",
+      "thailand",
+      "tailandia",
+      "philippines",
+      "filipinas",
+      "vietnam",
+      "pakistan",
+      "turkey",
+      "turquia",
+      "saudi arabia",
+      "arabia saudita",
+      "israel",
+      "united arab emirates",
+      "emirados arabes unidos",
+    ].includes(country)
+  ) {
+    return "asia";
+  }
+
+  if (
+    [
+      "australia",
+      "new zealand",
+      "nova zelandia",
+      "fiji",
+      "papua new guinea",
+      "papua-nova guine",
+    ].includes(country)
+  ) {
+    return "oceania";
+  }
+
+  return "";
 }
 
 function formatarDiaPainel(value) {
@@ -1724,6 +1960,93 @@ function ListaAcessos() {
           .filter((localizacao) => localizacao && localizacao !== "--")
       )
     );
+    const continentesMap = new Map(
+      TRACKING_WORLD_REGIONS.map((regiao) => [
+        regiao.key,
+        {
+          ...regiao,
+          total: 0,
+          countriesSet: new Set(),
+          citiesSet: new Set(),
+        },
+      ])
+    );
+    const paisesMap = new Map();
+    const cidadesMap = new Map();
+
+    eventosFiltrados.forEach((evento) => {
+      const geoInfo = resolveAccessGeoInfo(evento);
+      const country = resolveGeoText(geoInfo.country);
+      const city = resolveGeoText(geoInfo.city, geoInfo.region, geoInfo.uf);
+      const continentKey = resolveTrackingContinent(evento);
+
+      if (continentKey && continentesMap.has(continentKey)) {
+        const continente = continentesMap.get(continentKey);
+        continente.total += 1;
+        if (country && country !== "--") continente.countriesSet.add(country);
+        if (city && city !== "--") continente.citiesSet.add(city);
+      }
+
+      if (country && country !== "--") {
+        if (!paisesMap.has(country)) {
+          paisesMap.set(country, {
+            label: country,
+            total: 0,
+          });
+        }
+        paisesMap.get(country).total += 1;
+      }
+
+      if (city && city !== "--") {
+        if (!cidadesMap.has(city)) {
+          cidadesMap.set(city, {
+            label: city,
+            total: 0,
+          });
+        }
+        cidadesMap.get(city).total += 1;
+      }
+    });
+
+    const continentes = TRACKING_WORLD_REGIONS.map((regiao) => {
+      const item = continentesMap.get(regiao.key);
+      return {
+        ...regiao,
+        total: item?.total || 0,
+        active: (item?.total || 0) > 0,
+        countriesTotal: item?.countriesSet?.size || 0,
+        citiesTotal: item?.citiesSet?.size || 0,
+      };
+    });
+    const continentesAtivos = continentes.filter((item) => item.active);
+    const topContinente =
+      [...continentes]
+        .sort((a, b) => {
+          if (b.total !== a.total) return b.total - a.total;
+          return a.label.localeCompare(b.label);
+        })
+        .find((item) => item.total > 0) || null;
+    const maiorContinenteTotal = continentes.reduce(
+      (maior, item) => Math.max(maior, item.total),
+      0
+    );
+    const continentesComIntensidade = continentes.map((item) => ({
+      ...item,
+      intensidadePercentual:
+        maiorContinenteTotal > 0 ? Math.max((item.total / maiorContinenteTotal) * 100, 12) : 0,
+    }));
+    const rankingPaises = Array.from(paisesMap.values())
+      .sort((a, b) => {
+        if (b.total !== a.total) return b.total - a.total;
+        return a.label.localeCompare(b.label);
+      })
+      .slice(0, 5);
+    const rankingCidades = Array.from(cidadesMap.values())
+      .sort((a, b) => {
+        if (b.total !== a.total) return b.total - a.total;
+        return a.label.localeCompare(b.label);
+      })
+      .slice(0, 5);
 
     const resumoCards = itemAtual
       ? [
@@ -1767,8 +2090,40 @@ function ListaAcessos() {
       : [];
 
     return {
+      continentes: continentesComIntensidade,
+      continentesAtivos,
       eventosFiltrados,
+      geoResumoCards: [
+        {
+          label: "Continentes ativos",
+          value: String(continentesAtivos.length),
+          detail: continentesAtivos.length
+            ? continentesAtivos.map((item) => item.shortLabel).join(" | ")
+            : "Sem continente identificado",
+        },
+        {
+          label: "Pico continental",
+          value: topContinente?.label || "--",
+          detail: topContinente ? `${topContinente.total} evento(s)` : "Sem pico geografico",
+        },
+        {
+          label: "Paises unicos",
+          value: String(paisesMap.size),
+          detail: rankingPaises.length
+            ? rankingPaises.map((item) => `${item.label} (${item.total})`).join(" | ")
+            : "Sem paises suficientes",
+        },
+        {
+          label: "Cidades unicas",
+          value: String(cidadesMap.size),
+          detail: rankingCidades.length
+            ? rankingCidades.map((item) => `${item.label} (${item.total})`).join(" | ")
+            : "Sem cidades suficientes",
+        },
+      ],
       grupos,
+      rankingCidades,
+      rankingPaises,
       resumoCards,
     };
   }, [detalheRastreavel]);
@@ -2698,6 +3053,129 @@ function ListaAcessos() {
               </article>
             ))}
           </div>
+
+          <section className="gerenciador-acessos__tracking-geo-panel">
+            <div className="gerenciador-acessos__tracking-box-head">
+              <strong>Geolocalizacao continental</strong>
+              <span>{`${detalheRastreavelAnalise.continentesAtivos.length} continente(s) com leitura`}</span>
+            </div>
+
+            <div className="gerenciador-acessos__tracking-geo-layout">
+              <div className="gerenciador-acessos__tracking-geo-map-wrap">
+                <svg
+                  className="gerenciador-acessos__tracking-geo-map"
+                  viewBox="0 0 960 420"
+                  role="img"
+                  aria-label="Mapa-mundi estilizado com atividade por continente"
+                >
+                  <defs>
+                    <linearGradient id="trackingGeoGrid" x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" stopColor="currentColor" stopOpacity="0.08" />
+                      <stop offset="100%" stopColor="currentColor" stopOpacity="0.02" />
+                    </linearGradient>
+                  </defs>
+
+                  <rect x="0" y="0" width="960" height="420" fill="url(#trackingGeoGrid)" />
+
+                  {TRACKING_WORLD_REGIONS.map((regiao) => {
+                    const item =
+                      detalheRastreavelAnalise.continentes.find(
+                        (continente) => continente.key === regiao.key
+                      ) || regiao;
+                    return (
+                      <g
+                        key={regiao.key}
+                        className={`gerenciador-acessos__tracking-geo-region${
+                          item.active ? " is-active" : ""
+                        }`}
+                        style={
+                          item.active
+                            ? { ["--tracking-geo-intensity"]: `${item.intensidadePercentual}%` }
+                            : undefined
+                        }
+                      >
+                        <path d={regiao.path} />
+                        <circle
+                          className="gerenciador-acessos__tracking-geo-pulse"
+                          cx={regiao.pulseX}
+                          cy={regiao.pulseY}
+                          r="10"
+                        />
+                        <text x={regiao.labelX} y={regiao.labelY}>
+                          {`${regiao.shortLabel} ${item.total || 0}`}
+                        </text>
+                      </g>
+                    );
+                  })}
+                </svg>
+              </div>
+
+              <div className="gerenciador-acessos__tracking-geo-summary">
+                <div className="gerenciador-acessos__tracking-timeline-summary">
+                  {detalheRastreavelAnalise.geoResumoCards.map((item) => (
+                    <article
+                      className="gerenciador-acessos__tracking-timeline-summary-item"
+                      key={`${detalheRastreavel.item.key}-geo-${item.label}`}
+                    >
+                      <span className="gerenciador-acessos__tracking-label">{item.label}</span>
+                      <strong className="gerenciador-acessos__tracking-value">{item.value}</strong>
+                      <span className="gerenciador-acessos__tracking-detail">{item.detail}</span>
+                    </article>
+                  ))}
+                </div>
+
+                <div className="gerenciador-acessos__tracking-geo-stacks">
+                  <article className="gerenciador-acessos__tracking-detail-group">
+                    <div className="gerenciador-acessos__tracking-detail-group-head">
+                      <strong>Paises mais recorrentes</strong>
+                      <span>{`${detalheRastreavelAnalise.rankingPaises.length} destaque(s)`}</span>
+                    </div>
+                    {detalheRastreavelAnalise.rankingPaises.length ? (
+                      <ol className="gerenciador-acessos__tracking-list">
+                        {detalheRastreavelAnalise.rankingPaises.map((item) => (
+                          <li
+                            className="gerenciador-acessos__tracking-item"
+                            key={`${detalheRastreavel.item.key}-pais-${item.label}`}
+                          >
+                            <strong>{item.label}</strong>
+                            <span>{`${item.total} evento(s)`}</span>
+                          </li>
+                        ))}
+                      </ol>
+                    ) : (
+                      <p className="gerenciador-acessos__empty">
+                        Sem paises suficientes para montar o mapa.
+                      </p>
+                    )}
+                  </article>
+
+                  <article className="gerenciador-acessos__tracking-detail-group">
+                    <div className="gerenciador-acessos__tracking-detail-group-head">
+                      <strong>Cidades mais recorrentes</strong>
+                      <span>{`${detalheRastreavelAnalise.rankingCidades.length} destaque(s)`}</span>
+                    </div>
+                    {detalheRastreavelAnalise.rankingCidades.length ? (
+                      <ol className="gerenciador-acessos__tracking-list">
+                        {detalheRastreavelAnalise.rankingCidades.map((item) => (
+                          <li
+                            className="gerenciador-acessos__tracking-item"
+                            key={`${detalheRastreavel.item.key}-cidade-${item.label}`}
+                          >
+                            <strong>{item.label}</strong>
+                            <span>{`${item.total} evento(s)`}</span>
+                          </li>
+                        ))}
+                      </ol>
+                    ) : (
+                      <p className="gerenciador-acessos__empty">
+                        Sem cidades suficientes para resumir neste recorte.
+                      </p>
+                    )}
+                  </article>
+                </div>
+              </div>
+            </div>
+          </section>
 
           <div className="gerenciador-acessos__tracking-detail-controls">
             <label className="gerenciador-acessos__filter gerenciador-acessos__filter--compact">
