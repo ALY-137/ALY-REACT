@@ -4380,6 +4380,56 @@ body.theme-cyberpink .espaco-trackable-links__timeline-head {
   flex-wrap: wrap;
 }
 
+body.theme-cyberpink .espaco-trackable-links__timeline-controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: end;
+}
+
+body.theme-cyberpink .espaco-trackable-links__timeline-filter {
+  display: grid;
+  gap: 4px;
+  min-width: 124px;
+}
+
+body.theme-cyberpink .espaco-trackable-links__timeline-filter input {
+  min-height: 30px;
+  padding: 5px 8px;
+  color: var(--cyberpink-subtheme-text);
+  font-family: "DotGothic16", sans-serif;
+  font-size: 11px;
+  background: color-mix(in srgb, var(--cyberpink-subtheme-card-surface-shadow) 78%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cyberpink-subtheme-card-frame) 58%, transparent);
+  outline: none;
+}
+
+body.theme-cyberpink .espaco-trackable-links__button--active {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 10%, transparent),
+    0 0 10px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 16%, transparent);
+}
+
+body.theme-cyberpink .espaco-trackable-links__timeline-groups {
+  display: grid;
+  gap: 8px;
+}
+
+body.theme-cyberpink .espaco-trackable-links__timeline-group {
+  display: grid;
+  gap: 7px;
+  padding: 8px;
+  background: color-mix(in srgb, var(--cyberpink-subtheme-card-surface) 48%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cyberpink-subtheme-card-frame) 34%, transparent);
+}
+
+body.theme-cyberpink .espaco-trackable-links__timeline-group-head {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
 body.theme-cyberpink .espaco-trackable-links__timeline-list {
   display: grid;
   gap: 7px;
@@ -4414,6 +4464,15 @@ body.theme-cyberpink .espaco-trackable-links__success {
 
   body.theme-cyberpink .espaco-trackable-links__actions {
     justify-content: flex-start;
+  }
+
+  body.theme-cyberpink .espaco-trackable-links__timeline-controls {
+    align-items: stretch;
+  }
+
+  body.theme-cyberpink .espaco-trackable-links__timeline-filter {
+    min-width: 0;
+    width: 100%;
   }
 }
 

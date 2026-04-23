@@ -86,6 +86,9 @@ const criarEstadoHistoricoLinkRastreavel = (patch = {}) => ({
   loading: false,
   erro: "",
   itens: [],
+  filtroDataInicio: "",
+  filtroDataFim: "",
+  agruparPorNavigationId: true,
   ...patch,
 });
 
@@ -112,6 +115,25 @@ const formatarDataCurta = (value = null) => {
   if (Number.isNaN(date.getTime())) return "--";
   return date.toLocaleString("pt-BR");
 };
+
+const resolveDataTimestampMs = (value = null) => {
+  if (!value) return NaN;
+  if (typeof value?.toDate === "function") return value.toDate().getTime();
+  if (Number.isFinite(Number(value?.seconds))) return Number(value.seconds) * 1000;
+  const parsed = value instanceof Date ? value.getTime() : new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : NaN;
+};
+
+const resolveHistoricoNavigationId = (acesso = {}) =>
+  String(acesso?.navigationId || acesso?.visitorHash || acesso?.hash || "").trim();
+
+const buildHistoricoLocalizacao = (acesso = {}) => {
+  const cidade = String(acesso?.city || acesso?.cidade || "").trim();
+  const pais = String(acesso?.country || acesso?.pais || "").trim();
+  return [cidade, pais].filter(Boolean).join(", ") || "--";
+};
+
+const csvEscape = (value = "") => `"${String(value ?? "").replace(/"/g, '""')}"`;
 
 const buildIconSelectionValue = (espaco = {}) => {
   const collectionId = String(espaco?.iconCollectionId || "").trim();
@@ -682,6 +704,30 @@ export default function EspacoManager() {
     });
   }, []);
 
+  const atualizarHistoricoLinkRastreavel = useCallback(
+    (espacoId = "", trackingId = "", patch = {}) => {
+      const chaveEspaco = String(espacoId || "").trim();
+      const chaveTracking = String(trackingId || "").trim();
+      if (!chaveEspaco || !chaveTracking) return;
+
+      atualizarEstadoLinksEspaco(chaveEspaco, (prev) => {
+        const atual =
+          prev.historicos?.[chaveTracking] || criarEstadoHistoricoLinkRastreavel();
+        const proximoPatch = typeof patch === "function" ? patch(atual) : patch;
+        return {
+          historicos: {
+            ...(prev.historicos || {}),
+            [chaveTracking]: {
+              ...atual,
+              ...proximoPatch,
+            },
+          },
+        };
+      });
+    },
+    [atualizarEstadoLinksEspaco]
+  );
+
   const obterSkinUsernameAtual = useCallback(() => {
     if (typeof window === "undefined") return "";
     return String(
@@ -915,6 +961,47 @@ export default function EspacoManager() {
     [atualizarEstadoLinksEspaco]
   );
 
+  const carregarHistoricoAcessosLinkRastreavel = useCallback(
+    async (espacoId = "", trackingId = "", { abrir = true } = {}) => {
+      const espacoIdAtual = String(espacoId || "").trim();
+      const trackingIdNormalizado = String(trackingId || "").trim();
+      if (!espacoIdAtual || !trackingIdNormalizado) return;
+
+      atualizarHistoricoLinkRastreavel(espacoIdAtual, trackingIdNormalizado, (atual) => ({
+        ...atual,
+        aberto: abrir ? true : atual.aberto,
+        loading: true,
+        erro: "",
+      }));
+
+      try {
+        const itens = await listarAcessosLinkRastreavelEspaco({
+          trackingId: trackingIdNormalizado,
+          limite: 50,
+        });
+        atualizarHistoricoLinkRastreavel(espacoIdAtual, trackingIdNormalizado, (atual) => ({
+          ...atual,
+          aberto: abrir ? true : atual.aberto,
+          loading: false,
+          erro: "",
+          itens,
+        }));
+      } catch (error) {
+        atualizarHistoricoLinkRastreavel(espacoIdAtual, trackingIdNormalizado, (atual) => ({
+          ...atual,
+          aberto: abrir ? true : atual.aberto,
+          loading: false,
+          erro:
+            error?.code === "permission-denied"
+              ? "Sem permissao para carregar os acessos deste link."
+              : error?.message || "Falha ao carregar acessos deste link.",
+          itens: [],
+        }));
+      }
+    },
+    [atualizarHistoricoLinkRastreavel]
+  );
+
   const alternarHistoricoAcessosLinkRastreavel = useCallback(
     async (espacoId = "", trackingId = "") => {
       const espacoIdAtual = String(espacoId || "").trim();
@@ -927,65 +1014,82 @@ export default function EspacoManager() {
         criarEstadoHistoricoLinkRastreavel();
 
       if (historicoAtual.aberto && !historicoAtual.loading) {
-        atualizarEstadoLinksEspaco(espacoIdAtual, (prev) => ({
-          historicos: {
-            ...(prev.historicos || {}),
-            [trackingIdNormalizado]: {
-              ...historicoAtual,
-              aberto: false,
-            },
-          },
-        }));
+        atualizarHistoricoLinkRastreavel(espacoIdAtual, trackingIdNormalizado, {
+          ...historicoAtual,
+          aberto: false,
+        });
         return;
       }
 
-      atualizarEstadoLinksEspaco(espacoIdAtual, (prev) => ({
-        historicos: {
-          ...(prev.historicos || {}),
-          [trackingIdNormalizado]: {
-            ...historicoAtual,
-            aberto: true,
-            loading: true,
-            erro: "",
-          },
-        },
-      }));
-
-      try {
-        const itens = await listarAcessosLinkRastreavelEspaco({
-          trackingId: trackingIdNormalizado,
-          limite: 50,
-        });
-        atualizarEstadoLinksEspaco(espacoIdAtual, (prev) => ({
-          historicos: {
-            ...(prev.historicos || {}),
-            [trackingIdNormalizado]: {
-              aberto: true,
-              loading: false,
-              erro: "",
-              itens,
-            },
-          },
-        }));
-      } catch (error) {
-        atualizarEstadoLinksEspaco(espacoIdAtual, (prev) => ({
-          historicos: {
-            ...(prev.historicos || {}),
-            [trackingIdNormalizado]: {
-              aberto: true,
-              loading: false,
-              erro:
-                error?.code === "permission-denied"
-                  ? "Sem permissao para carregar os acessos deste link."
-                  : error?.message || "Falha ao carregar acessos deste link.",
-              itens: [],
-            },
-          },
-        }));
-      }
+      await carregarHistoricoAcessosLinkRastreavel(espacoIdAtual, trackingIdNormalizado, {
+        abrir: true,
+      });
     },
-    [atualizarEstadoLinksEspaco, linksRastreaveisPorEspaco]
+    [
+      atualizarHistoricoLinkRastreavel,
+      carregarHistoricoAcessosLinkRastreavel,
+      linksRastreaveisPorEspaco,
+    ]
   );
+
+  const exportarHistoricoAcessosLinkRastreavel = useCallback((link = {}, itens = []) => {
+    if (typeof window === "undefined") return;
+    const lista = Array.isArray(itens) ? itens : [];
+    if (!lista.length) return;
+
+    const trackingId = String(link?.trackingId || link?.id || "link").trim() || "link";
+    const linhas = [
+      [
+        "trackingId",
+        "dataHora",
+        "navigationId",
+        "usuario",
+        "localizacao",
+        "ip",
+        "origemPlanejada",
+        "destinoUrl",
+        "userAgent",
+      ].join(";"),
+      ...lista.map((acesso) => {
+        const dataMs = resolveDataTimestampMs(acesso?.data || acesso?.criadoEm);
+        const dataIso =
+          Number.isFinite(dataMs) && dataMs > 0 ? new Date(dataMs).toISOString() : "";
+        const navigationId = resolveHistoricoNavigationId(acesso) || "--";
+        const usuario = String(acesso?.email || acesso?.uid || "Visitante").trim();
+        const localizacao = buildHistoricoLocalizacao(acesso);
+        const ip = String(acesso?.ip || "").trim() || "--";
+        const origemPlanejada = String(
+          acesso?.origemPlanejada || link?.origemPlanejada || link?.descricao || ""
+        ).trim();
+        const destinoUrl = String(acesso?.destinoUrl || link?.destinoUrl || "").trim();
+        const userAgent = String(acesso?.userAgent || "").trim();
+
+        return [
+          csvEscape(trackingId),
+          csvEscape(dataIso),
+          csvEscape(navigationId),
+          csvEscape(usuario),
+          csvEscape(localizacao),
+          csvEscape(ip),
+          csvEscape(origemPlanejada),
+          csvEscape(destinoUrl),
+          csvEscape(userAgent),
+        ].join(";");
+      }),
+    ];
+
+    const blob = new Blob([`\uFEFF${linhas.join("\n")}`], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `historico-link-rastreavel-${trackingId}.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.URL.revokeObjectURL(url);
+  }, []);
 
   const excluirLinkRastreavelDoEspaco = useCallback(
     async (espacoId = "", trackingId = "") => {
@@ -1113,6 +1217,46 @@ export default function EspacoManager() {
               const acessosHistorico = Array.isArray(historicoLink.itens)
                 ? historicoLink.itens
                 : [];
+              const filtroDataInicio = String(historicoLink.filtroDataInicio || "").trim();
+              const filtroDataFim = String(historicoLink.filtroDataFim || "").trim();
+              const filtroInicioMs = filtroDataInicio
+                ? new Date(`${filtroDataInicio}T00:00:00`).getTime()
+                : NaN;
+              const filtroFimMs = filtroDataFim
+                ? new Date(`${filtroDataFim}T23:59:59.999`).getTime()
+                : NaN;
+              const acessosHistoricoFiltrados = acessosHistorico.filter((acesso) => {
+                const dataMs = resolveDataTimestampMs(acesso?.data || acesso?.criadoEm);
+                if (Number.isFinite(filtroInicioMs) && (!Number.isFinite(dataMs) || dataMs < filtroInicioMs)) {
+                  return false;
+                }
+                if (Number.isFinite(filtroFimMs) && (!Number.isFinite(dataMs) || dataMs > filtroFimMs)) {
+                  return false;
+                }
+                return true;
+              });
+              const gruposHistorico = historicoLink.agruparPorNavigationId
+                ? Object.values(
+                    acessosHistoricoFiltrados.reduce((acc, acesso) => {
+                      const navigationId =
+                        resolveHistoricoNavigationId(acesso) || "sem_identificador";
+                      if (!acc[navigationId]) {
+                        acc[navigationId] = {
+                          navigationId,
+                          itens: [],
+                          ultimoAcessoMs: 0,
+                        };
+                      }
+                      const dataMs = resolveDataTimestampMs(acesso?.data || acesso?.criadoEm);
+                      acc[navigationId].itens.push(acesso);
+                      acc[navigationId].ultimoAcessoMs = Math.max(
+                        acc[navigationId].ultimoAcessoMs,
+                        Number.isFinite(dataMs) ? dataMs : 0
+                      );
+                      return acc;
+                    }, {})
+                  ).sort((a, b) => b.ultimoAcessoMs - a.ultimoAcessoMs)
+                : [];
 
               return (
                 <article className="espaco-trackable-links__item" key={trackingId}>
@@ -1169,26 +1313,130 @@ export default function EspacoManager() {
                     <div className="espaco-trackable-links__timeline">
                       <div className="espaco-trackable-links__timeline-head">
                         <strong>Linha do tempo de acessos</strong>
-                        <span>{`${acessosHistorico.length} evento(s)`}</span>
+                        <span>{`${acessosHistoricoFiltrados.length} evento(s) exibido(s)`}</span>
+                      </div>
+                      <div className="espaco-trackable-links__timeline-controls">
+                        <label className="espaco-trackable-links__timeline-filter">
+                          <span>De</span>
+                          <input
+                            type="date"
+                            value={filtroDataInicio}
+                            onChange={(event) => {
+                              atualizarHistoricoLinkRastreavel(espacoIdAtual, trackingId, {
+                                filtroDataInicio: event.target.value,
+                              });
+                            }}
+                          />
+                        </label>
+                        <label className="espaco-trackable-links__timeline-filter">
+                          <span>Ate</span>
+                          <input
+                            type="date"
+                            value={filtroDataFim}
+                            onChange={(event) => {
+                              atualizarHistoricoLinkRastreavel(espacoIdAtual, trackingId, {
+                                filtroDataFim: event.target.value,
+                              });
+                            }}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          className={`espaco-trackable-links__button${
+                            historicoLink.agruparPorNavigationId
+                              ? " espaco-trackable-links__button--active"
+                              : ""
+                          }`}
+                          onClick={() => {
+                            atualizarHistoricoLinkRastreavel(espacoIdAtual, trackingId, {
+                              agruparPorNavigationId: !historicoLink.agruparPorNavigationId,
+                            });
+                          }}
+                        >
+                          {historicoLink.agruparPorNavigationId
+                            ? "Agrupado por identificador"
+                            : "Ver eventos soltos"}
+                        </button>
+                        <button
+                          type="button"
+                          className="espaco-trackable-links__button"
+                          onClick={() => {
+                            void carregarHistoricoAcessosLinkRastreavel(espacoIdAtual, trackingId);
+                          }}
+                          disabled={historicoLink.loading}
+                        >
+                          {historicoLink.loading ? "Atualizando..." : "Atualizar acessos"}
+                        </button>
+                        <button
+                          type="button"
+                          className="espaco-trackable-links__button"
+                          onClick={() => {
+                            exportarHistoricoAcessosLinkRastreavel(link, acessosHistoricoFiltrados);
+                          }}
+                          disabled={!acessosHistoricoFiltrados.length}
+                        >
+                          Exportar CSV
+                        </button>
                       </div>
                       {historicoLink.erro ? (
                         <p className="espaco-trackable-links__error">{historicoLink.erro}</p>
                       ) : historicoLink.loading ? (
                         <p className="espaco-trackable-links__empty">Carregando acessos...</p>
-                      ) : acessosHistorico.length ? (
+                      ) : acessosHistoricoFiltrados.length ? (
+                        historicoLink.agruparPorNavigationId ? (
+                          <div className="espaco-trackable-links__timeline-groups">
+                            {gruposHistorico.map((grupo) => (
+                              <article
+                                className="espaco-trackable-links__timeline-group"
+                                key={`${trackingId}-${grupo.navigationId}`}
+                              >
+                                <div className="espaco-trackable-links__timeline-group-head">
+                                  <strong>
+                                    {grupo.navigationId === "sem_identificador"
+                                      ? "Sem identificador de navegacao"
+                                      : `Identificador ${grupo.navigationId}`}
+                                  </strong>
+                                  <span>{`${grupo.itens.length} evento(s)`}</span>
+                                  <span>{`Ultimo acesso: ${formatarDataCurta(grupo.ultimoAcessoMs)}`}</span>
+                                </div>
+                                <ol className="espaco-trackable-links__timeline-list">
+                                  {grupo.itens.map((acesso) => {
+                                    const acessoId = String(acesso?.id || "").trim();
+                                    const localizacao = buildHistoricoLocalizacao(acesso);
+                                    const usuario =
+                                      String(acesso?.email || acesso?.uid || "").trim() ||
+                                      "Visitante";
+
+                                    return (
+                                      <li
+                                        className="espaco-trackable-links__timeline-event"
+                                        key={
+                                          acessoId ||
+                                          `${trackingId}-${grupo.navigationId}-${formatarDataCurta(
+                                            acesso?.data
+                                          )}`
+                                        }
+                                      >
+                                        <span>{formatarDataCurta(acesso?.data || acesso?.criadoEm)}</span>
+                                        <span>{`Usuario: ${usuario}`}</span>
+                                        <span>{`Local: ${localizacao}`}</span>
+                                        <span>{`IP: ${String(acesso?.ip || "").trim() || "--"}`}</span>
+                                        <span>{`Dispositivo: ${
+                                          String(acesso?.userAgent || "").trim() || "--"
+                                        }`}</span>
+                                      </li>
+                                    );
+                                  })}
+                                </ol>
+                              </article>
+                            ))}
+                          </div>
+                        ) : (
                         <ol className="espaco-trackable-links__timeline-list">
-                          {acessosHistorico.map((acesso) => {
+                          {acessosHistoricoFiltrados.map((acesso) => {
                             const acessoId = String(acesso?.id || "").trim();
-                            const navigationId = String(
-                              acesso?.navigationId ||
-                                acesso?.visitorHash ||
-                                acesso?.hash ||
-                                "--"
-                            ).trim();
-                            const cidade = String(acesso?.city || acesso?.cidade || "").trim();
-                            const pais = String(acesso?.country || acesso?.pais || "").trim();
-                            const localizacao =
-                              [cidade, pais].filter(Boolean).join(", ") || "--";
+                            const navigationId = resolveHistoricoNavigationId(acesso) || "--";
+                            const localizacao = buildHistoricoLocalizacao(acesso);
                             const usuario =
                               String(acesso?.email || acesso?.uid || "").trim() || "Visitante";
 
@@ -1209,9 +1457,10 @@ export default function EspacoManager() {
                             );
                           })}
                         </ol>
+                        )
                       ) : (
                         <p className="espaco-trackable-links__empty">
-                          Nenhum acesso registrado para este link ainda.
+                          Nenhum acesso encontrado para os filtros aplicados.
                         </p>
                       )}
                     </div>
