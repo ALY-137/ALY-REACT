@@ -212,8 +212,67 @@
   gap: 4px;
 }
 
+.gerenciador-acessos__tracking-item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.gerenciador-acessos__tracking-item-button,
+.gerenciador-acessos__tracking-detail-close,
+.gerenciador-acessos__tracking-detail-danger {
+  min-height: 34px;
+  padding: 7px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  cursor: pointer;
+}
+
 .gerenciador-acessos__tracking-box--wide {
   grid-column: 1 / -1;
+}
+
+.gerenciador-acessos__tracking-detail-panel {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.gerenciador-acessos__tracking-detail-head,
+.gerenciador-acessos__tracking-detail-actions,
+.gerenciador-acessos__tracking-detail-controls,
+.gerenciador-acessos__tracking-detail-group-head {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.gerenciador-acessos__tracking-detail-meta {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.gerenciador-acessos__tracking-detail-groups {
+  display: grid;
+  gap: 12px;
+}
+
+.gerenciador-acessos__tracking-detail-group {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.16);
 }
 
 .gerenciador-acessos__tracking-timeline-summary {
@@ -321,7 +380,10 @@
 
 .gerenciador-acessos__block-form button:disabled,
 .gerenciador-acessos__blocked-chip button:disabled,
-.gerenciador-acessos__ip-action:disabled {
+.gerenciador-acessos__ip-action:disabled,
+.gerenciador-acessos__tracking-item-button:disabled,
+.gerenciador-acessos__tracking-detail-close:disabled,
+.gerenciador-acessos__tracking-detail-danger:disabled {
   opacity: 0.5;
   cursor: default;
 }
@@ -358,6 +420,12 @@
 }
 
 .gerenciador-acessos__ip-action--danger {
+  border-color: rgba(255, 89, 145, 0.38);
+  background: rgba(255, 60, 128, 0.1);
+  color: #ffc1d8;
+}
+
+.gerenciador-acessos__tracking-detail-danger {
   border-color: rgba(255, 89, 145, 0.38);
   background: rgba(255, 60, 128, 0.1);
   color: #ffc1d8;
@@ -583,11 +651,18 @@
   }
 
   .gerenciador-acessos__tracking-head,
-  .gerenciador-acessos__tracking-box-head {
+  .gerenciador-acessos__tracking-box-head,
+  .gerenciador-acessos__tracking-detail-head,
+  .gerenciador-acessos__tracking-detail-controls,
+  .gerenciador-acessos__tracking-detail-group-head {
     align-items: stretch;
   }
 
   .gerenciador-acessos__tracking-actions {
+    justify-content: stretch;
+  }
+
+  .gerenciador-acessos__tracking-detail-actions {
     justify-content: stretch;
   }
 

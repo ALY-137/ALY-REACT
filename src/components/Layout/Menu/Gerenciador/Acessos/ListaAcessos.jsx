@@ -12,6 +12,16 @@ import {
   salvarConfigAcessosNoGerenciador,
 } from "../../../Sistema/gerenciadorSistemasApi";
 import { obterManagerProjectLabel } from "../../../Sistema/configSistema";
+import {
+  criarLinkRastreavelEspaco,
+  excluirLinkRastreavelEspaco,
+  listarAcessosLinkRastreavelEspaco,
+} from "../../../Espacos/trackableLinksApi";
+import {
+  criarQrPrintCard,
+  excluirQrPrintCard,
+  listarLeiturasQrPrint,
+} from "../../../Espacos/qrPrintsApi";
 import "./acessos.css";
 
 const GROUP_PAGE_SIZE = 12;
@@ -251,6 +261,41 @@ function escapeCsvValue(value) {
   return text;
 }
 
+function buildAbsolutePanelUrl(route = "") {
+  const normalizedRoute = normalizeText(route);
+  if (!normalizedRoute || typeof window === "undefined") return normalizedRoute;
+  try {
+    return new URL(normalizedRoute, window.location.origin).href;
+  } catch {
+    return normalizedRoute;
+  }
+}
+
+function resolveHistoricoNavigationId(item = {}) {
+  return normalizeText(item?.navigationId || item?.visitorHash || item?.hash || item?.navegacaoHash);
+}
+
+function buildHistoricoLocalizacao(item = {}) {
+  const city = resolveGeoText(item?.city, item?.cidade);
+  const country = resolveGeoText(item?.country, item?.pais);
+  return buildTrackingLocationLabel(city, country) || "--";
+}
+
+function criarEstadoDetalheRastreavel() {
+  return {
+    aberto: false,
+    item: null,
+    eventos: [],
+    loading: false,
+    erro: "",
+    mensagem: "",
+    filtroDataInicio: "",
+    filtroDataFim: "",
+    agruparPorNavigationId: true,
+    acaoEmAndamento: "",
+  };
+}
+
 function resolveDataTimestampMs(value) {
   if (!value) return NaN;
   if (typeof value?.toDate === "function") {
@@ -308,6 +353,7 @@ function ListaAcessos() {
   const [filtroPainelEspaco, setFiltroPainelEspaco] = useState("");
   const [filtroPainelOrigem, setFiltroPainelOrigem] = useState("");
   const [filtroPainelLocal, setFiltroPainelLocal] = useState("");
+  const [detalheRastreavel, setDetalheRastreavel] = useState(criarEstadoDetalheRastreavel);
   const [erro, setErro] = useState("");
   const [carregando, setCarregando] = useState(false);
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState(null);
@@ -655,6 +701,26 @@ function ListaAcessos() {
     });
     return mapa;
   }, [projetos]);
+
+  const linksRastreaveisMap = useMemo(() => {
+    const mapa = new Map();
+    linksRastreaveis.forEach((item) => {
+      const trackingId = resolveTrackableLinkId(item);
+      if (!trackingId) return;
+      mapa.set(trackingId, item);
+    });
+    return mapa;
+  }, [linksRastreaveis]);
+
+  const qrPrintsRastreaveisMap = useMemo(() => {
+    const mapa = new Map();
+    qrPrintsRastreaveis.forEach((item) => {
+      const printId = resolveQrPrintId(item);
+      if (!printId) return;
+      mapa.set(printId, item);
+    });
+    return mapa;
+  }, [qrPrintsRastreaveis]);
 
   const opcoesProjeto = useMemo(
     () =>
@@ -1149,6 +1215,392 @@ function ListaAcessos() {
     painelTemFiltrosAtivos,
   ]);
 
+  const resolverItemDetalheRastreavel = useCallback(
+    (itemBase = null) => {
+      const kind = normalizeText(itemBase?.kind || itemBase?.tipo).toLowerCase();
+      const itemId = normalizeText(
+        itemBase?.itemId || itemBase?.trackingId || itemBase?.printId || itemBase?.qrPrintId || itemBase?.id
+      );
+      if (!kind || !itemId) return null;
+
+      if (kind === "link") {
+        const raw = linksRastreaveisMap.get(itemId) || null;
+        const projectKey = normalizeText(raw?.runtimeProjectKey).toLowerCase();
+        const projectLabel =
+          normalizeText(itemBase?.projectLabel) ||
+          normalizeText(projetosMap.get(projectKey)?.nomeProjeto) ||
+          projectKey ||
+          managerProjectLabel;
+        const trackingRoute =
+          normalizeText(raw?.trackingRoute) || normalizeText(raw?.urlRastreavel) || `/r/${itemId}`;
+
+        return {
+          key: `link:${itemId}`,
+          kind: "link",
+          kindLabel: "Link rastreavel",
+          itemId,
+          titulo:
+            normalizeText(raw?.origemPlanejada || raw?.descricao || itemBase?.titulo) ||
+            "Link rastreavel",
+          detail: `Tracking ID: ${itemId}`,
+          status: resolveTrackableLinkStatus(raw || itemBase || {}),
+          spaceLabel: normalizeText(itemBase?.spaceLabel) || resolveTrackableSpaceLabel(raw || itemBase || {}),
+          projectLabel,
+          destinoUrl: normalizeText(raw?.destinoUrl || itemBase?.destino),
+          rastreavelUrl: buildAbsolutePanelUrl(trackingRoute),
+          raw,
+        };
+      }
+
+      if (kind === "card") {
+        const raw = qrPrintsRastreaveisMap.get(itemId) || null;
+        const projectKey = normalizeText(raw?.runtimeProjectKey).toLowerCase();
+        const projectLabel =
+          normalizeText(itemBase?.projectLabel) ||
+          normalizeText(projetosMap.get(projectKey)?.nomeProjeto) ||
+          projectKey ||
+          managerProjectLabel;
+        const rastreavelRoute = normalizeText(raw?.urlQr || raw?.rotaQr);
+
+        return {
+          key: `card:${itemId}`,
+          kind: "card",
+          kindLabel: "Card rastreavel",
+          itemId,
+          titulo:
+            normalizeText(raw?.descricaoRegistro || raw?.cardNome || itemBase?.titulo) ||
+            "Card rastreavel",
+          detail:
+            normalizeText(raw?.cardNome || itemBase?.detail) || `Print ID: ${itemId}`,
+          status: resolveQrPrintStatus(raw || itemBase || {}),
+          spaceLabel: normalizeText(itemBase?.spaceLabel) || resolveQrPrintSpaceLabel(raw || itemBase || {}),
+          projectLabel,
+          destinoUrl: normalizeText(raw?.urlCard || itemBase?.destino),
+          rastreavelUrl: buildAbsolutePanelUrl(rastreavelRoute),
+          raw,
+        };
+      }
+
+      return null;
+    },
+    [
+      linksRastreaveisMap,
+      managerProjectLabel,
+      projetosMap,
+      qrPrintsRastreaveisMap,
+    ]
+  );
+
+  const carregarEventosDetalheRastreavel = useCallback(async (itemAtual = null) => {
+    if (!itemAtual?.itemId || !itemAtual?.kind) return [];
+    if (itemAtual.kind === "link") {
+      return listarAcessosLinkRastreavelEspaco({
+        trackingId: itemAtual.itemId,
+        limite: 150,
+      });
+    }
+    if (itemAtual.kind === "card") {
+      return listarLeiturasQrPrint(itemAtual.itemId, { limite: 150 });
+    }
+    return [];
+  }, []);
+
+  const carregarDetalheRastreavel = useCallback(
+    async (itemBase = null, { abrir = true } = {}) => {
+      const itemAtual = resolverItemDetalheRastreavel(itemBase || detalheRastreavel.item);
+      if (!itemAtual) return;
+
+      setDetalheRastreavel((prev) => ({
+        ...prev,
+        aberto: abrir ? true : prev.aberto,
+        item: itemAtual,
+        loading: true,
+        erro: "",
+        mensagem: "",
+      }));
+
+      try {
+        const eventos = await carregarEventosDetalheRastreavel(itemAtual);
+        if (!mountedRef.current) return;
+        setDetalheRastreavel((prev) => ({
+          ...prev,
+          aberto: true,
+          item: itemAtual,
+          eventos: Array.isArray(eventos) ? eventos : [],
+          loading: false,
+          erro: "",
+        }));
+      } catch (error) {
+        if (!mountedRef.current) return;
+        console.error("Erro ao carregar detalhe rastreavel:", error);
+        setDetalheRastreavel((prev) => ({
+          ...prev,
+          aberto: true,
+          item: itemAtual,
+          eventos: [],
+          loading: false,
+          erro:
+            error?.message || "Nao foi possivel carregar o historico deste item rastreavel.",
+        }));
+      }
+    },
+    [carregarEventosDetalheRastreavel, detalheRastreavel.item, resolverItemDetalheRastreavel]
+  );
+
+  const abrirDetalheRastreavel = useCallback(
+    async (itemBase = null) => {
+      await carregarDetalheRastreavel(itemBase, { abrir: true });
+    },
+    [carregarDetalheRastreavel]
+  );
+
+  const fecharDetalheRastreavel = useCallback(() => {
+    setDetalheRastreavel(criarEstadoDetalheRastreavel());
+  }, []);
+
+  const atualizarCampoDetalheRastreavel = useCallback((updates = {}) => {
+    setDetalheRastreavel((prev) => ({
+      ...prev,
+      ...updates,
+    }));
+  }, []);
+
+  const copiarTextoRastreavel = useCallback(async (texto = "", mensagem = "Copiado.") => {
+    const valor = normalizeText(texto);
+    if (!valor) return;
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(valor);
+      } else if (typeof window !== "undefined") {
+        const input = document.createElement("textarea");
+        input.value = valor;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand("copy");
+        input.remove();
+      }
+      if (!mountedRef.current) return;
+      setDetalheRastreavel((prev) => ({
+        ...prev,
+        mensagem,
+        erro: "",
+      }));
+    } catch (error) {
+      if (!mountedRef.current) return;
+      setDetalheRastreavel((prev) => ({
+        ...prev,
+        erro: error?.message || "Nao foi possivel copiar o valor.",
+      }));
+    }
+  }, []);
+
+  const exportarDetalheRastreavelCsv = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const itemAtual = detalheRastreavel.item;
+    if (!itemAtual || !detalheRastreavel.eventos.length) return;
+
+    const dataInicioMs = detalheRastreavel.filtroDataInicio
+      ? new Date(`${detalheRastreavel.filtroDataInicio}T00:00:00`).getTime()
+      : NaN;
+    const dataFimMs = detalheRastreavel.filtroDataFim
+      ? new Date(`${detalheRastreavel.filtroDataFim}T23:59:59.999`).getTime()
+      : NaN;
+
+    const eventosFiltrados = detalheRastreavel.eventos.filter((evento) => {
+      const dataMs = resolveDataTimestampMs(evento?.data || evento?.criadoEm);
+      if (Number.isFinite(dataInicioMs) && (!Number.isFinite(dataMs) || dataMs < dataInicioMs)) {
+        return false;
+      }
+      if (Number.isFinite(dataFimMs) && (!Number.isFinite(dataMs) || dataMs > dataFimMs)) {
+        return false;
+      }
+      return true;
+    });
+
+    if (!eventosFiltrados.length) return;
+
+    const linhas = [
+      [
+        "dataHora",
+        "tipo",
+        "identificador",
+        "usuario",
+        "navigationId",
+        "localizacao",
+        "ip",
+        "origem",
+        "destino",
+        "userAgent",
+      ].join(";"),
+      ...eventosFiltrados.map((evento) =>
+        [
+          escapeCsvValue(formatarData(evento?.data || evento?.criadoEm)),
+          escapeCsvValue(itemAtual.kindLabel),
+          escapeCsvValue(itemAtual.itemId),
+          escapeCsvValue(resolveAccessUserLabel(evento)),
+          escapeCsvValue(resolveHistoricoNavigationId(evento) || "--"),
+          escapeCsvValue(buildHistoricoLocalizacao(evento)),
+          escapeCsvValue(normalizeText(evento?.ip) || "--"),
+          escapeCsvValue(normalizeText(evento?.origemPlanejada || evento?.origem) || "--"),
+          escapeCsvValue(normalizeText(evento?.destinoUrl || evento?.urlCard || itemAtual.destinoUrl) || "--"),
+          escapeCsvValue(normalizeText(evento?.userAgent) || "--"),
+        ].join(";")
+      ),
+    ];
+
+    const blob = new Blob([`\uFEFF${linhas.join("\n")}`], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `detalhe-rastreavel-${itemAtual.kind}-${itemAtual.itemId}.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.URL.revokeObjectURL(url);
+  }, [detalheRastreavel]);
+
+  const duplicarItemRastreavel = useCallback(async () => {
+    const itemAtual = detalheRastreavel.item;
+    if (!itemAtual) return;
+
+    setDetalheRastreavel((prev) => ({
+      ...prev,
+      acaoEmAndamento: "duplicar",
+      erro: "",
+      mensagem: "",
+    }));
+
+    try {
+      if (itemAtual.kind === "link") {
+        const raw = itemAtual.raw || {};
+        await criarLinkRastreavelEspaco({
+          ownerUserId: raw?.ownerUserId,
+          espacoId: raw?.espacoId,
+          espacoNome: raw?.espacoNome,
+          skinsUsername: raw?.skinsUsername,
+          destinoUrl: raw?.destinoUrl,
+          descricao:
+            normalizeText(raw?.descricao || raw?.origemPlanejada || itemAtual.titulo) || "Copia",
+          origemPlanejada:
+            normalizeText(raw?.origemPlanejada || raw?.descricao || itemAtual.titulo) || "Copia",
+          permissaoCriarLinks: raw?.permissaoCriarLinks,
+          permissaoHistoricoLinks: raw?.permissaoHistoricoLinks,
+        });
+      } else if (itemAtual.kind === "card") {
+        const raw = itemAtual.raw || {};
+        await criarQrPrintCard({
+          ownerUserId: raw?.ownerUserId,
+          espacoId: raw?.espacoId,
+          espacoNome: raw?.espacoNome,
+          skinsUsername: raw?.skinsUsername,
+          oneOwnerPublicaAtiva: Boolean(raw?.oneOwnerPublicaAtiva),
+          bloco: {
+            id: raw?.blocoId,
+            titulo: raw?.blocoTitulo,
+          },
+          card: {
+            id: raw?.cardId,
+            nome: raw?.cardNome,
+          },
+          rotaCard: raw?.rotaCard,
+          urlCard: raw?.urlCard,
+          descricaoRegistro:
+            normalizeText(raw?.descricaoRegistro || itemAtual.titulo || raw?.cardNome) || "Copia",
+        });
+      }
+
+      if (!mountedRef.current) return;
+      setDetalheRastreavel((prev) => ({
+        ...prev,
+        acaoEmAndamento: "",
+        mensagem: `${itemAtual.kindLabel} duplicado com sucesso.`,
+      }));
+      await carregarPainelRastreavel();
+    } catch (error) {
+      if (!mountedRef.current) return;
+      console.error("Erro ao duplicar item rastreavel:", error);
+      setDetalheRastreavel((prev) => ({
+        ...prev,
+        acaoEmAndamento: "",
+        erro: error?.message || "Nao foi possivel duplicar este item rastreavel.",
+      }));
+    }
+  }, [carregarPainelRastreavel, detalheRastreavel.item]);
+
+  const excluirItemRastreavelSelecionado = useCallback(async () => {
+    const itemAtual = detalheRastreavel.item;
+    if (!itemAtual) return;
+    const confirmado =
+      typeof window === "undefined" ||
+      window.confirm(
+        `Excluir ${itemAtual.kind === "link" ? "este link" : "este card"} rastreavel?`
+      );
+    if (!confirmado) return;
+
+    setDetalheRastreavel((prev) => ({
+      ...prev,
+      acaoEmAndamento: "excluir",
+      erro: "",
+      mensagem: "",
+    }));
+
+    try {
+      if (itemAtual.kind === "link") {
+        await excluirLinkRastreavelEspaco(itemAtual.itemId);
+        if (!mountedRef.current) return;
+        setLinksRastreaveis((prev) =>
+          prev.map((item) =>
+            resolveTrackableLinkId(item) === itemAtual.itemId
+              ? {
+                  ...item,
+                  ativo: false,
+                  excluido: true,
+                  status: "excluido",
+                }
+              : item
+          )
+        );
+      } else if (itemAtual.kind === "card") {
+        await excluirQrPrintCard(itemAtual.itemId);
+        if (!mountedRef.current) return;
+        setQrPrintsRastreaveis((prev) =>
+          prev.map((item) =>
+            resolveQrPrintId(item) === itemAtual.itemId
+              ? {
+                  ...item,
+                  ativo: false,
+                  excluido: true,
+                  status: "excluido",
+                }
+              : item
+          )
+        );
+      }
+
+      const itemAtualizado = resolverItemDetalheRastreavel(itemAtual) || {
+        ...itemAtual,
+        status: "Excluido",
+      };
+
+      setDetalheRastreavel((prev) => ({
+        ...prev,
+        item: itemAtualizado,
+        acaoEmAndamento: "",
+        mensagem: `${itemAtual.kindLabel} excluido com sucesso.`,
+      }));
+    } catch (error) {
+      if (!mountedRef.current) return;
+      console.error("Erro ao excluir item rastreavel:", error);
+      setDetalheRastreavel((prev) => ({
+        ...prev,
+        acaoEmAndamento: "",
+        erro: error?.message || "Nao foi possivel excluir este item rastreavel.",
+      }));
+    }
+  }, [detalheRastreavel.item, resolverItemDetalheRastreavel]);
+
   const exportarPainelCentralCsv = useCallback(() => {
     if (!painelRastreabilidade.eventosFiltrados.length) return;
 
@@ -1215,6 +1667,112 @@ function ListaAcessos() {
     painelRastreabilidade.eventosFiltrados,
   ]);
 
+  const detalheRastreavelAnalise = useMemo(() => {
+    const itemAtual = detalheRastreavel.item;
+    const eventos = Array.isArray(detalheRastreavel.eventos) ? detalheRastreavel.eventos : [];
+    const filtroInicioMs = detalheRastreavel.filtroDataInicio
+      ? new Date(`${detalheRastreavel.filtroDataInicio}T00:00:00`).getTime()
+      : NaN;
+    const filtroFimMs = detalheRastreavel.filtroDataFim
+      ? new Date(`${detalheRastreavel.filtroDataFim}T23:59:59.999`).getTime()
+      : NaN;
+
+    const eventosFiltrados = eventos.filter((evento) => {
+      const dataMs = resolveDataTimestampMs(evento?.data || evento?.criadoEm);
+      if (Number.isFinite(filtroInicioMs) && (!Number.isFinite(dataMs) || dataMs < filtroInicioMs)) {
+        return false;
+      }
+      if (Number.isFinite(filtroFimMs) && (!Number.isFinite(dataMs) || dataMs > filtroFimMs)) {
+        return false;
+      }
+      return true;
+    });
+
+    const grupos = detalheRastreavel.agruparPorNavigationId
+      ? Object.values(
+          eventosFiltrados.reduce((acc, evento) => {
+            const navigationId = resolveHistoricoNavigationId(evento) || "sem_identificador";
+            if (!acc[navigationId]) {
+              acc[navigationId] = {
+                navigationId,
+                itens: [],
+                ultimoAcessoMs: 0,
+              };
+            }
+            const dataMs = resolveDataTimestampMs(evento?.data || evento?.criadoEm);
+            acc[navigationId].itens.push(evento);
+            acc[navigationId].ultimoAcessoMs = Math.max(
+              acc[navigationId].ultimoAcessoMs,
+              Number.isFinite(dataMs) ? dataMs : 0
+            );
+            return acc;
+          }, {})
+        ).sort((a, b) => b.ultimoAcessoMs - a.ultimoAcessoMs)
+      : [];
+
+    const navigationIds = Array.from(
+      new Set(eventosFiltrados.map((evento) => resolveHistoricoNavigationId(evento)).filter(Boolean))
+    );
+    const ultimoAcessoMs = eventosFiltrados.reduce((maximo, evento) => {
+      const dataMs = resolveDataTimestampMs(evento?.data || evento?.criadoEm);
+      return Math.max(maximo, Number.isFinite(dataMs) ? dataMs : 0);
+    }, 0);
+    const localizacoesUnicas = Array.from(
+      new Set(
+        eventosFiltrados
+          .map((evento) => buildHistoricoLocalizacao(evento))
+          .filter((localizacao) => localizacao && localizacao !== "--")
+      )
+    );
+
+    const resumoCards = itemAtual
+      ? [
+          {
+            label: "Status",
+            value: itemAtual.status,
+            detail: itemAtual.kind === "link" ? "Link" : "Card QR",
+          },
+          {
+            label: "Espaco",
+            value: itemAtual.spaceLabel || "--",
+            detail: itemAtual.projectLabel || "--",
+          },
+          {
+            label: "Eventos",
+            value: String(eventos.length),
+            detail:
+              Number.isFinite(filtroInicioMs) || Number.isFinite(filtroFimMs)
+                ? `${eventosFiltrados.length} no recorte`
+                : "Historico completo carregado",
+          },
+          {
+            label: "Identificadores",
+            value: String(navigationIds.length),
+            detail: "Navigation IDs unicos",
+          },
+          {
+            label: "Ultima leitura",
+            value: ultimoAcessoMs ? formatarData(ultimoAcessoMs) : "--",
+            detail: ultimoAcessoMs ? "Evento mais recente" : "Sem leitura ainda",
+          },
+          {
+            label: "Locais",
+            value: localizacoesUnicas.length ? localizacoesUnicas.slice(0, 2).join(" | ") : "--",
+            detail:
+              localizacoesUnicas.length > 2
+                ? `+${localizacoesUnicas.length - 2} local(is)`
+                : "Cidade / pais",
+          },
+        ]
+      : [];
+
+    return {
+      eventosFiltrados,
+      grupos,
+      resumoCards,
+    };
+  }, [detalheRastreavel]);
+
   useEffect(() => {
     if (
       filtroPainelEspaco &&
@@ -1241,6 +1799,30 @@ function ListaAcessos() {
     painelRastreabilidadeBase.opcoesEspaco,
     painelRastreabilidadeBase.opcoesLocal,
     painelRastreabilidadeBase.opcoesOrigem,
+  ]);
+
+  useEffect(() => {
+    if (!detalheRastreavel.aberto || !detalheRastreavel.item) return;
+    const itemAtualizado = resolverItemDetalheRastreavel(detalheRastreavel.item);
+    if (!itemAtualizado) return;
+    if (
+      itemAtualizado.status === detalheRastreavel.item.status &&
+      itemAtualizado.titulo === detalheRastreavel.item.titulo &&
+      itemAtualizado.destinoUrl === detalheRastreavel.item.destinoUrl &&
+      itemAtualizado.rastreavelUrl === detalheRastreavel.item.rastreavelUrl
+    ) {
+      return;
+    }
+    setDetalheRastreavel((prev) => ({
+      ...prev,
+      item: itemAtualizado,
+    }));
+  }, [
+    detalheRastreavel.aberto,
+    detalheRastreavel.item,
+    linksRastreaveisMap,
+    qrPrintsRastreaveisMap,
+    resolverItemDetalheRastreavel,
   ]);
 
   useEffect(() => {
@@ -1782,6 +2364,17 @@ function ListaAcessos() {
                     <span>{`Acessos: ${item.totalAcessos} / IDs unicos: ${item.navigationIdsTotal}`}</span>
                     <span>{`Status: ${item.status}`}</span>
                     <span>{`Ultima leitura: ${formatarData(item.ultimoAcessoMs)}`}</span>
+                    <div className="gerenciador-acessos__tracking-item-actions">
+                      <button
+                        type="button"
+                        className="gerenciador-acessos__tracking-item-button"
+                        onClick={() => {
+                          void abrirDetalheRastreavel(item);
+                        }}
+                      >
+                        Ver detalhe
+                      </button>
+                    </div>
                   </li>
                 ))}
               </ol>
@@ -1809,6 +2402,17 @@ function ListaAcessos() {
                     <span>{`Acessos: ${item.totalAcessos} / IDs unicos: ${item.navigationIdsTotal}`}</span>
                     <span>{`Status: ${item.status}`}</span>
                     <span>{`Ultima leitura: ${formatarData(item.ultimoAcessoMs)}`}</span>
+                    <div className="gerenciador-acessos__tracking-item-actions">
+                      <button
+                        type="button"
+                        className="gerenciador-acessos__tracking-item-button"
+                        onClick={() => {
+                          void abrirDetalheRastreavel(item);
+                        }}
+                      >
+                        Ver detalhe
+                      </button>
+                    </div>
                   </li>
                 ))}
               </ol>
@@ -1837,6 +2441,17 @@ function ListaAcessos() {
                     <span>{`Leituras: ${item.totalAcessos} / IDs unicos: ${item.navigationIdsTotal}`}</span>
                     <span>{`Status: ${item.status}`}</span>
                     <span>{`Ultima leitura: ${formatarData(item.ultimoAcessoMs)}`}</span>
+                    <div className="gerenciador-acessos__tracking-item-actions">
+                      <button
+                        type="button"
+                        className="gerenciador-acessos__tracking-item-button"
+                        onClick={() => {
+                          void abrirDetalheRastreavel(item);
+                        }}
+                      >
+                        Ver detalhe
+                      </button>
+                    </div>
                   </li>
                 ))}
               </ol>
@@ -1926,13 +2541,24 @@ function ListaAcessos() {
                 {painelRastreabilidade.ultimosEventos.map((item) => (
                   <li className="gerenciador-acessos__tracking-item" key={item.id}>
                     <strong>{item.titulo}</strong>
-                    <span>{`${item.tipo}: ${item.itemId}`}</span>
+                    <span>{`${item.kindLabel}: ${item.itemId}`}</span>
                     <span>{item.detail}</span>
                     <span>{`Usuario: ${item.usuario}`}</span>
                     <span>{`Espaco: ${item.spaceLabel}`}</span>
                     <span>{`Projeto: ${item.projectLabel}`}</span>
                     <span>{`Local: ${item.localizacao}`}</span>
                     <span>{`Lido em: ${item.data}`}</span>
+                    <div className="gerenciador-acessos__tracking-item-actions">
+                      <button
+                        type="button"
+                        className="gerenciador-acessos__tracking-item-button"
+                        onClick={() => {
+                          void abrirDetalheRastreavel(item);
+                        }}
+                      >
+                        Abrir detalhe
+                      </button>
+                    </div>
                   </li>
                 ))}
               </ol>
@@ -1944,6 +2570,259 @@ function ListaAcessos() {
           </article>
         </div>
       </section>
+
+      {detalheRastreavel.aberto && detalheRastreavel.item ? (
+        <section className="gerenciador-acessos__tracking-detail-panel">
+          <div className="gerenciador-acessos__tracking-detail-head">
+            <div>
+              <strong>{detalheRastreavel.item.titulo}</strong>
+              <p className="gerenciador-acessos__block-note">
+                {`${detalheRastreavel.item.kindLabel} | ${detalheRastreavel.item.detail} | Espaco ${
+                  detalheRastreavel.item.spaceLabel || "--"
+                } | Projeto ${detalheRastreavel.item.projectLabel || "--"}`}
+              </p>
+            </div>
+            <button
+              type="button"
+              className="gerenciador-acessos__tracking-detail-close"
+              onClick={fecharDetalheRastreavel}
+            >
+              Fechar detalhe
+            </button>
+          </div>
+
+          {detalheRastreavel.erro ? (
+            <p className="gerenciador-acessos__error">{detalheRastreavel.erro}</p>
+          ) : null}
+          {detalheRastreavel.mensagem ? (
+            <p className="gerenciador-acessos__success">{detalheRastreavel.mensagem}</p>
+          ) : null}
+
+          <div className="gerenciador-acessos__tracking-detail-actions">
+            <button
+              type="button"
+              className="gerenciador-acessos__refresh"
+              onClick={() => {
+                void copiarTextoRastreavel(
+                  detalheRastreavel.item.rastreavelUrl,
+                  "URL rastreavel copiada."
+                );
+              }}
+              disabled={!detalheRastreavel.item.rastreavelUrl}
+            >
+              Copiar URL rastreavel
+            </button>
+            <button
+              type="button"
+              className="gerenciador-acessos__refresh"
+              onClick={() => {
+                void copiarTextoRastreavel(detalheRastreavel.item.destinoUrl, "Destino copiado.");
+              }}
+              disabled={!detalheRastreavel.item.destinoUrl}
+            >
+              Copiar destino
+            </button>
+            <button
+              type="button"
+              className="gerenciador-acessos__refresh"
+              onClick={() => {
+                if (typeof window !== "undefined" && detalheRastreavel.item.rastreavelUrl) {
+                  window.open(detalheRastreavel.item.rastreavelUrl, "_blank", "noopener,noreferrer");
+                }
+              }}
+              disabled={!detalheRastreavel.item.rastreavelUrl}
+            >
+              Abrir URL rastreavel
+            </button>
+            <button
+              type="button"
+              className="gerenciador-acessos__refresh"
+              onClick={() => {
+                if (typeof window !== "undefined" && detalheRastreavel.item.destinoUrl) {
+                  window.open(detalheRastreavel.item.destinoUrl, "_blank", "noopener,noreferrer");
+                }
+              }}
+              disabled={!detalheRastreavel.item.destinoUrl}
+            >
+              Abrir destino
+            </button>
+            <button
+              type="button"
+              className="gerenciador-acessos__refresh"
+              onClick={() => {
+                void duplicarItemRastreavel();
+              }}
+              disabled={detalheRastreavel.acaoEmAndamento === "duplicar"}
+            >
+              {detalheRastreavel.acaoEmAndamento === "duplicar" ? "Duplicando..." : "Duplicar"}
+            </button>
+            <button
+              type="button"
+              className="gerenciador-acessos__refresh"
+              onClick={exportarDetalheRastreavelCsv}
+              disabled={!detalheRastreavelAnalise.eventosFiltrados.length}
+            >
+              Exportar CSV
+            </button>
+            <button
+              type="button"
+              className="gerenciador-acessos__tracking-detail-danger"
+              onClick={() => {
+                void excluirItemRastreavelSelecionado();
+              }}
+              disabled={
+                detalheRastreavel.acaoEmAndamento === "excluir" ||
+                detalheRastreavel.item.status === "Excluido"
+              }
+            >
+              {detalheRastreavel.acaoEmAndamento === "excluir" ? "Excluindo..." : "Excluir"}
+            </button>
+          </div>
+
+          <div className="gerenciador-acessos__tracking-detail-meta">
+            <span>{`ID: ${detalheRastreavel.item.itemId}`}</span>
+            <span>{`Status: ${detalheRastreavel.item.status}`}</span>
+            <span>{`URL rastreavel: ${detalheRastreavel.item.rastreavelUrl || "--"}`}</span>
+            <span>{`Destino: ${detalheRastreavel.item.destinoUrl || "--"}`}</span>
+          </div>
+
+          <div className="gerenciador-acessos__tracking-timeline-summary">
+            {detalheRastreavelAnalise.resumoCards.map((item) => (
+              <article
+                className="gerenciador-acessos__tracking-timeline-summary-item"
+                key={`${detalheRastreavel.item.key}-${item.label}`}
+              >
+                <span className="gerenciador-acessos__tracking-label">{item.label}</span>
+                <strong className="gerenciador-acessos__tracking-value">{item.value}</strong>
+                <span className="gerenciador-acessos__tracking-detail">{item.detail}</span>
+              </article>
+            ))}
+          </div>
+
+          <div className="gerenciador-acessos__tracking-detail-controls">
+            <label className="gerenciador-acessos__filter gerenciador-acessos__filter--compact">
+              <span>De</span>
+              <input
+                type="date"
+                value={detalheRastreavel.filtroDataInicio}
+                onChange={(event) => {
+                  atualizarCampoDetalheRastreavel({
+                    filtroDataInicio: event.target.value,
+                  });
+                }}
+              />
+            </label>
+            <label className="gerenciador-acessos__filter gerenciador-acessos__filter--compact">
+              <span>Ate</span>
+              <input
+                type="date"
+                value={detalheRastreavel.filtroDataFim}
+                onChange={(event) => {
+                  atualizarCampoDetalheRastreavel({
+                    filtroDataFim: event.target.value,
+                  });
+                }}
+              />
+            </label>
+            <button
+              type="button"
+              className="gerenciador-acessos__refresh"
+              onClick={() => {
+                atualizarCampoDetalheRastreavel({
+                  agruparPorNavigationId: !detalheRastreavel.agruparPorNavigationId,
+                });
+              }}
+            >
+              {detalheRastreavel.agruparPorNavigationId
+                ? "Agrupado por identificador"
+                : "Ver eventos soltos"}
+            </button>
+            <button
+              type="button"
+              className="gerenciador-acessos__refresh"
+              onClick={() => {
+                void carregarDetalheRastreavel();
+              }}
+              disabled={detalheRastreavel.loading}
+            >
+              {detalheRastreavel.loading ? "Atualizando..." : "Atualizar historico"}
+            </button>
+            <button
+              type="button"
+              className="gerenciador-acessos__refresh"
+              onClick={() => {
+                atualizarCampoDetalheRastreavel({
+                  filtroDataInicio: "",
+                  filtroDataFim: "",
+                });
+              }}
+              disabled={!detalheRastreavel.filtroDataInicio && !detalheRastreavel.filtroDataFim}
+            >
+              Limpar recorte
+            </button>
+          </div>
+
+          {detalheRastreavel.loading ? (
+            <p className="gerenciador-acessos__empty">Carregando historico rastreavel...</p>
+          ) : detalheRastreavelAnalise.eventosFiltrados.length ? (
+            detalheRastreavel.agruparPorNavigationId ? (
+              <div className="gerenciador-acessos__tracking-detail-groups">
+                {detalheRastreavelAnalise.grupos.map((grupo) => (
+                  <article
+                    className="gerenciador-acessos__tracking-detail-group"
+                    key={`${detalheRastreavel.item.key}-${grupo.navigationId}`}
+                  >
+                    <div className="gerenciador-acessos__tracking-detail-group-head">
+                      <strong>
+                        {grupo.navigationId === "sem_identificador"
+                          ? "Sem identificador de navegacao"
+                          : `Identificador ${grupo.navigationId}`}
+                      </strong>
+                      <span>{`${grupo.itens.length} evento(s)`}</span>
+                      <span>{`Ultimo acesso: ${formatarData(grupo.ultimoAcessoMs)}`}</span>
+                    </div>
+                    <ol className="gerenciador-acessos__tracking-list">
+                      {grupo.itens.map((evento) => (
+                        <li
+                          className="gerenciador-acessos__tracking-item"
+                          key={`${detalheRastreavel.item.key}-${grupo.navigationId}-${evento.id || formatarData(evento?.data || evento?.criadoEm)}`}
+                        >
+                          <strong>{formatarData(evento?.data || evento?.criadoEm)}</strong>
+                          <span>{`Usuario: ${resolveAccessUserLabel(evento)}`}</span>
+                          <span>{`Local: ${buildHistoricoLocalizacao(evento)}`}</span>
+                          <span>{`IP: ${normalizeText(evento?.ip) || "--"}`}</span>
+                          <span>{`Navigation ID: ${resolveHistoricoNavigationId(evento) || "--"}`}</span>
+                          <span>{`Dispositivo: ${normalizeText(evento?.userAgent) || "--"}`}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <ol className="gerenciador-acessos__tracking-list">
+                {detalheRastreavelAnalise.eventosFiltrados.map((evento) => (
+                  <li
+                    className="gerenciador-acessos__tracking-item"
+                    key={`${detalheRastreavel.item.key}-${evento.id || formatarData(evento?.data || evento?.criadoEm)}`}
+                  >
+                    <strong>{formatarData(evento?.data || evento?.criadoEm)}</strong>
+                    <span>{`Usuario: ${resolveAccessUserLabel(evento)}`}</span>
+                    <span>{`Navigation ID: ${resolveHistoricoNavigationId(evento) || "--"}`}</span>
+                    <span>{`Local: ${buildHistoricoLocalizacao(evento)}`}</span>
+                    <span>{`IP: ${normalizeText(evento?.ip) || "--"}`}</span>
+                    <span>{`Dispositivo: ${normalizeText(evento?.userAgent) || "--"}`}</span>
+                  </li>
+                ))}
+              </ol>
+            )
+          ) : (
+            <p className="gerenciador-acessos__empty">
+              Nenhum evento rastreavel foi encontrado para os filtros aplicados.
+            </p>
+          )}
+        </section>
+      ) : null}
 
       <div className="gerenciador-acessos__summary">
         <span>{`Total exibido: ${gruposAcessos.length} grupo(s) / ${acessosFiltrados.length} evento(s)`}</span>
