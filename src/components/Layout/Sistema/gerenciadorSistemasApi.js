@@ -699,6 +699,54 @@ export async function listarAcessosNoGerenciador({
   }
 }
 
+export async function listarLinksRastreaveisNoGerenciador({
+  limit: maxItems = 300,
+  projectSystemKey = "",
+} = {}) {
+  const managerDb = getManagerDb();
+  if (!managerDb) return [];
+
+  const projectSystemKeyNormalizado = normalizeText(projectSystemKey).toLowerCase();
+  const safeLimit = Math.max(1, Math.min(Number(maxItems) || 300, 500));
+
+  const mapLink = (docItem) => ({
+    id: docItem.id,
+    ...(docItem.data() || {}),
+  });
+
+  const sortLinks = (items = []) =>
+    [...items].sort((a, b) => {
+      const dataA = getAccessTimestampMs(a?.atualizadoEm || a?.criadoEm) || 0;
+      const dataB = getAccessTimestampMs(b?.atualizadoEm || b?.criadoEm) || 0;
+      return dataB - dataA;
+    });
+
+  const filterLinks = (items = []) =>
+    (Array.isArray(items) ? items : []).filter((item) => {
+      const linkProjectKey = normalizeText(item?.runtimeProjectKey).toLowerCase();
+      if (projectSystemKeyNormalizado && linkProjectKey !== projectSystemKeyNormalizado) {
+        return false;
+      }
+      return true;
+    });
+
+  try {
+    const constraints = [limit(safeLimit)];
+    if (projectSystemKeyNormalizado) {
+      constraints.unshift(where("runtimeProjectKey", "==", projectSystemKeyNormalizado));
+    }
+    const snap = await getDocs(query(collection(managerDb, "trackableLinks"), ...constraints));
+    return sortLinks(snap.docs.map(mapLink)).slice(0, safeLimit);
+  } catch (error) {
+    if (error?.code !== "failed-precondition") {
+      throw error;
+    }
+  }
+
+  const fallbackSnap = await getDocs(query(collection(managerDb, "trackableLinks"), limit(safeLimit)));
+  return sortLinks(filterLinks(fallbackSnap.docs.map(mapLink))).slice(0, safeLimit);
+}
+
 export async function obterResumoAcessosNoGerenciador({ limit: maxItems = 500 } = {}) {
   const managerDb = getManagerDb();
 

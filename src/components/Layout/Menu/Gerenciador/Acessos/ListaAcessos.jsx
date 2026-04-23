@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import {
   listarAcessosNoGerenciador,
+  listarLinksRastreaveisNoGerenciador,
   marcarAcessosComoLidosNoGerenciador,
   obterConfigAcessosNoGerenciador,
   listarProjetosNoGerenciador,
@@ -69,6 +70,31 @@ function resolveAccessIp(acesso) {
 
 function resolveAccessProjectKey(acesso) {
   return normalizeText(acesso?.projectSystemKey || acesso?.runtimeProjectKey).toLowerCase();
+}
+
+function resolveTrackableLinkProjectKey(link) {
+  return normalizeText(link?.runtimeProjectKey).toLowerCase();
+}
+
+function resolveTrackableLinkStatus(link = {}) {
+  const status = normalizeText(link?.status).toLowerCase();
+  if (link?.excluido === true || link?.ativo === false || status === "excluido") {
+    return "Excluido";
+  }
+  return "Ativo";
+}
+
+function resolveTrackableLinkId(link = {}) {
+  return normalizeText(link?.trackingId || link?.id);
+}
+
+function resolveTrackableSpaceLabel(link = {}) {
+  return (
+    normalizeText(link?.espacoNome) ||
+    normalizeText(link?.skinsUsername) ||
+    normalizeText(link?.espacoId) ||
+    "--"
+  );
 }
 
 function normalizeIpBloqueio(value) {
@@ -164,6 +190,12 @@ function formatarDuracaoMs(value) {
   return `${hours}h ${remainingMinutes}min`;
 }
 
+function formatarTopLista(items = [], emptyLabel = "--", maxItems = 3) {
+  const values = (Array.isArray(items) ? items : []).filter(Boolean).slice(0, maxItems);
+  if (!values.length) return emptyLabel;
+  return values.join(" • ");
+}
+
 function resolveDataTimestampMs(value) {
   if (!value) return NaN;
   if (typeof value?.toDate === "function") {
@@ -187,6 +219,7 @@ function ListaAcessos() {
   const managerProjectLabel = obterManagerProjectLabel();
   const mountedRef = useRef(true);
   const [acessos, setAcessos] = useState([]);
+  const [linksRastreaveis, setLinksRastreaveis] = useState([]);
   const [projetos, setProjetos] = useState([]);
   const [filtroProjeto, setFiltroProjeto] = useState("");
   const [filtroOrigem, setFiltroOrigem] = useState("");
@@ -212,6 +245,8 @@ function ListaAcessos() {
   const [salvandoBloqueioUsuario, setSalvandoBloqueioUsuario] = useState(false);
   const [erroBloqueioUsuario, setErroBloqueioUsuario] = useState("");
   const [mensagemBloqueioUsuario, setMensagemBloqueioUsuario] = useState("");
+  const [carregandoPainelRastreavel, setCarregandoPainelRastreavel] = useState(false);
+  const [erroPainelRastreavel, setErroPainelRastreavel] = useState("");
   const [erro, setErro] = useState("");
   const [carregando, setCarregando] = useState(false);
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState(null);
@@ -437,6 +472,33 @@ function ListaAcessos() {
     void carregarAcessos();
   }, [carregarAcessos]);
 
+  const carregarPainelRastreavel = useCallback(async () => {
+    setCarregandoPainelRastreavel(true);
+
+    try {
+      const lista = await listarLinksRastreaveisNoGerenciador({
+        limit: 300,
+        projectSystemKey: filtroProjeto,
+      });
+      if (!mountedRef.current) return;
+      setErroPainelRastreavel("");
+      setLinksRastreaveis(Array.isArray(lista) ? lista : []);
+    } catch (error) {
+      if (!mountedRef.current) return;
+      console.error("Erro ao carregar links rastreaveis no gerenciador:", error);
+      setErroPainelRastreavel("Nao foi possivel carregar o painel central de rastreabilidade.");
+      setLinksRastreaveis([]);
+    } finally {
+      if (mountedRef.current) {
+        setCarregandoPainelRastreavel(false);
+      }
+    }
+  }, [filtroProjeto]);
+
+  useEffect(() => {
+    void carregarPainelRastreavel();
+  }, [carregarPainelRastreavel]);
+
   const marcarComoLido = useCallback(async (ids = []) => {
     const idsNormalizados = Array.from(
       new Set((Array.isArray(ids) ? ids : []).map((item) => normalizeText(item)).filter(Boolean))
@@ -580,6 +642,253 @@ function ListaAcessos() {
     () => acessosFiltrados.filter((acesso) => !isAccessRead(acesso)),
     [acessosFiltrados]
   );
+
+  const painelRastreabilidade = useMemo(() => {
+    const eventosRastreaveis = acessosFiltrados.filter((acesso) => normalizeText(acesso?.trackingId));
+    const linksMap = new Map();
+    linksRastreaveis.forEach((link) => {
+      const trackingId = resolveTrackableLinkId(link);
+      if (!trackingId) return;
+      linksMap.set(trackingId, link);
+    });
+
+    const rankingLinksMap = new Map();
+    const espacosMap = new Map();
+    const origensMap = new Map();
+    const locaisMap = new Map();
+    let ultimoAcessoMs = 0;
+
+    eventosRastreaveis.forEach((acesso) => {
+      const trackingId = normalizeText(acesso?.trackingId);
+      if (!trackingId) return;
+
+      const link = linksMap.get(trackingId) || null;
+      const dataMs = resolveDataTimestampMs(acesso?.data || acesso?.criadoEm) || 0;
+      const navigationId = resolveAccessNavigationId(acesso);
+      const projectKey = resolveAccessProjectKey(acesso) || resolveTrackableLinkProjectKey(link);
+      const projectLabel =
+        normalizeText(projetosMap.get(projectKey)?.nomeProjeto) ||
+        projectKey ||
+        managerProjectLabel;
+      const city = resolveGeoText(acesso?.city, acesso?.cidade);
+      const country = resolveGeoText(acesso?.country, acesso?.pais);
+      const localizacaoLabel = [city !== "--" ? city : "", country !== "--" ? country : ""]
+        .filter(Boolean)
+        .join(", ");
+      const origemPlanejada =
+        normalizeText(link?.origemPlanejada) ||
+        normalizeText(link?.descricao) ||
+        normalizeText(acesso?.trackingOrigemPlanejada) ||
+        "--";
+      const ownerUserId = normalizeText(link?.ownerUserId);
+      const espacoId = normalizeText(link?.espacoId);
+      const spaceKey =
+        normalizeText(link?.spaceKey) ||
+        (ownerUserId || espacoId ? `${ownerUserId}|${espacoId}` : trackingId);
+      const spaceLabel = resolveTrackableSpaceLabel(link);
+
+      if (!rankingLinksMap.has(trackingId)) {
+        rankingLinksMap.set(trackingId, {
+          trackingId,
+          totalAcessos: 0,
+          navigationIds: new Set(),
+          ultimoAcessoMs: 0,
+          origemPlanejada,
+          destinoUrl:
+            normalizeText(link?.destinoUrl) || normalizeText(acesso?.trackingDestinoUrl) || "--",
+          status: resolveTrackableLinkStatus(link),
+          spaceLabel,
+          projectLabel,
+        });
+      }
+
+      const rankingLink = rankingLinksMap.get(trackingId);
+      rankingLink.totalAcessos += 1;
+      rankingLink.ultimoAcessoMs = Math.max(rankingLink.ultimoAcessoMs, dataMs);
+      if (navigationId) {
+        rankingLink.navigationIds.add(navigationId);
+      }
+
+      if (!espacosMap.has(spaceKey)) {
+        espacosMap.set(spaceKey, {
+          key: spaceKey,
+          label: spaceLabel,
+          projectLabel,
+          acessos: 0,
+          links: new Set(),
+          ultimoAcessoMs: 0,
+        });
+      }
+      const espacoEntry = espacosMap.get(spaceKey);
+      espacoEntry.acessos += 1;
+      espacoEntry.links.add(trackingId);
+      espacoEntry.ultimoAcessoMs = Math.max(espacoEntry.ultimoAcessoMs, dataMs);
+
+      if (origemPlanejada && origemPlanejada !== "--") {
+        if (!origensMap.has(origemPlanejada)) {
+          origensMap.set(origemPlanejada, {
+            label: origemPlanejada,
+            acessos: 0,
+            links: new Set(),
+            ultimoAcessoMs: 0,
+          });
+        }
+        const origemEntry = origensMap.get(origemPlanejada);
+        origemEntry.acessos += 1;
+        origemEntry.links.add(trackingId);
+        origemEntry.ultimoAcessoMs = Math.max(origemEntry.ultimoAcessoMs, dataMs);
+      }
+
+      if (localizacaoLabel) {
+        if (!locaisMap.has(localizacaoLabel)) {
+          locaisMap.set(localizacaoLabel, {
+            label: localizacaoLabel,
+            acessos: 0,
+            ultimoAcessoMs: 0,
+          });
+        }
+        const localEntry = locaisMap.get(localizacaoLabel);
+        localEntry.acessos += 1;
+        localEntry.ultimoAcessoMs = Math.max(localEntry.ultimoAcessoMs, dataMs);
+      }
+
+      ultimoAcessoMs = Math.max(ultimoAcessoMs, dataMs);
+    });
+
+    const rankingLinks = Array.from(rankingLinksMap.values())
+      .map((item) => ({
+        ...item,
+        navigationIdsTotal: item.navigationIds.size,
+      }))
+      .sort((a, b) => {
+        if (b.totalAcessos !== a.totalAcessos) return b.totalAcessos - a.totalAcessos;
+        return b.ultimoAcessoMs - a.ultimoAcessoMs;
+      });
+
+    const rankingEspacos = Array.from(espacosMap.values())
+      .map((item) => ({
+        ...item,
+        linksTotal: item.links.size,
+      }))
+      .sort((a, b) => {
+        if (b.acessos !== a.acessos) return b.acessos - a.acessos;
+        return b.ultimoAcessoMs - a.ultimoAcessoMs;
+      });
+
+    const rankingOrigens = Array.from(origensMap.values())
+      .map((item) => ({
+        ...item,
+        linksTotal: item.links.size,
+      }))
+      .sort((a, b) => {
+        if (b.acessos !== a.acessos) return b.acessos - a.acessos;
+        return b.ultimoAcessoMs - a.ultimoAcessoMs;
+      });
+
+    const rankingLocais = Array.from(locaisMap.values()).sort((a, b) => {
+      if (b.acessos !== a.acessos) return b.acessos - a.acessos;
+      return b.ultimoAcessoMs - a.ultimoAcessoMs;
+    });
+
+    const ultimosEventos = [...eventosRastreaveis]
+      .sort((a, b) => {
+        const dataA = resolveDataTimestampMs(a?.data || a?.criadoEm) || 0;
+        const dataB = resolveDataTimestampMs(b?.data || b?.criadoEm) || 0;
+        return dataB - dataA;
+      })
+      .slice(0, 6)
+      .map((acesso) => {
+        const trackingId = normalizeText(acesso?.trackingId);
+        const link = linksMap.get(trackingId) || null;
+        const projectKey = resolveAccessProjectKey(acesso) || resolveTrackableLinkProjectKey(link);
+        return {
+          id: normalizeText(acesso?.id) || `${trackingId}-${resolveDataTimestampMs(acesso?.data || acesso?.criadoEm)}`,
+          trackingId: trackingId || "--",
+          usuario: resolveAccessUserLabel(acesso),
+          data: formatarData(acesso?.data || acesso?.criadoEm),
+          origemPlanejada:
+            normalizeText(link?.origemPlanejada) ||
+            normalizeText(link?.descricao) ||
+            normalizeText(acesso?.trackingOrigemPlanejada) ||
+            "--",
+          spaceLabel: resolveTrackableSpaceLabel(link),
+          localizacao: formatarTopLista(
+            [
+              [resolveGeoText(acesso?.city, acesso?.cidade), resolveGeoText(acesso?.country, acesso?.pais)]
+                .filter((item) => item && item !== "--")
+                .join(", "),
+            ],
+            "--",
+            1
+          ),
+          projectLabel:
+            normalizeText(projetosMap.get(projectKey)?.nomeProjeto) ||
+            projectKey ||
+            managerProjectLabel,
+        };
+      });
+
+    const totalLinksAtivos = linksRastreaveis.filter(
+      (link) => resolveTrackableLinkStatus(link) === "Ativo"
+    ).length;
+
+    return {
+      totalLinks: linksRastreaveis.length,
+      totalLinksAtivos,
+      totalEventos: eventosRastreaveis.length,
+      totalLinksComAcesso: rankingLinks.length,
+      totalEspacos: rankingEspacos.length,
+      ultimoAcessoMs,
+      rankingLinks: rankingLinks.slice(0, 6),
+      rankingEspacos: rankingEspacos.slice(0, 5),
+      rankingOrigens: rankingOrigens.slice(0, 5),
+      rankingLocais: rankingLocais.slice(0, 5),
+      ultimosEventos,
+      cardItems: [
+        {
+          label: "Links rastreaveis",
+          value: String(linksRastreaveis.length),
+          detail: `${totalLinksAtivos} ativo(s) no projeto`,
+        },
+        {
+          label: "Eventos no recorte",
+          value: String(eventosRastreaveis.length),
+          detail: `baseado nos ultimos ${ACCESS_QUERY_LIMIT} registros carregados`,
+        },
+        {
+          label: "Links com leitura",
+          value: String(rankingLinks.length),
+          detail: rankingLinks[0]
+            ? `topo: ${rankingLinks[0].trackingId} (${rankingLinks[0].totalAcessos})`
+            : "Sem leitura rastreavel",
+        },
+        {
+          label: "Espacos alcancados",
+          value: String(rankingEspacos.length),
+          detail: rankingEspacos[0]
+            ? `lider: ${rankingEspacos[0].label} (${rankingEspacos[0].acessos})`
+            : "Sem espacos com entrada",
+        },
+        {
+          label: "Origem mais forte",
+          value: rankingOrigens[0]?.label || "--",
+          detail: rankingOrigens[0]
+            ? `${rankingOrigens[0].acessos} acesso(s) / ${rankingOrigens[0].linksTotal} link(s)`
+            : "Sem origem planejada com leitura",
+        },
+        {
+          label: "Ultima leitura",
+          value: ultimoAcessoMs ? formatarData(ultimoAcessoMs) : "--",
+          detail:
+            formatarTopLista(
+              rankingLocais.map((item) => item.label),
+              "Sem localizacao registrada",
+              2
+            ),
+        },
+      ],
+    };
+  }, [acessosFiltrados, linksRastreaveis, managerProjectLabel, projetosMap]);
 
   useEffect(() => {
     setPaginaAtual(1);
@@ -933,6 +1242,165 @@ function ListaAcessos() {
         ) : null}
       </div>
 
+      <section className="gerenciador-acessos__tracking-panel">
+        <div className="gerenciador-acessos__tracking-head">
+          <div>
+            <strong>Painel central de rastreabilidade</strong>
+            <p className="gerenciador-acessos__block-note">
+              Consolida links rastreaveis, espacos mais acessados, origens planejadas e ultimas
+              leituras com base no recorte atual de projeto/data.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="gerenciador-acessos__refresh"
+            onClick={() => {
+              void carregarPainelRastreavel();
+            }}
+            disabled={carregandoPainelRastreavel}
+          >
+            {carregandoPainelRastreavel ? "Atualizando painel..." : "Atualizar painel"}
+          </button>
+        </div>
+
+        {erroPainelRastreavel ? (
+          <p className="gerenciador-acessos__error">{erroPainelRastreavel}</p>
+        ) : null}
+
+        <div className="gerenciador-acessos__tracking-cards">
+          {painelRastreabilidade.cardItems.map((item) => (
+            <article className="gerenciador-acessos__tracking-card" key={item.label}>
+              <span className="gerenciador-acessos__tracking-label">{item.label}</span>
+              <strong className="gerenciador-acessos__tracking-value">{item.value}</strong>
+              <span className="gerenciador-acessos__tracking-detail">{item.detail}</span>
+            </article>
+          ))}
+        </div>
+
+        <div className="gerenciador-acessos__tracking-grid">
+          <article className="gerenciador-acessos__tracking-box">
+            <div className="gerenciador-acessos__tracking-box-head">
+              <strong>Links mais acessados</strong>
+              <span>{`${painelRastreabilidade.totalLinksComAcesso} com leitura`}</span>
+            </div>
+            {painelRastreabilidade.rankingLinks.length ? (
+              <ol className="gerenciador-acessos__tracking-list">
+                {painelRastreabilidade.rankingLinks.map((item) => (
+                  <li className="gerenciador-acessos__tracking-item" key={item.trackingId}>
+                    <strong>{item.origemPlanejada}</strong>
+                    <span>{`Tracking ID: ${item.trackingId}`}</span>
+                    <span>{`Espaco: ${item.spaceLabel}`}</span>
+                    <span>{`Projeto: ${item.projectLabel}`}</span>
+                    <span>{`Acessos: ${item.totalAcessos} / IDs unicos: ${item.navigationIdsTotal}`}</span>
+                    <span>{`Status: ${item.status}`}</span>
+                    <span>{`Ultima leitura: ${formatarData(item.ultimoAcessoMs)}`}</span>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="gerenciador-acessos__empty">
+                Nenhuma leitura rastreavel encontrada neste recorte.
+              </p>
+            )}
+          </article>
+
+          <article className="gerenciador-acessos__tracking-box">
+            <div className="gerenciador-acessos__tracking-box-head">
+              <strong>Espacos com mais entrada</strong>
+              <span>{`${painelRastreabilidade.totalEspacos} espaco(s)`}</span>
+            </div>
+            {painelRastreabilidade.rankingEspacos.length ? (
+              <ol className="gerenciador-acessos__tracking-list">
+                {painelRastreabilidade.rankingEspacos.map((item) => (
+                  <li className="gerenciador-acessos__tracking-item" key={item.key}>
+                    <strong>{item.label}</strong>
+                    <span>{`Projeto: ${item.projectLabel}`}</span>
+                    <span>{`Acessos: ${item.acessos}`}</span>
+                    <span>{`Links ativos no recorte: ${item.linksTotal}`}</span>
+                    <span>{`Ultima leitura: ${formatarData(item.ultimoAcessoMs)}`}</span>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="gerenciador-acessos__empty">
+                Ainda nao existe espaco com entrada rastreavel neste recorte.
+              </p>
+            )}
+          </article>
+
+          <article className="gerenciador-acessos__tracking-box">
+            <div className="gerenciador-acessos__tracking-box-head">
+              <strong>Origens planejadas</strong>
+              <span>melhor desempenho no recorte</span>
+            </div>
+            {painelRastreabilidade.rankingOrigens.length ? (
+              <ol className="gerenciador-acessos__tracking-list">
+                {painelRastreabilidade.rankingOrigens.map((item) => (
+                  <li className="gerenciador-acessos__tracking-item" key={item.label}>
+                    <strong>{item.label}</strong>
+                    <span>{`Acessos: ${item.acessos}`}</span>
+                    <span>{`Links relacionados: ${item.linksTotal}`}</span>
+                    <span>{`Ultimo acesso: ${formatarData(item.ultimoAcessoMs)}`}</span>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="gerenciador-acessos__empty">
+                Nenhuma origem planejada com leitura rastreavel ainda.
+              </p>
+            )}
+          </article>
+
+          <article className="gerenciador-acessos__tracking-box">
+            <div className="gerenciador-acessos__tracking-box-head">
+              <strong>Locais mais recorrentes</strong>
+              <span>cidade e pais</span>
+            </div>
+            {painelRastreabilidade.rankingLocais.length ? (
+              <ol className="gerenciador-acessos__tracking-list">
+                {painelRastreabilidade.rankingLocais.map((item) => (
+                  <li className="gerenciador-acessos__tracking-item" key={item.label}>
+                    <strong>{item.label}</strong>
+                    <span>{`Acessos: ${item.acessos}`}</span>
+                    <span>{`Ultimo acesso: ${formatarData(item.ultimoAcessoMs)}`}</span>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="gerenciador-acessos__empty">
+                Sem cidades/paises suficientes para resumir neste recorte.
+              </p>
+            )}
+          </article>
+
+          <article className="gerenciador-acessos__tracking-box gerenciador-acessos__tracking-box--wide">
+            <div className="gerenciador-acessos__tracking-box-head">
+              <strong>Ultimas leituras rastreaveis</strong>
+              <span>{`${painelRastreabilidade.totalEventos} evento(s)`}</span>
+            </div>
+            {painelRastreabilidade.ultimosEventos.length ? (
+              <ol className="gerenciador-acessos__tracking-list">
+                {painelRastreabilidade.ultimosEventos.map((item) => (
+                  <li className="gerenciador-acessos__tracking-item" key={item.id}>
+                    <strong>{item.origemPlanejada}</strong>
+                    <span>{`Tracking ID: ${item.trackingId}`}</span>
+                    <span>{`Usuario: ${item.usuario}`}</span>
+                    <span>{`Espaco: ${item.spaceLabel}`}</span>
+                    <span>{`Projeto: ${item.projectLabel}`}</span>
+                    <span>{`Local: ${item.localizacao}`}</span>
+                    <span>{`Lido em: ${item.data}`}</span>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="gerenciador-acessos__empty">
+                Nenhuma leitura rastreavel recente encontrada.
+              </p>
+            )}
+          </article>
+        </div>
+      </section>
+
       <div className="gerenciador-acessos__summary">
         <span>{`Total exibido: ${gruposAcessos.length} grupo(s) / ${acessosFiltrados.length} evento(s)`}</span>
         <span>{`Nao lidos: ${acessosNaoLidosFiltrados.length}`}</span>
@@ -947,6 +1415,7 @@ function ListaAcessos() {
           className="gerenciador-acessos__refresh"
           onClick={() => {
             void carregarAcessos();
+            void carregarPainelRastreavel();
           }}
           disabled={carregando}
         >

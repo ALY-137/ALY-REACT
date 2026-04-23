@@ -13,11 +13,8 @@ function BoxSub({nome,icon,xp,styleBox,Style,xpBoxSub}){
             <div className={xpBoxSub}> 
                 <StarsXP xp={xp} Style={Style}/>
             </div>
-            
-        </div>
-
+     </div>
     )
-
 }
 
 export default BoxSub;
