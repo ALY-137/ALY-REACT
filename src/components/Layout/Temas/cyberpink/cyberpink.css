@@ -1497,6 +1497,107 @@ body.theme-cyberpink .gerenciador-acessos__tracking-item span {
   color: var(--cyberpink-subtheme-text-soft);
 }
 
+body.theme-cyberpink .gerenciador-acessos__tracking-actions {
+  align-items: center;
+}
+
+body.theme-cyberpink .gerenciador-acessos__tracking-box--timeline {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--cyberpink-subtheme-holo-top) 40%, transparent) 0%,
+      color-mix(in srgb, var(--cyberpink-subtheme-surface-a) 96%, transparent) 18%,
+      color-mix(in srgb, var(--cyberpink-subtheme-surface-b) 100%, transparent) 100%
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0 28px,
+      color-mix(in srgb, var(--cyberpink-subtheme-frame-inner) 10%, transparent) 28px 29px
+    );
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-frame-inner) 64%, transparent),
+    inset 0 0 26px color-mix(in srgb, var(--cyberpink-subtheme-primary) 8%, transparent),
+    0 0 18px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 68%, transparent);
+}
+
+body.theme-cyberpink .gerenciador-acessos__tracking-timeline-summary-item {
+  --cyberpink-simple-cut-size: 8px;
+  --cyberpink-simple-cut-corner-color: color-mix(
+    in srgb,
+    var(--cyberpink-subtheme-frame-stroke) 82%,
+    transparent
+  );
+  overflow: visible;
+  border-radius: 0;
+  border: 1px solid color-mix(in srgb, var(--cyberpink-subtheme-frame-stroke) 76%, transparent);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--cyberpink-subtheme-primary) 16%, transparent) 0%,
+      color-mix(in srgb, var(--cyberpink-subtheme-surface-a) 92%, transparent) 32%,
+      color-mix(in srgb, var(--cyberpink-subtheme-surface-b) 100%, transparent) 100%
+    );
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-frame-inner) 52%, transparent),
+    0 0 12px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 48%, transparent);
+  clip-path: polygon(
+    8px 0,
+    calc(100% - 8px) 0,
+    100% 8px,
+    100% calc(100% - 8px),
+    calc(100% - 8px) 100%,
+    8px 100%,
+    0 calc(100% - 8px),
+    0 8px
+  );
+}
+
+body.theme-cyberpink .gerenciador-acessos__tracking-timeline-day,
+body.theme-cyberpink .gerenciador-acessos__tracking-timeline-meta span {
+  color: var(--cyberpink-subtheme-text);
+  font-family: "DotGothic16", sans-serif;
+  letter-spacing: 0.06em;
+}
+
+body.theme-cyberpink .gerenciador-acessos__tracking-timeline-bar {
+  height: 16px;
+  border-radius: 0;
+  border: 1px solid color-mix(in srgb, var(--cyberpink-subtheme-frame-stroke) 76%, transparent);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--cyberpink-subtheme-card-surface-shadow) 62%, black) 0%,
+      color-mix(in srgb, var(--cyberpink-subtheme-card-surface) 82%, black) 100%
+    );
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-frame-inner) 56%, transparent),
+    inset 0 0 10px color-mix(in srgb, var(--cyberpink-subtheme-primary) 10%, transparent);
+}
+
+body.theme-cyberpink .gerenciador-acessos__tracking-timeline-fill {
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--cyberpink-subtheme-primary) 28%, transparent) 0%,
+      color-mix(in srgb, var(--cyberpink-subtheme-primary) 88%, white) 54%,
+      color-mix(in srgb, var(--cyberpink-subtheme-primary) 44%, transparent) 100%
+    );
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 22%, transparent),
+    0 0 14px color-mix(in srgb, var(--cyberpink-subtheme-primary) 54%, transparent);
+}
+
+body.theme-cyberpink .gerenciador-acessos__tracking-timeline-markers {
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0 16px,
+      color-mix(in srgb, var(--cyberpink-subtheme-text) 20%, transparent) 16px 17px
+    );
+  mix-blend-mode: screen;
+  opacity: 0.64;
+}
+
 body.theme-cyberpink .gerenciador-acessos__card {
   --cyberpink-simple-cut-size: 8px;
   --cyberpink-simple-cut-corner-color: color-mix(

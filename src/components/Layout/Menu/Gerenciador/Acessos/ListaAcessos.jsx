@@ -216,11 +216,39 @@ function formatarDuracaoMs(value) {
 function formatarTopLista(items = [], emptyLabel = "--", maxItems = 3) {
   const values = (Array.isArray(items) ? items : []).filter(Boolean).slice(0, maxItems);
   if (!values.length) return emptyLabel;
-  return values.join(" • ");
+  return values.join(" | ");
 }
 
 function buildTrackingLocationLabel(cityValue = "", countryValue = "") {
   return [cityValue, countryValue].filter((item) => item && item !== "--").join(", ");
+}
+
+function formatarDiaPainel(value) {
+  const timestampMs = resolveDataTimestampMs(value);
+  if (!Number.isFinite(timestampMs)) return "--";
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+  }).format(new Date(timestampMs));
+}
+
+function formatarDiaPainelCompleto(value) {
+  const timestampMs = resolveDataTimestampMs(value);
+  if (!Number.isFinite(timestampMs)) return "--";
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(timestampMs));
+}
+
+function escapeCsvValue(value) {
+  const text = String(value ?? "");
+  if (!text) return "";
+  if (/[;"\n\r]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
 }
 
 function resolveDataTimestampMs(value) {
@@ -867,6 +895,7 @@ function ListaAcessos() {
     const espacosMap = new Map();
     const origensMap = new Map();
     const locaisMap = new Map();
+    const timelineDiasMap = new Map();
     let ultimoAcessoMs = 0;
 
     eventosFiltrados.forEach((evento) => {
@@ -939,6 +968,28 @@ function ListaAcessos() {
         local.ultimoAcessoMs = Math.max(local.ultimoAcessoMs, evento.dataMs);
       }
 
+      if (Number.isFinite(evento.dataMs) && evento.dataMs > 0) {
+        const diaDate = new Date(evento.dataMs);
+        diaDate.setHours(0, 0, 0, 0);
+        const diaMs = diaDate.getTime();
+        const diaKey = String(diaMs);
+        if (!timelineDiasMap.has(diaKey)) {
+          timelineDiasMap.set(diaKey, {
+            key: diaKey,
+            diaMs,
+            label: formatarDiaPainel(diaMs),
+            labelCompleto: formatarDiaPainelCompleto(diaMs),
+            total: 0,
+            links: 0,
+            cards: 0,
+          });
+        }
+        const dia = timelineDiasMap.get(diaKey);
+        dia.total += 1;
+        if (evento.kind === "link") dia.links += 1;
+        if (evento.kind === "card") dia.cards += 1;
+      }
+
       ultimoAcessoMs = Math.max(ultimoAcessoMs, evento.dataMs);
     });
 
@@ -980,15 +1031,38 @@ function ListaAcessos() {
       if (b.acessos !== a.acessos) return b.acessos - a.acessos;
       return b.ultimoAcessoMs - a.ultimoAcessoMs;
     });
+    const timelineDias = Array.from(timelineDiasMap.values()).sort((a, b) => a.diaMs - b.diaMs);
+    const timelineMaiorTotal = timelineDias.reduce(
+      (maior, item) => Math.max(maior, item.total),
+      0
+    );
+    const timelineDiasComIntensidade = timelineDias.map((item) => ({
+      ...item,
+      intensidadePercentual:
+        timelineMaiorTotal > 0 ? Math.max((item.total / timelineMaiorTotal) * 100, 8) : 0,
+    }));
+    const timelinePico = timelineDiasComIntensidade.reduce(
+      (maior, item) => (item.total > (maior?.total || 0) ? item : maior),
+      null
+    );
+    const timelineMedia =
+      timelineDiasComIntensidade.length > 0
+        ? (eventosFiltrados.length / timelineDiasComIntensidade.length).toFixed(
+            eventosFiltrados.length / timelineDiasComIntensidade.length >= 10 ? 0 : 1
+          )
+        : "--";
 
     return {
       ...painelRastreabilidadeBase,
+      eventosFiltrados,
       totalEventosFiltrados: eventosFiltrados.length,
       totalItensComLeitura: rankingItens.length,
       totalLinksComAcesso: rankingLinks.length,
       totalCardsComLeitura: rankingCards.length,
       totalEspacos: rankingEspacos.length,
       ultimoAcessoMs,
+      timelineDias: timelineDiasComIntensidade,
+      timelineMaiorTotal,
       rankingItens: rankingItens.slice(0, 6),
       rankingLinks: rankingLinks.slice(0, 6),
       rankingCards: rankingCards.slice(0, 6),
@@ -996,6 +1070,33 @@ function ListaAcessos() {
       rankingOrigens: rankingOrigens.slice(0, 5),
       rankingLocais: rankingLocais.slice(0, 5),
       ultimosEventos: eventosFiltrados.slice(0, 8),
+      timelineResumoItems: [
+        {
+          label: "Dias ativos",
+          value: String(timelineDiasComIntensidade.length),
+          detail:
+            timelineDiasComIntensidade.length > 0
+              ? `${timelineDiasComIntensidade[0].label} ate ${
+                  timelineDiasComIntensidade[timelineDiasComIntensidade.length - 1].label
+                }`
+              : "Sem pulso no recorte",
+        },
+        {
+          label: "Pico diario",
+          value: timelinePico ? String(timelinePico.total) : "--",
+          detail: timelinePico
+            ? `${timelinePico.label} | ${timelinePico.links} links | ${timelinePico.cards} cards`
+            : "Sem dia de pico",
+        },
+        {
+          label: "Media por dia",
+          value: String(timelineMedia),
+          detail:
+            timelineDiasComIntensidade.length > 0
+              ? `${eventosFiltrados.length} evento(s) no recorte`
+              : "Sem eventos para media",
+        },
+      ],
       cardItems: [
         {
           label: "Links rastreaveis",
@@ -1046,6 +1147,72 @@ function ListaAcessos() {
     filtroPainelTipo,
     painelRastreabilidadeBase,
     painelTemFiltrosAtivos,
+  ]);
+
+  const exportarPainelCentralCsv = useCallback(() => {
+    if (!painelRastreabilidade.eventosFiltrados.length) return;
+
+    const cabecalho = [
+      "Data",
+      "Tipo",
+      "Identificador",
+      "Titulo",
+      "Detalhe",
+      "Status",
+      "Destino",
+      "Projeto",
+      "Espaco",
+      "Origem planejada",
+      "Usuario",
+      "Navigation ID",
+      "Localizacao",
+    ];
+
+    const linhas = painelRastreabilidade.eventosFiltrados.map((evento) =>
+      [
+        formatarData(evento.dataMs),
+        evento.kindLabel,
+        evento.itemId,
+        evento.titulo,
+        evento.detail,
+        evento.status,
+        evento.destino,
+        evento.projectLabel,
+        evento.spaceLabel,
+        evento.origemLabel,
+        evento.usuario,
+        evento.navigationId,
+        evento.localizacaoLabel || "--",
+      ]
+        .map(escapeCsvValue)
+        .join(";")
+    );
+
+    const projetoSlug =
+      normalizeText(filtroProjeto)
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]+/g, "-")
+        .replace(/^-+|-+$/g, "") || "todos-projetos";
+    const periodoSlug = `${filtroDataInicio || "inicio"}_${filtroDataFim || "fim"}`
+      .replace(/[^0-9_-]+/g, "")
+      .replace(/_+/g, "_");
+    const csvContent = `sep=;\n${cabecalho.join(";")}\n${linhas.join("\n")}`;
+    const blob = new Blob([`\uFEFF${csvContent}`], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `painel-rastreabilidade-${projetoSlug}-${periodoSlug}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }, [
+    filtroDataFim,
+    filtroDataInicio,
+    filtroProjeto,
+    painelRastreabilidade.eventosFiltrados,
   ]);
 
   useEffect(() => {
@@ -1437,16 +1604,26 @@ function ListaAcessos() {
               leituras com base no recorte atual de projeto/data.
             </p>
           </div>
-          <button
-            type="button"
-            className="gerenciador-acessos__refresh"
-            onClick={() => {
-              void carregarPainelRastreavel();
-            }}
-            disabled={carregandoPainelRastreavel}
-          >
-            {carregandoPainelRastreavel ? "Atualizando painel..." : "Atualizar painel"}
-          </button>
+          <div className="gerenciador-acessos__tracking-actions">
+            <button
+              type="button"
+              className="gerenciador-acessos__refresh"
+              onClick={exportarPainelCentralCsv}
+              disabled={!painelRastreabilidade.eventosFiltrados.length}
+            >
+              Exportar CSV
+            </button>
+            <button
+              type="button"
+              className="gerenciador-acessos__refresh"
+              onClick={() => {
+                void carregarPainelRastreavel();
+              }}
+              disabled={carregandoPainelRastreavel}
+            >
+              {carregandoPainelRastreavel ? "Atualizando painel..." : "Atualizar painel"}
+            </button>
+          </div>
         </div>
 
         {erroPainelRastreavel ? (
@@ -1537,6 +1714,57 @@ function ListaAcessos() {
         </div>
 
         <div className="gerenciador-acessos__tracking-grid">
+          <article className="gerenciador-acessos__tracking-box gerenciador-acessos__tracking-box--wide gerenciador-acessos__tracking-box--timeline">
+            <div className="gerenciador-acessos__tracking-box-head">
+              <strong>Pulso temporal do rastreio</strong>
+              <span>{`${painelRastreabilidade.timelineDias.length} dia(s) com evento`}</span>
+            </div>
+
+            <div className="gerenciador-acessos__tracking-timeline-summary">
+              {painelRastreabilidade.timelineResumoItems.map((item) => (
+                <article
+                  className="gerenciador-acessos__tracking-timeline-summary-item"
+                  key={item.label}
+                >
+                  <span className="gerenciador-acessos__tracking-label">{item.label}</span>
+                  <strong className="gerenciador-acessos__tracking-value">{item.value}</strong>
+                  <span className="gerenciador-acessos__tracking-detail">{item.detail}</span>
+                </article>
+              ))}
+            </div>
+
+            {painelRastreabilidade.timelineDias.length ? (
+              <div className="gerenciador-acessos__tracking-timeline">
+                {painelRastreabilidade.timelineDias.map((item) => (
+                  <div className="gerenciador-acessos__tracking-timeline-row" key={item.key}>
+                    <span
+                      className="gerenciador-acessos__tracking-timeline-day"
+                      title={item.labelCompleto}
+                    >
+                      {item.label}
+                    </span>
+                    <div className="gerenciador-acessos__tracking-timeline-bar">
+                      <span
+                        className="gerenciador-acessos__tracking-timeline-fill"
+                        style={{ width: `${item.intensidadePercentual}%` }}
+                      />
+                      <span className="gerenciador-acessos__tracking-timeline-markers" />
+                    </div>
+                    <div className="gerenciador-acessos__tracking-timeline-meta">
+                      <span>{`Total ${item.total}`}</span>
+                      <span>{`Links ${item.links}`}</span>
+                      <span>{`Cards ${item.cards}`}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="gerenciador-acessos__empty">
+                Nenhum pulso temporal foi encontrado para este recorte.
+              </p>
+            )}
+          </article>
+
           <article className="gerenciador-acessos__tracking-box gerenciador-acessos__tracking-box--wide">
             <div className="gerenciador-acessos__tracking-box-head">
               <strong>Itens rastreaveis mais lidos</strong>
