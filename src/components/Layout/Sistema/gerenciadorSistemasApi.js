@@ -748,6 +748,68 @@ export async function listarLinksRastreaveisNoGerenciador({
   return sortLinks(filterLinks(fallbackSnap.docs.map(mapLink))).slice(0, safeLimit);
 }
 
+export async function listarAcessosLinksRastreaveisNoGerenciador({
+  limit: maxItems = 500,
+  projectSystemKey = "",
+  startDate = "",
+  endDate = "",
+} = {}) {
+  const managerDb = getManagerDb();
+  if (!managerDb) return [];
+
+  const safeLimit = Math.max(1, Math.min(Number(maxItems) || 500, 800));
+
+  const mapAccess = (docItem) => ({
+    id: docItem.id,
+    ...(docItem.data() || {}),
+  });
+
+  const sortAccesses = (items = []) =>
+    [...items].sort((a, b) => {
+      const dataA = getAccessTimestampMs(a) || 0;
+      const dataB = getAccessTimestampMs(b) || 0;
+      return dataB - dataA;
+    });
+
+  const filterTrackableAccesses = (items = []) =>
+    filterAccessItemsByQuery(items, { projectSystemKey, startDate, endDate }).filter((item) => {
+      const trackingId = normalizeText(item?.trackingId);
+      const eventType = normalizeText(item?.eventoTipo || item?.tipo).toLowerCase();
+
+      if (!trackingId) return false;
+      if (eventType && eventType !== "access_link") return false;
+
+      return true;
+    });
+
+  try {
+    const constraints = [orderBy("data", "desc"), limit(safeLimit)];
+    const projectSystemKeyNormalizado = normalizeText(projectSystemKey).toLowerCase();
+    const startAt = buildAccessRangeStart(startDate);
+    const endAt = buildAccessRangeEnd(endDate);
+
+    if (projectSystemKeyNormalizado) {
+      constraints.unshift(where("runtimeProjectKey", "==", projectSystemKeyNormalizado));
+    }
+    if (startAt) {
+      constraints.unshift(where("data", ">=", startAt));
+    }
+    if (endAt) {
+      constraints.unshift(where("data", "<=", endAt));
+    }
+
+    const snap = await getDocs(query(collectionGroup(managerDb, "acessos"), ...constraints));
+    return sortAccesses(filterTrackableAccesses(snap.docs.map(mapAccess))).slice(0, safeLimit);
+  } catch (error) {
+    if (error?.code !== "failed-precondition") {
+      throw error;
+    }
+  }
+
+  const fallbackSnap = await getDocs(query(collectionGroup(managerDb, "acessos"), limit(safeLimit)));
+  return sortAccesses(filterTrackableAccesses(fallbackSnap.docs.map(mapAccess))).slice(0, safeLimit);
+}
+
 export async function listarQrPrintsNoGerenciador({
   limit: maxItems = 300,
   projectSystemKey = "",

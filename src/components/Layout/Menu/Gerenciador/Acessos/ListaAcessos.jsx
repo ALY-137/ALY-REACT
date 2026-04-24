@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import {
   listarAcessosNoGerenciador,
+  listarAcessosLinksRastreaveisNoGerenciador,
   listarLinksRastreaveisNoGerenciador,
   listarLeiturasQrPrintsNoGerenciador,
   listarQrPrintsNoGerenciador,
@@ -555,6 +556,7 @@ function ListaAcessos() {
   const managerProjectLabel = obterManagerProjectLabel();
   const mountedRef = useRef(true);
   const [acessos, setAcessos] = useState([]);
+  const [acessosLinksRastreaveis, setAcessosLinksRastreaveis] = useState([]);
   const [linksRastreaveis, setLinksRastreaveis] = useState([]);
   const [qrPrintsRastreaveis, setQrPrintsRastreaveis] = useState([]);
   const [leiturasQrPrints, setLeiturasQrPrints] = useState([]);
@@ -819,10 +821,16 @@ function ListaAcessos() {
     setCarregandoPainelRastreavel(true);
 
     try {
-      const [links, prints, leituras] = await Promise.all([
+      const [links, acessosLinks, prints, leituras] = await Promise.all([
         listarLinksRastreaveisNoGerenciador({
           limit: 300,
           projectSystemKey: filtroProjeto,
+        }),
+        listarAcessosLinksRastreaveisNoGerenciador({
+          limit: 500,
+          projectSystemKey: filtroProjeto,
+          startDate: filtroDataInicio,
+          endDate: filtroDataFim,
         }),
         listarQrPrintsNoGerenciador({
           limit: 300,
@@ -836,6 +844,7 @@ function ListaAcessos() {
       if (!mountedRef.current) return;
       setErroPainelRastreavel("");
       setLinksRastreaveis(Array.isArray(links) ? links : []);
+      setAcessosLinksRastreaveis(Array.isArray(acessosLinks) ? acessosLinks : []);
       setQrPrintsRastreaveis(Array.isArray(prints) ? prints : []);
       setLeiturasQrPrints(Array.isArray(leituras) ? leituras : []);
     } catch (error) {
@@ -843,6 +852,7 @@ function ListaAcessos() {
       console.error("Erro ao carregar links rastreaveis no gerenciador:", error);
       setErroPainelRastreavel("Nao foi possivel carregar o painel central de rastreabilidade.");
       setLinksRastreaveis([]);
+      setAcessosLinksRastreaveis([]);
       setQrPrintsRastreaveis([]);
       setLeiturasQrPrints([]);
     } finally {
@@ -850,7 +860,7 @@ function ListaAcessos() {
         setCarregandoPainelRastreavel(false);
       }
     }
-  }, [filtroProjeto]);
+  }, [filtroDataFim, filtroDataInicio, filtroProjeto]);
 
   useEffect(() => {
     void carregarPainelRastreavel();
@@ -1038,8 +1048,30 @@ function ListaAcessos() {
       qrPrintsMap.set(printId, print);
     });
 
-    const eventosLinks = acessosFiltrados
-      .filter((acesso) => normalizeText(acesso?.trackingId))
+    const acessosLinksUnicos = Array.from(
+      new Map(
+        [...acessosFiltrados, ...acessosLinksRastreaveis]
+          .filter((acesso) => normalizeText(acesso?.trackingId))
+          .map((acesso) => {
+            const trackingId = normalizeText(acesso?.trackingId);
+            const dataMs = resolveDataTimestampMs(acesso?.data || acesso?.criadoEm) || 0;
+            const accessKey =
+              normalizeText(acesso?.id) ||
+              [
+                trackingId,
+                resolveAccessNavigationId(acesso),
+                normalizeText(acesso?.path || acesso?.pathname || acesso?.fullPath || acesso?.url),
+                String(dataMs),
+              ]
+                .filter(Boolean)
+                .join("|");
+
+            return [`${trackingId}:${accessKey || dataMs}`, acesso];
+          })
+      ).values()
+    );
+
+    const eventosLinks = acessosLinksUnicos
       .map((acesso) => {
         const trackingId = normalizeText(acesso?.trackingId);
         const link = linksMap.get(trackingId) || null;
@@ -1170,6 +1202,7 @@ function ListaAcessos() {
       opcoesLocal,
     };
   }, [
+    acessosLinksRastreaveis,
     acessosFiltrados,
     filtroDataFim,
     filtroDataInicio,
