@@ -3116,6 +3116,8 @@ exports.listarUsuariosGerenciadorHttp = onRequest(
 exports.listarAcessosGerenciadorHttp = onRequest(
   HTTP_OPTIONS,
   async (req, res) => {
+    if (handleHttpCorsPreflight(req, res)) return;
+
     try {
       if (req.method !== "POST") {
         res.status(405).json({ ok: false, error: "Metodo nao permitido." });
@@ -3165,6 +3167,113 @@ exports.listarAcessosGerenciadorHttp = onRequest(
           id: docItem.id,
           ...docItem.data(),
         })),
+      });
+    } catch (error) {
+      sendHttpError(res, error);
+    }
+  }
+);
+
+exports.listarAcessosLinksRastreaveisGerenciadorHttp = onRequest(
+  HTTP_OPTIONS,
+  async (req, res) => {
+    if (handleHttpCorsPreflight(req, res)) return;
+
+    try {
+      if (req.method !== "POST") {
+        res.status(405).json({ ok: false, error: "Metodo nao permitido." });
+        return;
+      }
+
+      const body = normalizeRequestBody(req);
+      const token = getBearerToken(req);
+      const { decoded } = await verifySharedBucketIdToken(token);
+      await assertSystemManagerAdminIdentity({
+        uid: decoded?.uid,
+        email: decoded?.email,
+      });
+
+      const maxItems = Math.min(Math.max(Number(body?.limit) || 500, 1), 800);
+      const projectSystemKey = sanitizeString(body?.projectSystemKey).toLowerCase();
+      const startDate = sanitizeString(body?.startDate);
+      const endDate = sanitizeString(body?.endDate);
+      const startDateObject = startDate ? new Date(`${startDate}T00:00:00.000`) : null;
+      const endDateObject = endDate ? new Date(`${endDate}T23:59:59.999`) : null;
+      const startMs =
+        startDateObject && !Number.isNaN(startDateObject.getTime())
+          ? startDateObject.getTime()
+          : NaN;
+      const endMs =
+        endDateObject && !Number.isNaN(endDateObject.getTime())
+          ? endDateObject.getTime()
+          : NaN;
+
+      const managerDb = getSystemManagerDb();
+      let ref = managerDb.collectionGroup("acessos");
+      if (projectSystemKey) {
+        ref = ref.where("runtimeProjectKey", "==", projectSystemKey);
+      }
+
+      let snap;
+      try {
+        snap = await ref.orderBy("data", "desc").limit(maxItems).get();
+      } catch (error) {
+        const code = sanitizeString(error?.code).toLowerCase();
+        const message = sanitizeString(error?.message).toLowerCase();
+        const requiresIndex =
+          code === "failed-precondition" ||
+          code === "9" ||
+          message.includes("requires an index");
+
+        if (!requiresIndex) {
+          throw error;
+        }
+
+        snap = await ref.limit(maxItems).get();
+      }
+
+      const getTimestampMs = (item = {}) => {
+        const value = item?.data || item?.criadoEm;
+        if (!value) return NaN;
+        if (typeof value?.toDate === "function") return value.toDate().getTime();
+        if (typeof value?.seconds === "number") return value.seconds * 1000;
+        if (typeof value?._seconds === "number") return value._seconds * 1000;
+        if (value instanceof Date) return value.getTime();
+        const timestamp = Number.isFinite(Number(value))
+          ? Number(value)
+          : new Date(value).getTime();
+        return Number.isFinite(timestamp) ? timestamp : NaN;
+      };
+
+      const items = snap.docs
+        .map((docItem) => ({
+          id: docItem.id,
+          ...(docItem.data() || {}),
+        }))
+        .filter((item) => {
+          const trackingId = sanitizeString(item?.trackingId);
+          const eventType = sanitizeString(item?.eventoTipo || item?.tipo).toLowerCase();
+          const itemProjectKey = sanitizeString(item?.runtimeProjectKey).toLowerCase();
+          const itemTimestamp = getTimestampMs(item);
+
+          if (!trackingId) return false;
+          if (eventType && eventType !== "access_link") return false;
+          if (projectSystemKey && itemProjectKey !== projectSystemKey) return false;
+          if (Number.isFinite(startMs) && (!Number.isFinite(itemTimestamp) || itemTimestamp < startMs)) {
+            return false;
+          }
+          if (Number.isFinite(endMs) && (!Number.isFinite(itemTimestamp) || itemTimestamp > endMs)) {
+            return false;
+          }
+
+          return true;
+        })
+        .sort((a, b) => (getTimestampMs(b) || 0) - (getTimestampMs(a) || 0))
+        .slice(0, maxItems);
+
+      res.json({
+        ok: true,
+        items,
       });
     } catch (error) {
       sendHttpError(res, error);

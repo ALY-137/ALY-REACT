@@ -831,6 +831,9 @@ function ListaAcessos() {
           projectSystemKey: filtroProjeto,
           startDate: filtroDataInicio,
           endDate: filtroDataFim,
+        }).catch((error) => {
+          console.error("Erro ao carregar acessos de links rastreaveis no gerenciador:", error);
+          return [];
         }),
         listarQrPrintsNoGerenciador({
           limit: 300,

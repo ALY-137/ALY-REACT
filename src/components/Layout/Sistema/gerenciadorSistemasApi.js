@@ -759,6 +759,20 @@ export async function listarAcessosLinksRastreaveisNoGerenciador({
 
   const safeLimit = Math.max(1, Math.min(Number(maxItems) || 500, 800));
 
+  try {
+    const response = await callSharedManagerRead("listarAcessosLinksRastreaveisGerenciadorHttp", {
+      limit: safeLimit,
+      projectSystemKey,
+      startDate,
+      endDate,
+    });
+    return Array.isArray(response?.items) ? response.items : [];
+  } catch (error) {
+    if (!managerDb || !shouldFallbackToDirectManagerRead(error)) {
+      throw error;
+    }
+  }
+
   const mapAccess = (docItem) => ({
     id: docItem.id,
     ...(docItem.data() || {}),
