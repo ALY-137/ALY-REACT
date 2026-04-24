@@ -825,6 +825,9 @@ function ListaAcessos() {
         listarLinksRastreaveisNoGerenciador({
           limit: 300,
           projectSystemKey: filtroProjeto,
+        }).catch((error) => {
+          console.error("Erro ao carregar lista de links rastreaveis no painel:", error);
+          return [];
         }),
         listarAcessosLinksRastreaveisNoGerenciador({
           limit: 500,
@@ -838,10 +841,16 @@ function ListaAcessos() {
         listarQrPrintsNoGerenciador({
           limit: 300,
           projectSystemKey: filtroProjeto,
+        }).catch((error) => {
+          console.error("Erro ao carregar QR prints rastreaveis no gerenciador:", error);
+          return [];
         }),
         listarLeiturasQrPrintsNoGerenciador({
           limit: 300,
           projectSystemKey: filtroProjeto,
+        }).catch((error) => {
+          console.error("Erro ao carregar leituras de QR prints no gerenciador:", error);
+          return [];
         }),
       ]);
       if (!mountedRef.current) return;
@@ -852,7 +861,7 @@ function ListaAcessos() {
       setLeiturasQrPrints(Array.isArray(leituras) ? leituras : []);
     } catch (error) {
       if (!mountedRef.current) return;
-      console.error("Erro ao carregar links rastreaveis no gerenciador:", error);
+      console.error("Erro ao carregar painel central de rastreabilidade:", error);
       setErroPainelRastreavel("Nao foi possivel carregar o painel central de rastreabilidade.");
       setLinksRastreaveis([]);
       setAcessosLinksRastreaveis([]);

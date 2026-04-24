@@ -558,6 +558,38 @@ function sendHttpError(res, error) {
   });
 }
 
+function isFirestorePreconditionError(error) {
+  const codeText = sanitizeString(error?.code).toLowerCase();
+  const codeNumber = Number(error?.code);
+  const message = sanitizeString(error?.message).toLowerCase();
+  const details = sanitizeString(error?.details).toLowerCase();
+
+  return (
+    codeText === "failed-precondition" ||
+    codeText === "9" ||
+    codeNumber === 9 ||
+    message.includes("failed_precondition") ||
+    message.includes("failed precondition") ||
+    message.includes("requires an index") ||
+    details.includes("requires an index")
+  );
+}
+
+function getFirestoreTimestampMs(item = {}, fields = ["data", "criadoEm"]) {
+  const fieldList = Array.isArray(fields) && fields.length ? fields : ["data", "criadoEm"];
+  const value = fieldList.map((field) => item?.[field]).find(Boolean);
+  if (!value) return NaN;
+  if (typeof value?.toDate === "function") return value.toDate().getTime();
+  if (typeof value?.seconds === "number") return value.seconds * 1000;
+  if (typeof value?._seconds === "number") return value._seconds * 1000;
+  if (value instanceof Date) return value.getTime();
+
+  const timestamp = Number.isFinite(Number(value))
+    ? Number(value)
+    : new Date(value).getTime();
+  return Number.isFinite(timestamp) ? timestamp : NaN;
+}
+
 function ensureAuth(request) {
   if (!request.auth?.uid) {
     throw new HttpsError("unauthenticated", "Usuario nao autenticado.");
@@ -901,6 +933,144 @@ async function markAccessRecordsAsRead(managerDb, ids = [], payload = {}) {
   }
 
   return updated;
+}
+
+async function getTrackableLinksSnapshotWithFallback(ref, maxItems = 300) {
+  try {
+    return await ref.orderBy("atualizadoEm", "desc").limit(maxItems).get();
+  } catch (error) {
+    if (!isFirestorePreconditionError(error)) {
+      throw error;
+    }
+
+    return ref.limit(maxItems).get();
+  }
+}
+
+async function listTrackableLinkDocsForManager(
+  managerDb,
+  { projectSystemKey = "", maxItems = 300 } = {}
+) {
+  const normalizedProjectKey = sanitizeString(projectSystemKey).toLowerCase();
+  const safeLimit = Math.min(Math.max(Number(maxItems) || 300, 1), 800);
+  const docs = [];
+  const seen = new Set();
+
+  const addDocs = (snap) => {
+    snap.docs.forEach((docItem) => {
+      const data = docItem.data() || {};
+      const trackingId = sanitizeString(data?.trackingId || docItem.id);
+      const key = trackingId || docItem.ref.path;
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      docs.push(docItem);
+    });
+  };
+
+  if (normalizedProjectKey) {
+    const rootSnap = await getTrackableLinksSnapshotWithFallback(
+      managerDb.collection("trackableLinks").where("runtimeProjectKey", "==", normalizedProjectKey),
+      safeLimit
+    );
+    addDocs(rootSnap);
+
+    const projectSnap = await getTrackableLinksSnapshotWithFallback(
+      managerDb.collection("projetos").doc(normalizedProjectKey).collection("trackableLinks"),
+      safeLimit
+    );
+    addDocs(projectSnap);
+  } else {
+    try {
+      const groupSnap = await getTrackableLinksSnapshotWithFallback(
+        managerDb.collectionGroup("trackableLinks"),
+        safeLimit
+      );
+      addDocs(groupSnap);
+    } catch (error) {
+      if (!isFirestorePreconditionError(error)) {
+        throw error;
+      }
+
+      const rootSnap = await getTrackableLinksSnapshotWithFallback(
+        managerDb.collection("trackableLinks"),
+        safeLimit
+      );
+      addDocs(rootSnap);
+    }
+  }
+
+  return docs
+    .sort((a, b) => {
+      const dataA = a.data() || {};
+      const dataB = b.data() || {};
+      const timestampA = getFirestoreTimestampMs(dataA, ["atualizadoEm", "criadoEm"]) || 0;
+      const timestampB = getFirestoreTimestampMs(dataB, ["atualizadoEm", "criadoEm"]) || 0;
+      return timestampB - timestampA;
+    })
+    .slice(0, safeLimit);
+}
+
+async function listQrPrintDocsForManager(
+  managerDb,
+  { projectSystemKey = "", maxItems = 300 } = {}
+) {
+  const normalizedProjectKey = sanitizeString(projectSystemKey).toLowerCase();
+  const safeLimit = Math.min(Math.max(Number(maxItems) || 300, 1), 800);
+  const docs = [];
+  const seen = new Set();
+
+  const addDocs = (snap) => {
+    snap.docs.forEach((docItem) => {
+      const data = docItem.data() || {};
+      const printId = sanitizeString(data?.printId || docItem.id);
+      const key = printId || docItem.ref.path;
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      docs.push(docItem);
+    });
+  };
+
+  if (normalizedProjectKey) {
+    const rootSnap = await getTrackableLinksSnapshotWithFallback(
+      managerDb.collection("qrPrints").where("runtimeProjectKey", "==", normalizedProjectKey),
+      safeLimit
+    );
+    addDocs(rootSnap);
+
+    const projectSnap = await getTrackableLinksSnapshotWithFallback(
+      managerDb.collection("projetos").doc(normalizedProjectKey).collection("qrPrints"),
+      safeLimit
+    );
+    addDocs(projectSnap);
+  } else {
+    try {
+      const groupSnap = await getTrackableLinksSnapshotWithFallback(
+        managerDb.collectionGroup("qrPrints"),
+        safeLimit
+      );
+      addDocs(groupSnap);
+    } catch (error) {
+      if (!isFirestorePreconditionError(error)) {
+        throw error;
+      }
+
+      const rootSnap = await getTrackableLinksSnapshotWithFallback(
+        managerDb.collection("qrPrints"),
+        safeLimit
+      );
+      addDocs(rootSnap);
+    }
+  }
+
+  return docs
+    .sort((a, b) => {
+      const dataA = a.data() || {};
+      const dataB = b.data() || {};
+      const timestampA = getFirestoreTimestampMs(dataA, ["atualizadoEm", "criadoEm"]) || 0;
+      const timestampB = getFirestoreTimestampMs(dataB, ["atualizadoEm", "criadoEm"]) || 0;
+      return timestampB - timestampA;
+    })
+    .slice(0, safeLimit);
 }
 
 async function deleteAccessRecords(managerDb, ids = []) {
@@ -3174,6 +3344,45 @@ exports.listarAcessosGerenciadorHttp = onRequest(
   }
 );
 
+exports.listarLinksRastreaveisGerenciadorHttp = onRequest(
+  HTTP_OPTIONS,
+  async (req, res) => {
+    if (handleHttpCorsPreflight(req, res)) return;
+
+    try {
+      if (req.method !== "POST") {
+        res.status(405).json({ ok: false, error: "Metodo nao permitido." });
+        return;
+      }
+
+      const body = normalizeRequestBody(req);
+      const token = getBearerToken(req);
+      const { decoded } = await verifySharedBucketIdToken(token);
+      await assertSystemManagerAdminIdentity({
+        uid: decoded?.uid,
+        email: decoded?.email,
+      });
+
+      const maxItems = Math.min(Math.max(Number(body?.limit) || 300, 1), 800);
+      const projectSystemKey = sanitizeString(body?.projectSystemKey).toLowerCase();
+      const linkDocs = await listTrackableLinkDocsForManager(getSystemManagerDb(), {
+        projectSystemKey,
+        maxItems,
+      });
+
+      res.json({
+        ok: true,
+        items: linkDocs.map((docItem) => ({
+          id: docItem.id,
+          ...(docItem.data() || {}),
+        })),
+      });
+    } catch (error) {
+      sendHttpError(res, error);
+    }
+  }
+);
+
 exports.listarAcessosLinksRastreaveisGerenciadorHttp = onRequest(
   HTTP_OPTIONS,
   async (req, res) => {
@@ -3209,52 +3418,53 @@ exports.listarAcessosLinksRastreaveisGerenciadorHttp = onRequest(
           : NaN;
 
       const managerDb = getSystemManagerDb();
-      let ref = managerDb.collectionGroup("acessos");
-      if (projectSystemKey) {
-        ref = ref.where("runtimeProjectKey", "==", projectSystemKey);
-      }
+      const linkDocs = await listTrackableLinkDocsForManager(managerDb, {
+        projectSystemKey,
+        maxItems,
+      });
+      const perLinkLimit = Math.max(5, Math.min(100, Math.ceil(maxItems / Math.max(linkDocs.length, 1))));
+      const accessDocs = [];
 
-      let snap;
-      try {
-        snap = await ref.orderBy("data", "desc").limit(maxItems).get();
-      } catch (error) {
-        const code = sanitizeString(error?.code).toLowerCase();
-        const message = sanitizeString(error?.message).toLowerCase();
-        const requiresIndex =
-          code === "failed-precondition" ||
-          code === "9" ||
-          message.includes("requires an index");
+      for (const linkDoc of linkDocs) {
+        let accessSnap;
+        try {
+          accessSnap = await linkDoc.ref
+            .collection("acessos")
+            .orderBy("data", "desc")
+            .limit(perLinkLimit)
+            .get();
+        } catch (error) {
+          if (!isFirestorePreconditionError(error)) {
+            throw error;
+          }
 
-        if (!requiresIndex) {
-          throw error;
+          accessSnap = await linkDoc.ref.collection("acessos").limit(perLinkLimit).get();
         }
 
-        snap = await ref.limit(maxItems).get();
+        const linkData = linkDoc.data() || {};
+        accessSnap.docs.forEach((docItem) => {
+          accessDocs.push({
+            id: docItem.id,
+            trackingId: sanitizeString(linkData?.trackingId || linkDoc.id) || null,
+            trackingDestinoUrl: sanitizeString(linkData?.destinoUrl) || null,
+            trackingOrigemPlanejada:
+              sanitizeString(linkData?.origemPlanejada || linkData?.descricao) || null,
+            ownerUserId: sanitizeString(linkData?.ownerUserId) || null,
+            espacoId: sanitizeString(linkData?.espacoId) || null,
+            espacoNome: sanitizeString(linkData?.espacoNome) || null,
+            skinsUsername: sanitizeString(linkData?.skinsUsername) || null,
+            runtimeProjectKey: sanitizeString(linkData?.runtimeProjectKey) || null,
+            ...(docItem.data() || {}),
+          });
+        });
       }
 
-      const getTimestampMs = (item = {}) => {
-        const value = item?.data || item?.criadoEm;
-        if (!value) return NaN;
-        if (typeof value?.toDate === "function") return value.toDate().getTime();
-        if (typeof value?.seconds === "number") return value.seconds * 1000;
-        if (typeof value?._seconds === "number") return value._seconds * 1000;
-        if (value instanceof Date) return value.getTime();
-        const timestamp = Number.isFinite(Number(value))
-          ? Number(value)
-          : new Date(value).getTime();
-        return Number.isFinite(timestamp) ? timestamp : NaN;
-      };
-
-      const items = snap.docs
-        .map((docItem) => ({
-          id: docItem.id,
-          ...(docItem.data() || {}),
-        }))
+      const items = accessDocs
         .filter((item) => {
           const trackingId = sanitizeString(item?.trackingId);
           const eventType = sanitizeString(item?.eventoTipo || item?.tipo).toLowerCase();
           const itemProjectKey = sanitizeString(item?.runtimeProjectKey).toLowerCase();
-          const itemTimestamp = getTimestampMs(item);
+          const itemTimestamp = getFirestoreTimestampMs(item);
 
           if (!trackingId) return false;
           if (eventType && eventType !== "access_link") return false;
@@ -3268,7 +3478,129 @@ exports.listarAcessosLinksRastreaveisGerenciadorHttp = onRequest(
 
           return true;
         })
-        .sort((a, b) => (getTimestampMs(b) || 0) - (getTimestampMs(a) || 0))
+        .sort((a, b) => (getFirestoreTimestampMs(b) || 0) - (getFirestoreTimestampMs(a) || 0))
+        .slice(0, maxItems);
+
+      res.json({
+        ok: true,
+        items,
+      });
+    } catch (error) {
+      sendHttpError(res, error);
+    }
+  }
+);
+
+exports.listarQrPrintsGerenciadorHttp = onRequest(
+  HTTP_OPTIONS,
+  async (req, res) => {
+    if (handleHttpCorsPreflight(req, res)) return;
+
+    try {
+      if (req.method !== "POST") {
+        res.status(405).json({ ok: false, error: "Metodo nao permitido." });
+        return;
+      }
+
+      const body = normalizeRequestBody(req);
+      const token = getBearerToken(req);
+      const { decoded } = await verifySharedBucketIdToken(token);
+      await assertSystemManagerAdminIdentity({
+        uid: decoded?.uid,
+        email: decoded?.email,
+      });
+
+      const maxItems = Math.min(Math.max(Number(body?.limit) || 300, 1), 800);
+      const projectSystemKey = sanitizeString(body?.projectSystemKey).toLowerCase();
+      const printDocs = await listQrPrintDocsForManager(getSystemManagerDb(), {
+        projectSystemKey,
+        maxItems,
+      });
+
+      res.json({
+        ok: true,
+        items: printDocs.map((docItem) => ({
+          id: docItem.id,
+          ...(docItem.data() || {}),
+        })),
+      });
+    } catch (error) {
+      sendHttpError(res, error);
+    }
+  }
+);
+
+exports.listarLeiturasQrPrintsGerenciadorHttp = onRequest(
+  HTTP_OPTIONS,
+  async (req, res) => {
+    if (handleHttpCorsPreflight(req, res)) return;
+
+    try {
+      if (req.method !== "POST") {
+        res.status(405).json({ ok: false, error: "Metodo nao permitido." });
+        return;
+      }
+
+      const body = normalizeRequestBody(req);
+      const token = getBearerToken(req);
+      const { decoded } = await verifySharedBucketIdToken(token);
+      await assertSystemManagerAdminIdentity({
+        uid: decoded?.uid,
+        email: decoded?.email,
+      });
+
+      const maxItems = Math.min(Math.max(Number(body?.limit) || 300, 1), 800);
+      const projectSystemKey = sanitizeString(body?.projectSystemKey).toLowerCase();
+      const managerDb = getSystemManagerDb();
+      const printDocs = await listQrPrintDocsForManager(managerDb, {
+        projectSystemKey,
+        maxItems,
+      });
+      const perPrintLimit = Math.max(5, Math.min(100, Math.ceil(maxItems / Math.max(printDocs.length, 1))));
+      const readingDocs = [];
+
+      for (const printDoc of printDocs) {
+        let readingSnap;
+        try {
+          readingSnap = await printDoc.ref
+            .collection("leituras")
+            .orderBy("data", "desc")
+            .limit(perPrintLimit)
+            .get();
+        } catch (error) {
+          if (!isFirestorePreconditionError(error)) {
+            throw error;
+          }
+
+          readingSnap = await printDoc.ref.collection("leituras").limit(perPrintLimit).get();
+        }
+
+        const printData = printDoc.data() || {};
+        readingSnap.docs.forEach((docItem) => {
+          readingDocs.push({
+            id: docItem.id,
+            printId: sanitizeString(printData?.printId || printDoc.id) || null,
+            cardNome: sanitizeString(printData?.cardNome) || null,
+            urlCard: sanitizeString(printData?.urlCard) || null,
+            ownerUserId: sanitizeString(printData?.ownerUserId) || null,
+            espacoId: sanitizeString(printData?.espacoId) || null,
+            espacoNome: sanitizeString(printData?.espacoNome) || null,
+            skinsUsername: sanitizeString(printData?.skinsUsername) || null,
+            runtimeProjectKey: sanitizeString(printData?.runtimeProjectKey) || null,
+            ...(docItem.data() || {}),
+          });
+        });
+      }
+
+      const items = readingDocs
+        .filter((item) => {
+          const printId = sanitizeString(item?.printId || item?.qrPrintId);
+          const itemProjectKey = sanitizeString(item?.runtimeProjectKey).toLowerCase();
+          if (!printId) return false;
+          if (projectSystemKey && itemProjectKey !== projectSystemKey) return false;
+          return true;
+        })
+        .sort((a, b) => (getFirestoreTimestampMs(b) || 0) - (getFirestoreTimestampMs(a) || 0))
         .slice(0, maxItems);
 
       res.json({

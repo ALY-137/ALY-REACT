@@ -704,48 +704,18 @@ export async function listarLinksRastreaveisNoGerenciador({
   limit: maxItems = 300,
   projectSystemKey = "",
 } = {}) {
-  const managerDb = getManagerDb();
-  if (!managerDb) return [];
-
-  const projectSystemKeyNormalizado = normalizeText(projectSystemKey).toLowerCase();
   const safeLimit = Math.max(1, Math.min(Number(maxItems) || 300, 500));
 
-  const mapLink = (docItem) => ({
-    id: docItem.id,
-    ...(docItem.data() || {}),
-  });
-
-  const sortLinks = (items = []) =>
-    [...items].sort((a, b) => {
-      const dataA = getAccessTimestampMs(a?.atualizadoEm || a?.criadoEm) || 0;
-      const dataB = getAccessTimestampMs(b?.atualizadoEm || b?.criadoEm) || 0;
-      return dataB - dataA;
-    });
-
-  const filterLinks = (items = []) =>
-    (Array.isArray(items) ? items : []).filter((item) => {
-      const linkProjectKey = normalizeText(item?.runtimeProjectKey).toLowerCase();
-      if (projectSystemKeyNormalizado && linkProjectKey !== projectSystemKeyNormalizado) {
-        return false;
-      }
-      return true;
-    });
-
   try {
-    const constraints = [limit(safeLimit)];
-    if (projectSystemKeyNormalizado) {
-      constraints.unshift(where("runtimeProjectKey", "==", projectSystemKeyNormalizado));
-    }
-    const snap = await getDocs(query(collection(managerDb, "trackableLinks"), ...constraints));
-    return sortLinks(snap.docs.map(mapLink)).slice(0, safeLimit);
+    const response = await callSharedManagerRead("listarLinksRastreaveisGerenciadorHttp", {
+      limit: safeLimit,
+      projectSystemKey,
+    });
+    return Array.isArray(response?.items) ? response.items : [];
   } catch (error) {
-    if (error?.code !== "failed-precondition") {
-      throw error;
-    }
+    console.error("Erro ao consultar links rastreaveis via backend do gerenciador:", error);
+    return [];
   }
-
-  const fallbackSnap = await getDocs(query(collection(managerDb, "trackableLinks"), limit(safeLimit)));
-  return sortLinks(filterLinks(fallbackSnap.docs.map(mapLink))).slice(0, safeLimit);
 }
 
 export async function listarAcessosLinksRastreaveisNoGerenciador({
@@ -754,9 +724,6 @@ export async function listarAcessosLinksRastreaveisNoGerenciador({
   startDate = "",
   endDate = "",
 } = {}) {
-  const managerDb = getManagerDb();
-  if (!managerDb) return [];
-
   const safeLimit = Math.max(1, Math.min(Number(maxItems) || 500, 800));
 
   try {
@@ -768,163 +735,45 @@ export async function listarAcessosLinksRastreaveisNoGerenciador({
     });
     return Array.isArray(response?.items) ? response.items : [];
   } catch (error) {
-    if (!managerDb || !shouldFallbackToDirectManagerRead(error)) {
-      throw error;
-    }
+    console.error("Erro ao consultar acessos de links rastreaveis via backend do gerenciador:", error);
+    return [];
   }
-
-  const mapAccess = (docItem) => ({
-    id: docItem.id,
-    ...(docItem.data() || {}),
-  });
-
-  const sortAccesses = (items = []) =>
-    [...items].sort((a, b) => {
-      const dataA = getAccessTimestampMs(a) || 0;
-      const dataB = getAccessTimestampMs(b) || 0;
-      return dataB - dataA;
-    });
-
-  const filterTrackableAccesses = (items = []) =>
-    filterAccessItemsByQuery(items, { projectSystemKey, startDate, endDate }).filter((item) => {
-      const trackingId = normalizeText(item?.trackingId);
-      const eventType = normalizeText(item?.eventoTipo || item?.tipo).toLowerCase();
-
-      if (!trackingId) return false;
-      if (eventType && eventType !== "access_link") return false;
-
-      return true;
-    });
-
-  try {
-    const constraints = [orderBy("data", "desc"), limit(safeLimit)];
-    const projectSystemKeyNormalizado = normalizeText(projectSystemKey).toLowerCase();
-    const startAt = buildAccessRangeStart(startDate);
-    const endAt = buildAccessRangeEnd(endDate);
-
-    if (projectSystemKeyNormalizado) {
-      constraints.unshift(where("runtimeProjectKey", "==", projectSystemKeyNormalizado));
-    }
-    if (startAt) {
-      constraints.unshift(where("data", ">=", startAt));
-    }
-    if (endAt) {
-      constraints.unshift(where("data", "<=", endAt));
-    }
-
-    const snap = await getDocs(query(collectionGroup(managerDb, "acessos"), ...constraints));
-    return sortAccesses(filterTrackableAccesses(snap.docs.map(mapAccess))).slice(0, safeLimit);
-  } catch (error) {
-    if (error?.code !== "failed-precondition") {
-      throw error;
-    }
-  }
-
-  const fallbackSnap = await getDocs(query(collectionGroup(managerDb, "acessos"), limit(safeLimit)));
-  return sortAccesses(filterTrackableAccesses(fallbackSnap.docs.map(mapAccess))).slice(0, safeLimit);
 }
 
 export async function listarQrPrintsNoGerenciador({
   limit: maxItems = 300,
   projectSystemKey = "",
 } = {}) {
-  const managerDb = getManagerDb();
-  if (!managerDb) return [];
-
-  const projectSystemKeyNormalizado = normalizeText(projectSystemKey).toLowerCase();
   const safeLimit = Math.max(1, Math.min(Number(maxItems) || 300, 500));
 
-  const mapPrint = (docItem) => ({
-    id: docItem.id,
-    ...(docItem.data() || {}),
-  });
-
-  const sortPrints = (items = []) =>
-    [...items].sort((a, b) => {
-      const dataA = getAccessTimestampMs(a?.atualizadoEm || a?.criadoEm) || 0;
-      const dataB = getAccessTimestampMs(b?.atualizadoEm || b?.criadoEm) || 0;
-      return dataB - dataA;
-    });
-
-  const filterPrints = (items = []) =>
-    (Array.isArray(items) ? items : []).filter((item) => {
-      const printProjectKey = normalizeText(item?.runtimeProjectKey).toLowerCase();
-      if (projectSystemKeyNormalizado && printProjectKey !== projectSystemKeyNormalizado) {
-        return false;
-      }
-      return true;
-    });
-
   try {
-    const constraints = [limit(safeLimit)];
-    if (projectSystemKeyNormalizado) {
-      constraints.unshift(where("runtimeProjectKey", "==", projectSystemKeyNormalizado));
-    }
-    const snap = await getDocs(query(collection(managerDb, "qrPrints"), ...constraints));
-    return sortPrints(snap.docs.map(mapPrint)).slice(0, safeLimit);
+    const response = await callSharedManagerRead("listarQrPrintsGerenciadorHttp", {
+      limit: safeLimit,
+      projectSystemKey,
+    });
+    return Array.isArray(response?.items) ? response.items : [];
   } catch (error) {
-    if (error?.code !== "failed-precondition") {
-      throw error;
-    }
+    console.error("Erro ao consultar QR prints via backend do gerenciador:", error);
+    return [];
   }
-
-  const fallbackSnap = await getDocs(query(collection(managerDb, "qrPrints"), limit(safeLimit)));
-  return sortPrints(filterPrints(fallbackSnap.docs.map(mapPrint))).slice(0, safeLimit);
 }
 
 export async function listarLeiturasQrPrintsNoGerenciador({
   limit: maxItems = 300,
   projectSystemKey = "",
 } = {}) {
-  const managerDb = getManagerDb();
-  if (!managerDb) return [];
-
-  const projectSystemKeyNormalizado = normalizeText(projectSystemKey).toLowerCase();
   const safeLimit = Math.max(1, Math.min(Number(maxItems) || 300, 500));
 
-  const sortReadings = (items = []) =>
-    [...items].sort((a, b) => {
-      const dataA = getAccessTimestampMs(a?.data || a?.criadoEm) || 0;
-      const dataB = getAccessTimestampMs(b?.data || b?.criadoEm) || 0;
-      return dataB - dataA;
-    });
-
-  const filterReadings = (items = []) =>
-    (Array.isArray(items) ? items : []).filter((item) => {
-      const readingProjectKey = normalizeText(item?.runtimeProjectKey).toLowerCase();
-      if (projectSystemKeyNormalizado && readingProjectKey !== projectSystemKeyNormalizado) {
-        return false;
-      }
-      return normalizeText(item?.printId || item?.qrPrintId);
-    });
-
   try {
-    const constraints = [orderBy("data", "desc"), limit(safeLimit)];
-    if (projectSystemKeyNormalizado) {
-      constraints.unshift(where("runtimeProjectKey", "==", projectSystemKeyNormalizado));
-    }
-    const snap = await getDocs(query(collectionGroup(managerDb, "leituras"), ...constraints));
-    return sortReadings(
-      snap.docs.map((docItem) => ({
-        id: docItem.id,
-        ...(docItem.data() || {}),
-      }))
-    ).slice(0, safeLimit);
+    const response = await callSharedManagerRead("listarLeiturasQrPrintsGerenciadorHttp", {
+      limit: safeLimit,
+      projectSystemKey,
+    });
+    return Array.isArray(response?.items) ? response.items : [];
   } catch (error) {
-    if (error?.code !== "failed-precondition") {
-      throw error;
-    }
+    console.error("Erro ao consultar leituras de QR prints via backend do gerenciador:", error);
+    return [];
   }
-
-  const fallbackSnap = await getDocs(query(collectionGroup(managerDb, "leituras"), limit(safeLimit)));
-  return sortReadings(
-    filterReadings(
-      fallbackSnap.docs.map((docItem) => ({
-        id: docItem.id,
-        ...(docItem.data() || {}),
-      }))
-    )
-  ).slice(0, safeLimit);
 }
 
 export async function obterResumoAcessosNoGerenciador({ limit: maxItems = 500 } = {}) {
