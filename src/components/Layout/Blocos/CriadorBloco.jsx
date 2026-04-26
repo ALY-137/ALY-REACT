@@ -27,6 +27,7 @@ import {
   listarAddOnsDoUsuarioProjeto,
   listarIconCollectionsNoGerenciador,
 } from "../Sistema/gerenciadorProjetosApi";
+import { registrarAuditLog } from "../Sistema/auditLogsApi";
 import {
   filtrarColecoesIconesPermitidas,
   parseIconSelectionValue,
@@ -655,6 +656,63 @@ export default function CriadorBloco({
     linkExterno: card.linkExterno,
   });
 
+  const registrarAuditoriaCriacaoBloco = async (
+    blocoPayload = {},
+    { cardsCriados = [] } = {}
+  ) => {
+    const blocoId = String(blocoPayload?.id || "").trim();
+    if (!blocoId) return;
+
+    const criadoEmIso = new Date().toISOString();
+    await registrarAuditLog({
+      action: "criou_bloco",
+      entityType: "bloco",
+      entityId: blocoId,
+      ownerUserId,
+      espacoId,
+      espacoNome: String(espacoAtual?.nome || "").trim(),
+      blocoId,
+      source: "criador_bloco",
+      snapshotDepois: {
+        ...blocoPayload,
+        criadoEm: criadoEmIso,
+      },
+      metadata: {
+        tipo: String(blocoPayload?.tipo || "").trim(),
+        totalCardsCriados: Array.isArray(cardsCriados) ? cardsCriados.length : 0,
+      },
+    });
+
+    await Promise.all(
+      (Array.isArray(cardsCriados) ? cardsCriados : [])
+        .map((card) => ({
+          ...card,
+          id: String(card?.id || "").trim(),
+        }))
+        .filter((card) => card.id)
+        .map((card) =>
+          registrarAuditLog({
+            action: "criou_card",
+            entityType: "card",
+            entityId: card.id,
+            ownerUserId,
+            espacoId,
+            espacoNome: String(espacoAtual?.nome || "").trim(),
+            blocoId,
+            cardId: card.id,
+            source: "criador_bloco",
+            snapshotDepois: {
+              ...card,
+              blocoId,
+              espacoId,
+              ownerUserId,
+              criadoEm: criadoEmIso,
+            },
+          })
+        )
+    );
+  };
+
   const subirArquivoStorage = async (path, arquivo) => {
     if (usandoBucketCompartilhadoCrossProject()) {
       return uploadArquivoNoBucketCompartilhado({ user, path, file: arquivo });
@@ -868,6 +926,7 @@ export default function CriadorBloco({
         };
 
         await setDoc(blocoRef, blocoPayload);
+        await registrarAuditoriaCriacaoBloco(blocoPayload);
 
         if (onCreate) {
           onCreate({
@@ -964,6 +1023,7 @@ export default function CriadorBloco({
         };
 
         await setDoc(blocoRef, blocoPayload);
+        await registrarAuditoriaCriacaoBloco(blocoPayload);
 
         if (onCreate) {
           onCreate({
@@ -1058,6 +1118,9 @@ export default function CriadorBloco({
             })
           )
         );
+        await registrarAuditoriaCriacaoBloco(blocoPayload, {
+          cardsCriados: cardsPersistidos,
+        });
 
         if (onCreate) {
           onCreate({
@@ -1186,6 +1249,7 @@ export default function CriadorBloco({
       };
 
       await setDoc(blocoRef, blocoPayload);
+      await registrarAuditoriaCriacaoBloco(blocoPayload);
 
       if (onCreate) {
         onCreate({
