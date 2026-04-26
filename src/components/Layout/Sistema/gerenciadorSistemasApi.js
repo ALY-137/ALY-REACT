@@ -718,6 +718,27 @@ export async function listarLinksRastreaveisNoGerenciador({
   }
 }
 
+export async function criarLinkRastreavelNoGerenciador(payload = {}) {
+  const response = await callSharedManagerAction("criarLinkRastreavelGerenciadorHttp", payload);
+  return response?.item || response || null;
+}
+
+export async function atualizarStatusLinkRastreavelNoGerenciador(payload = {}) {
+  const response = await callSharedManagerAction(
+    "atualizarStatusLinkRastreavelGerenciadorHttp",
+    payload
+  );
+  return response?.item || response || null;
+}
+
+export async function atualizarStatusQrPrintNoGerenciador(payload = {}) {
+  const response = await callSharedManagerAction(
+    "atualizarStatusQrPrintGerenciadorHttp",
+    payload
+  );
+  return response?.item || response || null;
+}
+
 export async function listarAcessosLinksRastreaveisNoGerenciador({
   limit: maxItems = 500,
   projectSystemKey = "",
@@ -809,6 +830,28 @@ export async function obterResumoAcessosNoGerenciador({ limit: maxItems = 500 } 
     temNaoLidos: naoLidos > 0,
     limiteAtingido: snap.size >= maxItems,
   };
+}
+
+export async function listarAuditLogsNoGerenciador({
+  limit: maxItems = 300,
+  projectSystemKey = "",
+  action = "",
+  entityType = "",
+  startDate = "",
+  endDate = "",
+} = {}) {
+  const safeLimit = Math.max(1, Math.min(Number(maxItems) || 300, 1000));
+
+  const response = await callSharedManagerRead("listarAuditLogsGerenciadorHttp", {
+    limit: safeLimit,
+    projectSystemKey,
+    action,
+    entityType,
+    startDate,
+    endDate,
+  });
+
+  return Array.isArray(response?.items) ? response.items : [];
 }
 
 export async function marcarAcessosComoLidosNoGerenciador({ ids = [] } = {}) {

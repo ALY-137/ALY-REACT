@@ -479,6 +479,90 @@ function getSystemManagerDb() {
   return getProjectDb(SYSTEM_MANAGER_PROJECT_ID, CURRENT_PROJECT_ID);
 }
 
+function extractSystemFirebaseProjectId(data = {}) {
+  const runtimeConfig =
+    data?.firebaseRuntimeConfig && typeof data.firebaseRuntimeConfig === "object"
+      ? data.firebaseRuntimeConfig
+      : {};
+
+  return sanitizeString(runtimeConfig?.projectId || data?.firebaseProjectId || data?.projectId);
+}
+
+function addAllowedProjectId(targetSet, projectId = "") {
+  const normalizedProjectId = sanitizeString(projectId);
+  if (!normalizedProjectId) return;
+
+  try {
+    targetSet.add(ensureAllowedTargetProjectId(normalizedProjectId, CURRENT_PROJECT_ID));
+  } catch {
+    // Projetos fora da lista autorizada nao devem bloquear a leitura dos demais.
+  }
+}
+
+async function resolveRuntimeProjectIdsForSystem(managerDb, projectSystemKey = "") {
+  const normalizedProjectKey = sanitizeString(projectSystemKey).toLowerCase();
+  const projectIds = new Set();
+
+  addAllowedProjectId(projectIds, SYSTEM_MANAGER_PROJECT_ID);
+  addAllowedProjectId(projectIds, CURRENT_PROJECT_ID);
+  addAllowedProjectId(projectIds, "aly-onepages-runtime");
+
+  if (normalizedProjectKey) {
+    addAllowedProjectId(projectIds, normalizedProjectKey);
+
+    const docs = [];
+    const directSnap = await managerDb.collection("systems").doc(normalizedProjectKey).get().catch(() => null);
+    if (directSnap?.exists) docs.push(directSnap);
+
+    const systemKeySnap = await managerDb
+      .collection("systems")
+      .where("systemKey", "==", normalizedProjectKey)
+      .limit(5)
+      .get()
+      .catch(() => null);
+    systemKeySnap?.docs?.forEach((docItem) => docs.push(docItem));
+
+    docs.forEach((docItem) => {
+      const data = docItem.data() || {};
+      addAllowedProjectId(projectIds, extractSystemFirebaseProjectId(data));
+    });
+
+    return Array.from(projectIds);
+  }
+
+  const systemsSnap = await managerDb.collection("systems").limit(200).get().catch(() => null);
+  systemsSnap?.docs?.forEach((docItem) => {
+    const data = docItem.data() || {};
+    addAllowedProjectId(projectIds, extractSystemFirebaseProjectId(data));
+    addAllowedProjectId(projectIds, sanitizeString(data?.systemKey || docItem.id).toLowerCase());
+  });
+
+  return Array.from(projectIds);
+}
+
+async function resolveRuntimeDbEntriesForSystem(managerDb, projectSystemKey = "") {
+  const projectIds = await resolveRuntimeProjectIdsForSystem(managerDb, projectSystemKey);
+  const entries = [];
+  const seen = new Set();
+
+  projectIds.forEach((projectId) => {
+    const normalizedProjectId = sanitizeString(projectId);
+    if (!normalizedProjectId || seen.has(normalizedProjectId)) return;
+
+    try {
+      entries.push({
+        projectId: normalizedProjectId,
+        db: getProjectDb(normalizedProjectId, CURRENT_PROJECT_ID),
+      });
+      seen.add(normalizedProjectId);
+    } catch {
+      // Ignora projetos sem permissao/credencial no backend compartilhado.
+    }
+  });
+
+  return entries;
+}
+
 async function verifySharedBucketIdToken(idToken) {
   const token = sanitizeString(idToken);
   if (!token) {
@@ -947,23 +1031,174 @@ async function getTrackableLinksSnapshotWithFallback(ref, maxItems = 300) {
   }
 }
 
+function isDeletedStatusValue(status = "") {
+  return [
+    "excluido",
+    "excluida",
+    "excluído",
+    "excluída",
+    "deletado",
+    "deletada",
+    "deleted",
+    "removido",
+    "removida",
+  ].includes(sanitizeString(status).toLowerCase());
+}
+
+function isTrackableLinkDeleted(data = {}) {
+  const status = sanitizeString(data?.status).toLowerCase();
+  return (
+    data?.excluido === true ||
+    data?.removido === true ||
+    data?.deletado === true ||
+    isDeletedStatusValue(status)
+  );
+}
+
+function isQrPrintDeleted(data = {}) {
+  const status = sanitizeString(data?.status).toLowerCase();
+  return (
+    data?.excluido === true ||
+    data?.removido === true ||
+    data?.deletado === true ||
+    data?.ativo === false ||
+    isDeletedStatusValue(status)
+  );
+}
+
+function isSourceRecordDeleted(data = {}) {
+  const status = sanitizeString(data?.status).toLowerCase();
+  return (
+    data?.excluido === true ||
+    data?.removido === true ||
+    data?.deletado === true ||
+    data?.ativo === false ||
+    isDeletedStatusValue(status)
+  );
+}
+
+function buildUniqueRefs(refs = []) {
+  const seen = new Set();
+  return refs.filter((ref) => {
+    const path = sanitizeString(ref?.path);
+    if (!path || seen.has(path)) return false;
+    seen.add(path);
+    return true;
+  });
+}
+
+function cardExistsInBlockPayload(blockData = {}, cardId = "") {
+  const normalizedCardId = sanitizeString(cardId);
+  if (!normalizedCardId) return false;
+  const cards = Array.isArray(blockData?.cards) ? blockData.cards : [];
+  return cards.some((card) => {
+    const currentCardId = sanitizeString(card?.id || card?.cardId);
+    return currentCardId === normalizedCardId && !isSourceRecordDeleted(card);
+  });
+}
+
+async function qrPrintSourceCardExists(firestoreDb, docItem, data = {}) {
+  const ownerUserId = sanitizeString(data?.ownerUserId);
+  const espacoId = sanitizeString(data?.espacoId);
+  const blocoId = sanitizeString(data?.blocoId);
+  const cardId = sanitizeString(data?.cardId);
+  const projectSystemKey = resolveDocProjectSystemKey(docItem, data);
+
+  if (!ownerUserId || !espacoId || !blocoId || !cardId) {
+    return false;
+  }
+
+  const cardRefs = [];
+  const blockRefs = [];
+
+  const addSourceRefs = (root = firestoreDb) => {
+    if (ownerUserId && espacoId) {
+      const blockRef = root
+        .collection("users")
+        .doc(ownerUserId)
+        .collection("espacos")
+        .doc(espacoId)
+        .collection("blocos")
+        .doc(blocoId);
+      blockRefs.push(blockRef);
+      cardRefs.push(blockRef.collection("cards").doc(cardId));
+      return;
+    }
+
+    const legacyBlockRef = root.collection("blocos").doc(blocoId);
+    blockRefs.push(legacyBlockRef);
+    cardRefs.push(legacyBlockRef.collection("cards").doc(cardId));
+  };
+
+  if (projectSystemKey) {
+    addSourceRefs(firestoreDb.collection("projetos").doc(projectSystemKey));
+  }
+  addSourceRefs(firestoreDb);
+
+  let foundActiveBlock = false;
+  let foundBlockCardsPayload = false;
+  for (const blockRef of buildUniqueRefs(blockRefs)) {
+    const blockSnap = await blockRef.get().catch(() => null);
+    if (!blockSnap?.exists) continue;
+    const blockData = blockSnap.data() || {};
+    if (isSourceRecordDeleted(blockData)) continue;
+    foundActiveBlock = true;
+
+    if (Array.isArray(blockData?.cards)) {
+      foundBlockCardsPayload = true;
+    }
+
+    if (cardExistsInBlockPayload(blockData, cardId)) {
+      return true;
+    }
+  }
+
+  if (!foundActiveBlock || foundBlockCardsPayload) {
+    return false;
+  }
+
+  for (const cardRef of buildUniqueRefs(cardRefs)) {
+    const cardSnap = await cardRef.get().catch(() => null);
+    if (cardSnap?.exists && !isSourceRecordDeleted(cardSnap.data() || {})) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 async function listTrackableLinkDocsForManager(
   managerDb,
   { projectSystemKey = "", maxItems = 300 } = {}
 ) {
   const normalizedProjectKey = sanitizeString(projectSystemKey).toLowerCase();
   const safeLimit = Math.min(Math.max(Number(maxItems) || 300, 1), 800);
-  const docs = [];
-  const seen = new Set();
+  const docsByTrackingId = new Map();
+  const deletedTrackingIds = new Set();
 
   const addDocs = (snap) => {
     snap.docs.forEach((docItem) => {
       const data = docItem.data() || {};
       const trackingId = sanitizeString(data?.trackingId || docItem.id);
       const key = trackingId || docItem.ref.path;
-      if (!key || seen.has(key)) return;
-      seen.add(key);
-      docs.push(docItem);
+      if (!key) return;
+
+      if (isTrackableLinkDeleted(data)) {
+        deletedTrackingIds.add(key);
+        docsByTrackingId.delete(key);
+        return;
+      }
+
+      if (deletedTrackingIds.has(key)) return;
+
+      const currentTimestamp = getFirestoreTimestampMs(data, ["atualizadoEm", "criadoEm"]) || 0;
+      const previous = docsByTrackingId.get(key);
+      const previousTimestamp = previous
+        ? getFirestoreTimestampMs(previous.data() || {}, ["atualizadoEm", "criadoEm"]) || 0
+        : 0;
+      if (!previous || currentTimestamp >= previousTimestamp) {
+        docsByTrackingId.set(key, docItem);
+      }
     });
   };
 
@@ -999,7 +1234,7 @@ async function listTrackableLinkDocsForManager(
     }
   }
 
-  return docs
+  return Array.from(docsByTrackingId.values())
     .sort((a, b) => {
       const dataA = a.data() || {};
       const dataB = b.data() || {};
@@ -1016,17 +1251,32 @@ async function listQrPrintDocsForManager(
 ) {
   const normalizedProjectKey = sanitizeString(projectSystemKey).toLowerCase();
   const safeLimit = Math.min(Math.max(Number(maxItems) || 300, 1), 800);
-  const docs = [];
-  const seen = new Set();
+  const docsByPrintId = new Map();
+  const deletedPrintIds = new Set();
 
   const addDocs = (snap) => {
     snap.docs.forEach((docItem) => {
       const data = docItem.data() || {};
       const printId = sanitizeString(data?.printId || docItem.id);
       const key = printId || docItem.ref.path;
-      if (!key || seen.has(key)) return;
-      seen.add(key);
-      docs.push(docItem);
+      if (!key) return;
+
+      if (isQrPrintDeleted(data)) {
+        deletedPrintIds.add(key);
+        docsByPrintId.delete(key);
+        return;
+      }
+
+      if (deletedPrintIds.has(key)) return;
+
+      const currentTimestamp = getFirestoreTimestampMs(data, ["atualizadoEm", "criadoEm"]) || 0;
+      const previous = docsByPrintId.get(key);
+      const previousTimestamp = previous
+        ? getFirestoreTimestampMs(previous.data() || {}, ["atualizadoEm", "criadoEm"]) || 0
+        : 0;
+      if (!previous || currentTimestamp >= previousTimestamp) {
+        docsByPrintId.set(key, docItem);
+      }
     });
   };
 
@@ -1062,6 +1312,51 @@ async function listQrPrintDocsForManager(
     }
   }
 
+  const docsComFonteAtiva = [];
+  for (const docItem of Array.from(docsByPrintId.values())) {
+    const data = docItem.data() || {};
+    const fonteExiste = await qrPrintSourceCardExists(managerDb, docItem, data);
+    if (fonteExiste) {
+      docsComFonteAtiva.push(docItem);
+    }
+  }
+
+  return docsComFonteAtiva
+    .sort((a, b) => {
+      const dataA = a.data() || {};
+      const dataB = b.data() || {};
+      const timestampA = getFirestoreTimestampMs(dataA, ["atualizadoEm", "criadoEm"]) || 0;
+      const timestampB = getFirestoreTimestampMs(dataB, ["atualizadoEm", "criadoEm"]) || 0;
+      return timestampB - timestampA;
+    })
+    .slice(0, safeLimit);
+}
+
+async function listTrackableLinkDocsAcrossRuntimeDbs(
+  managerDb,
+  { projectSystemKey = "", maxItems = 300 } = {}
+) {
+  const safeLimit = Math.min(Math.max(Number(maxItems) || 300, 1), 800);
+  const entries = await resolveRuntimeDbEntriesForSystem(managerDb, projectSystemKey);
+  const docs = [];
+  const seen = new Set();
+
+  for (const entry of entries) {
+    const partialDocs = await listTrackableLinkDocsForManager(entry.db, {
+      projectSystemKey,
+      maxItems: safeLimit,
+    }).catch(() => []);
+
+    partialDocs.forEach((docItem) => {
+      const data = docItem.data() || {};
+      const trackingId = sanitizeString(data?.trackingId || docItem.id);
+      const key = `${entry.projectId}:${trackingId || docItem.ref.path}`;
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      docs.push(docItem);
+    });
+  }
+
   return docs
     .sort((a, b) => {
       const dataA = a.data() || {};
@@ -1071,6 +1366,507 @@ async function listQrPrintDocsForManager(
       return timestampB - timestampA;
     })
     .slice(0, safeLimit);
+}
+
+async function listQrPrintDocsAcrossRuntimeDbs(
+  managerDb,
+  { projectSystemKey = "", maxItems = 300 } = {}
+) {
+  const safeLimit = Math.min(Math.max(Number(maxItems) || 300, 1), 800);
+  const entries = await resolveRuntimeDbEntriesForSystem(managerDb, projectSystemKey);
+  const docs = [];
+  const seen = new Set();
+
+  for (const entry of entries) {
+    const partialDocs = await listQrPrintDocsForManager(entry.db, {
+      projectSystemKey,
+      maxItems: safeLimit,
+    }).catch(() => []);
+
+    partialDocs.forEach((docItem) => {
+      const data = docItem.data() || {};
+      const printId = sanitizeString(data?.printId || docItem.id);
+      const key = `${entry.projectId}:${printId || docItem.ref.path}`;
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      docs.push(docItem);
+    });
+  }
+
+  return docs
+    .sort((a, b) => {
+      const dataA = a.data() || {};
+      const dataB = b.data() || {};
+      const timestampA = getFirestoreTimestampMs(dataA, ["atualizadoEm", "criadoEm"]) || 0;
+      const timestampB = getFirestoreTimestampMs(dataB, ["atualizadoEm", "criadoEm"]) || 0;
+      return timestampB - timestampA;
+    })
+    .slice(0, safeLimit);
+}
+
+async function getAuditLogsSnapshotWithFallback(ref, maxItems = 300) {
+  try {
+    return await ref.orderBy("criadoEm", "desc").limit(maxItems).get();
+  } catch (error) {
+    if (!isFirestorePreconditionError(error)) {
+      throw error;
+    }
+
+    return ref.limit(maxItems).get();
+  }
+}
+
+function resolveAuditLogProjectKey(docItem, data = {}, fallback = "") {
+  return (
+    resolveProjectSystemKeyFromDocRef(docItem) ||
+    sanitizeString(data?.projectSystemKey).toLowerCase() ||
+    sanitizeString(data?.runtimeProjectKey).toLowerCase() ||
+    sanitizeString(fallback).toLowerCase()
+  );
+}
+
+function auditLogPassesFilters(data = {}, {
+  projectSystemKey = "",
+  action = "",
+  entityType = "",
+  startMs = NaN,
+  endMs = NaN,
+} = {}) {
+  const itemProjectKey = sanitizeString(data?.projectSystemKey || data?.runtimeProjectKey).toLowerCase();
+  const itemAction = sanitizeString(data?.action).toLowerCase();
+  const itemEntityType = sanitizeString(data?.entityType).toLowerCase();
+  const timestampMs = getFirestoreTimestampMs(data, ["criadoEm", "data", "createdAt"]) || 0;
+
+  if (projectSystemKey && itemProjectKey !== projectSystemKey) return false;
+  if (action && itemAction !== action) return false;
+  if (entityType && itemEntityType !== entityType) return false;
+  if (Number.isFinite(startMs) && (!Number.isFinite(timestampMs) || timestampMs < startMs)) {
+    return false;
+  }
+  if (Number.isFinite(endMs) && (!Number.isFinite(timestampMs) || timestampMs > endMs)) {
+    return false;
+  }
+
+  return true;
+}
+
+async function listAuditLogDocsForManager(
+  managerDb,
+  {
+    projectSystemKey = "",
+    action = "",
+    entityType = "",
+    startDate = "",
+    endDate = "",
+    maxItems = 300,
+  } = {}
+) {
+  const normalizedProjectKey = sanitizeString(projectSystemKey).toLowerCase();
+  const normalizedAction = sanitizeString(action).toLowerCase();
+  const normalizedEntityType = sanitizeString(entityType).toLowerCase();
+  const safeLimit = Math.min(Math.max(Number(maxItems) || 300, 1), 1000);
+  const startDateObject = startDate ? new Date(`${startDate}T00:00:00.000Z`) : null;
+  const endDateObject = endDate ? new Date(`${endDate}T23:59:59.999Z`) : null;
+  const startMs =
+    startDateObject && !Number.isNaN(startDateObject.getTime()) ? startDateObject.getTime() : NaN;
+  const endMs =
+    endDateObject && !Number.isNaN(endDateObject.getTime()) ? endDateObject.getTime() : NaN;
+  const entries = await resolveRuntimeDbEntriesForSystem(managerDb, normalizedProjectKey);
+  const docs = [];
+  const seen = new Set();
+
+  for (const entry of entries) {
+    const addDocs = (snap) => {
+      snap.docs.forEach((docItem) => {
+        const data = docItem.data() || {};
+        const resolvedProjectKey = resolveAuditLogProjectKey(docItem, data, normalizedProjectKey);
+        const enrichedData = {
+          ...data,
+          projectSystemKey: sanitizeString(data?.projectSystemKey).toLowerCase() || resolvedProjectKey || null,
+          runtimeProjectId: sanitizeString(data?.runtimeProjectId || entry.projectId) || null,
+        };
+        const key = `${entry.projectId}:${docItem.ref.path}`;
+        if (!key || seen.has(key)) return;
+        if (
+          !auditLogPassesFilters(enrichedData, {
+            projectSystemKey: normalizedProjectKey,
+            action: normalizedAction,
+            entityType: normalizedEntityType,
+            startMs,
+            endMs,
+          })
+        ) {
+          return;
+        }
+
+        seen.add(key);
+        docs.push({
+          docItem,
+          data: enrichedData,
+          runtimeProjectId: entry.projectId,
+        });
+      });
+    };
+
+    try {
+      const groupSnap = await getAuditLogsSnapshotWithFallback(
+        entry.db.collectionGroup("auditLogs"),
+        safeLimit
+      );
+      addDocs(groupSnap);
+    } catch (error) {
+      if (!isFirestorePreconditionError(error)) {
+        // Mantem leitura das demais bases mesmo se uma delas falhar.
+      }
+    }
+
+    if (normalizedProjectKey) {
+      const projectSnap = await getAuditLogsSnapshotWithFallback(
+        entry.db.collection("projetos").doc(normalizedProjectKey).collection("auditLogs"),
+        safeLimit
+      ).catch(() => null);
+      if (projectSnap) addDocs(projectSnap);
+    }
+
+    const rootSnap = await getAuditLogsSnapshotWithFallback(
+      entry.db.collection("auditLogs"),
+      safeLimit
+    ).catch(() => null);
+    if (rootSnap) addDocs(rootSnap);
+  }
+
+  return docs
+    .sort((a, b) => {
+      const timestampA = getFirestoreTimestampMs(a.data, ["criadoEm", "data", "createdAt"]) || 0;
+      const timestampB = getFirestoreTimestampMs(b.data, ["criadoEm", "data", "createdAt"]) || 0;
+      return timestampB - timestampA;
+    })
+    .slice(0, safeLimit);
+}
+
+function resolveProjectSystemKeyFromDocRef(docItem) {
+  const pathParts = String(docItem?.ref?.path || "").split("/");
+  const projetosIndex = pathParts.findIndex((part) => part === "projetos");
+  if (projetosIndex < 0 || !pathParts[projetosIndex + 1]) return "";
+  return sanitizeString(pathParts[projetosIndex + 1]).toLowerCase();
+}
+
+function resolveDocProjectSystemKey(docItem, data = {}, fallback = "") {
+  return (
+    resolveProjectSystemKeyFromDocRef(docItem) ||
+    sanitizeString(data?.projectSystemKey).toLowerCase() ||
+    sanitizeString(data?.runtimeProjectKey).toLowerCase() ||
+    sanitizeString(fallback).toLowerCase()
+  );
+}
+
+function cleanFirestorePayload(payload = {}) {
+  return Object.entries(payload || {}).reduce((acc, [key, value]) => {
+    if (value !== undefined) {
+      acc[key] = value;
+    }
+    return acc;
+  }, {});
+}
+
+function serializeAuditValue(value, depth = 0) {
+  if (value === undefined) return null;
+  if (value === null) return null;
+  if (depth > 4) return "[max-depth]";
+  if (["string", "number", "boolean"].includes(typeof value)) return value;
+  if (typeof value?.toDate === "function") return value.toDate().toISOString();
+  if (Array.isArray(value)) {
+    return value.slice(0, 80).map((item) => serializeAuditValue(item, depth + 1));
+  }
+  if (typeof value === "object") {
+    return Object.entries(value).reduce((acc, [key, item]) => {
+      if (key.startsWith("__") || typeof item === "function") return acc;
+      acc[key] = serializeAuditValue(item, depth + 1);
+      return acc;
+    }, {});
+  }
+  return sanitizeString(value);
+}
+
+function getAuditCollectionRef(targetDb, {
+  projectSystemKey = "",
+  sourcePath = "",
+} = {}) {
+  const pathParts = sanitizeString(sourcePath).split("/").filter(Boolean);
+  const projetosIndex = pathParts.findIndex((part) => part === "projetos");
+  const pathProjectKey = projetosIndex >= 0 ? sanitizeString(pathParts[projetosIndex + 1]) : "";
+  const normalizedProjectKey = sanitizeString(pathProjectKey || projectSystemKey).toLowerCase();
+
+  if (pathProjectKey && normalizedProjectKey) {
+    return targetDb.collection("projetos").doc(normalizedProjectKey).collection("auditLogs");
+  }
+
+  return targetDb.collection("auditLogs");
+}
+
+async function writeAuditLog(targetDb, {
+  action = "",
+  entityType = "",
+  entityId = "",
+  projectSystemKey = "",
+  runtimeProjectId = "",
+  ownerUserId = "",
+  espacoId = "",
+  blocoId = "",
+  cardId = "",
+  actorUid = "",
+  actorEmail = "",
+  motivo = "",
+  source = "function",
+  sourcePath = "",
+  snapshotAntes = null,
+  snapshotDepois = null,
+  metadata = null,
+} = {}) {
+  const normalizedAction = sanitizeString(action);
+  const normalizedEntityType = sanitizeString(entityType);
+  const normalizedEntityId = sanitizeString(entityId);
+  if (!targetDb || !normalizedAction || !normalizedEntityType || !normalizedEntityId) return null;
+
+  try {
+    const auditRef = getAuditCollectionRef(targetDb, { projectSystemKey, sourcePath });
+    return await auditRef.add(cleanFirestorePayload({
+      action: normalizedAction,
+      entityType: normalizedEntityType,
+      entityId: normalizedEntityId,
+      projectSystemKey: sanitizeString(projectSystemKey).toLowerCase() || null,
+      runtimeProjectId: sanitizeString(runtimeProjectId) || null,
+      ownerUserId: sanitizeString(ownerUserId) || null,
+      espacoId: sanitizeString(espacoId) || null,
+      blocoId: sanitizeString(blocoId) || null,
+      cardId: sanitizeString(cardId) || null,
+      actorUid: sanitizeString(actorUid) || null,
+      actorEmail: sanitizeString(actorEmail).toLowerCase() || null,
+      motivo: sanitizeString(motivo) || null,
+      source: sanitizeString(source) || "function",
+      sourcePath: sanitizeString(sourcePath) || null,
+      snapshotAntes: snapshotAntes ? serializeAuditValue(snapshotAntes) : null,
+      snapshotDepois: snapshotDepois ? serializeAuditValue(snapshotDepois) : null,
+      metadata: metadata ? serializeAuditValue(metadata) : null,
+      criadoEm: serverTimestamp(),
+    }));
+  } catch (error) {
+    console.warn("Falha ao registrar auditoria:", error?.message || error);
+    return null;
+  }
+}
+
+function normalizeOptionalBaseUrl(baseUrl = "") {
+  const normalized = sanitizeString(baseUrl);
+  if (!normalized) return "";
+  return normalizeBaseUrl(normalized);
+}
+
+function buildTrackableBaseUrlFromSystem(systemData = {}, baseUrlInput = "") {
+  const baseUrl = normalizeOptionalBaseUrl(baseUrlInput);
+  if (baseUrl) return baseUrl;
+
+  const domains = Array.isArray(systemData?.domains) ? systemData.domains : [];
+  const firstDomain = domains.map((domain) => normalizeHostValue(domain)).find(Boolean);
+  if (firstDomain) return `https://${firstDomain}`;
+
+  const runtimeProjectId = extractSystemFirebaseProjectId(systemData);
+  if (runtimeProjectId) return `https://${runtimeProjectId}.vercel.app`;
+
+  return "";
+}
+
+function buildTrackableAbsoluteUrlFromBase(baseUrl = "", route = "") {
+  const normalizedRoute = sanitizeString(route);
+  if (!normalizedRoute) return "";
+  const normalizedBaseUrl = normalizeOptionalBaseUrl(baseUrl);
+  if (!normalizedBaseUrl) return normalizedRoute;
+  return `${normalizedBaseUrl}${normalizedRoute.startsWith("/") ? "" : "/"}${normalizedRoute}`;
+}
+
+function getTrackableLinkWriteRefForTarget(target, trackingId = "") {
+  const normalizedTrackingId = ensureRequiredString(trackingId, "trackingId");
+  if (SHARED_ONEOWNER_RUNTIME_KEYS.has(sanitizeString(target?.runtimeProjectId).toLowerCase())) {
+    return target.db
+      .collection("projetos")
+      .doc(target.projectSystemKey)
+      .collection("trackableLinks")
+      .doc(normalizedTrackingId);
+  }
+
+  return target.db.collection("trackableLinks").doc(normalizedTrackingId);
+}
+
+async function resolveSystemDocForTrackableWrite(managerDb, projectSystemKey = "") {
+  const normalizedProjectKey = ensureRequiredString(projectSystemKey, "projectSystemKey").toLowerCase();
+
+  const directSnap = await managerDb.collection("systems").doc(normalizedProjectKey).get();
+  if (directSnap.exists) {
+    return {
+      id: directSnap.id,
+      data: directSnap.data() || {},
+    };
+  }
+
+  const bySystemKeySnap = await managerDb
+    .collection("systems")
+    .where("systemKey", "==", normalizedProjectKey)
+    .limit(1)
+    .get();
+
+  if (!bySystemKeySnap.empty) {
+    const docItem = bySystemKeySnap.docs[0];
+    return {
+      id: docItem.id,
+      data: docItem.data() || {},
+    };
+  }
+
+  throw new HttpsError("not-found", "Projeto alvo nao encontrado no gerenciador.");
+}
+
+async function resolveTrackableTargetForManagerWrite(managerDb, projectSystemKey = "") {
+  const systemDoc = await resolveSystemDocForTrackableWrite(managerDb, projectSystemKey);
+  const systemData = systemDoc.data || {};
+  const normalizedProjectKey = sanitizeString(systemData?.systemKey || systemDoc.id || projectSystemKey)
+    .toLowerCase();
+  const runtimeProjectId =
+    extractSystemFirebaseProjectId(systemData) || normalizedProjectKey || CURRENT_PROJECT_ID;
+
+  return {
+    projectSystemKey: normalizedProjectKey,
+    runtimeProjectId: ensureAllowedTargetProjectId(runtimeProjectId, CURRENT_PROJECT_ID),
+    systemData,
+    db: getProjectDb(runtimeProjectId, CURRENT_PROJECT_ID),
+  };
+}
+
+async function resolveTrackableLinkRefForManagerAction(managerDb, {
+  projectSystemKey = "",
+  trackingId = "",
+} = {}) {
+  const normalizedTrackingId = ensureRequiredString(trackingId, "trackingId");
+  const tryTarget = async (target) => {
+    const rootRef = target.db.collection("trackableLinks").doc(normalizedTrackingId);
+    const rootSnap = await rootRef.get();
+    if (rootSnap.exists) {
+      return { ...target, ref: rootRef, snap: rootSnap };
+    }
+
+    const projectRef = target.db
+      .collection("projetos")
+      .doc(target.projectSystemKey)
+      .collection("trackableLinks")
+      .doc(normalizedTrackingId);
+    const projectSnap = await projectRef.get();
+    if (projectSnap.exists) {
+      return { ...target, ref: projectRef, snap: projectSnap };
+    }
+
+    const groupSnap = await target.db
+      .collectionGroup("trackableLinks")
+      .where("trackingId", "==", normalizedTrackingId)
+      .limit(1)
+      .get()
+      .catch(() => null);
+    if (groupSnap && !groupSnap.empty) {
+      const snap = groupSnap.docs[0];
+      const data = snap.data() || {};
+      return {
+        ...target,
+        projectSystemKey: resolveDocProjectSystemKey(snap, data, target.projectSystemKey),
+        ref: snap.ref,
+        snap,
+      };
+    }
+
+    return null;
+  };
+
+  try {
+    const target = await resolveTrackableTargetForManagerWrite(managerDb, projectSystemKey);
+    const resolved = await tryTarget(target);
+    if (resolved) return resolved;
+  } catch {
+    // Se o projectSystemKey estiver legado/incorreto, procura em todos os runtimes permitidos.
+  }
+
+  const entries = await resolveRuntimeDbEntriesForSystem(managerDb, projectSystemKey);
+  for (const entry of entries) {
+    const resolved = await tryTarget({
+      projectSystemKey: sanitizeString(projectSystemKey).toLowerCase() || entry.projectId,
+      runtimeProjectId: entry.projectId,
+      systemData: {},
+      db: entry.db,
+    });
+    if (resolved) return resolved;
+  }
+
+  throw new HttpsError("not-found", "Link rastreavel nao encontrado no projeto alvo.");
+}
+
+async function resolveQrPrintRefForManagerAction(managerDb, {
+  projectSystemKey = "",
+  printId = "",
+} = {}) {
+  const normalizedPrintId = ensureRequiredString(printId, "printId");
+  const tryTarget = async (target) => {
+    const rootRef = target.db.collection("qrPrints").doc(normalizedPrintId);
+    const rootSnap = await rootRef.get();
+    if (rootSnap.exists) {
+      return { ...target, ref: rootRef, snap: rootSnap };
+    }
+
+    const projectRef = target.db
+      .collection("projetos")
+      .doc(target.projectSystemKey)
+      .collection("qrPrints")
+      .doc(normalizedPrintId);
+    const projectSnap = await projectRef.get();
+    if (projectSnap.exists) {
+      return { ...target, ref: projectRef, snap: projectSnap };
+    }
+
+    const groupSnap = await target.db
+      .collectionGroup("qrPrints")
+      .where("printId", "==", normalizedPrintId)
+      .limit(1)
+      .get()
+      .catch(() => null);
+    if (groupSnap && !groupSnap.empty) {
+      const snap = groupSnap.docs[0];
+      const data = snap.data() || {};
+      return {
+        ...target,
+        projectSystemKey: resolveDocProjectSystemKey(snap, data, target.projectSystemKey),
+        ref: snap.ref,
+        snap,
+      };
+    }
+
+    return null;
+  };
+
+  try {
+    const target = await resolveTrackableTargetForManagerWrite(managerDb, projectSystemKey);
+    const resolved = await tryTarget(target);
+    if (resolved) return resolved;
+  } catch {
+    // Se o projectSystemKey estiver legado/incorreto, procura em todos os runtimes permitidos.
+  }
+
+  const entries = await resolveRuntimeDbEntriesForSystem(managerDb, projectSystemKey);
+  for (const entry of entries) {
+    const resolved = await tryTarget({
+      projectSystemKey: sanitizeString(projectSystemKey).toLowerCase() || entry.projectId,
+      runtimeProjectId: entry.projectId,
+      systemData: {},
+      db: entry.db,
+    });
+    if (resolved) return resolved;
+  }
+
+  throw new HttpsError("not-found", "Card QR rastreavel nao encontrado no projeto alvo.");
 }
 
 async function deleteAccessRecords(managerDb, ids = []) {
@@ -3365,17 +4161,342 @@ exports.listarLinksRastreaveisGerenciadorHttp = onRequest(
 
       const maxItems = Math.min(Math.max(Number(body?.limit) || 300, 1), 800);
       const projectSystemKey = sanitizeString(body?.projectSystemKey).toLowerCase();
-      const linkDocs = await listTrackableLinkDocsForManager(getSystemManagerDb(), {
+      const managerDb = getSystemManagerDb();
+      const linkDocs = await listTrackableLinkDocsAcrossRuntimeDbs(managerDb, {
         projectSystemKey,
         maxItems,
       });
 
       res.json({
         ok: true,
-        items: linkDocs.map((docItem) => ({
-          id: docItem.id,
-          ...(docItem.data() || {}),
-        })),
+        items: linkDocs.map((docItem) => {
+          const data = docItem.data() || {};
+          const pathProjectKey = resolveProjectSystemKeyFromDocRef(docItem);
+          const runtimeProjectKey =
+            sanitizeString(data?.runtimeProjectKey).toLowerCase() ||
+            pathProjectKey;
+          const itemProjectSystemKey =
+            sanitizeString(data?.projectSystemKey).toLowerCase() ||
+            pathProjectKey ||
+            runtimeProjectKey;
+
+          return {
+            id: docItem.id,
+            ...data,
+            projectSystemKey: itemProjectSystemKey || null,
+            runtimeProjectKey: runtimeProjectKey || null,
+            sourceCardExists: true,
+            sourceCardChecked: true,
+          };
+        }),
+      });
+    } catch (error) {
+      sendHttpError(res, error);
+    }
+  }
+);
+
+exports.criarLinkRastreavelGerenciadorHttp = onRequest(
+  HTTP_OPTIONS,
+  async (req, res) => {
+    if (handleHttpCorsPreflight(req, res)) return;
+
+    try {
+      if (req.method !== "POST") {
+        res.status(405).json({ ok: false, error: "Metodo nao permitido." });
+        return;
+      }
+
+      const body = normalizeRequestBody(req);
+      const token = getBearerToken(req);
+      const { decoded } = await verifySharedBucketIdToken(token);
+      await assertSystemManagerAdminIdentity({
+        uid: decoded?.uid,
+        email: decoded?.email,
+      });
+
+      const managerDb = getSystemManagerDb();
+      const projectSystemKeyInput = ensureRequiredString(
+        body?.projectSystemKey,
+        "projectSystemKey"
+      ).toLowerCase();
+      const ownerUserId = ensureRequiredString(body?.ownerUserId, "ownerUserId");
+      const espacoId = ensureRequiredString(body?.espacoId, "espacoId");
+      const destinoUrl = ensureRequiredString(body?.destinoUrl, "destinoUrl");
+      const target = await resolveTrackableTargetForManagerWrite(managerDb, projectSystemKeyInput);
+      const trackingId = target.db.collection("trackableLinks").doc().id;
+      const trackingRoute = `/r/${encodeURIComponent(trackingId)}`;
+      const baseUrl = buildTrackableBaseUrlFromSystem(target.systemData, body?.baseUrl);
+      const urlRastreavel = buildTrackableAbsoluteUrlFromBase(baseUrl, trackingRoute);
+      const origemPlanejada =
+        sanitizeString(body?.origemPlanejada || body?.descricao) || "Link rastreavel";
+      const currentUid = sanitizeString(decoded?.uid);
+      const currentEmail = sanitizeString(decoded?.email).toLowerCase();
+
+      const payload = cleanFirestorePayload({
+        id: trackingId,
+        trackingId,
+        tipo: "link_espaco",
+        targetType: "espaco",
+        destinoTipo: "espaco",
+        ownerUserId,
+        espacoId,
+        espacoNome: sanitizeString(body?.espacoNome) || null,
+        skinsUsername: sanitizeString(body?.skinsUsername) || null,
+        spaceKey: [ownerUserId, espacoId].join("|"),
+        destinoUrl,
+        trackingRoute,
+        urlRastreavel,
+        descricao: sanitizeString(body?.descricao) || origemPlanejada,
+        origemPlanejada,
+        permissaoCriarLinks: sanitizeString(body?.permissaoCriarLinks) || null,
+        permissaoHistoricoLinks: sanitizeString(body?.permissaoHistoricoLinks) || null,
+        ativo: true,
+        excluido: false,
+        status: "ativo",
+        modoRastreabilidade: "preferencial",
+        projectSystemKey: target.projectSystemKey,
+        runtimeProjectKey: target.projectSystemKey,
+        runtimeProjectId: target.runtimeProjectId,
+        criadoPor: currentUid || null,
+        criadoPorEmail: currentEmail || null,
+        criadoVia: "gerenciador_rastreabilidade",
+        criadoEm: serverTimestamp(),
+        atualizadoEm: serverTimestamp(),
+      });
+
+      const linkRef = getTrackableLinkWriteRefForTarget(target, trackingId);
+      await linkRef.set(payload, { merge: true });
+      await writeAuditLog(target.db, {
+        action: "criou_link_rastreavel",
+        entityType: "trackableLink",
+        entityId: trackingId,
+        projectSystemKey: target.projectSystemKey,
+        runtimeProjectId: target.runtimeProjectId,
+        ownerUserId,
+        espacoId,
+        actorUid: currentUid,
+        actorEmail: currentEmail,
+        source: "gerenciador_function",
+        sourcePath: linkRef.path,
+        snapshotDepois: {
+          trackingId,
+          destinoUrl,
+          urlRastreavel,
+          origemPlanejada,
+          status: "ativo",
+        },
+      });
+
+      res.json({
+        ok: true,
+        item: {
+          ...payload,
+          criadoEm: new Date().toISOString(),
+          atualizadoEm: new Date().toISOString(),
+        },
+        trackingId,
+        trackingRoute,
+        urlRastreavel,
+        destinoUrl,
+        projectSystemKey: target.projectSystemKey,
+        runtimeProjectId: target.runtimeProjectId,
+      });
+    } catch (error) {
+      sendHttpError(res, error);
+    }
+  }
+);
+
+exports.atualizarStatusLinkRastreavelGerenciadorHttp = onRequest(
+  HTTP_OPTIONS,
+  async (req, res) => {
+    if (handleHttpCorsPreflight(req, res)) return;
+
+    try {
+      if (req.method !== "POST") {
+        res.status(405).json({ ok: false, error: "Metodo nao permitido." });
+        return;
+      }
+
+      const body = normalizeRequestBody(req);
+      const token = getBearerToken(req);
+      const { decoded } = await verifySharedBucketIdToken(token);
+      await assertSystemManagerAdminIdentity({
+        uid: decoded?.uid,
+        email: decoded?.email,
+      });
+
+      const managerDb = getSystemManagerDb();
+      const trackingId = ensureRequiredString(body?.trackingId, "trackingId");
+      const action = sanitizeString(body?.action || body?.acao).toLowerCase();
+      if (!["ativar", "pausar", "excluir"].includes(action)) {
+        throw new HttpsError("invalid-argument", "Acao invalida para link rastreavel.");
+      }
+
+      const target = await resolveTrackableLinkRefForManagerAction(managerDb, {
+        projectSystemKey: body?.projectSystemKey,
+        trackingId,
+      });
+      const currentUid = sanitizeString(decoded?.uid);
+      const currentEmail = sanitizeString(decoded?.email).toLowerCase();
+      const patchBase = {
+        atualizadoEm: serverTimestamp(),
+        atualizadoPor: currentUid || null,
+        atualizadoPorEmail: currentEmail || null,
+      };
+      const patch =
+        action === "ativar"
+          ? {
+              ...patchBase,
+              ativo: true,
+              excluido: false,
+              status: "ativo",
+              reativadoEm: serverTimestamp(),
+            }
+          : action === "pausar"
+            ? {
+                ...patchBase,
+                ativo: false,
+                excluido: false,
+                status: "pausado",
+                pausadoEm: serverTimestamp(),
+              }
+            : {
+                ...patchBase,
+                ativo: false,
+                excluido: true,
+                status: "excluido",
+                excluidoPor: currentUid || null,
+                excluidoPorEmail: currentEmail || null,
+                excluidoEm: serverTimestamp(),
+              };
+
+      await target.ref.set(cleanFirestorePayload(patch), { merge: true });
+      const snapAtualizado = await target.ref.get();
+      const data = snapAtualizado.data() || {};
+      await writeAuditLog(target.db, {
+        action:
+          action === "excluir"
+            ? "excluiu_link_rastreavel"
+            : action === "pausar"
+              ? "pausou_link_rastreavel"
+              : "ativou_link_rastreavel",
+        entityType: "trackableLink",
+        entityId: trackingId,
+        projectSystemKey: target.projectSystemKey,
+        runtimeProjectId: target.runtimeProjectId,
+        ownerUserId: data?.ownerUserId,
+        espacoId: data?.espacoId,
+        actorUid: currentUid,
+        actorEmail: currentEmail,
+        motivo: sanitizeString(body?.motivo) || action,
+        source: "gerenciador_function",
+        sourcePath: target.ref.path,
+        snapshotAntes: target.snap?.data?.() || null,
+        snapshotDepois: data,
+      });
+
+      res.json({
+        ok: true,
+        item: {
+          id: snapAtualizado.id,
+          ...data,
+          projectSystemKey:
+            sanitizeString(data?.projectSystemKey || data?.runtimeProjectKey || target.projectSystemKey)
+              .toLowerCase() || null,
+          runtimeProjectKey:
+            sanitizeString(data?.runtimeProjectKey || target.projectSystemKey).toLowerCase() || null,
+          runtimeProjectId:
+            sanitizeString(data?.runtimeProjectId || target.runtimeProjectId) || null,
+        },
+      });
+    } catch (error) {
+      sendHttpError(res, error);
+    }
+  }
+);
+
+exports.atualizarStatusQrPrintGerenciadorHttp = onRequest(
+  HTTP_OPTIONS,
+  async (req, res) => {
+    if (handleHttpCorsPreflight(req, res)) return;
+
+    try {
+      if (req.method !== "POST") {
+        res.status(405).json({ ok: false, error: "Metodo nao permitido." });
+        return;
+      }
+
+      const body = normalizeRequestBody(req);
+      const token = getBearerToken(req);
+      const { decoded } = await verifySharedBucketIdToken(token);
+      await assertSystemManagerAdminIdentity({
+        uid: decoded?.uid,
+        email: decoded?.email,
+      });
+
+      const managerDb = getSystemManagerDb();
+      const printId = ensureRequiredString(body?.printId || body?.qrPrintId, "printId");
+      const action = sanitizeString(body?.action || body?.acao).toLowerCase();
+      if (!["excluir"].includes(action)) {
+        throw new HttpsError("invalid-argument", "Acao invalida para card QR rastreavel.");
+      }
+
+      const target = await resolveQrPrintRefForManagerAction(managerDb, {
+        projectSystemKey: body?.projectSystemKey,
+        printId,
+      });
+      const currentUid = sanitizeString(decoded?.uid);
+      const currentEmail = sanitizeString(decoded?.email).toLowerCase();
+      const patch = {
+        ativo: false,
+        excluido: true,
+        status: "excluido",
+        motivoExclusao: sanitizeString(body?.motivo) || "exclusao_gerenciador",
+        atualizadoEm: serverTimestamp(),
+        atualizadoPor: currentUid || null,
+        atualizadoPorEmail: currentEmail || null,
+        excluidoEm: serverTimestamp(),
+        excluidoPor: currentUid || null,
+        excluidoPorEmail: currentEmail || null,
+      };
+
+      await target.ref.set(cleanFirestorePayload(patch), { merge: true });
+      const snapAtualizado = await target.ref.get();
+      const data = snapAtualizado.data() || {};
+      await writeAuditLog(target.db, {
+        action: "excluiu_card_rastreavel",
+        entityType: "qrPrint",
+        entityId: printId,
+        projectSystemKey: target.projectSystemKey,
+        runtimeProjectId: target.runtimeProjectId,
+        ownerUserId: data?.ownerUserId,
+        espacoId: data?.espacoId,
+        blocoId: data?.blocoId,
+        cardId: data?.cardId,
+        actorUid: currentUid,
+        actorEmail: currentEmail,
+        motivo: patch.motivoExclusao,
+        source: "gerenciador_function",
+        sourcePath: target.ref.path,
+        snapshotAntes: target.snap?.data?.() || null,
+        snapshotDepois: data,
+      });
+
+      res.json({
+        ok: true,
+        item: {
+          id: snapAtualizado.id,
+          ...data,
+          projectSystemKey:
+            sanitizeString(data?.projectSystemKey || data?.runtimeProjectKey || target.projectSystemKey)
+              .toLowerCase() || null,
+          runtimeProjectKey:
+            sanitizeString(data?.runtimeProjectKey || target.projectSystemKey).toLowerCase() || null,
+          runtimeProjectId:
+            sanitizeString(data?.runtimeProjectId || target.runtimeProjectId) || null,
+        },
       });
     } catch (error) {
       sendHttpError(res, error);
@@ -3418,7 +4539,7 @@ exports.listarAcessosLinksRastreaveisGerenciadorHttp = onRequest(
           : NaN;
 
       const managerDb = getSystemManagerDb();
-      const linkDocs = await listTrackableLinkDocsForManager(managerDb, {
+      const linkDocs = await listTrackableLinkDocsAcrossRuntimeDbs(managerDb, {
         projectSystemKey,
         maxItems,
       });
@@ -3442,9 +4563,20 @@ exports.listarAcessosLinksRastreaveisGerenciadorHttp = onRequest(
         }
 
         const linkData = linkDoc.data() || {};
+        const linkProjectSystemKey = resolveDocProjectSystemKey(linkDoc, linkData);
         accessSnap.docs.forEach((docItem) => {
+          const accessData = docItem.data() || {};
+          const runtimeProjectKey =
+            sanitizeString(accessData?.runtimeProjectKey || linkData?.runtimeProjectKey).toLowerCase() ||
+            linkProjectSystemKey;
+          const itemProjectSystemKey =
+            sanitizeString(accessData?.projectSystemKey || linkData?.projectSystemKey).toLowerCase() ||
+            linkProjectSystemKey ||
+            runtimeProjectKey;
+
           accessDocs.push({
             id: docItem.id,
+            ...accessData,
             trackingId: sanitizeString(linkData?.trackingId || linkDoc.id) || null,
             trackingDestinoUrl: sanitizeString(linkData?.destinoUrl) || null,
             trackingOrigemPlanejada:
@@ -3453,8 +4585,8 @@ exports.listarAcessosLinksRastreaveisGerenciadorHttp = onRequest(
             espacoId: sanitizeString(linkData?.espacoId) || null,
             espacoNome: sanitizeString(linkData?.espacoNome) || null,
             skinsUsername: sanitizeString(linkData?.skinsUsername) || null,
-            runtimeProjectKey: sanitizeString(linkData?.runtimeProjectKey) || null,
-            ...(docItem.data() || {}),
+            projectSystemKey: itemProjectSystemKey || null,
+            runtimeProjectKey: runtimeProjectKey || null,
           });
         });
       }
@@ -3463,7 +4595,7 @@ exports.listarAcessosLinksRastreaveisGerenciadorHttp = onRequest(
         .filter((item) => {
           const trackingId = sanitizeString(item?.trackingId);
           const eventType = sanitizeString(item?.eventoTipo || item?.tipo).toLowerCase();
-          const itemProjectKey = sanitizeString(item?.runtimeProjectKey).toLowerCase();
+          const itemProjectKey = sanitizeString(item?.projectSystemKey || item?.runtimeProjectKey).toLowerCase();
           const itemTimestamp = getFirestoreTimestampMs(item);
 
           if (!trackingId) return false;
@@ -3512,17 +4644,32 @@ exports.listarQrPrintsGerenciadorHttp = onRequest(
 
       const maxItems = Math.min(Math.max(Number(body?.limit) || 300, 1), 800);
       const projectSystemKey = sanitizeString(body?.projectSystemKey).toLowerCase();
-      const printDocs = await listQrPrintDocsForManager(getSystemManagerDb(), {
+      const managerDb = getSystemManagerDb();
+      const printDocs = await listQrPrintDocsAcrossRuntimeDbs(managerDb, {
         projectSystemKey,
         maxItems,
       });
 
       res.json({
         ok: true,
-        items: printDocs.map((docItem) => ({
-          id: docItem.id,
-          ...(docItem.data() || {}),
-        })),
+        items: printDocs.map((docItem) => {
+          const data = docItem.data() || {};
+          const pathProjectKey = resolveProjectSystemKeyFromDocRef(docItem);
+          const runtimeProjectKey =
+            sanitizeString(data?.runtimeProjectKey).toLowerCase() ||
+            pathProjectKey;
+          const itemProjectSystemKey =
+            sanitizeString(data?.projectSystemKey).toLowerCase() ||
+            pathProjectKey ||
+            runtimeProjectKey;
+
+          return {
+            id: docItem.id,
+            ...data,
+            projectSystemKey: itemProjectSystemKey || null,
+            runtimeProjectKey: runtimeProjectKey || null,
+          };
+        }),
       });
     } catch (error) {
       sendHttpError(res, error);
@@ -3552,7 +4699,7 @@ exports.listarLeiturasQrPrintsGerenciadorHttp = onRequest(
       const maxItems = Math.min(Math.max(Number(body?.limit) || 300, 1), 800);
       const projectSystemKey = sanitizeString(body?.projectSystemKey).toLowerCase();
       const managerDb = getSystemManagerDb();
-      const printDocs = await listQrPrintDocsForManager(managerDb, {
+      const printDocs = await listQrPrintDocsAcrossRuntimeDbs(managerDb, {
         projectSystemKey,
         maxItems,
       });
@@ -3576,9 +4723,20 @@ exports.listarLeiturasQrPrintsGerenciadorHttp = onRequest(
         }
 
         const printData = printDoc.data() || {};
+        const printProjectSystemKey = resolveDocProjectSystemKey(printDoc, printData);
         readingSnap.docs.forEach((docItem) => {
+          const readingData = docItem.data() || {};
+          const runtimeProjectKey =
+            sanitizeString(readingData?.runtimeProjectKey || printData?.runtimeProjectKey).toLowerCase() ||
+            printProjectSystemKey;
+          const itemProjectSystemKey =
+            sanitizeString(readingData?.projectSystemKey || printData?.projectSystemKey).toLowerCase() ||
+            printProjectSystemKey ||
+            runtimeProjectKey;
+
           readingDocs.push({
             id: docItem.id,
+            ...readingData,
             printId: sanitizeString(printData?.printId || printDoc.id) || null,
             cardNome: sanitizeString(printData?.cardNome) || null,
             urlCard: sanitizeString(printData?.urlCard) || null,
@@ -3586,8 +4744,8 @@ exports.listarLeiturasQrPrintsGerenciadorHttp = onRequest(
             espacoId: sanitizeString(printData?.espacoId) || null,
             espacoNome: sanitizeString(printData?.espacoNome) || null,
             skinsUsername: sanitizeString(printData?.skinsUsername) || null,
-            runtimeProjectKey: sanitizeString(printData?.runtimeProjectKey) || null,
-            ...(docItem.data() || {}),
+            projectSystemKey: itemProjectSystemKey || null,
+            runtimeProjectKey: runtimeProjectKey || null,
           });
         });
       }
@@ -3595,7 +4753,7 @@ exports.listarLeiturasQrPrintsGerenciadorHttp = onRequest(
       const items = readingDocs
         .filter((item) => {
           const printId = sanitizeString(item?.printId || item?.qrPrintId);
-          const itemProjectKey = sanitizeString(item?.runtimeProjectKey).toLowerCase();
+          const itemProjectKey = sanitizeString(item?.projectSystemKey || item?.runtimeProjectKey).toLowerCase();
           if (!printId) return false;
           if (projectSystemKey && itemProjectKey !== projectSystemKey) return false;
           return true;
@@ -3652,6 +4810,50 @@ exports.obterResumoAcessosGerenciadorHttp = onRequest(
         naoLidos,
         temNaoLidos: naoLidos > 0,
         limiteAtingido: snap.size >= maxItems,
+      });
+    } catch (error) {
+      sendHttpError(res, error);
+    }
+  }
+);
+
+exports.listarAuditLogsGerenciadorHttp = onRequest(
+  HTTP_OPTIONS,
+  async (req, res) => {
+    if (handleHttpCorsPreflight(req, res)) return;
+
+    try {
+      if (req.method !== "POST") {
+        res.status(405).json({ ok: false, error: "Metodo nao permitido." });
+        return;
+      }
+
+      const body = normalizeRequestBody(req);
+      const token = getBearerToken(req);
+      const { decoded } = await verifySharedBucketIdToken(token);
+      await assertSystemManagerAdminIdentity({
+        uid: decoded?.uid,
+        email: decoded?.email,
+      });
+
+      const managerDb = getSystemManagerDb();
+      const docs = await listAuditLogDocsForManager(managerDb, {
+        projectSystemKey: body?.projectSystemKey,
+        action: body?.action,
+        entityType: body?.entityType,
+        startDate: body?.startDate,
+        endDate: body?.endDate,
+        maxItems: body?.limit,
+      });
+
+      res.json({
+        ok: true,
+        items: docs.map(({ docItem, data, runtimeProjectId }) => ({
+          id: docItem.id,
+          auditPath: docItem.ref.path,
+          runtimeProjectId: sanitizeString(data?.runtimeProjectId || runtimeProjectId) || null,
+          ...data,
+        })),
       });
     } catch (error) {
       sendHttpError(res, error);
@@ -3725,7 +4927,29 @@ exports.removerAcessosGerenciadorHttp = onRequest(
       }
 
       const managerDb = getSystemManagerDb();
+      const accessSnapshots = await Promise.all(
+        ids.map((accessId) => managerDb.collection("acessos").doc(accessId).get().catch(() => null))
+      );
       const total = await deleteAccessRecords(managerDb, ids);
+      await writeAuditLog(managerDb, {
+        action: "removeu_acessos",
+        entityType: "acesso",
+        entityId: ids.length === 1 ? ids[0] : "bulk",
+        actorUid: decoded?.uid,
+        actorEmail: decoded?.email,
+        motivo: sanitizeString(body?.motivo) || "remocao_gerenciador",
+        source: "gerenciador_function",
+        snapshotAntes: {
+          ids,
+          totalSolicitado: ids.length,
+          registros: accessSnapshots
+            .filter((snap) => snap?.exists)
+            .map((snap) => ({ id: snap.id, ...(snap.data() || {}) })),
+        },
+        metadata: {
+          totalRemovido: total,
+        },
+      });
 
       res.json({
         ok: true,

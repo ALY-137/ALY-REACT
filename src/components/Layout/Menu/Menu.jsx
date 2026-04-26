@@ -43,6 +43,8 @@ const SEGMENTOS_RESERVADOS_MENU = new Set([
   "users",
   "skins",
   "acessos",
+  "rastreabilidade",
+  "auditoria",
   "propriedades",
   "solicitacoes",
   "pedidos",
@@ -252,6 +254,14 @@ function Menu({ menuOpen }) {
 
   function abrirAcessos() {
     navigateIfChanged(`/menu/${menuTargetUser}/acessos`);
+  }
+
+  function abrirRastreabilidade() {
+    navigateIfChanged(`/menu/${menuTargetUser}/rastreabilidade`);
+  }
+
+  function abrirAuditoria() {
+    navigateIfChanged(`/menu/${menuTargetUser}/auditoria`);
   }
 
   async function abrirContatos() {
@@ -464,7 +474,12 @@ function Menu({ menuOpen }) {
     if (isManagerProject) return;
     const path = location.pathname;
 
-    if (oneOwnerPublicaAtiva && (path.endsWith("/users") || path.endsWith("/acessos"))) {
+    if (
+      oneOwnerPublicaAtiva &&
+      (path.endsWith("/users") ||
+        path.endsWith("/acessos") ||
+        path.endsWith("/rastreabilidade"))
+    ) {
       navigateIfChanged(`/menu/${menuTargetUser}`, { replace: true });
       return;
     }
@@ -490,6 +505,14 @@ function Menu({ menuOpen }) {
             setBackAction(() => returnMenu);
           } else if (path.endsWith("/acessos")) {
             setAtualTxt("ACESSOS");
+            setBackText("MENU");
+            setBackAction(() => returnMenu);
+          } else if (path.endsWith("/rastreabilidade")) {
+            setAtualTxt("RASTREABILIDADE");
+            setBackText("MENU");
+            setBackAction(() => returnMenu);
+          } else if (path.endsWith("/auditoria")) {
+            setAtualTxt("AUDITORIA");
             setBackText("MENU");
             setBackAction(() => returnMenu);
           } else if (path.endsWith("/gerenciador-icones")) {
@@ -781,6 +804,12 @@ function Menu({ menuOpen }) {
                   {badgeAcessos.limiteAtingido ? `${badgeAcessos.naoLidos}+` : badgeAcessos.naoLidos}
                 </span>
               ) : null}
+            </div>
+            <div onClick={abrirRastreabilidade} className="gavetaOption">
+              RASTREABILIDADE
+            </div>
+            <div onClick={abrirAuditoria} className="gavetaOption">
+              AUDITORIA
             </div>
             <div onClick={abrirGerenciadorIcones} className="gavetaOption">
               GERENCIADOR DE ICONES

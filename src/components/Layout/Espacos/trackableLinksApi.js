@@ -22,6 +22,7 @@ import {
   getPrimaryProjectDoc,
   getProjectDocCandidates,
 } from "../../Banco/projectDataRefs";
+import { resolveProjectDataNamespaceKey } from "../../Banco/projectDataNamespace";
 import { obterGeoAcessoAtual } from "../Sistema/acessoGeo";
 
 const NAVIGATION_ID_STORAGE_KEY = "navegacaoHash";
@@ -125,6 +126,13 @@ function buildAbsoluteUrl(route = "") {
 
 function buildSpaceKey(ownerUserId = "", espacoId = "") {
   return [normalizeText(ownerUserId), normalizeText(espacoId)].join("|");
+}
+
+function resolveActiveProjectSystemKey() {
+  return (
+    normalizeText(resolveProjectDataNamespaceKey(activeFirebaseProjectKey)) ||
+    normalizeText(activeFirebaseProjectKey)
+  );
 }
 
 function buildClientContext() {
@@ -255,6 +263,7 @@ export async function criarLinkRastreavelEspaco({
   const normalizedOwnerUserId = normalizeText(ownerUserId);
   const normalizedEspacoId = normalizeText(espacoId);
   const normalizedDestinoUrl = normalizeText(destinoUrl);
+  const projectSystemKey = resolveActiveProjectSystemKey();
   const trackingRoute = `/r/${encodeRouteSegment(trackingId)}`;
   const urlRastreavel = buildAbsoluteUrl(trackingRoute);
   const linkRef = getPrimaryTrackableLinkDocRef(trackingId);
@@ -286,8 +295,9 @@ export async function criarLinkRastreavelEspaco({
       permissaoHistoricoLinks: normalizeText(permissaoHistoricoLinks) || null,
       ativo: true,
       status: "ativo",
+      projectSystemKey: projectSystemKey || null,
+      runtimeProjectKey: projectSystemKey || null,
       modoRastreabilidade: "preferencial",
-      runtimeProjectKey: normalizeText(activeFirebaseProjectKey) || null,
       runtimeProjectId: normalizeText(activeFirebaseProjectId) || null,
       criadoPor: normalizeText(currentUser?.uid) || null,
       criadoPorEmail: normalizeText(currentUser?.email) || null,
@@ -316,7 +326,8 @@ export async function listarLinksRastreaveisEspaco({
   const linksRef = getPrimaryProjectCollection(db, "trackableLinks");
   const linksQuery = query(
     linksRef,
-    where("spaceKey", "==", buildSpaceKey(normalizedOwnerUserId, normalizedEspacoId)),
+    where("ownerUserId", "==", normalizedOwnerUserId),
+    where("espacoId", "==", normalizedEspacoId),
     limit(Math.max(1, Math.min(Number(limite) || 50, 100)))
   );
   const snapshot = await getDocs(linksQuery);

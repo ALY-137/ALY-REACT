@@ -23,6 +23,7 @@ import {
   getProjectDocCandidates,
 } from "../../Banco/projectDataRefs";
 import { obterGeoAcessoAtual } from "../Sistema/acessoGeo";
+import { registrarAuditLog } from "../Sistema/auditLogsApi";
 
 const NAVIGATION_ID_STORAGE_KEY = "navegacaoHash";
 const LEGACY_VISITOR_ID_STORAGE_KEY = "uxVisitorHash";
@@ -307,6 +308,28 @@ export async function criarQrPrintCard({
     })
   );
 
+  await registrarAuditLog({
+    action: "criou_card_rastreavel",
+    entityType: "qrPrint",
+    entityId: printId,
+    ownerUserId: normalizedOwnerUserId,
+    espacoId: normalizedEspacoId,
+    blocoId: normalizedBlocoId,
+    cardId: normalizedCardId,
+    source: "qr_prints_api",
+    snapshotDepois: {
+      printId,
+      cardKey,
+      cardNome: normalizeText(card?.nome) || null,
+      descricaoRegistro: normalizedDescricaoRegistro || null,
+      rotaQr,
+      urlQr,
+      rotaCard: normalizedRotaCard || null,
+      urlCard: normalizedUrlCard || null,
+      status: "ativo",
+    },
+  });
+
   return {
     printId,
     rotaQr,
@@ -382,6 +405,19 @@ export async function excluirQrPrintCard(printId = "", { motivo = "exclusao_manu
     }),
     { merge: true }
   );
+
+  await registrarAuditLog({
+    action: "excluiu_card_rastreavel",
+    entityType: "qrPrint",
+    entityId: normalizedPrintId,
+    motivo,
+    source: "qr_prints_api",
+    snapshotDepois: {
+      printId: normalizedPrintId,
+      status: "excluido",
+      motivoExclusao: normalizeText(motivo) || "exclusao_manual",
+    },
+  });
 
   return true;
 }

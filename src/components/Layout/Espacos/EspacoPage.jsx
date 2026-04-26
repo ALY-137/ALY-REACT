@@ -79,6 +79,7 @@ import {
   usuarioCorrespondeOwnerConfigurado,
 } from "../Sistema/configSistema";
 import { obterGeoAcessoAtual } from "../Sistema/acessoGeo";
+import { registrarAuditLog } from "../Sistema/auditLogsApi";
 import {
   listarAddOnsDoUsuarioProjeto,
   listarIconCollectionsNoGerenciador,
@@ -4835,6 +4836,22 @@ export default function EspacoPage() {
 
       await updateDoc(getBlocoDocRef(bloco), payload);
 
+      await registrarAuditLog({
+        action: "editou_bloco",
+        entityType: "bloco",
+        entityId: blocoId,
+        ownerUserId,
+        espacoId,
+        espacoNome,
+        blocoId,
+        source: "espaco_editor",
+        snapshotAntes: bloco,
+        snapshotDepois: {
+          ...bloco,
+          ...payload,
+        },
+      });
+
       const pathsExclusaoUnicos = [...new Set(pathsParaExcluir)].filter(
         (path) => typeof path === "string" && path.includes("/")
       );
@@ -4993,6 +5010,25 @@ export default function EspacoPage() {
       }
 
       const cardsPersistidos = await persistirCardsDoBloco(bloco, cardsAtualizadosOrigem);
+
+      await registrarAuditLog({
+        action: ehNovoCard ? "criou_card" : "editou_card",
+        entityType: "card",
+        entityId: payload.id,
+        ownerUserId,
+        espacoId,
+        espacoNome,
+        blocoId: bloco.id,
+        cardId: payload.id,
+        source: "espaco_editor",
+        snapshotAntes: ehNovoCard ? null : card,
+        snapshotDepois: {
+          ...payload,
+          blocoId: bloco.id,
+          espacoId,
+          ownerUserId,
+        },
+      });
       if (Array.isArray(cardsPersistidos) && cardsPersistidos.length) {
         const indiceSelecionado = cardsPersistidos.findIndex(
           (item) => String(item?.id || "") === String(payload.id || "")
@@ -5027,6 +5063,31 @@ export default function EspacoPage() {
       return false;
     } finally {
       setCardEmAtualizacaoId(null);
+    }
+  };
+
+  const excluirQrPrintsDoCardOrigem = async ({ bloco = null, card = null, motivo = "card_removido" } = {}) => {
+    const blocoIdAtual = String(bloco?.id || "").trim();
+    const cardIdAtual = String(card?.id || "").trim();
+    if (!ownerUserId || !espacoId || !blocoIdAtual || !cardIdAtual) return;
+
+    try {
+      const prints = await listarQrPrintsDoCard({
+        ownerUserId,
+        espacoId,
+        blocoId: blocoIdAtual,
+        cardId: cardIdAtual,
+        limite: 100,
+      });
+
+      await Promise.all(
+        prints
+          .map((print) => String(print?.printId || print?.id || "").trim())
+          .filter(Boolean)
+          .map((printId) => excluirQrPrintCard(printId, { motivo }))
+      );
+    } catch (err) {
+      console.warn("Falha ao desativar QR prints relacionados ao card removido:", err?.message);
     }
   };
 
@@ -5072,6 +5133,31 @@ export default function EspacoPage() {
       }
 
       await persistirCardsDoBloco(bloco, cardsRestantes);
+      await excluirQrPrintsDoCardOrigem({
+        bloco,
+        card,
+        motivo: "card_removido",
+      });
+
+      await registrarAuditLog({
+        action: ehNovoCard ? "descartou_card_novo" : "excluiu_card",
+        entityType: "card",
+        entityId: String(card.id),
+        ownerUserId,
+        espacoId,
+        espacoNome,
+        blocoId: bloco.id,
+        cardId: card.id,
+        motivo: ehNovoCard ? "descarte_editor" : "exclusao_manual",
+        source: "espaco_editor",
+        snapshotAntes: {
+          ...card,
+          imagemPath: imagemPathAtual || card?.imagemPath || null,
+        },
+        metadata: {
+          cardsRestantes: cardsRestantes.length,
+        },
+      });
 
       setCardAtivoPorBloco((prev) => {
         const next = { ...prev };
@@ -5138,6 +5224,15 @@ export default function EspacoPage() {
       }
 
       if (bloco?.tipo === "cards") {
+        const cardsDoBloco = normalizarCardsDoBloco(bloco?.cards);
+        for (const cardItem of cardsDoBloco) {
+          await excluirQrPrintsDoCardOrigem({
+            bloco,
+            card: cardItem,
+            motivo: "bloco_removido",
+          });
+        }
+
         const cardsRefs = bloco.__legacy
           ? [collection(db, "blocos", bloco.id, "cards")]
           : getBlocoCardsCollectionRefs(ownerUserId, espacoId, bloco.id);
@@ -5156,6 +5251,24 @@ export default function EspacoPage() {
           await deleteDoc(blocoRef);
         }
       }
+
+      await registrarAuditLog({
+        action: "excluiu_bloco",
+        entityType: "bloco",
+        entityId: bloco.id,
+        ownerUserId,
+        espacoId,
+        espacoNome,
+        blocoId: bloco.id,
+        motivo: "exclusao_manual",
+        source: "espaco_editor",
+        snapshotAntes: bloco,
+        metadata: {
+          totalArquivosRemovidos: allPaths.length,
+          totalCardsRemovidos: bloco?.tipo === "cards" ? normalizarCardsDoBloco(bloco?.cards).length : 0,
+          legacy: Boolean(bloco.__legacy),
+        },
+      });
 
       setBlocos((prev) => prev.filter((item) => item.id !== blocoId));
       setOriginaisPorBloco((prev) => {

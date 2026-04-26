@@ -63,6 +63,11 @@
   min-width: 170px;
 }
 
+.gerenciador-acessos__filter--wide {
+  min-width: min(420px, 100%);
+  flex: 2 1 340px;
+}
+
 .gerenciador-acessos__filter-check {
   display: inline-flex;
   align-items: center;
@@ -155,6 +160,82 @@
   align-items: end;
 }
 
+.gerenciador-acessos__tracking-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px;
+  border: 1px solid rgba(255, 126, 168, 0.18);
+  border-radius: 14px;
+  background:
+    linear-gradient(90deg, rgba(255, 126, 168, 0.08), transparent 42%),
+    rgba(0, 0, 0, 0.16);
+}
+
+.gerenciador-acessos__tracking-tab {
+  position: relative;
+  min-height: 34px;
+  padding: 7px 12px;
+  border: 1px solid rgba(255, 126, 168, 0.22);
+  border-radius: 10px;
+  background:
+    linear-gradient(90deg, rgba(255, 126, 168, 0.14), rgba(255, 126, 168, 0.02)),
+    rgba(0, 0, 0, 0.22);
+  color: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.gerenciador-acessos__tracking-tab::before,
+.gerenciador-acessos__tracking-tab::after {
+  content: "";
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-color: rgba(255, 126, 168, 0.76);
+  pointer-events: none;
+}
+
+.gerenciador-acessos__tracking-tab::before {
+  top: -1px;
+  left: -1px;
+  border-top: 1px solid;
+  border-left: 1px solid;
+}
+
+.gerenciador-acessos__tracking-tab::after {
+  right: -1px;
+  bottom: -1px;
+  border-right: 1px solid;
+  border-bottom: 1px solid;
+}
+
+.gerenciador-acessos__tracking-tab:hover,
+.gerenciador-acessos__tracking-tab.is-active {
+  border-color: rgba(255, 126, 168, 0.62);
+  background:
+    linear-gradient(90deg, rgba(255, 126, 168, 0.26), rgba(255, 126, 168, 0.06)),
+    rgba(0, 0, 0, 0.26);
+  box-shadow: 0 0 12px rgba(255, 126, 168, 0.14);
+}
+
+.gerenciador-acessos__tracking-panel[data-tracking-tab="geral"]
+  .gerenciador-acessos__tracking-section:not(.gerenciador-acessos__tracking-section--geral),
+.gerenciador-acessos__tracking-panel[data-tracking-tab="links"]
+  .gerenciador-acessos__tracking-section:not(.gerenciador-acessos__tracking-section--links),
+.gerenciador-acessos__tracking-panel[data-tracking-tab="cards"]
+  .gerenciador-acessos__tracking-section:not(.gerenciador-acessos__tracking-section--cards),
+.gerenciador-acessos__tracking-panel[data-tracking-tab="mapa"]
+  .gerenciador-acessos__tracking-section:not(.gerenciador-acessos__tracking-section--mapa),
+.gerenciador-acessos__tracking-panel[data-tracking-tab="eventos"]
+  .gerenciador-acessos__tracking-section:not(.gerenciador-acessos__tracking-section--eventos) {
+  display: none;
+}
+
 .gerenciador-acessos__tracking-card,
 .gerenciador-acessos__tracking-box {
   display: grid;
@@ -212,6 +293,53 @@
   gap: 4px;
 }
 
+.gerenciador-acessos__tracking-link-form {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: end;
+  padding: 12px;
+  border: 1px solid rgba(255, 126, 168, 0.16);
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, rgba(255, 126, 168, 0.09), transparent 40%),
+    rgba(0, 0, 0, 0.18);
+}
+
+.gerenciador-acessos__tracking-link-submit {
+  align-self: end;
+}
+
+.gerenciador-acessos__tracking-link-list {
+  display: grid;
+  gap: 10px;
+}
+
+.gerenciador-acessos__tracking-link-item {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(255, 126, 168, 0.18);
+  border-radius: 14px;
+  background:
+    linear-gradient(90deg, rgba(255, 126, 168, 0.08), transparent 46%),
+    rgba(0, 0, 0, 0.16);
+}
+
+.gerenciador-acessos__tracking-link-main {
+  display: flex;
+  gap: 7px 14px;
+  flex-wrap: wrap;
+  align-items: center;
+  font-size: 12px;
+}
+
+.gerenciador-acessos__tracking-link-main strong {
+  width: 100%;
+  font-size: 14px;
+  color: #ffc1d8;
+}
+
 .gerenciador-acessos__tracking-item-actions {
   display: flex;
   flex-wrap: wrap;
@@ -235,6 +363,47 @@
   grid-column: 1 / -1;
 }
 
+.gerenciador-acessos__tracking-detail-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 4000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  padding: clamp(12px, 2.5vw, 28px);
+  box-sizing: border-box;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.gerenciador-acessos__tracking-detail-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background:
+    radial-gradient(circle at 18% 10%, rgba(255, 126, 168, 0.18), transparent 30%),
+    radial-gradient(circle at 88% 82%, rgba(126, 14, 255, 0.16), transparent 34%),
+    rgba(2, 1, 10, 0.82);
+  backdrop-filter: blur(8px);
+}
+
+.gerenciador-acessos__tracking-detail-modal::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.28;
+  background-image:
+    linear-gradient(rgba(255, 126, 168, 0.16) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 126, 168, 0.12) 1px, transparent 1px);
+  background-size: 34px 34px;
+  mask-image: radial-gradient(circle at center, #000 0 58%, transparent 86%);
+}
+
 .gerenciador-acessos__tracking-detail-panel {
   display: grid;
   gap: 12px;
@@ -242,6 +411,42 @@
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: rgba(255, 255, 255, 0.035);
+}
+
+.gerenciador-acessos__tracking-detail-panel--modal {
+  width: min(1180px, calc(100vw - 24px));
+  max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
+  box-sizing: border-box;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: clamp(18px, 2vw, 24px);
+  border-radius: 0;
+  border-color: rgba(255, 126, 168, 0.38);
+  color: #ffe8f2;
+  background:
+    linear-gradient(135deg, rgba(255, 126, 168, 0.12), transparent 34%),
+    linear-gradient(315deg, rgba(126, 14, 255, 0.14), transparent 42%),
+    rgba(8, 4, 20, 0.96);
+  box-shadow:
+    0 0 0 1px rgba(255, 126, 168, 0.16),
+    0 0 34px rgba(255, 77, 149, 0.18),
+    inset 0 0 28px rgba(126, 14, 255, 0.08);
+  clip-path: polygon(18px 0, 100% 0, 100% calc(100% - 18px), calc(100% - 18px) 100%, 0 100%, 0 18px);
+}
+
+.gerenciador-acessos__tracking-detail-panel--modal::-webkit-scrollbar {
+  width: 8px;
+}
+
+.gerenciador-acessos__tracking-detail-panel--modal::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.gerenciador-acessos__tracking-detail-panel--modal::-webkit-scrollbar-thumb {
+  background: rgba(255, 126, 168, 0.38);
+  border-radius: 999px;
 }
 
 .gerenciador-acessos__tracking-detail-head,

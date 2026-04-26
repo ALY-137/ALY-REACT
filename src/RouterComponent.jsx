@@ -35,6 +35,7 @@ import PropriedadesSistema from "./components/Layout/Menu/Gerenciador/Propriedad
 import GerenciadorProjetos from "./components/Layout/Menu/Gerenciador/GerenciadorProjetos";
 import GerenciadorIcones from "./components/Layout/Menu/Gerenciador/GerenciadorIcones";
 import GerenciadorAddOns from "./components/Layout/Menu/Gerenciador/GerenciadorAddOns";
+import Auditoria from "./components/Layout/Menu/Gerenciador/Auditoria/Auditoria";
 import SolicitacoesPixManual from "./components/Layout/Pagamentos/SolicitacoesPixManual";
 import CardRoutePage from "./components/Layout/Espacos/CardRoutePage";
 import CardPrintRedirectPage from "./components/Layout/Espacos/CardPrintRedirectPage";
@@ -139,7 +140,9 @@ export default function RouterComponent() {
           element: <Navigate to="../gerenciador-projetos" replace />,
         },
         { path: "users", element: <Users /> },
-        { path: "acessos", element: <ListaAcessos /> },
+        { path: "acessos", element: <ListaAcessos modo="acessos" /> },
+        { path: "rastreabilidade", element: <ListaAcessos modo="rastreabilidade" /> },
+        { path: "auditoria", element: <Auditoria /> },
         { path: "gerenciador-icones", element: <GerenciadorIcones /> },
         { path: "gerenciador-addons", element: <Navigate to="../gerenciador-projetos" replace /> },
         { path: "gerenciador-projetos", element: <GerenciadorProjetos /> },

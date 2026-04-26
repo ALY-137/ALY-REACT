@@ -32,6 +32,7 @@ const RESERVED_MENU_SEGMENTS = new Set([
   "",
   "addons",
   "acessos",
+  "rastreabilidade",
   "config",
   "contatos",
   "conversas",

@@ -1,6 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import {
+  atualizarStatusLinkRastreavelNoGerenciador,
+  atualizarStatusQrPrintNoGerenciador,
+  criarLinkRastreavelNoGerenciador,
   listarAcessosNoGerenciador,
   listarAcessosLinksRastreaveisNoGerenciador,
   listarLinksRastreaveisNoGerenciador,
@@ -14,26 +18,26 @@ import {
 } from "../../../Sistema/gerenciadorSistemasApi";
 import { obterManagerProjectLabel } from "../../../Sistema/configSistema";
 import {
-  criarLinkRastreavelEspaco,
-  excluirLinkRastreavelEspaco,
-  listarAcessosLinkRastreavelEspaco,
-} from "../../../Espacos/trackableLinksApi";
-import {
   criarQrPrintCard,
-  excluirQrPrintCard,
-  listarLeiturasQrPrint,
 } from "../../../Espacos/qrPrintsApi";
 import "./acessos.css";
 
 const GROUP_PAGE_SIZE = 12;
 const ACCESS_GROUP_PREVIEW_SIZE = 3;
 const ACCESS_QUERY_LIMIT = 100;
+const TRACKING_PANEL_TABS = [
+  { id: "geral", label: "Visao geral" },
+  { id: "links", label: "Links" },
+  { id: "cards", label: "Cards QR" },
+  { id: "mapa", label: "Mapa" },
+  { id: "eventos", label: "Eventos" },
+];
 const TRACKING_WORLD_REGIONS = [
   {
     key: "america_norte",
     label: "America do Norte",
     shortLabel: "AN",
-    path: "M84 74 L158 54 L230 70 L248 118 L216 160 L170 170 L124 154 L96 124 Z",
+    path: "M56 78 L96 54 L150 48 L202 58 L240 76 L274 108 L282 142 L252 166 L214 174 L186 164 L158 186 L126 176 L112 150 L86 132 L66 104 Z M176 190 L218 194 L252 214 L292 226 L326 258 L312 274 L276 248 L240 236 L210 216 L176 208 Z M326 44 L384 38 L438 64 L420 88 L360 96 L318 72 Z",
     pulseX: 180,
     pulseY: 104,
     labelX: 108,
@@ -43,19 +47,19 @@ const TRACKING_WORLD_REGIONS = [
     key: "america_sul",
     label: "America do Sul",
     shortLabel: "AS",
-    path: "M238 188 L288 206 L304 246 L286 304 L258 362 L226 318 L220 260 Z",
-    pulseX: 264,
-    pulseY: 270,
-    labelX: 188,
+    path: "M262 210 L296 220 L324 250 L332 286 L316 324 L294 356 L270 398 L250 382 L232 334 L224 288 L238 244 Z M300 254 L330 272 L340 302 L320 306 L300 282 Z",
+    pulseX: 284,
+    pulseY: 286,
+    labelX: 204,
     labelY: 386,
   },
   {
     key: "europa",
     label: "Europa",
     shortLabel: "EU",
-    path: "M420 82 L474 72 L512 88 L500 116 L452 126 L424 110 Z",
-    pulseX: 468,
-    pulseY: 96,
+    path: "M410 92 L448 76 L492 82 L524 104 L508 126 L468 126 L446 138 L418 122 Z M454 54 L492 44 L522 66 L510 80 L472 74 Z M388 104 L410 98 L418 114 L398 122 Z",
+    pulseX: 472,
+    pulseY: 104,
     labelX: 410,
     labelY: 56,
   },
@@ -63,31 +67,41 @@ const TRACKING_WORLD_REGIONS = [
     key: "africa",
     label: "Africa",
     shortLabel: "AF",
-    path: "M462 132 L520 144 L548 202 L526 286 L484 328 L446 256 L450 180 Z",
-    pulseX: 496,
-    pulseY: 220,
+    path: "M466 132 L510 130 L544 158 L572 204 L552 244 L538 288 L510 326 L484 318 L462 276 L444 238 L446 182 Z M552 306 L566 330 L548 354 L538 326 Z",
+    pulseX: 504,
+    pulseY: 224,
     labelX: 454,
-    labelY: 352,
+    labelY: 358,
   },
   {
     key: "asia",
     label: "Asia",
     shortLabel: "AI",
-    path: "M522 76 L650 62 L760 88 L818 132 L790 196 L706 214 L620 194 L560 170 L520 118 Z",
-    pulseX: 682,
-    pulseY: 128,
-    labelX: 670,
-    labelY: 246,
+    path: "M520 82 L586 62 L678 56 L752 72 L816 98 L846 132 L838 170 L800 198 L748 212 L700 204 L652 204 L610 192 L574 168 L548 146 L520 118 Z M618 198 L648 220 L658 252 L642 266 L620 230 Z M692 208 L728 224 L738 260 L706 254 Z M770 214 L806 230 L812 254 L786 260 L768 238 Z M836 154 L872 166 L878 184 L852 190 Z M804 86 L842 88 L860 106 L826 116 Z",
+    pulseX: 690,
+    pulseY: 130,
+    labelX: 672,
+    labelY: 248,
   },
   {
     key: "oceania",
     label: "Oceania",
     shortLabel: "OC",
-    path: "M758 250 L812 240 L872 270 L844 316 L780 322 L742 286 Z",
-    pulseX: 810,
-    pulseY: 282,
+    path: "M752 262 L792 244 L836 250 L872 276 L858 304 L820 322 L780 318 L746 292 Z M884 320 L910 338 L904 354 L878 336 Z M724 240 L760 236 L772 252 L742 258 Z",
+    pulseX: 812,
+    pulseY: 286,
     labelX: 756,
-    labelY: 356,
+    labelY: 358,
+  },
+  {
+    key: "antartica",
+    label: "Antartica",
+    shortLabel: "AT",
+    path: "M96 384 L198 366 L322 374 L438 366 L558 362 L676 368 L782 352 L872 360 L922 376 L820 392 L692 386 L592 394 L462 398 L336 390 L218 404 L132 398 Z",
+    pulseX: 520,
+    pulseY: 382,
+    labelX: 470,
+    labelY: 414,
   },
 ];
 
@@ -155,15 +169,42 @@ function resolveAccessProjectKey(acesso) {
 }
 
 function resolveTrackableLinkProjectKey(link) {
-  return normalizeText(link?.runtimeProjectKey).toLowerCase();
+  return normalizeText(link?.projectSystemKey || link?.runtimeProjectKey).toLowerCase();
 }
 
 function resolveTrackableLinkStatus(link = {}) {
   const status = normalizeText(link?.status).toLowerCase();
-  if (link?.excluido === true || link?.ativo === false || status === "excluido") {
+  const statusExcluido = isDeletedStatusValue(status);
+  if (link?.excluido === true || link?.removido === true || link?.deletado === true || link?.ativo === false || statusExcluido) {
+    if (status === "pausado" || status === "inativo") return "Pausado";
+    if (link?.excluido !== true && !statusExcluido) return "Pausado";
     return "Excluido";
   }
+  if (status === "pausado" || status === "inativo") return "Pausado";
   return "Ativo";
+}
+
+function isDeletedStatusValue(status = "") {
+  return [
+    "excluido",
+    "excluida",
+    "excluído",
+    "excluída",
+    "deletado",
+    "deletada",
+    "deleted",
+    "removido",
+    "removida",
+  ].includes(normalizeText(status).toLowerCase());
+}
+
+function isTrackableLinkDeleted(link = {}) {
+  const status = normalizeText(link?.status).toLowerCase();
+  return link?.excluido === true || link?.removido === true || link?.deletado === true || isDeletedStatusValue(status);
+}
+
+function isTrackableLinkVisible(link = {}) {
+  return !isTrackableLinkDeleted(link);
 }
 
 function resolveTrackableLinkId(link = {}) {
@@ -179,12 +220,50 @@ function resolveTrackableSpaceLabel(link = {}) {
   );
 }
 
+function hasQrPrintSourceIdentity(print = {}) {
+  return Boolean(
+    normalizeText(print?.ownerUserId) &&
+      normalizeText(print?.espacoId) &&
+      normalizeText(print?.blocoId) &&
+      normalizeText(print?.cardId)
+  );
+}
+
 function resolveQrPrintStatus(print = {}) {
   const status = normalizeText(print?.status).toLowerCase();
-  if (print?.excluido === true || print?.ativo === false || status === "excluido") {
+  if (
+    print?.excluido === true ||
+    print?.removido === true ||
+    print?.deletado === true ||
+    print?.sourceCardExists === false ||
+    print?.sourceCardMissing === true ||
+    print?.sourceCardChecked !== true ||
+    !hasQrPrintSourceIdentity(print) ||
+    print?.ativo === false ||
+    isDeletedStatusValue(status)
+  ) {
     return "Excluido";
   }
   return "Ativo";
+}
+
+function isQrPrintDeleted(print = {}) {
+  const status = normalizeText(print?.status).toLowerCase();
+  return (
+    print?.excluido === true ||
+    print?.removido === true ||
+    print?.deletado === true ||
+    print?.sourceCardExists === false ||
+    print?.sourceCardMissing === true ||
+    print?.sourceCardChecked !== true ||
+    !hasQrPrintSourceIdentity(print) ||
+    print?.ativo === false ||
+    isDeletedStatusValue(status)
+  );
+}
+
+function isQrPrintVisible(print = {}) {
+  return !isQrPrintDeleted(print);
 }
 
 function resolveQrPrintId(print = {}) {
@@ -508,6 +587,41 @@ function buildAbsolutePanelUrl(route = "") {
   }
 }
 
+function buildAbsoluteUrlFromBase(baseUrl = "", route = "") {
+  const normalizedRoute = normalizeText(route);
+  if (!normalizedRoute) return "";
+  const normalizedBase = normalizeText(baseUrl).replace(/\/+$/, "");
+  if (!normalizedBase) return buildAbsolutePanelUrl(normalizedRoute);
+  try {
+    return new URL(normalizedRoute, normalizedBase).href;
+  } catch {
+    return normalizedRoute;
+  }
+}
+
+function resolveProjetoOwnerUid(projeto = {}) {
+  return normalizeText(
+    projeto?.ownerUid ||
+      projeto?.adminUid ||
+      projeto?.projectOwnerUid ||
+      projeto?.configSistema?.ownerUid ||
+      projeto?.configSistema?.adminUid ||
+      projeto?.configSistema?.projectOwnerUid
+  );
+}
+
+function resolveProjetoBaseUrl(projeto = {}) {
+  const domains = Array.isArray(projeto?.domains) ? projeto.domains : [];
+  const firstDomain = domains.map((item) => normalizeText(item)).find(Boolean);
+  if (firstDomain) {
+    return /^https?:\/\//i.test(firstDomain) ? firstDomain : `https://${firstDomain}`;
+  }
+  const projectId = normalizeText(
+    projeto?.firebaseProjectId || projeto?.firebaseRuntimeConfig?.projectId
+  );
+  return projectId ? `https://${projectId}.vercel.app` : "";
+}
+
 function resolveHistoricoNavigationId(item = {}) {
   return normalizeText(item?.navigationId || item?.visitorHash || item?.hash || item?.navegacaoHash);
 }
@@ -552,7 +666,11 @@ function resolveDataTimestampMs(value) {
   return timestampMs;
 }
 
-function ListaAcessos() {
+function ListaAcessos({ modo = "acessos" }) {
+  const modoNormalizado = normalizeText(modo).toLowerCase();
+  const exibirSomenteRastreabilidade = modoNormalizado === "rastreabilidade";
+  const exibirAcessosOperacionais = !exibirSomenteRastreabilidade;
+  const exibirPainelRastreabilidade = exibirSomenteRastreabilidade;
   const managerProjectLabel = obterManagerProjectLabel();
   const mountedRef = useRef(true);
   const [acessos, setAcessos] = useState([]);
@@ -591,6 +709,21 @@ function ListaAcessos() {
   const [filtroPainelEspaco, setFiltroPainelEspaco] = useState("");
   const [filtroPainelOrigem, setFiltroPainelOrigem] = useState("");
   const [filtroPainelLocal, setFiltroPainelLocal] = useState("");
+  const [abaPainelRastreavel, setAbaPainelRastreavel] = useState("geral");
+  const [novoLinkRastreavel, setNovoLinkRastreavel] = useState({
+    projectSystemKey: "",
+    ownerUserId: "",
+    espacoId: "",
+    espacoNome: "",
+    skinsUsername: "",
+    baseUrl: "",
+    destinoUrl: "",
+    origemPlanejada: "",
+  });
+  const [salvandoLinkRastreavel, setSalvandoLinkRastreavel] = useState(false);
+  const [acaoLinkRastreavelId, setAcaoLinkRastreavelId] = useState("");
+  const [mensagemLinkRastreavel, setMensagemLinkRastreavel] = useState("");
+  const [erroLinkRastreavel, setErroLinkRastreavel] = useState("");
   const [detalheRastreavel, setDetalheRastreavel] = useState(criarEstadoDetalheRastreavel);
   const [erro, setErro] = useState("");
   const [carregando, setCarregando] = useState(false);
@@ -855,9 +988,13 @@ function ListaAcessos() {
       ]);
       if (!mountedRef.current) return;
       setErroPainelRastreavel("");
-      setLinksRastreaveis(Array.isArray(links) ? links : []);
+      setLinksRastreaveis(
+        Array.isArray(links) ? links.filter((link) => isTrackableLinkVisible(link)) : []
+      );
       setAcessosLinksRastreaveis(Array.isArray(acessosLinks) ? acessosLinks : []);
-      setQrPrintsRastreaveis(Array.isArray(prints) ? prints : []);
+      setQrPrintsRastreaveis(
+        Array.isArray(prints) ? prints.filter((print) => isQrPrintVisible(print)) : []
+      );
       setLeiturasQrPrints(Array.isArray(leituras) ? leituras : []);
     } catch (error) {
       if (!mountedRef.current) return;
@@ -875,8 +1012,9 @@ function ListaAcessos() {
   }, [filtroDataFim, filtroDataInicio, filtroProjeto]);
 
   useEffect(() => {
+    if (!exibirPainelRastreabilidade) return;
     void carregarPainelRastreavel();
-  }, [carregarPainelRastreavel]);
+  }, [carregarPainelRastreavel, exibirPainelRastreabilidade]);
 
   const marcarComoLido = useCallback(async (ids = []) => {
     const idsNormalizados = Array.from(
@@ -963,6 +1101,7 @@ function ListaAcessos() {
   const linksRastreaveisMap = useMemo(() => {
     const mapa = new Map();
     linksRastreaveis.forEach((item) => {
+      if (!isTrackableLinkVisible(item)) return;
       const trackingId = resolveTrackableLinkId(item);
       if (!trackingId) return;
       mapa.set(trackingId, item);
@@ -973,6 +1112,7 @@ function ListaAcessos() {
   const qrPrintsRastreaveisMap = useMemo(() => {
     const mapa = new Map();
     qrPrintsRastreaveis.forEach((item) => {
+      if (!isQrPrintVisible(item)) return;
       const printId = resolveQrPrintId(item);
       if (!printId) return;
       mapa.set(printId, item);
@@ -991,6 +1131,249 @@ function ListaAcessos() {
         .sort((a, b) => a.label.localeCompare(b.label)),
     [projetos]
   );
+
+  const projetoSelecionadoNovoLink = useMemo(() => {
+    const projectKey = normalizeText(
+      novoLinkRastreavel.projectSystemKey || filtroProjeto
+    ).toLowerCase();
+    return projectKey ? projetosMap.get(projectKey) || null : null;
+  }, [filtroProjeto, novoLinkRastreavel.projectSystemKey, projetosMap]);
+
+  const atualizarCampoNovoLinkRastreavel = useCallback((campo, valor) => {
+    setNovoLinkRastreavel((prev) => ({
+      ...prev,
+      [campo]: valor,
+    }));
+  }, []);
+
+  const selecionarProjetoNovoLinkRastreavel = useCallback(
+    (projectSystemKey = "") => {
+      const projectKey = normalizeText(projectSystemKey).toLowerCase();
+      const projeto = projetosMap.get(projectKey) || null;
+      setNovoLinkRastreavel((prev) => ({
+        ...prev,
+        projectSystemKey: projectKey,
+        ownerUserId: resolveProjetoOwnerUid(projeto) || prev.ownerUserId,
+        baseUrl: resolveProjetoBaseUrl(projeto) || prev.baseUrl,
+      }));
+    },
+    [projetosMap]
+  );
+
+  const criarLinkRastreavelCentral = useCallback(
+    async (event = null) => {
+      event?.preventDefault?.();
+      const projectSystemKey = normalizeText(
+        novoLinkRastreavel.projectSystemKey || filtroProjeto
+      ).toLowerCase();
+      const payload = {
+        projectSystemKey,
+        ownerUserId: normalizeText(novoLinkRastreavel.ownerUserId),
+        espacoId: normalizeText(novoLinkRastreavel.espacoId),
+        espacoNome: normalizeText(novoLinkRastreavel.espacoNome),
+        skinsUsername: normalizeText(novoLinkRastreavel.skinsUsername),
+        baseUrl:
+          normalizeText(novoLinkRastreavel.baseUrl) ||
+          resolveProjetoBaseUrl(projetosMap.get(projectSystemKey)),
+        destinoUrl: normalizeText(novoLinkRastreavel.destinoUrl),
+        descricao: normalizeText(novoLinkRastreavel.origemPlanejada),
+        origemPlanejada: normalizeText(novoLinkRastreavel.origemPlanejada),
+      };
+
+      if (!payload.projectSystemKey || !payload.ownerUserId || !payload.espacoId || !payload.destinoUrl) {
+        setErroLinkRastreavel("Informe projeto, owner UID, espaco ID e URL destino.");
+        setMensagemLinkRastreavel("");
+        return;
+      }
+
+      setSalvandoLinkRastreavel(true);
+      setErroLinkRastreavel("");
+      setMensagemLinkRastreavel("");
+
+      try {
+        const item = await criarLinkRastreavelNoGerenciador(payload);
+        if (!mountedRef.current) return;
+        if (item) {
+          setLinksRastreaveis((prev) => [
+            item,
+            ...prev.filter(
+              (link) => resolveTrackableLinkId(link) !== resolveTrackableLinkId(item)
+            ),
+          ]);
+        }
+        setNovoLinkRastreavel((prev) => ({
+          ...prev,
+          destinoUrl: "",
+          origemPlanejada: "",
+        }));
+        setMensagemLinkRastreavel("Link rastreavel criado no projeto alvo.");
+      } catch (error) {
+        if (!mountedRef.current) return;
+        console.error("Erro ao criar link rastreavel central:", error);
+        setErroLinkRastreavel(error?.message || "Nao foi possivel criar o link rastreavel.");
+      } finally {
+        if (mountedRef.current) {
+          setSalvandoLinkRastreavel(false);
+        }
+      }
+    },
+    [filtroProjeto, novoLinkRastreavel, projetosMap]
+  );
+
+  const copiarLinkRastreavelCentral = useCallback(async (url = "") => {
+    const valor = normalizeText(url);
+    if (!valor) return;
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(valor);
+      }
+      if (!mountedRef.current) return;
+      setMensagemLinkRastreavel("URL rastreavel copiada.");
+      setErroLinkRastreavel("");
+    } catch (error) {
+      if (!mountedRef.current) return;
+      setErroLinkRastreavel(error?.message || "Nao foi possivel copiar a URL.");
+    }
+  }, []);
+
+  const atualizarStatusLinkRastreavelCentral = useCallback(
+    async (link = {}, action = "") => {
+      const trackingId = resolveTrackableLinkId(link);
+      const projectSystemKey = normalizeText(
+        link?.projectSystemKey || link?.runtimeProjectKey || filtroProjeto
+      ).toLowerCase();
+      const acao = normalizeText(action).toLowerCase();
+      if (!trackingId || !projectSystemKey || !acao) return;
+
+      if (acao === "excluir") {
+        const confirmado =
+          typeof window === "undefined" ||
+          window.confirm("Excluir este link rastreavel?");
+        if (!confirmado) return;
+      }
+
+      setAcaoLinkRastreavelId(`${trackingId}:${acao}`);
+      setErroLinkRastreavel("");
+      setMensagemLinkRastreavel("");
+
+      try {
+        const item = await atualizarStatusLinkRastreavelNoGerenciador({
+          trackingId,
+          projectSystemKey,
+          action: acao,
+        });
+        if (!mountedRef.current) return;
+        if (item) {
+          setLinksRastreaveis((prev) => {
+            if (acao === "excluir" || isTrackableLinkDeleted(item)) {
+              return prev.filter((linkAtual) => resolveTrackableLinkId(linkAtual) !== trackingId);
+            }
+
+            return prev.map((linkAtual) =>
+              resolveTrackableLinkId(linkAtual) === trackingId
+                ? {
+                    ...linkAtual,
+                    ...item,
+                  }
+                : linkAtual
+            );
+          });
+        }
+        setMensagemLinkRastreavel(
+          acao === "ativar"
+            ? "Link rastreavel ativado."
+            : acao === "pausar"
+              ? "Link rastreavel pausado."
+              : "Link rastreavel excluido."
+        );
+      } catch (error) {
+        if (!mountedRef.current) return;
+        console.error("Erro ao atualizar link rastreavel:", error);
+        setErroLinkRastreavel(error?.message || "Nao foi possivel atualizar o link.");
+      } finally {
+        if (mountedRef.current) {
+          setAcaoLinkRastreavelId("");
+        }
+      }
+    },
+    [filtroProjeto]
+  );
+
+  const duplicarLinkRastreavelCentral = useCallback(
+    async (link = {}) => {
+      const trackingId = resolveTrackableLinkId(link);
+      const projectSystemKey = normalizeText(
+        link?.projectSystemKey || link?.runtimeProjectKey || filtroProjeto
+      ).toLowerCase();
+      if (!trackingId || !projectSystemKey) return;
+
+      setAcaoLinkRastreavelId(`${trackingId}:duplicar`);
+      setErroLinkRastreavel("");
+      setMensagemLinkRastreavel("");
+
+      try {
+        let baseUrl = "";
+        try {
+          baseUrl = new URL(normalizeText(link?.urlRastreavel)).origin;
+        } catch {
+          baseUrl = resolveProjetoBaseUrl(projetosMap.get(projectSystemKey));
+        }
+
+        const item = await criarLinkRastreavelNoGerenciador({
+          projectSystemKey,
+          ownerUserId: normalizeText(link?.ownerUserId),
+          espacoId: normalizeText(link?.espacoId),
+          espacoNome: normalizeText(link?.espacoNome),
+          skinsUsername: normalizeText(link?.skinsUsername),
+          baseUrl,
+          destinoUrl: normalizeText(link?.destinoUrl),
+          descricao: `${normalizeText(link?.origemPlanejada || link?.descricao) || "Link"} copia`,
+          origemPlanejada: `${normalizeText(link?.origemPlanejada || link?.descricao) || "Link"} copia`,
+        });
+        if (!mountedRef.current) return;
+        if (item) {
+          setLinksRastreaveis((prev) => [
+            item,
+            ...prev.filter(
+              (linkAtual) => resolveTrackableLinkId(linkAtual) !== resolveTrackableLinkId(item)
+            ),
+          ]);
+        }
+        setMensagemLinkRastreavel("Link rastreavel duplicado.");
+      } catch (error) {
+        if (!mountedRef.current) return;
+        console.error("Erro ao duplicar link rastreavel:", error);
+        setErroLinkRastreavel(error?.message || "Nao foi possivel duplicar o link.");
+      } finally {
+        if (mountedRef.current) {
+          setAcaoLinkRastreavelId("");
+        }
+      }
+    },
+    [filtroProjeto, projetosMap]
+  );
+
+  const linksRastreaveisOperacionais = useMemo(() => {
+    return [...linksRastreaveis]
+      .filter((link) => {
+        if (!isTrackableLinkVisible(link)) return false;
+        const projectKey = normalizeText(
+          link?.projectSystemKey || link?.runtimeProjectKey
+        ).toLowerCase();
+        const origem = normalizeText(link?.origemPlanejada || link?.descricao);
+        const espacoLabel = resolveTrackableSpaceLabel(link);
+        if (filtroProjeto && projectKey !== filtroProjeto) return false;
+        if (filtroPainelOrigem && origem !== filtroPainelOrigem) return false;
+        if (filtroPainelEspaco && espacoLabel !== filtroPainelEspaco) return false;
+        return true;
+      })
+      .sort(
+        (a, b) =>
+          (resolveDataTimestampMs(b?.atualizadoEm || b?.criadoEm) || 0) -
+          (resolveDataTimestampMs(a?.atualizadoEm || a?.criadoEm) || 0)
+      )
+      .slice(0, 80);
+  }, [filtroPainelEspaco, filtroPainelOrigem, filtroProjeto, linksRastreaveis]);
 
   const acessosFiltrados = useMemo(() => {
     return acessos.filter((acesso) => {
@@ -1049,12 +1432,14 @@ function ListaAcessos() {
     const qrPrintsMap = new Map();
 
     linksRastreaveis.forEach((link) => {
+      if (!isTrackableLinkVisible(link)) return;
       const trackingId = resolveTrackableLinkId(link);
       if (!trackingId) return;
       linksMap.set(trackingId, link);
     });
 
     qrPrintsRastreaveis.forEach((print) => {
+      if (!isQrPrintVisible(print)) return;
       const printId = resolveQrPrintId(print);
       if (!printId) return;
       qrPrintsMap.set(printId, print);
@@ -1087,6 +1472,7 @@ function ListaAcessos() {
       .map((acesso) => {
         const trackingId = normalizeText(acesso?.trackingId);
         const link = linksMap.get(trackingId) || null;
+        if (!link || !isTrackableLinkVisible(link)) return null;
         const projectKey = resolveAccessProjectKey(acesso) || resolveTrackableLinkProjectKey(link);
         const projectLabel =
           normalizeText(projetosMap.get(projectKey)?.nomeProjeto) ||
@@ -1122,12 +1508,16 @@ function ListaAcessos() {
             (ownerUserId || espacoId ? `${ownerUserId}|${espacoId}` : `link:${trackingId}`),
           origemLabel,
           localizacaoLabel,
+          raw: acesso,
+          city,
+          country,
           dataMs: resolveDataTimestampMs(acesso?.data || acesso?.criadoEm) || 0,
           data: formatarData(acesso?.data || acesso?.criadoEm),
           navigationId: resolveAccessNavigationId(acesso),
           usuario: resolveAccessUserLabel(acesso),
         };
-      });
+      })
+      .filter(Boolean);
 
     const leiturasCards = leiturasQrPrints
       .filter((leitura) => {
@@ -1145,6 +1535,7 @@ function ListaAcessos() {
       .map((leitura) => {
         const printId = normalizeText(leitura?.printId || leitura?.qrPrintId);
         const print = qrPrintsMap.get(printId) || null;
+        if (!print || !isQrPrintVisible(print)) return null;
         const projectKey =
           normalizeText(leitura?.runtimeProjectKey || print?.runtimeProjectKey).toLowerCase();
         const projectLabel =
@@ -1179,12 +1570,16 @@ function ListaAcessos() {
             ownerUserId || espacoId ? `${ownerUserId}|${espacoId}` : `card:${printId}`,
           origemLabel,
           localizacaoLabel,
+          raw: leitura,
+          city,
+          country,
           dataMs: resolveDataTimestampMs(leitura?.data || leitura?.criadoEm) || 0,
           data: formatarData(leitura?.data || leitura?.criadoEm),
           navigationId: resolveAccessNavigationId(leitura),
           usuario: resolveAccessUserLabel(leitura),
         };
-      });
+      })
+      .filter(Boolean);
 
     const eventos = [...eventosLinks, ...leiturasCards].sort((a, b) => b.dataMs - a.dataMs);
     const opcoesEspaco = Array.from(
@@ -1198,8 +1593,8 @@ function ListaAcessos() {
     ).sort((a, b) => a.localeCompare(b));
 
     return {
-      totalLinks: linksRastreaveis.length,
-      totalCards: qrPrintsRastreaveis.length,
+      totalLinks: linksRastreaveis.filter((link) => isTrackableLinkVisible(link)).length,
+      totalCards: qrPrintsRastreaveis.filter((print) => isQrPrintVisible(print)).length,
       totalLinksAtivos: linksRastreaveis.filter(
         (link) => resolveTrackableLinkStatus(link) === "Ativo"
       ).length,
@@ -1496,6 +1891,132 @@ function ListaAcessos() {
     painelTemFiltrosAtivos,
   ]);
 
+  const painelGeoAnalise = useMemo(() => {
+    const continentesMap = new Map(
+      TRACKING_WORLD_REGIONS.map((regiao) => [
+        regiao.key,
+        {
+          ...regiao,
+          total: 0,
+          countriesSet: new Set(),
+          citiesSet: new Set(),
+        },
+      ])
+    );
+    const paisesMap = new Map();
+    const cidadesMap = new Map();
+
+    painelRastreabilidade.eventosFiltrados.forEach((evento) => {
+      const rawEvento = evento?.raw || evento;
+      const geoInfo = resolveAccessGeoInfo(rawEvento);
+      const country = resolveGeoText(evento?.country, geoInfo.country);
+      const city = resolveGeoText(evento?.city, geoInfo.city, geoInfo.region, geoInfo.uf);
+      const continentKey = resolveTrackingContinent(rawEvento);
+
+      if (continentKey && continentesMap.has(continentKey)) {
+        const continente = continentesMap.get(continentKey);
+        continente.total += 1;
+        if (country && country !== "--") continente.countriesSet.add(country);
+        if (city && city !== "--") continente.citiesSet.add(city);
+      }
+
+      if (country && country !== "--") {
+        if (!paisesMap.has(country)) {
+          paisesMap.set(country, {
+            label: country,
+            total: 0,
+          });
+        }
+        paisesMap.get(country).total += 1;
+      }
+
+      if (city && city !== "--") {
+        if (!cidadesMap.has(city)) {
+          cidadesMap.set(city, {
+            label: city,
+            total: 0,
+          });
+        }
+        cidadesMap.get(city).total += 1;
+      }
+    });
+
+    const continentes = TRACKING_WORLD_REGIONS.map((regiao) => {
+      const item = continentesMap.get(regiao.key);
+      return {
+        ...regiao,
+        total: item?.total || 0,
+        active: (item?.total || 0) > 0,
+        countriesTotal: item?.countriesSet?.size || 0,
+        citiesTotal: item?.citiesSet?.size || 0,
+      };
+    });
+    const continentesAtivos = continentes.filter((item) => item.active);
+    const maiorContinenteTotal = continentes.reduce(
+      (maior, item) => Math.max(maior, item.total),
+      0
+    );
+    const continentesComIntensidade = continentes.map((item) => ({
+      ...item,
+      intensidadePercentual:
+        maiorContinenteTotal > 0 ? Math.max((item.total / maiorContinenteTotal) * 100, 12) : 0,
+    }));
+    const topContinente =
+      [...continentesComIntensidade]
+        .sort((a, b) => {
+          if (b.total !== a.total) return b.total - a.total;
+          return a.label.localeCompare(b.label);
+        })
+        .find((item) => item.total > 0) || null;
+    const rankingPaises = Array.from(paisesMap.values())
+      .sort((a, b) => {
+        if (b.total !== a.total) return b.total - a.total;
+        return a.label.localeCompare(b.label);
+      })
+      .slice(0, 6);
+    const rankingCidades = Array.from(cidadesMap.values())
+      .sort((a, b) => {
+        if (b.total !== a.total) return b.total - a.total;
+        return a.label.localeCompare(b.label);
+      })
+      .slice(0, 6);
+
+    return {
+      continentes: continentesComIntensidade,
+      continentesAtivos,
+      rankingPaises,
+      rankingCidades,
+      geoResumoCards: [
+        {
+          label: "Continentes ativos",
+          value: String(continentesAtivos.length),
+          detail: continentesAtivos.length
+            ? continentesAtivos.map((item) => item.shortLabel).join(" | ")
+            : "Sem continente identificado",
+        },
+        {
+          label: "Pico continental",
+          value: topContinente?.label || "--",
+          detail: topContinente ? `${topContinente.total} evento(s)` : "Sem pico geografico",
+        },
+        {
+          label: "Paises unicos",
+          value: String(paisesMap.size),
+          detail: rankingPaises.length
+            ? rankingPaises.map((item) => `${item.label} (${item.total})`).join(" | ")
+            : "Sem paises suficientes",
+        },
+        {
+          label: "Cidades unicas",
+          value: String(cidadesMap.size),
+          detail: rankingCidades.length
+            ? rankingCidades.map((item) => `${item.label} (${item.total})`).join(" | ")
+            : "Sem cidades suficientes",
+        },
+      ],
+    };
+  }, [painelRastreabilidade.eventosFiltrados]);
+
   const resolverItemDetalheRastreavel = useCallback(
     (itemBase = null) => {
       const kind = normalizeText(itemBase?.kind || itemBase?.tipo).toLowerCase();
@@ -1572,19 +2093,75 @@ function ListaAcessos() {
     ]
   );
 
-  const carregarEventosDetalheRastreavel = useCallback(async (itemAtual = null) => {
-    if (!itemAtual?.itemId || !itemAtual?.kind) return [];
-    if (itemAtual.kind === "link") {
-      return listarAcessosLinkRastreavelEspaco({
-        trackingId: itemAtual.itemId,
-        limite: 150,
-      });
-    }
-    if (itemAtual.kind === "card") {
-      return listarLeiturasQrPrint(itemAtual.itemId, { limite: 150 });
-    }
-    return [];
-  }, []);
+  const carregarEventosDetalheRastreavel = useCallback(
+    async (itemAtual = null) => {
+      if (!itemAtual?.itemId || !itemAtual?.kind) return [];
+
+      const itemId = normalizeText(itemAtual.itemId);
+      const projectSystemKey = normalizeText(
+        itemAtual?.raw?.projectSystemKey || itemAtual?.raw?.runtimeProjectKey || filtroProjeto
+      ).toLowerCase();
+
+      if (itemAtual.kind === "link") {
+        const eventosRemotos = await listarAcessosLinksRastreaveisNoGerenciador({
+          limit: 800,
+          projectSystemKey,
+          startDate: detalheRastreavel.filtroDataInicio || filtroDataInicio,
+          endDate: detalheRastreavel.filtroDataFim || filtroDataFim,
+        });
+
+        const eventosLocais = acessosLinksRastreaveis.filter(
+          (acesso) => normalizeText(acesso?.trackingId) === itemId
+        );
+
+        return Array.from(
+          new Map(
+            [...eventosLocais, ...eventosRemotos]
+              .filter((acesso) => normalizeText(acesso?.trackingId) === itemId)
+              .map((acesso) => [
+                normalizeText(acesso?.id) ||
+                  `${normalizeText(acesso?.trackingId)}:${resolveAccessNavigationId(acesso)}:${resolveDataTimestampMs(acesso?.data || acesso?.criadoEm)}`,
+                acesso,
+              ])
+          ).values()
+        );
+      }
+
+      if (itemAtual.kind === "card") {
+        const leiturasRemotas = await listarLeiturasQrPrintsNoGerenciador({
+          limit: 800,
+          projectSystemKey,
+        });
+
+        const leiturasLocais = leiturasQrPrints.filter(
+          (leitura) => normalizeText(leitura?.printId || leitura?.qrPrintId) === itemId
+        );
+
+        return Array.from(
+          new Map(
+            [...leiturasLocais, ...leiturasRemotas]
+              .filter((leitura) => normalizeText(leitura?.printId || leitura?.qrPrintId) === itemId)
+              .map((leitura) => [
+                normalizeText(leitura?.id) ||
+                  `${normalizeText(leitura?.printId || leitura?.qrPrintId)}:${resolveAccessNavigationId(leitura)}:${resolveDataTimestampMs(leitura?.data || leitura?.criadoEm)}`,
+                leitura,
+              ])
+          ).values()
+        );
+      }
+
+      return [];
+    },
+    [
+      acessosLinksRastreaveis,
+      detalheRastreavel.filtroDataFim,
+      detalheRastreavel.filtroDataInicio,
+      filtroDataFim,
+      filtroDataInicio,
+      filtroProjeto,
+      leiturasQrPrints,
+    ]
+  );
 
   const carregarDetalheRastreavel = useCallback(
     async (itemBase = null, { abrir = true } = {}) => {
@@ -1756,11 +2333,22 @@ function ListaAcessos() {
     try {
       if (itemAtual.kind === "link") {
         const raw = itemAtual.raw || {};
-        await criarLinkRastreavelEspaco({
+        const projectSystemKey = normalizeText(
+          raw?.projectSystemKey || raw?.runtimeProjectKey || filtroProjeto
+        ).toLowerCase();
+        let baseUrl = "";
+        try {
+          baseUrl = new URL(normalizeText(raw?.urlRastreavel || itemAtual.rastreavelUrl)).origin;
+        } catch {
+          baseUrl = resolveProjetoBaseUrl(projetosMap.get(projectSystemKey));
+        }
+        await criarLinkRastreavelNoGerenciador({
+          projectSystemKey,
           ownerUserId: raw?.ownerUserId,
           espacoId: raw?.espacoId,
           espacoNome: raw?.espacoNome,
           skinsUsername: raw?.skinsUsername,
+          baseUrl,
           destinoUrl: raw?.destinoUrl,
           descricao:
             normalizeText(raw?.descricao || raw?.origemPlanejada || itemAtual.titulo) || "Copia",
@@ -1808,7 +2396,7 @@ function ListaAcessos() {
         erro: error?.message || "Nao foi possivel duplicar este item rastreavel.",
       }));
     }
-  }, [carregarPainelRastreavel, detalheRastreavel.item]);
+  }, [carregarPainelRastreavel, detalheRastreavel.item, filtroProjeto, projetosMap]);
 
   const excluirItemRastreavelSelecionado = useCallback(async () => {
     const itemAtual = detalheRastreavel.item;
@@ -1829,40 +2417,40 @@ function ListaAcessos() {
 
     try {
       if (itemAtual.kind === "link") {
-        await excluirLinkRastreavelEspaco(itemAtual.itemId);
+        await atualizarStatusLinkRastreavelNoGerenciador({
+          trackingId: itemAtual.itemId,
+          projectSystemKey: normalizeText(
+            itemAtual?.raw?.projectSystemKey || itemAtual?.raw?.runtimeProjectKey || filtroProjeto
+          ).toLowerCase(),
+          action: "excluir",
+        });
         if (!mountedRef.current) return;
         setLinksRastreaveis((prev) =>
-          prev.map((item) =>
-            resolveTrackableLinkId(item) === itemAtual.itemId
-              ? {
-                  ...item,
-                  ativo: false,
-                  excluido: true,
-                  status: "excluido",
-                }
-              : item
-          )
+          prev.filter((item) => resolveTrackableLinkId(item) !== itemAtual.itemId)
         );
       } else if (itemAtual.kind === "card") {
-        await excluirQrPrintCard(itemAtual.itemId);
+        await atualizarStatusQrPrintNoGerenciador({
+          printId: itemAtual.itemId,
+          projectSystemKey: normalizeText(
+            itemAtual?.raw?.projectSystemKey || itemAtual?.raw?.runtimeProjectKey || filtroProjeto
+          ).toLowerCase(),
+          action: "excluir",
+        });
         if (!mountedRef.current) return;
         setQrPrintsRastreaveis((prev) =>
-          prev.map((item) =>
-            resolveQrPrintId(item) === itemAtual.itemId
-              ? {
-                  ...item,
-                  ativo: false,
-                  excluido: true,
-                  status: "excluido",
-                }
-              : item
-          )
+          prev.filter((item) => resolveQrPrintId(item) !== itemAtual.itemId)
         );
       }
 
-      const itemAtualizado = resolverItemDetalheRastreavel(itemAtual) || {
+      const itemAtualizado = {
         ...itemAtual,
         status: "Excluido",
+        raw: {
+          ...(itemAtual.raw || {}),
+          ativo: false,
+          excluido: true,
+          status: "excluido",
+        },
       };
 
       setDetalheRastreavel((prev) => ({
@@ -1880,7 +2468,7 @@ function ListaAcessos() {
         erro: error?.message || "Nao foi possivel excluir este item rastreavel.",
       }));
     }
-  }, [detalheRastreavel.item, resolverItemDetalheRastreavel]);
+  }, [detalheRastreavel.item, filtroProjeto]);
 
   const exportarPainelCentralCsv = useCallback(() => {
     if (!painelRastreabilidade.eventosFiltrados.length) return;
@@ -2226,6 +2814,26 @@ function ListaAcessos() {
   ]);
 
   useEffect(() => {
+    if (!detalheRastreavel.aberto) return undefined;
+    if (typeof document === "undefined" || typeof window === "undefined") return undefined;
+
+    const overflowAnterior = document.body.style.overflow;
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        fecharDetalheRastreavel();
+      }
+    };
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = overflowAnterior;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [detalheRastreavel.aberto, fecharDetalheRastreavel]);
+
+  useEffect(() => {
     setPaginaAtual(1);
     setGruposExpandidos({});
   }, [
@@ -2361,9 +2969,13 @@ function ListaAcessos() {
     <section className="gerenciador-acessos">
       <div className="gerenciador-acessos__header">
         <div>
-          <h1 className="gerenciador-acessos__title">ACESSOS</h1>
+          <h1 className="gerenciador-acessos__title">
+            {exibirSomenteRastreabilidade ? "RASTREABILIDADE" : "ACESSOS"}
+          </h1>
           <p className="gerenciador-acessos__subtitle">
-            {`Eventos de acesso centralizados no projeto ${managerProjectLabel}.`}
+            {exibirSomenteRastreabilidade
+              ? `Painel de rastreabilidade centralizado no projeto ${managerProjectLabel}.`
+              : `Eventos de acesso centralizados no projeto ${managerProjectLabel}.`}
           </p>
         </div>
 
@@ -2380,60 +2992,67 @@ function ListaAcessos() {
             </select>
           </label>
 
-          <label className="gerenciador-acessos__filter">
-            <span>Origem</span>
-            <select value={filtroOrigem} onChange={(event) => setFiltroOrigem(event.target.value)}>
-              <option value="">Todas</option>
-              <option value="localhost">localhost</option>
-              <option value="dominio">dominios</option>
-            </select>
-          </label>
+          {exibirAcessosOperacionais ? (
+            <>
+              <label className="gerenciador-acessos__filter">
+                <span>Origem</span>
+                <select
+                  value={filtroOrigem}
+                  onChange={(event) => setFiltroOrigem(event.target.value)}
+                >
+                  <option value="">Todas</option>
+                  <option value="localhost">localhost</option>
+                  <option value="dominio">dominios</option>
+                </select>
+              </label>
 
-          <label className="gerenciador-acessos__filter">
-            <span>Tipo de usuario</span>
-            <select
-              value={filtroTipoUsuario}
-              onChange={(event) => setFiltroTipoUsuario(event.target.value)}
-            >
-              <option value="">Todos</option>
-              <option value="owner">owners</option>
-              <option value="viewer">viewers</option>
-            </select>
-          </label>
+              <label className="gerenciador-acessos__filter">
+                <span>Tipo de usuario</span>
+                <select
+                  value={filtroTipoUsuario}
+                  onChange={(event) => setFiltroTipoUsuario(event.target.value)}
+                >
+                  <option value="">Todos</option>
+                  <option value="owner">owners</option>
+                  <option value="viewer">viewers</option>
+                </select>
+              </label>
 
-          <label className="gerenciador-acessos__filter">
-            <span>Status</span>
-            <select
-              value={filtroStatusLeitura}
-              onChange={(event) => setFiltroStatusLeitura(event.target.value)}
-            >
-              <option value="">Todos</option>
-              <option value="nao-lido">Nao lidos</option>
-              <option value="lido">Lidos</option>
-            </select>
-          </label>
+              <label className="gerenciador-acessos__filter">
+                <span>Status</span>
+                <select
+                  value={filtroStatusLeitura}
+                  onChange={(event) => setFiltroStatusLeitura(event.target.value)}
+                >
+                  <option value="">Todos</option>
+                  <option value="nao-lido">Nao lidos</option>
+                  <option value="lido">Lidos</option>
+                </select>
+              </label>
 
-          <div className="gerenciador-acessos__filter-pair">
-            <label className="gerenciador-acessos__filter gerenciador-acessos__filter--compact">
-              <span>Identificador</span>
-              <input
-                type="text"
-                value={filtroNavigationId}
-                onChange={(event) => setFiltroNavigationId(event.target.value)}
-                placeholder="Digite o identificador"
-              />
-            </label>
+              <div className="gerenciador-acessos__filter-pair">
+                <label className="gerenciador-acessos__filter gerenciador-acessos__filter--compact">
+                  <span>Identificador</span>
+                  <input
+                    type="text"
+                    value={filtroNavigationId}
+                    onChange={(event) => setFiltroNavigationId(event.target.value)}
+                    placeholder="Digite o identificador"
+                  />
+                </label>
 
-            <label className="gerenciador-acessos__filter gerenciador-acessos__filter--compact">
-              <span>IP</span>
-              <input
-                type="text"
-                value={filtroIp}
-                onChange={(event) => setFiltroIp(event.target.value)}
-                placeholder="Digite o IP"
-              />
-            </label>
-          </div>
+                <label className="gerenciador-acessos__filter gerenciador-acessos__filter--compact">
+                  <span>IP</span>
+                  <input
+                    type="text"
+                    value={filtroIp}
+                    onChange={(event) => setFiltroIp(event.target.value)}
+                    placeholder="Digite o IP"
+                  />
+                </label>
+              </div>
+            </>
+          ) : null}
 
           <label className="gerenciador-acessos__filter">
             <span>Data inicial</span>
@@ -2455,25 +3074,29 @@ function ListaAcessos() {
             />
           </label>
 
-          <label className="gerenciador-acessos__filter gerenciador-acessos__filter-check">
-            <input
-              type="checkbox"
-              checked={mostrarRegistrosBloqueados}
-              onChange={(event) => setMostrarRegistrosBloqueados(event.target.checked)}
-            />
-            <span>Mostrar bloqueados</span>
-          </label>
+          {exibirAcessosOperacionais ? (
+            <label className="gerenciador-acessos__filter gerenciador-acessos__filter-check">
+              <input
+                type="checkbox"
+                checked={mostrarRegistrosBloqueados}
+                onChange={(event) => setMostrarRegistrosBloqueados(event.target.checked)}
+              />
+              <span>Mostrar bloqueados</span>
+            </label>
+          ) : null}
         </div>
       </div>
 
-      <div className="gerenciador-acessos__block-panel">
-        <div>
-          <strong>Bloqueio de registro por IP</strong>
-          <p>
-            IPs nesta lista nao geram novos registros de navegacao/acesso. Registros antigos
-            continuam visiveis para auditoria.
-          </p>
-        </div>
+      {exibirAcessosOperacionais ? (
+        <>
+          <div className="gerenciador-acessos__block-panel">
+            <div>
+              <strong>Bloqueio de registro por IP</strong>
+              <p>
+                IPs nesta lista nao geram novos registros de navegacao/acesso. Registros antigos
+                continuam visiveis para auditoria.
+              </p>
+            </div>
 
         <form
           className="gerenciador-acessos__block-form"
@@ -2575,9 +3198,15 @@ function ListaAcessos() {
         {mensagemBloqueioUsuario ? (
           <p className="gerenciador-acessos__success">{mensagemBloqueioUsuario}</p>
         ) : null}
-      </div>
+          </div>
+        </>
+      ) : null}
 
-      <section className="gerenciador-acessos__tracking-panel">
+      {exibirPainelRastreabilidade ? (
+        <section
+          className="gerenciador-acessos__tracking-panel"
+          data-tracking-tab={abaPainelRastreavel}
+        >
         <div className="gerenciador-acessos__tracking-head">
           <div>
             <strong>Painel central de rastreabilidade</strong>
@@ -2611,6 +3240,25 @@ function ListaAcessos() {
         {erroPainelRastreavel ? (
           <p className="gerenciador-acessos__error">{erroPainelRastreavel}</p>
         ) : null}
+
+        <div className="gerenciador-acessos__tracking-tabs" role="tablist" aria-label="Areas de rastreabilidade">
+          {TRACKING_PANEL_TABS.map((aba) => (
+            <button
+              key={aba.id}
+              type="button"
+              role="tab"
+              aria-selected={abaPainelRastreavel === aba.id}
+              className={
+                abaPainelRastreavel === aba.id
+                  ? "gerenciador-acessos__tracking-tab is-active"
+                  : "gerenciador-acessos__tracking-tab"
+              }
+              onClick={() => setAbaPainelRastreavel(aba.id)}
+            >
+              {aba.label}
+            </button>
+          ))}
+        </div>
 
         <div className="gerenciador-acessos__tracking-filters">
           <label className="gerenciador-acessos__filter gerenciador-acessos__filter--compact">
@@ -2685,7 +3333,7 @@ function ListaAcessos() {
           </button>
         </div>
 
-        <div className="gerenciador-acessos__tracking-cards">
+        <div className="gerenciador-acessos__tracking-cards gerenciador-acessos__tracking-section gerenciador-acessos__tracking-section--geral">
           {painelRastreabilidade.cardItems.map((item) => (
             <article className="gerenciador-acessos__tracking-card" key={item.label}>
               <span className="gerenciador-acessos__tracking-label">{item.label}</span>
@@ -2696,7 +3344,253 @@ function ListaAcessos() {
         </div>
 
         <div className="gerenciador-acessos__tracking-grid">
-          <article className="gerenciador-acessos__tracking-box gerenciador-acessos__tracking-box--wide gerenciador-acessos__tracking-box--timeline">
+          <article className="gerenciador-acessos__tracking-box gerenciador-acessos__tracking-box--wide gerenciador-acessos__tracking-section gerenciador-acessos__tracking-section--links">
+            <div className="gerenciador-acessos__tracking-box-head">
+              <div>
+                <strong>Centro de Links Rastreaveis</strong>
+                <span>criar, copiar, duplicar, pausar e excluir links de espacos</span>
+              </div>
+              <span>{`${linksRastreaveisOperacionais.length} link(s) no recorte`}</span>
+            </div>
+
+            <form
+              className="gerenciador-acessos__tracking-link-form"
+              onSubmit={criarLinkRastreavelCentral}
+            >
+              <label className="gerenciador-acessos__filter">
+                <span>Projeto</span>
+                <select
+                  value={novoLinkRastreavel.projectSystemKey || filtroProjeto}
+                  onChange={(event) => selecionarProjetoNovoLinkRastreavel(event.target.value)}
+                  disabled={salvandoLinkRastreavel}
+                >
+                  <option value="">Selecione</option>
+                  {opcoesProjeto.map((projeto) => (
+                    <option key={`novo-link-${projeto.value}`} value={projeto.value}>
+                      {projeto.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="gerenciador-acessos__filter">
+                <span>Owner UID</span>
+                <input
+                  type="text"
+                  value={novoLinkRastreavel.ownerUserId}
+                  onChange={(event) =>
+                    atualizarCampoNovoLinkRastreavel("ownerUserId", event.target.value)
+                  }
+                  placeholder="UID do owner do espaco"
+                  disabled={salvandoLinkRastreavel}
+                />
+              </label>
+
+              <label className="gerenciador-acessos__filter gerenciador-acessos__filter--compact">
+                <span>Espaco ID</span>
+                <input
+                  type="text"
+                  value={novoLinkRastreavel.espacoId}
+                  onChange={(event) =>
+                    atualizarCampoNovoLinkRastreavel("espacoId", event.target.value)
+                  }
+                  placeholder="home, portfolio..."
+                  disabled={salvandoLinkRastreavel}
+                />
+              </label>
+
+              <label className="gerenciador-acessos__filter gerenciador-acessos__filter--compact">
+                <span>Nome do espaco</span>
+                <input
+                  type="text"
+                  value={novoLinkRastreavel.espacoNome}
+                  onChange={(event) =>
+                    atualizarCampoNovoLinkRastreavel("espacoNome", event.target.value)
+                  }
+                  placeholder="Rotulo opcional"
+                  disabled={salvandoLinkRastreavel}
+                />
+              </label>
+
+              <label className="gerenciador-acessos__filter">
+                <span>Base URL do projeto</span>
+                <input
+                  type="url"
+                  value={novoLinkRastreavel.baseUrl || resolveProjetoBaseUrl(projetoSelecionadoNovoLink)}
+                  onChange={(event) =>
+                    atualizarCampoNovoLinkRastreavel("baseUrl", event.target.value)
+                  }
+                  placeholder="https://seu-projeto.vercel.app"
+                  disabled={salvandoLinkRastreavel}
+                />
+              </label>
+
+              <label className="gerenciador-acessos__filter">
+                <span>URL destino</span>
+                <input
+                  type="url"
+                  value={novoLinkRastreavel.destinoUrl}
+                  onChange={(event) =>
+                    atualizarCampoNovoLinkRastreavel("destinoUrl", event.target.value)
+                  }
+                  placeholder="Pagina final que o link deve abrir"
+                  disabled={salvandoLinkRastreavel}
+                />
+              </label>
+
+              <label className="gerenciador-acessos__filter gerenciador-acessos__filter--wide">
+                <span>Origem planejada / descricao</span>
+                <input
+                  type="text"
+                  value={novoLinkRastreavel.origemPlanejada}
+                  onChange={(event) =>
+                    atualizarCampoNovoLinkRastreavel("origemPlanejada", event.target.value)
+                  }
+                  placeholder="Ex.: LinkedIn, QR do curriculo, cartaz da faculdade..."
+                  disabled={salvandoLinkRastreavel}
+                />
+              </label>
+
+              <button
+                type="submit"
+                className="gerenciador-acessos__refresh gerenciador-acessos__tracking-link-submit"
+                disabled={salvandoLinkRastreavel}
+              >
+                {salvandoLinkRastreavel ? "Criando link..." : "Criar link rastreavel"}
+              </button>
+            </form>
+
+            {erroLinkRastreavel ? (
+              <p className="gerenciador-acessos__error">{erroLinkRastreavel}</p>
+            ) : null}
+            {mensagemLinkRastreavel ? (
+              <p className="gerenciador-acessos__success">{mensagemLinkRastreavel}</p>
+            ) : null}
+
+            {linksRastreaveisOperacionais.length ? (
+              <div className="gerenciador-acessos__tracking-link-list">
+                {linksRastreaveisOperacionais.map((link) => {
+                  const trackingId = resolveTrackableLinkId(link);
+                  const projectKey = normalizeText(
+                    link?.projectSystemKey || link?.runtimeProjectKey
+                  ).toLowerCase();
+                  const projeto = projetosMap.get(projectKey);
+                  const urlRastreavel =
+                    normalizeText(link?.urlRastreavel) ||
+                    buildAbsoluteUrlFromBase(
+                      resolveProjetoBaseUrl(projeto),
+                      link?.trackingRoute || (trackingId ? `/r/${trackingId}` : "")
+                    );
+                  const status = resolveTrackableLinkStatus(link);
+                  const destino = normalizeText(link?.destinoUrl) || "--";
+                  const origem =
+                    normalizeText(link?.origemPlanejada || link?.descricao) ||
+                    "Link rastreavel";
+                  const isActionRunning = (acao) =>
+                    acaoLinkRastreavelId === `${trackingId}:${acao}`;
+
+                  return (
+                    <article
+                      className="gerenciador-acessos__tracking-link-item"
+                      key={trackingId}
+                    >
+                      <div className="gerenciador-acessos__tracking-link-main">
+                        <strong>{origem}</strong>
+                        <span>{`Projeto: ${
+                          normalizeText(projeto?.nomeProjeto) || projectKey || "--"
+                        }`}</span>
+                        <span>{`Espaco: ${resolveTrackableSpaceLabel(link)}`}</span>
+                        <span>{`Tracking ID: ${trackingId || "--"}`}</span>
+                        <span>{`Status: ${status}`}</span>
+                        <span>{`Destino: ${destino}`}</span>
+                        <span>{`URL rastreavel: ${urlRastreavel || "--"}`}</span>
+                      </div>
+
+                      <div className="gerenciador-acessos__tracking-item-actions">
+                        <button
+                          type="button"
+                          className="gerenciador-acessos__tracking-item-button"
+                          onClick={() => {
+                            void abrirDetalheRastreavel({
+                              ...link,
+                              kind: "link",
+                              itemId: trackingId,
+                              titulo: origem,
+                              projectLabel:
+                                normalizeText(projeto?.nomeProjeto) || projectKey || "--",
+                              spaceLabel: resolveTrackableSpaceLabel(link),
+                            });
+                          }}
+                          disabled={!trackingId}
+                        >
+                          Historico
+                        </button>
+                        <button
+                          type="button"
+                          className="gerenciador-acessos__tracking-item-button"
+                          onClick={() => {
+                            void copiarLinkRastreavelCentral(urlRastreavel);
+                          }}
+                          disabled={!urlRastreavel}
+                        >
+                          Copiar
+                        </button>
+                        <button
+                          type="button"
+                          className="gerenciador-acessos__tracking-item-button"
+                          onClick={() => {
+                            void duplicarLinkRastreavelCentral(link);
+                          }}
+                          disabled={!trackingId || isActionRunning("duplicar")}
+                        >
+                          {isActionRunning("duplicar") ? "Duplicando..." : "Duplicar"}
+                        </button>
+                        {status === "Ativo" ? (
+                          <button
+                            type="button"
+                            className="gerenciador-acessos__tracking-item-button"
+                            onClick={() => {
+                              void atualizarStatusLinkRastreavelCentral(link, "pausar");
+                            }}
+                            disabled={!trackingId || isActionRunning("pausar")}
+                          >
+                            {isActionRunning("pausar") ? "Pausando..." : "Pausar"}
+                          </button>
+                        ) : status === "Pausado" ? (
+                          <button
+                            type="button"
+                            className="gerenciador-acessos__tracking-item-button"
+                            onClick={() => {
+                              void atualizarStatusLinkRastreavelCentral(link, "ativar");
+                            }}
+                            disabled={!trackingId || isActionRunning("ativar")}
+                          >
+                            {isActionRunning("ativar") ? "Ativando..." : "Ativar"}
+                          </button>
+                        ) : null}
+                        <button
+                          type="button"
+                          className="gerenciador-acessos__tracking-detail-danger"
+                          onClick={() => {
+                            void atualizarStatusLinkRastreavelCentral(link, "excluir");
+                          }}
+                          disabled={!trackingId || status === "Excluido" || isActionRunning("excluir")}
+                        >
+                          {isActionRunning("excluir") ? "Excluindo..." : "Excluir"}
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="gerenciador-acessos__empty">
+                Nenhum link rastreavel encontrado para o recorte atual.
+              </p>
+            )}
+          </article>
+
+          <article className="gerenciador-acessos__tracking-box gerenciador-acessos__tracking-box--wide gerenciador-acessos__tracking-box--timeline gerenciador-acessos__tracking-section gerenciador-acessos__tracking-section--geral">
             <div className="gerenciador-acessos__tracking-box-head">
               <strong>Pulso temporal do rastreio</strong>
               <span>{`${painelRastreabilidade.timelineDias.length} dia(s) com evento`}</span>
@@ -2747,7 +3641,7 @@ function ListaAcessos() {
             )}
           </article>
 
-          <article className="gerenciador-acessos__tracking-box gerenciador-acessos__tracking-box--wide">
+          <article className="gerenciador-acessos__tracking-box gerenciador-acessos__tracking-box--wide gerenciador-acessos__tracking-section gerenciador-acessos__tracking-section--geral">
             <div className="gerenciador-acessos__tracking-box-head">
               <strong>Itens rastreaveis mais lidos</strong>
               <span>{`${painelRastreabilidade.totalItensComLeitura} item(ns) com leitura`}</span>
@@ -2785,7 +3679,7 @@ function ListaAcessos() {
             )}
           </article>
 
-          <article className="gerenciador-acessos__tracking-box">
+          <article className="gerenciador-acessos__tracking-box gerenciador-acessos__tracking-section gerenciador-acessos__tracking-section--links">
             <div className="gerenciador-acessos__tracking-box-head">
               <strong>Links mais acessados</strong>
               <span>{`${painelRastreabilidade.totalLinksComAcesso} com leitura`}</span>
@@ -2823,7 +3717,7 @@ function ListaAcessos() {
             )}
           </article>
 
-          <article className="gerenciador-acessos__tracking-box">
+          <article className="gerenciador-acessos__tracking-box gerenciador-acessos__tracking-section gerenciador-acessos__tracking-section--cards">
             <div className="gerenciador-acessos__tracking-box-head">
               <strong>Cards rastreaveis mais lidos</strong>
               <span>{`${painelRastreabilidade.totalCardsComLeitura} com leitura`}</span>
@@ -2862,7 +3756,7 @@ function ListaAcessos() {
             )}
           </article>
 
-          <article className="gerenciador-acessos__tracking-box">
+          <article className="gerenciador-acessos__tracking-box gerenciador-acessos__tracking-section gerenciador-acessos__tracking-section--geral">
             <div className="gerenciador-acessos__tracking-box-head">
               <strong>Espacos com mais entrada</strong>
               <span>{`${painelRastreabilidade.totalEspacos} espaco(s)`}</span>
@@ -2886,7 +3780,7 @@ function ListaAcessos() {
             )}
           </article>
 
-          <article className="gerenciador-acessos__tracking-box">
+          <article className="gerenciador-acessos__tracking-box gerenciador-acessos__tracking-section gerenciador-acessos__tracking-section--links">
             <div className="gerenciador-acessos__tracking-box-head">
               <strong>Origens planejadas</strong>
               <span>melhor desempenho no recorte</span>
@@ -2909,7 +3803,130 @@ function ListaAcessos() {
             )}
           </article>
 
-          <article className="gerenciador-acessos__tracking-box">
+          <article className="gerenciador-acessos__tracking-box gerenciador-acessos__tracking-box--wide gerenciador-acessos__tracking-section gerenciador-acessos__tracking-section--mapa">
+            <div className="gerenciador-acessos__tracking-box-head">
+              <strong>Mapa continental de rastreabilidade</strong>
+              <span>{`${painelGeoAnalise.continentesAtivos.length} continente(s) com leitura`}</span>
+            </div>
+
+            <div className="gerenciador-acessos__tracking-geo-layout">
+              <div className="gerenciador-acessos__tracking-geo-map-wrap">
+                <svg
+                  className="gerenciador-acessos__tracking-geo-map"
+                  viewBox="0 0 960 420"
+                  role="img"
+                  aria-label="Mapa-mundi cyberpink com atividade rastreavel por continente"
+                >
+                  <defs>
+                    <linearGradient id="trackingGeoGridPainel" x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" stopColor="currentColor" stopOpacity="0.08" />
+                      <stop offset="100%" stopColor="currentColor" stopOpacity="0.02" />
+                    </linearGradient>
+                  </defs>
+
+                  <rect x="0" y="0" width="960" height="420" fill="url(#trackingGeoGridPainel)" />
+
+                  {TRACKING_WORLD_REGIONS.map((regiao) => {
+                    const item =
+                      painelGeoAnalise.continentes.find(
+                        (continente) => continente.key === regiao.key
+                      ) || regiao;
+                    return (
+                      <g
+                        key={regiao.key}
+                        className={`gerenciador-acessos__tracking-geo-region${
+                          item.active ? " is-active" : ""
+                        }`}
+                        style={
+                          item.active
+                            ? { ["--tracking-geo-intensity"]: `${item.intensidadePercentual}%` }
+                            : undefined
+                        }
+                      >
+                        <path d={regiao.path} />
+                        <circle
+                          className="gerenciador-acessos__tracking-geo-pulse"
+                          cx={regiao.pulseX}
+                          cy={regiao.pulseY}
+                          r="10"
+                        />
+                        <text x={regiao.labelX} y={regiao.labelY}>
+                          {`${regiao.shortLabel} ${item.total || 0}`}
+                        </text>
+                      </g>
+                    );
+                  })}
+                </svg>
+              </div>
+
+              <div className="gerenciador-acessos__tracking-geo-summary">
+                <div className="gerenciador-acessos__tracking-timeline-summary">
+                  {painelGeoAnalise.geoResumoCards.map((item) => (
+                    <article
+                      className="gerenciador-acessos__tracking-timeline-summary-item"
+                      key={`painel-geo-${item.label}`}
+                    >
+                      <span className="gerenciador-acessos__tracking-label">{item.label}</span>
+                      <strong className="gerenciador-acessos__tracking-value">{item.value}</strong>
+                      <span className="gerenciador-acessos__tracking-detail">{item.detail}</span>
+                    </article>
+                  ))}
+                </div>
+
+                <div className="gerenciador-acessos__tracking-geo-stacks">
+                  <article className="gerenciador-acessos__tracking-detail-group">
+                    <div className="gerenciador-acessos__tracking-detail-group-head">
+                      <strong>Paises mais recorrentes</strong>
+                      <span>{`${painelGeoAnalise.rankingPaises.length} destaque(s)`}</span>
+                    </div>
+                    {painelGeoAnalise.rankingPaises.length ? (
+                      <ol className="gerenciador-acessos__tracking-list">
+                        {painelGeoAnalise.rankingPaises.map((item) => (
+                          <li
+                            className="gerenciador-acessos__tracking-item"
+                            key={`painel-pais-${item.label}`}
+                          >
+                            <strong>{item.label}</strong>
+                            <span>{`${item.total} evento(s)`}</span>
+                          </li>
+                        ))}
+                      </ol>
+                    ) : (
+                      <p className="gerenciador-acessos__empty">
+                        Sem paises suficientes para montar o mapa.
+                      </p>
+                    )}
+                  </article>
+
+                  <article className="gerenciador-acessos__tracking-detail-group">
+                    <div className="gerenciador-acessos__tracking-detail-group-head">
+                      <strong>Cidades mais recorrentes</strong>
+                      <span>{`${painelGeoAnalise.rankingCidades.length} destaque(s)`}</span>
+                    </div>
+                    {painelGeoAnalise.rankingCidades.length ? (
+                      <ol className="gerenciador-acessos__tracking-list">
+                        {painelGeoAnalise.rankingCidades.map((item) => (
+                          <li
+                            className="gerenciador-acessos__tracking-item"
+                            key={`painel-cidade-${item.label}`}
+                          >
+                            <strong>{item.label}</strong>
+                            <span>{`${item.total} evento(s)`}</span>
+                          </li>
+                        ))}
+                      </ol>
+                    ) : (
+                      <p className="gerenciador-acessos__empty">
+                        Sem cidades suficientes para resumir neste recorte.
+                      </p>
+                    )}
+                  </article>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article className="gerenciador-acessos__tracking-box gerenciador-acessos__tracking-section gerenciador-acessos__tracking-section--mapa">
             <div className="gerenciador-acessos__tracking-box-head">
               <strong>Locais mais recorrentes</strong>
               <span>cidade e pais</span>
@@ -2931,7 +3948,7 @@ function ListaAcessos() {
             )}
           </article>
 
-          <article className="gerenciador-acessos__tracking-box gerenciador-acessos__tracking-box--wide">
+          <article className="gerenciador-acessos__tracking-box gerenciador-acessos__tracking-box--wide gerenciador-acessos__tracking-section gerenciador-acessos__tracking-section--eventos">
             <div className="gerenciador-acessos__tracking-box-head">
               <strong>Ultimas leituras rastreaveis</strong>
               <span>{`${painelRastreabilidade.totalEventosFiltrados} evento(s)`}</span>
@@ -2969,13 +3986,27 @@ function ListaAcessos() {
             )}
           </article>
         </div>
-      </section>
+        </section>
+      ) : null}
 
-      {detalheRastreavel.aberto && detalheRastreavel.item ? (
-        <section className="gerenciador-acessos__tracking-detail-panel">
+      {exibirPainelRastreabilidade &&
+      detalheRastreavel.aberto &&
+      detalheRastreavel.item &&
+      typeof document !== "undefined"
+        ? createPortal(
+            <div
+              className="gerenciador-acessos__tracking-detail-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="gerenciador-acessos-detalhe-rastreavel-titulo"
+            >
+          <div className="gerenciador-acessos__tracking-detail-backdrop" aria-hidden="true" />
+          <section className="gerenciador-acessos__tracking-detail-panel gerenciador-acessos__tracking-detail-panel--modal">
           <div className="gerenciador-acessos__tracking-detail-head">
             <div>
-              <strong>{detalheRastreavel.item.titulo}</strong>
+              <strong id="gerenciador-acessos-detalhe-rastreavel-titulo">
+                {detalheRastreavel.item.titulo}
+              </strong>
               <p className="gerenciador-acessos__block-note">
                 {`${detalheRastreavel.item.kindLabel} | ${detalheRastreavel.item.detail} | Espaco ${
                   detalheRastreavel.item.spaceLabel || "--"
@@ -3344,10 +4375,15 @@ function ListaAcessos() {
               Nenhum evento rastreavel foi encontrado para os filtros aplicados.
             </p>
           )}
-        </section>
-      ) : null}
+          </section>
+            </div>,
+            document.body
+          )
+        : null}
 
-      <div className="gerenciador-acessos__summary">
+      {exibirAcessosOperacionais ? (
+        <>
+          <div className="gerenciador-acessos__summary">
         <span>{`Total exibido: ${gruposAcessos.length} grupo(s) / ${acessosFiltrados.length} evento(s)`}</span>
         <span>{`Nao lidos: ${acessosNaoLidosFiltrados.length}`}</span>
         <span>{`Bloqueados ocultos: ${
@@ -3361,7 +4397,6 @@ function ListaAcessos() {
           className="gerenciador-acessos__refresh"
           onClick={() => {
             void carregarAcessos();
-            void carregarPainelRastreavel();
           }}
           disabled={carregando}
         >
@@ -3711,6 +4746,8 @@ function ListaAcessos() {
             Proxima
           </button>
         </div>
+      ) : null}
+        </>
       ) : null}
     </section>
   );

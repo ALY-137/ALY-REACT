@@ -23,6 +23,7 @@ const RESERVED_ROOT_SEGMENTS = new Set([
 const RESERVED_MENU_SEGMENTS = new Set([
   "",
   "acessos",
+  "rastreabilidade",
   "config",
   "contatos",
   "conversas",

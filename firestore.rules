@@ -150,6 +150,20 @@ service cloud.firestore {
         isOneOwnerPublicMode();
     }
 
+    function isValidAuditLogCreate() {
+      return signedIn() &&
+        (request.resource.data.action is string) &&
+        (request.resource.data.entityType is string) &&
+        (request.resource.data.entityId is string) &&
+        (
+          isAdmin() ||
+          (
+            (request.resource.data.actorUid is string) &&
+            request.resource.data.actorUid == request.auth.uid
+          )
+        );
+    }
+
     function isBlocoCoCriador(data) {
       return signedIn() &&
         (data.coCriadoresUids is list) &&
@@ -935,6 +949,12 @@ service cloud.firestore {
       allow read, update, delete: if isAdmin();
     }
 
+    match /auditLogs/{auditId} {
+      allow create: if isValidAuditLogCreate();
+      allow read: if isAdmin();
+      allow update, delete: if false;
+    }
+
     match /qrPrints/{printId} {
       allow get: if canReadQrPrintData(resource.data);
       allow list: if canManageQrPrintData(resource.data);
@@ -1072,6 +1092,17 @@ service cloud.firestore {
 
     // Namespace de dados por projeto (oneowners em runtime compartilhado).
     match /projetos/{projectKey} {
+      match /auditLogs/{auditId} {
+        allow create: if isValidAuditLogCreate() &&
+          (
+            isAdmin() ||
+            isProjetoAdmin(projectKey) ||
+            request.resource.data.projectSystemKey == projectKey
+          );
+        allow read: if isAdmin() || isProjetoAdmin(projectKey);
+        allow update, delete: if false;
+      }
+
       match /add_ons/{addonId} {
         allow read: if true;
         allow create: if isAdmin() || (
