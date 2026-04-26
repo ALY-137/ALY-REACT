@@ -4668,6 +4668,9 @@ exports.listarQrPrintsGerenciadorHttp = onRequest(
             ...data,
             projectSystemKey: itemProjectSystemKey || null,
             runtimeProjectKey: runtimeProjectKey || null,
+            sourceCardExists: true,
+            sourceCardChecked: true,
+            sourceCardMissing: false,
           };
         }),
       });

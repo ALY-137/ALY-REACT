@@ -24,6 +24,7 @@ import {
 } from "../../Banco/projectDataRefs";
 import { resolveProjectDataNamespaceKey } from "../../Banco/projectDataNamespace";
 import { obterGeoAcessoAtual } from "../Sistema/acessoGeo";
+import { registrarAuditLog } from "../Sistema/auditLogsApi";
 
 const NAVIGATION_ID_STORAGE_KEY = "navegacaoHash";
 const LEGACY_VISITOR_ID_STORAGE_KEY = "uxVisitorHash";
@@ -306,6 +307,25 @@ export async function criarLinkRastreavelEspaco({
     })
   );
 
+  await registrarAuditLog({
+    action: "criou_link_rastreavel",
+    entityType: "trackableLink",
+    entityId: trackingId,
+    ownerUserId: normalizedOwnerUserId,
+    espacoId: normalizedEspacoId,
+    espacoNome: normalizeText(espacoNome) || null,
+    projectSystemKey,
+    source: "trackable_links_api",
+    snapshotDepois: {
+      trackingId,
+      destinoUrl: normalizedDestinoUrl,
+      trackingRoute,
+      urlRastreavel,
+      origemPlanejada: normalizeText(origemPlanejada || descricao) || null,
+      status: "ativo",
+    },
+  });
+
   return {
     trackingId,
     trackingRoute,
@@ -382,6 +402,9 @@ export async function excluirLinkRastreavelEspaco(trackingId = "") {
     throw new Error("Link rastreavel invalido para exclusao.");
   }
 
+  const snapshotAntes = await getDoc(linkRef).catch(() => null);
+  const dadosAntes = snapshotAntes?.exists?.() ? snapshotAntes.data() || {} : null;
+
   await setDoc(
     linkRef,
     cleanPayload({
@@ -395,6 +418,24 @@ export async function excluirLinkRastreavelEspaco(trackingId = "") {
     }),
     { merge: true }
   );
+
+  await registrarAuditLog({
+    action: "excluiu_link_rastreavel",
+    entityType: "trackableLink",
+    entityId: normalizedTrackingId,
+    ownerUserId: normalizeText(dadosAntes?.ownerUserId) || null,
+    espacoId: normalizeText(dadosAntes?.espacoId) || null,
+    espacoNome: normalizeText(dadosAntes?.espacoNome) || null,
+    projectSystemKey:
+      normalizeText(dadosAntes?.projectSystemKey || dadosAntes?.runtimeProjectKey) ||
+      resolveActiveProjectSystemKey(),
+    source: "trackable_links_api",
+    snapshotAntes: dadosAntes,
+    snapshotDepois: {
+      trackingId: normalizedTrackingId,
+      status: "excluido",
+    },
+  });
 
   return true;
 }
