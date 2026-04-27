@@ -122,6 +122,7 @@ async function coletarResumoSkinsDoUsuario(uid = "") {
 
 export async function espelharUsuarioNoGerenciador(user, extras = {}) {
   if (!user?.uid || typeof user?.getIdToken !== "function") return;
+  if (user?.isAnonymous === true) return;
 
   const url = buildSharedFunctionsUrl("espelharUsuarioProjeto");
   if (!url) return;
@@ -162,6 +163,9 @@ export async function espelharUsuarioNoGerenciador(user, extras = {}) {
 
 export const bootstrapUser = async (user) => {
   if (!user?.uid) return;
+  if (user?.isAnonymous === true) {
+    return { ignored: true, reason: "anonymous-user" };
+  }
   if (typeof user.getIdToken === "function") {
     try {
       await user.getIdToken();

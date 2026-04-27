@@ -4,7 +4,7 @@ import { useLocation } from "react-router-dom";
 
 import { seforAdm } from "../verificacoes/verificaAdm";
 
-import { db } from "../../Banco/init-firebase";
+import { auth, db } from "../../Banco/init-firebase";
 import {
   doc,
   setDoc,
@@ -51,7 +51,9 @@ const Navegacoes = () => {
 
   useEffect(() => {
     if (trackingBloqueado.current) return;
-    const userId = localStorage.getItem("userId");
+    const authUser = auth.currentUser;
+    if (!authUser?.uid || authUser?.isAnonymous === true) return;
+    const userId = authUser.uid;
     if (!navigationIdRef.current || !userId) return;
     if (seforAdm({ uid: userId })) return;
 

@@ -231,7 +231,7 @@ const App = () => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      if (firebaseUser?.uid) {
+      if (firebaseUser?.uid && firebaseUser?.isAnonymous !== true) {
         localStorage.setItem("userId", firebaseUser.uid);
       } else {
         localStorage.removeItem("userId");
@@ -249,6 +249,7 @@ const App = () => {
     if (erroResolucaoProjeto) return;
     if (!configSistemaPronta) return;
     if (!user?.uid) return;
+    if (user?.isAnonymous === true) return;
 
     const garantirDocumentoUsuario = async () => {
       try {
@@ -356,7 +357,7 @@ const App = () => {
       return;
     }
 
-    if (!user?.uid) return;
+    if (!user?.uid || user?.isAnonymous === true) return;
 
     setSkinsLoading(true);
 

@@ -47,8 +47,10 @@ function LoginTwitter({ onLogin }) {
     );
 
   const finalizarLogin = async (firebaseUser) => {
-    if (firebaseUser?.uid) {
+    if (firebaseUser?.uid && firebaseUser?.isAnonymous !== true) {
       localStorage.setItem("userId", firebaseUser.uid);
+    } else {
+      localStorage.removeItem("userId");
     }
 
     let bootstrapResult = null;

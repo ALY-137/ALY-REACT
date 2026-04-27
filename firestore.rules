@@ -28,6 +28,11 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isContaReal() {
+      return signedIn() &&
+        request.auth.token.firebase.sign_in_provider != "anonymous";
+    }
+
     function isAdmin() {
       return signedIn() && (
         request.auth.uid == "WnGJjmU6btgKmMMFAQq5Hpupsap1" ||
@@ -37,7 +42,7 @@ service cloud.firestore {
     }
 
     function isOwner(userId) {
-      return signedIn() && request.auth.uid == userId;
+      return isContaReal() && request.auth.uid == userId;
     }
 
     function hasOwnSkin(skinId) {

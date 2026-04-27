@@ -59,8 +59,10 @@ function LoginGoogle({ onLogin }) {
     );
 
   const finalizarLogin = async (firebaseUser) => {
-    if (firebaseUser?.uid) {
+    if (firebaseUser?.uid && firebaseUser?.isAnonymous !== true) {
       localStorage.setItem("userId", firebaseUser.uid);
+    } else {
+      localStorage.removeItem("userId");
     }
     if (typeof firebaseUser?.getIdToken === "function") {
       try {
