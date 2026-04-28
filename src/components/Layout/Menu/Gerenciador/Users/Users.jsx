@@ -4,6 +4,7 @@ import {
   listarAcessosNoGerenciador,
   listarProjetosNoGerenciador,
   listarUsuariosEspelhadosNoGerenciador,
+  removerRegistrosUsuarioNoGerenciador,
 } from "../../../Sistema/gerenciadorSistemasApi";
 import { obterManagerProjectIdConfigurado } from "../../../Sistema/configSistema";
 import "./users.css";
@@ -254,6 +255,7 @@ function consolidarUsuarios({ usuariosEspelhados, acessos, projetosMap, agoraMs 
         skinsResumoMap: new Map(),
         skinsPorProjetoBaseMap: new Map(),
         historicoSkinsMap: new Map(),
+        registroIdsSet: new Set(),
         ultimaNavegacaoMs: 0,
         ultimaNavegacaoRaw: null,
         ultimaRota: "",
@@ -270,6 +272,10 @@ function consolidarUsuarios({ usuariosEspelhados, acessos, projetosMap, agoraMs 
   usuariosEspelhados.forEach((usuario) => {
     const registro = garantirUsuario(usuario, usuario?.id);
     if (!registro) return;
+
+    if (usuario?.id) {
+      registro.registroIdsSet.add(normalizarTexto(usuario.id));
+    }
 
     registro.uid = registro.uid || normalizarTexto(usuario?.uid);
     registro.email = registro.email || normalizarTexto(usuario?.emailGoogle);
@@ -337,7 +343,12 @@ function consolidarUsuarios({ usuariosEspelhados, acessos, projetosMap, agoraMs 
   });
 
   acessos.forEach((acesso) => {
-    const registro = garantirUsuario(acesso, acesso?.id);
+    const chaveAcesso = resolverChaveUsuario(acesso, "");
+    if (!chaveAcesso || chaveAcesso.startsWith("navigation:") || chaveAcesso.startsWith("fallback:")) {
+      return;
+    }
+
+    const registro = usuariosMap.get(chaveAcesso);
     if (!registro) return;
 
     registro.uid = registro.uid || normalizarTexto(acesso?.uid);
@@ -505,6 +516,7 @@ function consolidarUsuarios({ usuariosEspelhados, acessos, projetosMap, agoraMs 
       totalProjetos: projetos.length,
       tiposProjeto,
       online,
+      registroIds: Array.from(usuario.registroIdsSet || []),
       skinsResumo,
       skinsPorProjeto,
       historicoPorSkin,
@@ -524,6 +536,8 @@ function Users() {
   const [projetoAbertoPorUsuario, setProjetoAbertoPorUsuario] = useState({});
   const [skinAbertaPorUsuario, setSkinAbertaPorUsuario] = useState({});
   const [erro, setErro] = useState("");
+  const [mensagemAcao, setMensagemAcao] = useState("");
+  const [removendoUsuarioId, setRemovendoUsuarioId] = useState("");
 
   useEffect(() => {
     let ativo = true;
@@ -746,6 +760,47 @@ function Users() {
     });
   };
 
+  const excluirRegistrosUsuario = async (usuario) => {
+    const registroIds = Array.isArray(usuario?.registroIds) ? usuario.registroIds : [];
+    if (!registroIds.length) {
+      setMensagemAcao("Este usuario nao possui registros espelhados para excluir em users.");
+      return;
+    }
+
+    const identificacao =
+      usuario?.email && usuario.email !== "--"
+        ? usuario.email
+        : usuario?.uid || usuario?.navigationId || usuario?.nome || "usuario selecionado";
+    const confirmado = window.confirm(
+      `Excluir os registros de ${identificacao} da gaveta USERS?\n\nA auditoria e os acessos serao preservados.`
+    );
+    if (!confirmado) return;
+
+    setRemovendoUsuarioId(usuario.id);
+    setMensagemAcao("");
+
+    try {
+      const response = await removerRegistrosUsuarioNoGerenciador({
+        ids: registroIds,
+        uid: usuario?.uid || "",
+        email: usuario?.email && usuario.email !== "--" ? usuario.email : "",
+        navigationId: usuario?.navigationId || "",
+      });
+      const idsResposta =
+        Array.isArray(response?.ids) && response.ids.length ? response.ids : registroIds;
+      const idsRemovidos = new Set(idsResposta);
+      setUsuariosEspelhados((prev) => prev.filter((item) => !idsRemovidos.has(item?.id)));
+      setMensagemAcao(
+        `${Number(response?.total) || idsRemovidos.size} registro(s) removido(s) de USERS.`
+      );
+    } catch (error) {
+      console.error("Erro ao excluir registros do usuario:", error);
+      setMensagemAcao(error?.message || "Nao foi possivel excluir os registros do usuario.");
+    } finally {
+      setRemovendoUsuarioId("");
+    }
+  };
+
   return (
     <section className="gerenciador-users">
       <div className="gerenciador-users__header">
@@ -833,6 +888,7 @@ function Users() {
       ) : null}
 
       {erro ? <p className="gerenciador-users__error">{erro}</p> : null}
+      {mensagemAcao ? <p className="gerenciador-users__notice">{mensagemAcao}</p> : null}
 
       {!erro && !usuariosFiltrados.length ? (
         <p className="gerenciador-users__empty">Nenhum usuario encontrado.</p>
@@ -882,7 +938,22 @@ function Users() {
                 <div className="gerenciador-users__info">
                   <div className="gerenciador-users__topline">
                     <strong>{usuario.nome}</strong>
-                    <span>{`Projetos: ${usuario.totalProjetos}`}</span>
+                    <div className="gerenciador-users__cardActions">
+                      <span>{`Projetos: ${usuario.totalProjetos}`}</span>
+                      <button
+                        type="button"
+                        className="gerenciador-users__dangerButton"
+                        onClick={() => excluirRegistrosUsuario(usuario)}
+                        disabled={
+                          removendoUsuarioId === usuario.id ||
+                          !Array.isArray(usuario.registroIds) ||
+                          !usuario.registroIds.length
+                        }
+                        title="Excluir registros espelhados deste usuario em USERS"
+                      >
+                        {removendoUsuarioId === usuario.id ? "Excluindo..." : "Excluir registros"}
+                      </button>
+                    </div>
                   </div>
 
                   <span>{usuario.email}</span>

@@ -626,6 +626,14 @@ export async function listarUsuariosEspelhadosNoGerenciador({ limit: maxItems = 
     .slice(0, maxItems);
 }
 
+export async function removerRegistrosUsuarioNoGerenciador(payload = {}) {
+  const response = await callSharedManagerAction(
+    "removerRegistrosUsuarioGerenciadorHttp",
+    payload
+  );
+  return response || { ok: true, total: 0, ids: [] };
+}
+
 export async function listarAcessosNoGerenciador({
   limit: maxItems = 100,
   projectSystemKey = "",

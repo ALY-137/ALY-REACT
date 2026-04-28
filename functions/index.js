@@ -4044,6 +4044,8 @@ exports.resolverProjetoPorDominioPublico = onRequest(
 exports.listarUsuariosGerenciadorHttp = onRequest(
   HTTP_OPTIONS,
   async (req, res) => {
+    if (handleHttpCorsPreflight(req, res)) return;
+
     try {
       if (req.method !== "POST") {
         res.status(405).json({ ok: false, error: "Metodo nao permitido." });
@@ -4072,6 +4074,124 @@ exports.listarUsuariosGerenciadorHttp = onRequest(
           id: docItem.id,
           ...docItem.data(),
         })),
+      });
+    } catch (error) {
+      sendHttpError(res, error);
+    }
+  }
+);
+
+exports.removerRegistrosUsuarioGerenciadorHttp = onRequest(
+  HTTP_OPTIONS,
+  async (req, res) => {
+    if (handleHttpCorsPreflight(req, res)) return;
+
+    try {
+      if (req.method !== "POST") {
+        res.status(405).json({ ok: false, error: "Metodo nao permitido." });
+        return;
+      }
+
+      const body = normalizeRequestBody(req);
+      const token = getBearerToken(req);
+      const { decoded } = await verifySharedBucketIdToken(token);
+      await assertSystemManagerAdminIdentity({
+        uid: decoded?.uid,
+        email: decoded?.email,
+      });
+
+      const ids = normalizeAccessDocIds(body?.ids || body?.registroIds || body?.userRecordIds);
+      const uid = sanitizeString(body?.uid || body?.userUid || body?.ownerUid);
+      const emailRaw = sanitizeString(body?.email || body?.emailGoogle || body?.emailUser);
+      const email = emailRaw.toLowerCase();
+      const navigationId = sanitizeString(
+        body?.navigationId || body?.visitorHash || body?.hash || body?.navegacaoHash
+      );
+
+      if (!ids.length && !uid && !email && !navigationId) {
+        throw new HttpsError(
+          "invalid-argument",
+          "Informe ids, uid, email ou identificador de navegacao do usuario."
+        );
+      }
+
+      const managerDb = getSystemManagerDb();
+      const refsByPath = new Map();
+      const addRef = (ref) => {
+        if (!ref?.path || refsByPath.has(ref.path)) return;
+        refsByPath.set(ref.path, ref);
+      };
+
+      ids.forEach((id) => addRef(managerDb.collection("usuarios_projetos").doc(id)));
+
+      const queryByField = async (field, value) => {
+        const normalizedValue = sanitizeString(value);
+        if (!normalizedValue) return;
+        const snap = await managerDb
+          .collection("usuarios_projetos")
+          .where(field, "==", normalizedValue)
+          .limit(500)
+          .get();
+        snap.docs.forEach((docItem) => addRef(docItem.ref));
+      };
+
+      await Promise.all([
+        queryByField("uid", uid),
+        queryByField("userUid", uid),
+        queryByField("ownerUid", uid),
+        queryByField("emailGoogle", emailRaw),
+        queryByField("emailGoogle", email),
+        queryByField("email", emailRaw),
+        queryByField("email", email),
+        queryByField("emailUser", emailRaw),
+        queryByField("emailUser", email),
+        queryByField("ownerEmail", emailRaw),
+        queryByField("ownerEmail", email),
+        queryByField("navigationId", navigationId),
+        queryByField("visitorHash", navigationId),
+        queryByField("hash", navigationId),
+        queryByField("navegacaoHash", navigationId),
+      ]);
+
+      const refs = Array.from(refsByPath.values());
+      const snapshots = await Promise.all(refs.map((ref) => ref.get().catch(() => null)));
+      const existentes = snapshots.filter((snap) => snap?.exists);
+
+      for (let index = 0; index < existentes.length; index += 450) {
+        const batch = managerDb.batch();
+        existentes.slice(index, index + 450).forEach((snap) => {
+          batch.delete(snap.ref);
+        });
+        await batch.commit();
+      }
+
+      const idsRemovidos = existentes.map((snap) => snap.id);
+      await writeAuditLog(managerDb, {
+        action: "removeu_registros_usuario",
+        entityType: "usuario_projeto",
+        entityId: uid || email || navigationId || idsRemovidos[0] || "bulk",
+        actorUid: decoded?.uid,
+        actorEmail: decoded?.email,
+        motivo: sanitizeString(body?.motivo) || "remocao_gerenciador_users",
+        source: "gerenciador_function",
+        snapshotAntes: {
+          criterios: {
+            ids,
+            uid,
+            email,
+            navigationId,
+          },
+          registros: existentes.map((snap) => ({ id: snap.id, ...(snap.data() || {}) })),
+        },
+        metadata: {
+          totalRemovido: idsRemovidos.length,
+        },
+      });
+
+      res.json({
+        ok: true,
+        total: idsRemovidos.length,
+        ids: idsRemovidos,
       });
     } catch (error) {
       sendHttpError(res, error);
