@@ -23,6 +23,7 @@ import {
 import { getPrimaryProjectCollection } from "../../Banco/projectDataRefs";
 import { postSharedFunctionJson } from "../../Banco/sharedFunctionsApi";
 import { PROJECT_STATUS_ACTIVE, normalizeProjectStatus } from "./projectStatus";
+import { registrarAuditLog } from "./auditLogsApi";
 
 const MANAGER_APP_NAME = "system-manager-app";
 const MANAGER_COLLECTION = "systems";
@@ -95,6 +96,37 @@ function shouldFallbackToDirectManagerRead(error) {
 
 function normalizeText(value) {
   return String(value || "").trim();
+}
+
+async function auditarEventoGerenciador({
+  action = "",
+  entityType = "",
+  entityId = "",
+  projectSystemKey = "",
+  ownerUserId = "",
+  espacoId = "",
+  blocoId = "",
+  cardId = "",
+  motivo = "",
+  snapshotAntes = null,
+  snapshotDepois = null,
+  metadata = null,
+} = {}) {
+  return registrarAuditLog({
+    action,
+    entityType,
+    entityId,
+    projectSystemKey,
+    ownerUserId,
+    espacoId,
+    blocoId,
+    cardId,
+    motivo,
+    source: "gerenciador_api",
+    snapshotAntes,
+    snapshotDepois,
+    metadata,
+  });
 }
 
 function normalizarIpsBloqueadosRegistro(value = []) {
@@ -845,8 +877,12 @@ export async function listarAuditLogsNoGerenciador({
   projectSystemKey = "",
   action = "",
   entityType = "",
+  entityId = "",
+  auditCategory = "",
+  severity = "",
   startDate = "",
   endDate = "",
+  purpose = "",
 } = {}) {
   const safeLimit = Math.max(1, Math.min(Number(maxItems) || 300, 1000));
 
@@ -855,8 +891,12 @@ export async function listarAuditLogsNoGerenciador({
     projectSystemKey,
     action,
     entityType,
+    entityId,
+    auditCategory,
+    severity,
     startDate,
     endDate,
+    purpose,
   });
 
   return Array.isArray(response?.items) ? response.items : [];
@@ -895,6 +935,17 @@ export async function marcarAcessosComoLidosNoGerenciador({ ids = [] } = {}) {
     )
   );
 
+  await auditarEventoGerenciador({
+    action: "marcou_acessos_lidos",
+    entityType: "acesso",
+    entityId: accessIds.length === 1 ? accessIds[0] : "bulk",
+    metadata: {
+      ids: accessIds,
+      total: accessIds.length,
+      fallbackDireto: true,
+    },
+  });
+
   return {
     total: accessIds.length,
     ids: accessIds,
@@ -926,6 +977,18 @@ export async function removerAcessosNoGerenciador({ ids = [] } = {}) {
   await Promise.all(
     accessIds.map((accessId) => deleteDoc(doc(managerDb, "acessos", accessId)))
   );
+
+  await auditarEventoGerenciador({
+    action: "removeu_acessos",
+    entityType: "acesso",
+    entityId: accessIds.length === 1 ? accessIds[0] : "bulk",
+    motivo: "remocao_gerenciador",
+    metadata: {
+      ids: accessIds,
+      total: accessIds.length,
+      fallbackDireto: true,
+    },
+  });
 
   return {
     total: accessIds.length,
@@ -1009,6 +1072,21 @@ export async function salvarConfigAcessosNoGerenciador({
     },
     { merge: true }
   );
+
+  await auditarEventoGerenciador({
+    action: "salvou_config_acessos",
+    entityType: "accessSettings",
+    entityId: "registro",
+    snapshotDepois: {
+      ipsBloqueadosRegistro: ipsNormalizados,
+      usuariosBloqueadosRegistro: usuariosNormalizados,
+    },
+    metadata: {
+      fallbackDireto: true,
+      totalIps: ipsNormalizados.length,
+      totalUsuarios: usuariosNormalizados.length,
+    },
+  });
 
   return {
     ipsBloqueadosRegistro: ipsNormalizados,
@@ -1138,6 +1216,18 @@ export async function criarAddOnNoGerenciador({
     { merge: true }
   );
 
+  await auditarEventoGerenciador({
+    action: "criou_addon_gerenciador",
+    entityType: "addOn",
+    entityId: docRef.id,
+    snapshotDepois: {
+      id: docRef.id,
+      nome: nomeNormalizado,
+      descricao: normalizeText(descricao),
+      ativo: true,
+    },
+  });
+
   return {
     id: docRef.id,
     nome: nomeNormalizado,
@@ -1191,8 +1281,21 @@ export async function salvarAddOnNoGerenciador({
     payload.ativo = ativo;
   }
 
-  await setDoc(doc(managerDb, ADDON_COLLECTION, addOnIdNormalizado), payload, {
+  const addOnRef = doc(managerDb, ADDON_COLLECTION, addOnIdNormalizado);
+  const snapAntes = await getDoc(addOnRef);
+  await setDoc(addOnRef, payload, {
     merge: true,
+  });
+
+  await auditarEventoGerenciador({
+    action: "editou_addon_gerenciador",
+    entityType: "addOn",
+    entityId: addOnIdNormalizado,
+    snapshotAntes: snapAntes.exists() ? { id: snapAntes.id, ...(snapAntes.data() || {}) } : null,
+    snapshotDepois: {
+      id: addOnIdNormalizado,
+      ...payload,
+    },
   });
 
   return true;
@@ -1211,7 +1314,16 @@ export async function removerAddOnNoGerenciador({
     throw new Error("Add-on invalido.");
   }
 
-  await deleteDoc(doc(managerDb, ADDON_COLLECTION, addOnIdNormalizado));
+  const addOnRef = doc(managerDb, ADDON_COLLECTION, addOnIdNormalizado);
+  const snapAntes = await getDoc(addOnRef);
+  await deleteDoc(addOnRef);
+  await auditarEventoGerenciador({
+    action: "excluiu_addon_gerenciador",
+    entityType: "addOn",
+    entityId: addOnIdNormalizado,
+    motivo: "exclusao_manual",
+    snapshotAntes: snapAntes.exists() ? { id: snapAntes.id, ...(snapAntes.data() || {}) } : null,
+  });
   return true;
 }
 
@@ -1281,6 +1393,20 @@ export async function criarAddOnDoUsuarioProjeto({
     { merge: true }
   );
 
+  await auditarEventoGerenciador({
+    action: "criou_addon_usuario",
+    entityType: "addOnUsuario",
+    entityId: docRef.id,
+    ownerUserId,
+    snapshotDepois: {
+      id: docRef.id,
+      nome: nomeNormalizado,
+      descricao: normalizeText(descricao),
+      ownerUserId: normalizeText(ownerUserId),
+      ativo: true,
+    },
+  });
+
   return {
     id: docRef.id,
     nome: nomeNormalizado,
@@ -1332,11 +1458,25 @@ export async function salvarAddOnDoUsuarioProjeto({
     payload.ativo = ativo;
   }
 
+  const addOnRef = doc(getAddOnsUsuarioProjetoCollection(ownerUserId), addOnIdNormalizado);
+  const snapAntes = await getDoc(addOnRef);
   await setDoc(
-    doc(getAddOnsUsuarioProjetoCollection(ownerUserId), addOnIdNormalizado),
+    addOnRef,
     payload,
     { merge: true }
   );
+
+  await auditarEventoGerenciador({
+    action: "editou_addon_usuario",
+    entityType: "addOnUsuario",
+    entityId: addOnIdNormalizado,
+    ownerUserId,
+    snapshotAntes: snapAntes.exists() ? { id: snapAntes.id, ...(snapAntes.data() || {}) } : null,
+    snapshotDepois: {
+      id: addOnIdNormalizado,
+      ...payload,
+    },
+  });
 
   return true;
 }
@@ -1350,7 +1490,17 @@ export async function removerAddOnDoUsuarioProjeto({
     throw new Error("Add-on invalido.");
   }
 
-  await deleteDoc(doc(getAddOnsUsuarioProjetoCollection(ownerUserId), addOnIdNormalizado));
+  const addOnRef = doc(getAddOnsUsuarioProjetoCollection(ownerUserId), addOnIdNormalizado);
+  const snapAntes = await getDoc(addOnRef);
+  await deleteDoc(addOnRef);
+  await auditarEventoGerenciador({
+    action: "excluiu_addon_usuario",
+    entityType: "addOnUsuario",
+    entityId: addOnIdNormalizado,
+    ownerUserId,
+    motivo: "exclusao_manual",
+    snapshotAntes: snapAntes.exists() ? { id: snapAntes.id, ...(snapAntes.data() || {}) } : null,
+  });
   return true;
 }
 
@@ -1387,6 +1537,18 @@ export async function criarIconCollectionNoGerenciador({
     },
     { merge: true }
   );
+
+  await auditarEventoGerenciador({
+    action: "criou_colecao_icones",
+    entityType: "iconCollection",
+    entityId: docRef.id,
+    snapshotDepois: {
+      id: docRef.id,
+      nome: nomeNormalizado,
+      themeIds: themeIdsNormalizados,
+      icons: [],
+    },
+  });
 
   return {
     id: docRef.id,
@@ -1428,8 +1590,25 @@ export async function salvarIconCollectionNoGerenciador({
     payload.icons = normalizeIconItems(icons);
   }
 
-  await setDoc(doc(managerDb, ICON_COLLECTION, collectionIdNormalizado), payload, {
+  const collectionRef = doc(managerDb, ICON_COLLECTION, collectionIdNormalizado);
+  const snapAntes = await getDoc(collectionRef);
+  await setDoc(collectionRef, payload, {
     merge: true,
+  });
+
+  await auditarEventoGerenciador({
+    action: "editou_colecao_icones",
+    entityType: "iconCollection",
+    entityId: collectionIdNormalizado,
+    snapshotAntes: snapAntes.exists() ? { id: snapAntes.id, ...(snapAntes.data() || {}) } : null,
+    snapshotDepois: {
+      id: collectionIdNormalizado,
+      ...payload,
+    },
+    metadata: {
+      totalIcones: Array.isArray(payload.icons) ? payload.icons.length : undefined,
+      totalTemas: Array.isArray(payload.themeIds) ? payload.themeIds.length : undefined,
+    },
   });
 
   return true;
@@ -1448,7 +1627,16 @@ export async function removerIconCollectionNoGerenciador({
     throw new Error("Colecao de icones invalida.");
   }
 
-  await deleteDoc(doc(managerDb, ICON_COLLECTION, collectionIdNormalizado));
+  const collectionRef = doc(managerDb, ICON_COLLECTION, collectionIdNormalizado);
+  const snapAntes = await getDoc(collectionRef);
+  await deleteDoc(collectionRef);
+  await auditarEventoGerenciador({
+    action: "excluiu_colecao_icones",
+    entityType: "iconCollection",
+    entityId: collectionIdNormalizado,
+    motivo: "exclusao_manual",
+    snapshotAntes: snapAntes.exists() ? { id: snapAntes.id, ...(snapAntes.data() || {}) } : null,
+  });
   return true;
 }
 
@@ -1665,6 +1853,26 @@ export async function salvarConfigSistemaNoGerenciador({
     { merge: true }
   );
 
+  await auditarEventoGerenciador({
+    action: docSnap.exists() ? "editou_config_projeto" : "criou_config_projeto",
+    entityType: "systemConfig",
+    entityId: keyNormalizada,
+    projectSystemKey: keyNormalizada,
+    snapshotAntes: docSnap.exists() ? { id: docSnap.id, ...dataAtual } : null,
+    snapshotDepois: {
+      systemKey: keyNormalizada,
+      tipoProjeto: tipoProjetoFinal,
+      statusProjeto: statusProjetoFinal,
+      firebaseProjectId: normalizeText(runtimeConfigFinal?.projectId || projectId),
+      domains: Array.from(domainsSet),
+      configSistema: {
+        ...configSistemaFinal,
+        statusProjeto: statusProjetoFinal,
+        projectSystemKey: projectSystemKeyFinal || keyNormalizada,
+      },
+    },
+  });
+
   return {
     ok: true,
     systemKey: keyNormalizada,
@@ -1872,6 +2080,22 @@ export async function criarSistemaNoGerenciador({
     { merge: true }
   );
 
+  await auditarEventoGerenciador({
+    action: "criou_projeto",
+    entityType: "system",
+    entityId: keyNormalizada,
+    projectSystemKey: keyNormalizada,
+    snapshotDepois: {
+      systemKey: keyNormalizada,
+      nomeProjeto: nomeNormalizado || keyNormalizada,
+      tipoProjeto: tipoProjetoNormalizado,
+      statusProjeto: configSistemaInicial.statusProjeto,
+      firebaseProjectId: payloadFirebase.projectId,
+      domains: domainsNorm,
+      preconfigBaseKey: normalizeText(preconfigNormalizada?.preconfigKey),
+    },
+  });
+
   return {
     systemKey: keyNormalizada,
     nomeProjeto: nomeNormalizado || keyNormalizada,
@@ -2013,6 +2237,20 @@ export async function salvarPreconfiguracaoProjetoNoGerenciador({
     );
   }
 
+  await auditarEventoGerenciador({
+    action: "salvou_preconfiguracao_projeto",
+    entityType: "systemPreconfig",
+    entityId: keyNormalizada,
+    projectSystemKey: normalizeText(projetoBase?.systemKey),
+    snapshotDepois: {
+      preconfigKey: keyNormalizada,
+      nomePreconfig: nomeFinal,
+      tipoProjeto,
+      baseProjectSystemKey: normalizeText(projetoBase?.systemKey),
+      temaPadraoSistema: normalizeText(configSistemaTemplate?.temaPadraoSistema),
+    },
+  });
+
   return {
     ok: true,
     preconfigKey: keyNormalizada,
@@ -2048,6 +2286,16 @@ export async function limparEnvsProjetoNoVercel({ systemKey = "" } = {}) {
 
   const response = await callLimparEnvsProjetoNoVercel({
     systemKey: keyNormalizada,
+  });
+  await auditarEventoGerenciador({
+    action: "limpou_env_vercel_projeto",
+    entityType: "system",
+    entityId: keyNormalizada,
+    projectSystemKey: keyNormalizada,
+    source: "gerenciador_api",
+    metadata: {
+      resultado: response || null,
+    },
   });
   return response || { ok: false };
 }
@@ -2121,6 +2369,20 @@ export async function removerProjetoNoGerenciador({
       );
     }
   }
+
+  await auditarEventoGerenciador({
+    action: "excluiu_projeto",
+    entityType: "system",
+    entityId: keyNormalizada,
+    projectSystemKey: keyNormalizada,
+    motivo: "exclusao_gerenciador",
+    metadata: {
+      docsRemovidos,
+      envCleanup: resultadoLimpezaEnv || null,
+      envCleanupError: erroLimpezaEnv || null,
+      warnings: avisos,
+    },
+  });
 
   return {
     ok: true,

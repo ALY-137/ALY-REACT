@@ -38,6 +38,7 @@ import {
   getProjectCollectionCandidates,
   getProjectDocCandidates,
 } from "../../Banco/projectDataRefs";
+import { registrarAuditLog } from "../Sistema/auditLogsApi";
 
 function nomeArquivoSeguro(nome = "avatar.png") {
   return String(nome || "avatar.png")
@@ -119,6 +120,20 @@ const SkinsManager = () => {
           { merge: true }
         );
       }
+
+      await registrarAuditLog({
+        action: "atualizou_avatar_skin",
+        entityType: "skin",
+        entityId: skinId,
+        ownerUserId: user.uid,
+        source: "skins_manager",
+        snapshotAntes: skin,
+        snapshotDepois: {
+          ...skin,
+          iconSkin: url || iconSkinPadraoUrl || null,
+          iconSkinPath: path,
+        },
+      });
 
       setAvatarUploadMensagem("Avatar atualizado com sucesso.");
       await fetchSkins();
@@ -294,6 +309,20 @@ const SkinsManager = () => {
       return;
     }
 
+    await registrarAuditLog({
+      action: "criou_skin",
+      entityType: "skin",
+      entityId: resultado?.id_skin || username,
+      ownerUserId: user.uid,
+      source: "skins_manager",
+      snapshotDepois: {
+        id: resultado?.id_skin || null,
+        username,
+        theme: temaCriacao,
+        primeiraSkin: true,
+      },
+    });
+
     localStorage.setItem("targetUsername", username);
     localStorage.setItem("skinLogadoUser", username);
     localStorage.setItem("skinLogado", "true");
@@ -335,6 +364,19 @@ const SkinsManager = () => {
       return;
     }
 
+    await registrarAuditLog({
+      action: "criou_skin",
+      entityType: "skin",
+      entityId: resultado?.id_skin || newUsername,
+      ownerUserId: user.uid,
+      source: "skins_manager",
+      snapshotDepois: {
+        id: resultado?.id_skin || null,
+        username: newUsername,
+        theme: temaCriacao,
+      },
+    });
+
     setFeedback("");
     setNewUsername("");
     setNewTheme("");
@@ -365,6 +407,18 @@ const SkinsManager = () => {
         { merge: true }
       );
     }
+
+    await registrarAuditLog({
+      action: "editou_tema_skin",
+      entityType: "skin",
+      entityId: skinId,
+      ownerUserId: user?.uid || "",
+      source: "skins_manager",
+      snapshotDepois: {
+        id: skinId,
+        theme: temaAtualizado,
+      },
+    });
 
     setEditingSkinId(null);
     setEditingTheme("");
@@ -399,6 +453,16 @@ const SkinsManager = () => {
         }
       }
     }
+
+    await registrarAuditLog({
+      action: "excluiu_skin",
+      entityType: "skin",
+      entityId: skin.id,
+      ownerUserId: user?.uid || "",
+      motivo: "exclusao_manual",
+      source: "skins_manager",
+      snapshotAntes: skin,
+    });
 
     fetchSkins();
   };

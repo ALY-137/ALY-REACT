@@ -26,7 +26,11 @@ import {
   normalizeProjectStatus,
   PROJECT_STATUS_ACTIVE,
 } from "../../../Sistema/projectStatus";
-import { RASTREABILIDADE_PERMISSOES_GESTAO } from "../../../Sistema/modulosPermissoes";
+import {
+  AUDITORIA_CATEGORIAS,
+  AUDITORIA_PERMISSOES_GESTAO,
+  RASTREABILIDADE_PERMISSOES_GESTAO,
+} from "../../../Sistema/modulosPermissoes";
 import ProjectLoadingFallback from "../../../Geral/ProjectLoadingFallback";
 import {
   listarIconCollectionsNoGerenciador,
@@ -2127,6 +2131,226 @@ function PropriedadesSistema({
               </label>
             </div>
           ) : null}
+
+          <div
+            style={{
+              border: "1px solid rgba(255, 255, 255, 0.18)",
+              borderRadius: 10,
+              margin: "12px 0",
+              padding: 12,
+            }}
+          >
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                marginBottom: config.auditoriaAtiva !== false ? 10 : 0,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={config.auditoriaAtiva !== false}
+                onChange={(event) =>
+                  setConfig((prev) => ({
+                    ...prev,
+                    auditoriaAtiva: event.target.checked,
+                  }))
+                }
+              />
+              Habilitar auditoria operacional
+            </label>
+
+            {config.auditoriaAtiva !== false ? (
+              <div style={{ display: "grid", gap: 8, marginLeft: 24 }}>
+                <label htmlFor="auditoriaVerHistoricoPermissao">
+                  Quem pode ver historico de auditoria
+                </label>
+                <select
+                  id="auditoriaVerHistoricoPermissao"
+                  value={config.auditoriaVerHistoricoPermissao || "owner_projeto"}
+                  onChange={(event) =>
+                    setConfig((prev) => ({
+                      ...prev,
+                      auditoriaVerHistoricoPermissao: event.target.value,
+                    }))
+                  }
+                >
+                  {AUDITORIA_PERMISSOES_GESTAO.map((opcao) => (
+                    <option key={opcao.value} value={opcao.value}>
+                      {opcao.label}
+                    </option>
+                  ))}
+                </select>
+
+                <label htmlFor="auditoriaExportarPermissao">
+                  Quem pode exportar auditoria
+                </label>
+                <select
+                  id="auditoriaExportarPermissao"
+                  value={config.auditoriaExportarPermissao || "owner_projeto"}
+                  onChange={(event) =>
+                    setConfig((prev) => ({
+                      ...prev,
+                      auditoriaExportarPermissao: event.target.value,
+                    }))
+                  }
+                >
+                  {AUDITORIA_PERMISSOES_GESTAO.map((opcao) => (
+                    <option key={opcao.value} value={opcao.value}>
+                      {opcao.label}
+                    </option>
+                  ))}
+                </select>
+
+                <label htmlFor="auditoriaExcluirRegistrosPermissao">
+                  Quem pode remover registros operacionais auditaveis
+                </label>
+                <select
+                  id="auditoriaExcluirRegistrosPermissao"
+                  value={config.auditoriaExcluirRegistrosPermissao || "owner_projeto"}
+                  onChange={(event) =>
+                    setConfig((prev) => ({
+                      ...prev,
+                      auditoriaExcluirRegistrosPermissao: event.target.value,
+                    }))
+                  }
+                >
+                  {AUDITORIA_PERMISSOES_GESTAO.map((opcao) => (
+                    <option key={opcao.value} value={opcao.value}>
+                      {opcao.label}
+                    </option>
+                  ))}
+                </select>
+
+                <label htmlFor="auditoriaRetencaoDias">
+                  Retencao dos logs de auditoria em dias
+                </label>
+                <input
+                  id="auditoriaRetencaoDias"
+                  type="number"
+                  min="0"
+                  max="3650"
+                  value={config.auditoriaRetencaoDias ?? 180}
+                  onChange={(event) =>
+                    setConfig((prev) => ({
+                      ...prev,
+                      auditoriaRetencaoDias: Number(event.target.value || 0),
+                    }))
+                  }
+                />
+                <p style={{ margin: "-4px 0 4px", opacity: 0.68, fontSize: 12 }}>
+                  Use 0 para nao definir expiracao automatica. Para expurgo automatico,
+                  habilite TTL no Firestore usando o campo <code>expiresAt</code>.
+                </p>
+
+                <div style={{ display: "grid", gap: 6, marginTop: 4 }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input
+                      type="checkbox"
+                      checked={config.auditarAcessos !== false}
+                      onChange={(event) =>
+                        setConfig((prev) => ({
+                          ...prev,
+                          auditarAcessos: event.target.checked,
+                        }))
+                      }
+                    />
+                    Auditar acessos, leitura e bloqueios
+                  </label>
+                  <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input
+                      type="checkbox"
+                      checked={config.auditarConteudo !== false}
+                      onChange={(event) =>
+                        setConfig((prev) => ({
+                          ...prev,
+                          auditarConteudo: event.target.checked,
+                        }))
+                      }
+                    />
+                    Auditar conteudo: espacos, blocos, cards, skins e add-ons
+                  </label>
+                  <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input
+                      type="checkbox"
+                      checked={config.auditarConfiguracoes !== false}
+                      onChange={(event) =>
+                        setConfig((prev) => ({
+                          ...prev,
+                          auditarConfiguracoes: event.target.checked,
+                        }))
+                      }
+                    />
+                    Auditar configuracoes do projeto e modulos
+                  </label>
+                  <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input
+                      type="checkbox"
+                      checked={config.auditarRastreaveis !== false}
+                      onChange={(event) =>
+                        setConfig((prev) => ({
+                          ...prev,
+                          auditarRastreaveis: event.target.checked,
+                        }))
+                      }
+                    />
+                    Auditar links e cards rastreaveis
+                  </label>
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gap: 8,
+                    marginTop: 10,
+                    padding: 10,
+                    border: "1px solid rgba(255, 255, 255, 0.12)",
+                    borderRadius: 8,
+                  }}
+                >
+                  <strong style={{ fontSize: 13 }}>
+                    Permissoes de visualizacao por categoria
+                  </strong>
+                  {AUDITORIA_CATEGORIAS.map((categoria) => (
+                    <label
+                      key={categoria.value}
+                      htmlFor={categoria.permissionField}
+                      style={{ display: "grid", gap: 4 }}
+                    >
+                      {categoria.label}
+                      <select
+                        id={categoria.permissionField}
+                        value={
+                          config[categoria.permissionField] ||
+                          config.auditoriaVerHistoricoPermissao ||
+                          "owner_projeto"
+                        }
+                        disabled={config[categoria.enabledField] === false}
+                        onChange={(event) =>
+                          setConfig((prev) => ({
+                            ...prev,
+                            [categoria.permissionField]: event.target.value,
+                          }))
+                        }
+                      >
+                        {AUDITORIA_PERMISSOES_GESTAO.map((opcao) => (
+                          <option key={opcao.value} value={opcao.value}>
+                            {opcao.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ))}
+                </div>
+
+                <p style={{ margin: "4px 0 0", opacity: 0.78, fontSize: 12 }}>
+                  A auditoria registra eventos operacionais. Remover registros operacionais
+                  deve continuar gerando log de auditoria para manter a linha do tempo.
+                </p>
+              </div>
+            ) : null}
+          </div>
 
           <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <input

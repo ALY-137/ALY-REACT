@@ -13,6 +13,35 @@ export const RASTREABILIDADE_PERMISSOES_GESTAO = [
   },
 ];
 
+export const AUDITORIA_PERMISSOES_GESTAO = RASTREABILIDADE_PERMISSOES_GESTAO;
+
+export const AUDITORIA_CATEGORIAS = [
+  {
+    value: "acessos",
+    label: "Acessos",
+    permissionField: "auditoriaVerAcessosPermissao",
+    enabledField: "auditarAcessos",
+  },
+  {
+    value: "conteudo",
+    label: "Conteudo",
+    permissionField: "auditoriaVerConteudoPermissao",
+    enabledField: "auditarConteudo",
+  },
+  {
+    value: "configuracoes",
+    label: "Configuracoes",
+    permissionField: "auditoriaVerConfiguracoesPermissao",
+    enabledField: "auditarConfiguracoes",
+  },
+  {
+    value: "rastreaveis",
+    label: "Rastreaveis",
+    permissionField: "auditoriaVerRastreaveisPermissao",
+    enabledField: "auditarRastreaveis",
+  },
+];
+
 const PERMISSOES_GESTAO_VALIDAS = new Set(
   RASTREABILIDADE_PERMISSOES_GESTAO.map((item) => item.value)
 );
@@ -71,4 +100,80 @@ export function usuarioPodeGerenciarPorPermissao({
   }
 
   return isDonoRecurso || isCoCriadorRecurso;
+}
+
+function obterContextoPermissaoAuditoria({
+  configSistema = {},
+  usuarioUid = "",
+  usuarioEmail = "",
+  recursoOwnerUid = "",
+  coCriadoresUids = [],
+} = {}) {
+  return {
+    usuarioUid,
+    usuarioEmail,
+    ownerProjetoUid:
+      configSistema?.ownerUid ||
+      configSistema?.adminUid ||
+      configSistema?.projectOwnerUid ||
+      "",
+    ownerProjetoEmail:
+      configSistema?.ownerEmail ||
+      configSistema?.adminEmail ||
+      configSistema?.projectOwnerEmail ||
+      "",
+    adminProjetoUid: configSistema?.adminUid || "",
+    adminProjetoEmail: configSistema?.adminEmail || "",
+    recursoOwnerUid,
+    coCriadoresUids,
+  };
+}
+
+export function usuarioPodeVerAuditoriaProjeto(contexto = {}) {
+  const { configSistema = {} } = contexto;
+  if (configSistema?.auditoriaAtiva === false) return false;
+  return usuarioPodeGerenciarPorPermissao({
+    ...obterContextoPermissaoAuditoria(contexto),
+    permissao: configSistema?.auditoriaVerHistoricoPermissao || "owner_projeto",
+  });
+}
+
+export function obterCategoriaAuditoria(value = "") {
+  const normalizado = normalizarTexto(value).toLowerCase();
+  return AUDITORIA_CATEGORIAS.find((categoria) => categoria.value === normalizado) || null;
+}
+
+export function usuarioPodeVerAuditoriaCategoriaProjeto(contexto = {}, categoriaValue = "") {
+  const { configSistema = {} } = contexto;
+  if (configSistema?.auditoriaAtiva === false) return false;
+
+  const categoria = obterCategoriaAuditoria(categoriaValue);
+  if (!categoria) return usuarioPodeVerAuditoriaProjeto(contexto);
+  if (configSistema?.[categoria.enabledField] === false) return false;
+
+  return usuarioPodeGerenciarPorPermissao({
+    ...obterContextoPermissaoAuditoria(contexto),
+    permissao:
+      configSistema?.[categoria.permissionField] ||
+      configSistema?.auditoriaVerHistoricoPermissao ||
+      "owner_projeto",
+  });
+}
+
+export function usuarioPodeExportarAuditoriaProjeto(contexto = {}) {
+  const { configSistema = {} } = contexto;
+  if (configSistema?.auditoriaAtiva === false) return false;
+  return usuarioPodeGerenciarPorPermissao({
+    ...obterContextoPermissaoAuditoria(contexto),
+    permissao: configSistema?.auditoriaExportarPermissao || "owner_projeto",
+  });
+}
+
+export function usuarioPodeRemoverRegistrosAuditaveisProjeto(contexto = {}) {
+  const { configSistema = {} } = contexto;
+  if (configSistema?.auditoriaAtiva === false) return false;
+  return usuarioPodeGerenciarPorPermissao({
+    ...obterContextoPermissaoAuditoria(contexto),
+    permissao: configSistema?.auditoriaExcluirRegistrosPermissao || "owner_projeto",
+  });
 }

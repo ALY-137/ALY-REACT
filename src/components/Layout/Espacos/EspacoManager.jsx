@@ -46,6 +46,7 @@ import {
   listarAcessosLinkRastreavelEspaco,
   listarLinksRastreaveisEspaco,
 } from "./trackableLinksApi";
+import { registrarAuditLog } from "../Sistema/auditLogsApi";
 
 const capitalizar = (texto = "") =>
   texto ? texto.charAt(0).toUpperCase() + texto.slice(1) : "";
@@ -542,6 +543,22 @@ export default function EspacoManager() {
       ...novoEspaco,
       id: ref.id,
     });
+    await registrarAuditLog({
+      action: "criou_espaco",
+      entityType: "espaco",
+      entityId: ref.id,
+      ownerUserId: userId,
+      espacoId: ref.id,
+      espacoNome: novoEspaco.nome,
+      source: "espaco_manager",
+      snapshotDepois: {
+        ...novoEspaco,
+        id: ref.id,
+      },
+      metadata: {
+        skinId: skinIdAtual,
+      },
+    });
 
     setNovoNome("");
     setNovaVisibilidade("privado");
@@ -589,6 +606,20 @@ export default function EspacoManager() {
       ...iconPayload,
     });
     await sincronizarEstruturaPublicaEspaco(userId, espacoAtualizado);
+    await registrarAuditLog({
+      action: "editou_espaco",
+      entityType: "espaco",
+      entityId: espacoId,
+      ownerUserId: userId,
+      espacoId,
+      espacoNome: espacoAtualizado.nome,
+      source: "espaco_manager",
+      snapshotAntes: espacoExistente || null,
+      snapshotDepois: espacoAtualizado,
+      metadata: {
+        skinId: skinIdAtual,
+      },
+    });
 
     cancelarEdicao();
     carregarEspacos();
@@ -608,6 +639,21 @@ export default function EspacoManager() {
       id: homeDaSkin.id,
       ownerUserId: proximoEspaco.ownerUserId || userId,
     });
+    await registrarAuditLog({
+      action: "editou_home_espaco",
+      entityType: "espaco",
+      entityId: homeDaSkin.id,
+      ownerUserId: userId,
+      espacoId: homeDaSkin.id,
+      espacoNome: proximoEspaco.nome,
+      source: "espaco_manager",
+      snapshotAntes: homeDaSkin,
+      snapshotDepois: proximoEspaco,
+      metadata: {
+        patch,
+        skinId: skinIdAtual,
+      },
+    });
     carregarEspacos();
   };
 
@@ -619,6 +665,20 @@ export default function EspacoManager() {
 
     await deleteDoc(getPrimaryProjectDoc(db, "users", userId, "espacos", espaco.id));
     await removerEstruturaPublicaEspaco(userId, espaco.id);
+    await registrarAuditLog({
+      action: "excluiu_espaco",
+      entityType: "espaco",
+      entityId: espaco.id,
+      ownerUserId: userId,
+      espacoId: espaco.id,
+      espacoNome: espaco.nome,
+      motivo: "exclusao_manual",
+      source: "espaco_manager",
+      snapshotAntes: espaco,
+      metadata: {
+        skinId: skinIdAtual,
+      },
+    });
 
     if (editingEspacoId === espaco.id) {
       cancelarEdicao();
@@ -645,6 +705,22 @@ export default function EspacoManager() {
         })
       )
     );
+    await registrarAuditLog({
+      action: "reordenou_espacos",
+      entityType: "espaco",
+      entityId: "ordem",
+      ownerUserId: userId,
+      source: "espaco_manager",
+      snapshotDepois: listaOrdenada.map((espaco, index) => ({
+        id: espaco.id,
+        nome: espaco.nome,
+        ordem: index + 1,
+      })),
+      metadata: {
+        skinId: skinIdAtual,
+        totalEspacos: listaOrdenada.length,
+      },
+    });
   };
 
   const moverEspaco = async (espacoId, direcao) => {
@@ -676,6 +752,19 @@ export default function EspacoManager() {
         new Set([...(espaco?.skins_relacionadas || []), skinIdAtual].filter(Boolean))
       ),
     });
+    await registrarAuditLog({
+      action: "relacionou_skin_espaco",
+      entityType: "espaco",
+      entityId: id,
+      ownerUserId: userId,
+      espacoId: id,
+      espacoNome: espaco?.nome || "",
+      source: "espaco_manager",
+      snapshotAntes: espaco || null,
+      metadata: {
+        skinId: skinIdAtual,
+      },
+    });
     carregarEspacos();
   };
 
@@ -692,6 +781,20 @@ export default function EspacoManager() {
       skins_relacionadas: (espaco?.skins_relacionadas || []).filter(
         (skinId) => skinId !== skinIdAtual
       ),
+    });
+    await registrarAuditLog({
+      action: "removeu_skin_espaco",
+      entityType: "espaco",
+      entityId: id,
+      ownerUserId: userId,
+      espacoId: id,
+      espacoNome: espaco?.nome || "",
+      motivo: "desvinculo_skin",
+      source: "espaco_manager",
+      snapshotAntes: espaco || null,
+      metadata: {
+        skinId: skinIdAtual,
+      },
     });
     carregarEspacos();
   };

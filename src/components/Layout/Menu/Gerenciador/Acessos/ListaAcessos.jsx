@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useNavigate } from "react-router-dom";
 
 import {
   atualizarStatusLinkRastreavelNoGerenciador,
@@ -20,6 +21,9 @@ import { obterManagerProjectLabel } from "../../../Sistema/configSistema";
 import {
   criarQrPrintCard,
 } from "../../../Espacos/qrPrintsApi";
+import { usuarioPodeRemoverRegistrosAuditaveisProjeto } from "../../../Sistema/modulosPermissoes";
+import { useAuth } from "../../../../../hooks/auth/useAuth";
+import { seforAdm } from "../../../../Scripts/verificacoes/verificaAdm";
 import "./acessos.css";
 
 const GROUP_PAGE_SIZE = 12;
@@ -610,6 +614,46 @@ function resolveProjetoOwnerUid(projeto = {}) {
   );
 }
 
+function resolveProjetoConfigSistema(projeto = {}) {
+  const configSistema =
+    projeto?.configSistema && typeof projeto.configSistema === "object"
+      ? projeto.configSistema
+      : {};
+  return {
+    ...projeto,
+    ...configSistema,
+  };
+}
+
+function resolveRecursoOwnerUid(item = {}) {
+  const raw = item?.raw && typeof item.raw === "object" ? item.raw : {};
+  return normalizeText(
+    item?.ownerUserId ||
+      item?.ownerUid ||
+      item?.projectOwnerUid ||
+      item?.uidOwner ||
+      item?.uid ||
+      raw?.ownerUserId ||
+      raw?.ownerUid ||
+      raw?.projectOwnerUid ||
+      raw?.uidOwner
+  );
+}
+
+function resolveCoCriadoresUids(item = {}) {
+  const raw = item?.raw && typeof item.raw === "object" ? item.raw : {};
+  const candidates = [
+    item?.coCriadoresUids,
+    item?.coCriadores,
+    raw?.coCriadoresUids,
+    raw?.coCriadores,
+  ];
+  return candidates
+    .flatMap((candidate) => (Array.isArray(candidate) ? candidate : []))
+    .map((value) => normalizeText(typeof value === "string" ? value : value?.uid))
+    .filter(Boolean);
+}
+
 function resolveProjetoBaseUrl(projeto = {}) {
   const domains = Array.isArray(projeto?.domains) ? projeto.domains : [];
   const firstDomain = domains.map((item) => normalizeText(item)).find(Boolean);
@@ -667,11 +711,14 @@ function resolveDataTimestampMs(value) {
 }
 
 function ListaAcessos({ modo = "acessos" }) {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const modoNormalizado = normalizeText(modo).toLowerCase();
   const exibirSomenteRastreabilidade = modoNormalizado === "rastreabilidade";
   const exibirAcessosOperacionais = !exibirSomenteRastreabilidade;
   const exibirPainelRastreabilidade = exibirSomenteRastreabilidade;
   const managerProjectLabel = obterManagerProjectLabel();
+  const usuarioEhAdminGerenciador = Boolean(user && seforAdm(user));
   const mountedRef = useRef(true);
   const [acessos, setAcessos] = useState([]);
   const [acessosLinksRastreaveis, setAcessosLinksRastreaveis] = useState([]);
@@ -1058,36 +1105,6 @@ function ListaAcessos({ modo = "acessos" }) {
     }
   }, []);
 
-  const removerRegistroAcesso = useCallback(async (id = "") => {
-    const accessId = normalizeText(id);
-    if (!accessId) return;
-
-    const confirmar = window.confirm(
-      "Remover este registro de acesso? Esta acao exclui o evento da lista de auditoria."
-    );
-    if (!confirmar) return;
-
-    setRemovendoAcessoId(accessId);
-    setMensagemLeitura("");
-    setErro("");
-
-    try {
-      await removerAcessosNoGerenciador({ ids: [accessId] });
-      if (!mountedRef.current) return;
-      setAcessos((prev) => prev.filter((acesso) => normalizeText(acesso?.id) !== accessId));
-      setMensagemLeitura("Registro de acesso removido.");
-      window.dispatchEvent(new CustomEvent("acessos-resumo-atualizado"));
-    } catch (error) {
-      if (!mountedRef.current) return;
-      console.error("Erro ao remover acesso:", error);
-      setErro("Nao foi possivel remover o registro de acesso.");
-    } finally {
-      if (mountedRef.current) {
-        setRemovendoAcessoId("");
-      }
-    }
-  }, []);
-
   const projetosMap = useMemo(() => {
     const mapa = new Map();
     projetos.forEach((projeto) => {
@@ -1097,6 +1114,87 @@ function ListaAcessos({ modo = "acessos" }) {
     });
     return mapa;
   }, [projetos]);
+
+  const usuarioPodeRemoverRegistrosAuditaveis = useCallback(
+    (projectSystemKey = "", item = {}) => {
+      if (usuarioEhAdminGerenciador) return true;
+
+      const projectKey = normalizeText(projectSystemKey || filtroProjeto).toLowerCase();
+      if (!projectKey) return false;
+
+      const projeto = projetosMap.get(projectKey);
+      if (!projeto) return false;
+
+      return usuarioPodeRemoverRegistrosAuditaveisProjeto({
+        configSistema: resolveProjetoConfigSistema(projeto),
+        usuarioUid: user?.uid || "",
+        usuarioEmail: user?.email || "",
+        recursoOwnerUid: resolveRecursoOwnerUid(item),
+        coCriadoresUids: resolveCoCriadoresUids(item),
+      });
+    },
+    [filtroProjeto, projetosMap, user?.email, user?.uid, usuarioEhAdminGerenciador]
+  );
+
+  const abrirAuditoriaEntidade = useCallback(
+    ({ projectSystemKey = "", entityType = "", entityId = "" } = {}) => {
+      const tipo = normalizeText(entityType);
+      const id = normalizeText(entityId);
+      if (!tipo || !id) return;
+
+      const params = new URLSearchParams({
+        entityType: tipo,
+        entityId: id,
+      });
+      const projectKey = normalizeText(projectSystemKey || filtroProjeto).toLowerCase();
+      if (projectKey) params.set("projectSystemKey", projectKey);
+      navigate(`/menu/gerenciador/auditoria?${params.toString()}`);
+    },
+    [filtroProjeto, navigate]
+  );
+
+  const removerRegistroAcesso = useCallback(
+    async (id = "") => {
+      const accessId = normalizeText(id);
+      if (!accessId) return;
+
+      const acessoAtual = acessos.find((acesso) => normalizeText(acesso?.id) === accessId) || {};
+      const projectSystemKey = normalizeText(
+        acessoAtual?.projectSystemKey || acessoAtual?.runtimeProjectKey || filtroProjeto
+      ).toLowerCase();
+
+      if (!usuarioPodeRemoverRegistrosAuditaveis(projectSystemKey, acessoAtual)) {
+        setErro("Sem permissao para remover registros auditaveis deste projeto.");
+        return;
+      }
+
+      const confirmar = window.confirm(
+        "Remover este registro de acesso? Esta acao exclui o evento da lista de auditoria."
+      );
+      if (!confirmar) return;
+
+      setRemovendoAcessoId(accessId);
+      setMensagemLeitura("");
+      setErro("");
+
+      try {
+        await removerAcessosNoGerenciador({ ids: [accessId] });
+        if (!mountedRef.current) return;
+        setAcessos((prev) => prev.filter((acesso) => normalizeText(acesso?.id) !== accessId));
+        setMensagemLeitura("Registro de acesso removido.");
+        window.dispatchEvent(new CustomEvent("acessos-resumo-atualizado"));
+      } catch (error) {
+        if (!mountedRef.current) return;
+        console.error("Erro ao remover acesso:", error);
+        setErro("Nao foi possivel remover o registro de acesso.");
+      } finally {
+        if (mountedRef.current) {
+          setRemovendoAcessoId("");
+        }
+      }
+    },
+    [acessos, filtroProjeto, usuarioPodeRemoverRegistrosAuditaveis]
+  );
 
   const linksRastreaveisMap = useMemo(() => {
     const mapa = new Map();
@@ -1246,6 +1344,12 @@ function ListaAcessos({ modo = "acessos" }) {
       if (!trackingId || !projectSystemKey || !acao) return;
 
       if (acao === "excluir") {
+        if (!usuarioPodeRemoverRegistrosAuditaveis(projectSystemKey, link)) {
+          setErroLinkRastreavel("Sem permissao para excluir registros auditaveis deste projeto.");
+          setMensagemLinkRastreavel("");
+          return;
+        }
+
         const confirmado =
           typeof window === "undefined" ||
           window.confirm("Excluir este link rastreavel?");
@@ -1296,7 +1400,7 @@ function ListaAcessos({ modo = "acessos" }) {
         }
       }
     },
-    [filtroProjeto]
+    [filtroProjeto, usuarioPodeRemoverRegistrosAuditaveis]
   );
 
   const duplicarLinkRastreavelCentral = useCallback(
@@ -2401,6 +2505,19 @@ function ListaAcessos({ modo = "acessos" }) {
   const excluirItemRastreavelSelecionado = useCallback(async () => {
     const itemAtual = detalheRastreavel.item;
     if (!itemAtual) return;
+    const projectSystemKey = normalizeText(
+      itemAtual?.raw?.projectSystemKey || itemAtual?.raw?.runtimeProjectKey || filtroProjeto
+    ).toLowerCase();
+
+    if (!usuarioPodeRemoverRegistrosAuditaveis(projectSystemKey, itemAtual?.raw || itemAtual)) {
+      setDetalheRastreavel((prev) => ({
+        ...prev,
+        erro: "Sem permissao para excluir registros auditaveis deste projeto.",
+        mensagem: "",
+      }));
+      return;
+    }
+
     const confirmado =
       typeof window === "undefined" ||
       window.confirm(
@@ -2419,9 +2536,7 @@ function ListaAcessos({ modo = "acessos" }) {
       if (itemAtual.kind === "link") {
         await atualizarStatusLinkRastreavelNoGerenciador({
           trackingId: itemAtual.itemId,
-          projectSystemKey: normalizeText(
-            itemAtual?.raw?.projectSystemKey || itemAtual?.raw?.runtimeProjectKey || filtroProjeto
-          ).toLowerCase(),
+          projectSystemKey,
           action: "excluir",
         });
         if (!mountedRef.current) return;
@@ -2431,9 +2546,7 @@ function ListaAcessos({ modo = "acessos" }) {
       } else if (itemAtual.kind === "card") {
         await atualizarStatusQrPrintNoGerenciador({
           printId: itemAtual.itemId,
-          projectSystemKey: normalizeText(
-            itemAtual?.raw?.projectSystemKey || itemAtual?.raw?.runtimeProjectKey || filtroProjeto
-          ).toLowerCase(),
+          projectSystemKey,
           action: "excluir",
         });
         if (!mountedRef.current) return;
@@ -2468,7 +2581,7 @@ function ListaAcessos({ modo = "acessos" }) {
         erro: error?.message || "Nao foi possivel excluir este item rastreavel.",
       }));
     }
-  }, [detalheRastreavel.item, filtroProjeto]);
+  }, [detalheRastreavel.item, filtroProjeto, usuarioPodeRemoverRegistrosAuditaveis]);
 
   const exportarPainelCentralCsv = useCallback(() => {
     if (!painelRastreabilidade.eventosFiltrados.length) return;
@@ -2760,6 +2873,15 @@ function ListaAcessos({ modo = "acessos" }) {
       resumoCards,
     };
   }, [detalheRastreavel]);
+
+  const podeExcluirDetalheRastreavel = useMemo(() => {
+    const itemAtual = detalheRastreavel.item;
+    if (!itemAtual) return false;
+    const projectSystemKey = normalizeText(
+      itemAtual?.raw?.projectSystemKey || itemAtual?.raw?.runtimeProjectKey || filtroProjeto
+    ).toLowerCase();
+    return usuarioPodeRemoverRegistrosAuditaveis(projectSystemKey, itemAtual?.raw || itemAtual);
+  }, [detalheRastreavel.item, filtroProjeto, usuarioPodeRemoverRegistrosAuditaveis]);
 
   useEffect(() => {
     if (
@@ -3488,6 +3610,10 @@ function ListaAcessos({ modo = "acessos" }) {
                     "Link rastreavel";
                   const isActionRunning = (acao) =>
                     acaoLinkRastreavelId === `${trackingId}:${acao}`;
+                  const podeExcluirLinkRastreavel = usuarioPodeRemoverRegistrosAuditaveis(
+                    projectKey,
+                    link
+                  );
 
                   return (
                     <article
@@ -3545,6 +3671,20 @@ function ListaAcessos({ modo = "acessos" }) {
                         >
                           {isActionRunning("duplicar") ? "Duplicando..." : "Duplicar"}
                         </button>
+                        <button
+                          type="button"
+                          className="gerenciador-acessos__tracking-item-button"
+                          onClick={() => {
+                            abrirAuditoriaEntidade({
+                              projectSystemKey: projectKey,
+                              entityType: "trackableLink",
+                              entityId: trackingId,
+                            });
+                          }}
+                          disabled={!trackingId}
+                        >
+                          Auditoria
+                        </button>
                         {status === "Ativo" ? (
                           <button
                             type="button"
@@ -3574,7 +3714,17 @@ function ListaAcessos({ modo = "acessos" }) {
                           onClick={() => {
                             void atualizarStatusLinkRastreavelCentral(link, "excluir");
                           }}
-                          disabled={!trackingId || status === "Excluido" || isActionRunning("excluir")}
+                          disabled={
+                            !trackingId ||
+                            status === "Excluido" ||
+                            isActionRunning("excluir") ||
+                            !podeExcluirLinkRastreavel
+                          }
+                          title={
+                            !podeExcluirLinkRastreavel
+                              ? "Sem permissao para excluir registros auditaveis deste projeto."
+                              : undefined
+                          }
                         >
                           {isActionRunning("excluir") ? "Excluindo..." : "Excluir"}
                         </button>
@@ -4103,7 +4253,13 @@ function ListaAcessos({ modo = "acessos" }) {
               }}
               disabled={
                 detalheRastreavel.acaoEmAndamento === "excluir" ||
-                detalheRastreavel.item.status === "Excluido"
+                detalheRastreavel.item.status === "Excluido" ||
+                !podeExcluirDetalheRastreavel
+              }
+              title={
+                !podeExcluirDetalheRastreavel
+                  ? "Sem permissao para excluir registros auditaveis deste projeto."
+                  : undefined
               }
             >
               {detalheRastreavel.acaoEmAndamento === "excluir" ? "Excluindo..." : "Excluir"}
@@ -4626,6 +4782,10 @@ function ListaAcessos({ modo = "acessos" }) {
                     const registroBloqueado = isAccessRecordBlocked(acesso);
                     const acessoLido = isAccessRead(acesso);
                     const removendoEsteAcesso = removendoAcessoId === normalizeText(acesso?.id);
+                    const podeRemoverAcesso = usuarioPodeRemoverRegistrosAuditaveis(
+                      projectKey,
+                      acesso
+                    );
                     const motivoBloqueio = resolveGeoText(
                       acesso?.bloqueadoPor || acesso?.motivoBloqueio
                     );
@@ -4713,7 +4873,12 @@ function ListaAcessos({ modo = "acessos" }) {
                             onClick={() => {
                               void removerRegistroAcesso(acesso.id);
                             }}
-                            disabled={removendoEsteAcesso}
+                            disabled={removendoEsteAcesso || !podeRemoverAcesso}
+                            title={
+                              !podeRemoverAcesso
+                                ? "Sem permissao para remover registros auditaveis deste projeto."
+                                : undefined
+                            }
                           >
                             {removendoEsteAcesso ? "Removendo..." : "Remover registro"}
                           </button>

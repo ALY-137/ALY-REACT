@@ -723,6 +723,22 @@ body.theme-cyberpink .gavetaOption--notified {
   color: var(--cyberpink-subtheme-text);
 }
 
+body.theme-cyberpink .gavetaOption__badge--critical {
+  border-color: color-mix(in srgb, #ff4f8e 78%, transparent);
+  background: color-mix(in srgb, #ff4f8e 24%, rgba(0, 0, 0, 0.22));
+  color: #ffd6e4;
+  box-shadow:
+    0 0 7px color-mix(in srgb, #ff4f8e 62%, transparent),
+    0 0 16px color-mix(in srgb, #ff4f8e 34%, transparent);
+  text-shadow:
+    0 0 2px #ff4f8e,
+    0 0 7px #ff4f8e;
+}
+
+body.theme-cyberpink .gavetaOption--critical {
+  color: #ffd6e4;
+}
+
 body.theme-cyberpink .back-detail {
     margin: 0px;
     cursor: pointer;

@@ -150,6 +150,19 @@ export const DEFAULT_SISTEMA_CONFIG = {
   rastreabilidadeHistoricoLinksPermissao: "dono_espaco",
   registrarAcessoDiretoRastreabilidade: true,
   persistirOrigemRastreabilidadeSessao: true,
+  auditoriaAtiva: true,
+  auditoriaVerHistoricoPermissao: "owner_projeto",
+  auditoriaExportarPermissao: "owner_projeto",
+  auditoriaExcluirRegistrosPermissao: "owner_projeto",
+  auditoriaRetencaoDias: 180,
+  auditoriaVerAcessosPermissao: "owner_projeto",
+  auditoriaVerConteudoPermissao: "owner_projeto",
+  auditoriaVerConfiguracoesPermissao: "owner_projeto",
+  auditoriaVerRastreaveisPermissao: "owner_projeto",
+  auditarAcessos: true,
+  auditarConteudo: true,
+  auditarConfiguracoes: true,
+  auditarRastreaveis: true,
   addOnsHabilitados: false,
   blocoAddOnsHabilitado: false,
   aly137Habilitado: false,
@@ -570,6 +583,15 @@ function normalizarBoolean(value, fallback = false) {
   }
   if (typeof value === "number") return value !== 0;
   return fallback;
+}
+
+function normalizarRetencaoAuditoriaDias(value, fallback = 180) {
+  const numero = Number(value);
+  if (!Number.isFinite(numero)) return fallback;
+  const arredondado = Math.round(numero);
+  if (arredondado < 0) return 0;
+  if (arredondado > 3650) return 3650;
+  return arredondado;
 }
 
 function normalizarLimiteSkins(value) {
@@ -1221,6 +1243,58 @@ export function normalizarConfigSistema(data = {}) {
     persistirOrigemRastreabilidadeSessao: normalizarBoolean(
       data.persistirOrigemRastreabilidadeSessao,
       DEFAULT_SISTEMA_CONFIG.persistirOrigemRastreabilidadeSessao
+    ),
+    auditoriaAtiva: normalizarBoolean(
+      data.auditoriaAtiva,
+      DEFAULT_SISTEMA_CONFIG.auditoriaAtiva
+    ),
+    auditoriaVerHistoricoPermissao: normalizarPermissaoGestaoRastreabilidade(
+      data.auditoriaVerHistoricoPermissao,
+      DEFAULT_SISTEMA_CONFIG.auditoriaVerHistoricoPermissao
+    ),
+    auditoriaExportarPermissao: normalizarPermissaoGestaoRastreabilidade(
+      data.auditoriaExportarPermissao,
+      DEFAULT_SISTEMA_CONFIG.auditoriaExportarPermissao
+    ),
+    auditoriaExcluirRegistrosPermissao: normalizarPermissaoGestaoRastreabilidade(
+      data.auditoriaExcluirRegistrosPermissao,
+      DEFAULT_SISTEMA_CONFIG.auditoriaExcluirRegistrosPermissao
+    ),
+    auditoriaRetencaoDias: normalizarRetencaoAuditoriaDias(
+      data.auditoriaRetencaoDias,
+      DEFAULT_SISTEMA_CONFIG.auditoriaRetencaoDias
+    ),
+    auditoriaVerAcessosPermissao: normalizarPermissaoGestaoRastreabilidade(
+      data.auditoriaVerAcessosPermissao,
+      data.auditoriaVerHistoricoPermissao || DEFAULT_SISTEMA_CONFIG.auditoriaVerAcessosPermissao
+    ),
+    auditoriaVerConteudoPermissao: normalizarPermissaoGestaoRastreabilidade(
+      data.auditoriaVerConteudoPermissao,
+      data.auditoriaVerHistoricoPermissao || DEFAULT_SISTEMA_CONFIG.auditoriaVerConteudoPermissao
+    ),
+    auditoriaVerConfiguracoesPermissao: normalizarPermissaoGestaoRastreabilidade(
+      data.auditoriaVerConfiguracoesPermissao,
+      data.auditoriaVerHistoricoPermissao || DEFAULT_SISTEMA_CONFIG.auditoriaVerConfiguracoesPermissao
+    ),
+    auditoriaVerRastreaveisPermissao: normalizarPermissaoGestaoRastreabilidade(
+      data.auditoriaVerRastreaveisPermissao,
+      data.auditoriaVerHistoricoPermissao || DEFAULT_SISTEMA_CONFIG.auditoriaVerRastreaveisPermissao
+    ),
+    auditarAcessos: normalizarBoolean(
+      data.auditarAcessos,
+      DEFAULT_SISTEMA_CONFIG.auditarAcessos
+    ),
+    auditarConteudo: normalizarBoolean(
+      data.auditarConteudo,
+      DEFAULT_SISTEMA_CONFIG.auditarConteudo
+    ),
+    auditarConfiguracoes: normalizarBoolean(
+      data.auditarConfiguracoes,
+      DEFAULT_SISTEMA_CONFIG.auditarConfiguracoes
+    ),
+    auditarRastreaveis: normalizarBoolean(
+      data.auditarRastreaveis,
+      DEFAULT_SISTEMA_CONFIG.auditarRastreaveis
     ),
     addOnsHabilitados: addOnsHabilitadosNormalizado,
     blocoAddOnsHabilitado: blocoAddOnsHabilitadoNormalizado,

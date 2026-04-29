@@ -1429,17 +1429,30 @@ function auditLogPassesFilters(data = {}, {
   projectSystemKey = "",
   action = "",
   entityType = "",
+  entityId = "",
+  auditCategory = "",
+  severity = "",
   startMs = NaN,
   endMs = NaN,
 } = {}) {
   const itemProjectKey = sanitizeString(data?.projectSystemKey || data?.runtimeProjectKey).toLowerCase();
   const itemAction = sanitizeString(data?.action).toLowerCase();
   const itemEntityType = sanitizeString(data?.entityType).toLowerCase();
+  const itemEntityId = sanitizeString(data?.entityId);
+  const itemAuditCategory = sanitizeString(
+    data?.auditCategory || resolveAuditCategory(data)
+  ).toLowerCase();
+  const itemSeverity = sanitizeString(
+    data?.severity || resolveAuditSeverity(data)
+  ).toLowerCase();
   const timestampMs = getFirestoreTimestampMs(data, ["criadoEm", "data", "createdAt"]) || 0;
 
   if (projectSystemKey && itemProjectKey !== projectSystemKey) return false;
   if (action && itemAction !== action) return false;
   if (entityType && itemEntityType !== entityType) return false;
+  if (entityId && itemEntityId !== entityId) return false;
+  if (auditCategory && itemAuditCategory !== auditCategory) return false;
+  if (severity && itemSeverity !== severity) return false;
   if (Number.isFinite(startMs) && (!Number.isFinite(timestampMs) || timestampMs < startMs)) {
     return false;
   }
@@ -1456,6 +1469,9 @@ async function listAuditLogDocsForManager(
     projectSystemKey = "",
     action = "",
     entityType = "",
+    entityId = "",
+    auditCategory = "",
+    severity = "",
     startDate = "",
     endDate = "",
     maxItems = 300,
@@ -1464,6 +1480,9 @@ async function listAuditLogDocsForManager(
   const normalizedProjectKey = sanitizeString(projectSystemKey).toLowerCase();
   const normalizedAction = sanitizeString(action).toLowerCase();
   const normalizedEntityType = sanitizeString(entityType).toLowerCase();
+  const normalizedEntityId = sanitizeString(entityId);
+  const normalizedAuditCategory = sanitizeString(auditCategory).toLowerCase();
+  const normalizedSeverity = sanitizeString(severity).toLowerCase();
   const safeLimit = Math.min(Math.max(Number(maxItems) || 300, 1), 1000);
   const startDateObject = startDate ? new Date(`${startDate}T00:00:00.000Z`) : null;
   const endDateObject = endDate ? new Date(`${endDate}T23:59:59.999Z`) : null;
@@ -1492,6 +1511,9 @@ async function listAuditLogDocsForManager(
             projectSystemKey: normalizedProjectKey,
             action: normalizedAction,
             entityType: normalizedEntityType,
+            entityId: normalizedEntityId,
+            auditCategory: normalizedAuditCategory,
+            severity: normalizedSeverity,
             startMs,
             endMs,
           })
@@ -1569,6 +1591,412 @@ function cleanFirestorePayload(payload = {}) {
   }, {});
 }
 
+const AUDIT_CATEGORY_BY_ENTITY = {
+  acesso: "acessos",
+  accessSettings: "acessos",
+  usuario_projeto: "acessos",
+  qrPrint: "rastreaveis",
+  trackableLink: "rastreaveis",
+  system: "configuracoes",
+  systemConfig: "configuracoes",
+  systemPreconfig: "configuracoes",
+  iconCollection: "configuracoes",
+  espaco: "conteudo",
+  bloco: "conteudo",
+  card: "conteudo",
+  skin: "conteudo",
+  addOn: "conteudo",
+  addOnUsuario: "conteudo",
+};
+
+function resolveAuditCategory({
+  action = "",
+  entityType = "",
+  metadata = null,
+} = {}) {
+  const explicitCategory = sanitizeString(
+    metadata?.auditCategory || metadata?.categoriaAuditoria || ""
+  );
+  if (explicitCategory) return explicitCategory;
+
+  const normalizedEntityType = sanitizeString(entityType);
+  if (AUDIT_CATEGORY_BY_ENTITY[normalizedEntityType]) {
+    return AUDIT_CATEGORY_BY_ENTITY[normalizedEntityType];
+  }
+
+  const normalizedAction = sanitizeString(action).toLowerCase();
+  if (normalizedAction.includes("rastreavel")) return "rastreaveis";
+  if (normalizedAction.includes("acesso")) return "acessos";
+  if (normalizedAction.includes("config") || normalizedAction.includes("projeto")) {
+    return "configuracoes";
+  }
+  return "conteudo";
+}
+
+function resolveAuditSeverity({
+  action = "",
+  entityType = "",
+  metadata = null,
+} = {}) {
+  const explicitSeverity = sanitizeString(
+    metadata?.auditSeverity || metadata?.severity || metadata?.severidade || ""
+  ).toLowerCase();
+  if (["baixo", "medio", "alto"].includes(explicitSeverity)) return explicitSeverity;
+
+  const normalizedAction = sanitizeString(action).toLowerCase();
+  const normalizedEntityType = sanitizeString(entityType);
+
+  if (
+    normalizedAction.includes("exclu") ||
+    normalizedAction.includes("removeu") ||
+    normalizedAction.includes("bloque") ||
+    normalizedAction.includes("limpou_env") ||
+    normalizedAction.includes("permiss")
+  ) {
+    return "alto";
+  }
+
+  if (["accessSettings", "usuario_projeto"].includes(normalizedEntityType)) {
+    return "alto";
+  }
+
+  if (
+    normalizedAction.includes("config") ||
+    normalizedAction.includes("projeto") ||
+    normalizedAction.includes("rastreavel") ||
+    normalizedAction.includes("preconfig")
+  ) {
+    return "medio";
+  }
+
+  if (["system", "systemConfig", "systemPreconfig", "trackableLink", "qrPrint"].includes(normalizedEntityType)) {
+    return "medio";
+  }
+
+  return "baixo";
+}
+
+function auditCategoryEnabledFromConfig(configSistema = {}, category = "conteudo") {
+  if (configSistema?.auditoriaAtiva === false) return false;
+  if (category === "acessos") return configSistema?.auditarAcessos !== false;
+  if (category === "rastreaveis") return configSistema?.auditarRastreaveis !== false;
+  if (category === "configuracoes") return configSistema?.auditarConfiguracoes !== false;
+  return configSistema?.auditarConteudo !== false;
+}
+
+function resolveAuditProjectKey({
+  projectSystemKey = "",
+  sourcePath = "",
+} = {}) {
+  const pathParts = sanitizeString(sourcePath).split("/").filter(Boolean);
+  const projetosIndex = pathParts.findIndex((part) => part === "projetos");
+  const pathProjectKey =
+    projetosIndex >= 0 ? sanitizeString(pathParts[projetosIndex + 1]) : "";
+  return sanitizeString(pathProjectKey || projectSystemKey).toLowerCase();
+}
+
+async function getAuditConfigForProject(targetDb, projectSystemKey = "") {
+  const normalizedProjectKey = sanitizeString(projectSystemKey).toLowerCase();
+  if (!targetDb || !normalizedProjectKey) return {};
+
+  const mergeConfigFromSnap = (acc, snap) => {
+    if (!snap?.exists) return acc;
+    const data = snap.data() || {};
+    const configSistema =
+      data?.configSistema && typeof data.configSistema === "object"
+        ? data.configSistema
+        : {};
+    return {
+      ...acc,
+      ...data,
+      ...configSistema,
+    };
+  };
+
+  try {
+    let config = {};
+
+    const rootConfigSnap = await targetDb.doc("add_ons/sistema_config").get().catch(() => null);
+    config = mergeConfigFromSnap(config, rootConfigSnap);
+
+    const projectSnap = await targetDb.collection("projetos").doc(normalizedProjectKey).get().catch(() => null);
+    config = mergeConfigFromSnap(config, projectSnap);
+
+    const projectConfigSnap = await targetDb
+      .doc(`projetos/${normalizedProjectKey}/add_ons/sistema_config`)
+      .get()
+      .catch(() => null);
+    config = mergeConfigFromSnap(config, projectConfigSnap);
+
+    const systemSnap = await targetDb.collection("systems").doc(normalizedProjectKey).get().catch(() => null);
+    config = mergeConfigFromSnap(config, systemSnap);
+
+    if (!systemSnap?.exists) {
+      const bySystemKeySnap = await targetDb
+        .collection("systems")
+        .where("systemKey", "==", normalizedProjectKey)
+        .limit(1)
+        .get()
+        .catch(() => null);
+      if (bySystemKeySnap && !bySystemKeySnap.empty) {
+        config = mergeConfigFromSnap(config, bySystemKeySnap.docs[0]);
+      }
+    }
+
+    return config;
+  } catch {
+    return {};
+  }
+}
+
+function normalizeAuditPermission(value = "", fallback = "owner_projeto") {
+  const normalized = sanitizeString(value).toLowerCase();
+  if (["owner_projeto", "dono_espaco", "admin_ou_dono_espaco"].includes(normalized)) {
+    return normalized;
+  }
+  return ["owner_projeto", "dono_espaco", "admin_ou_dono_espaco"].includes(fallback)
+    ? fallback
+    : "owner_projeto";
+}
+
+function normalizeAuditRetentionDays(value, fallback = 180) {
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) return fallback;
+  const rounded = Math.round(numberValue);
+  if (rounded < 0) return 0;
+  if (rounded > 3650) return 3650;
+  return rounded;
+}
+
+function buildAuditExpiresAt(configSistema = {}) {
+  const retentionDays = normalizeAuditRetentionDays(configSistema?.auditoriaRetencaoDias, 180);
+  if (!retentionDays) return null;
+  return admin.firestore.Timestamp.fromDate(
+    new Date(Date.now() + retentionDays * 24 * 60 * 60 * 1000)
+  );
+}
+
+async function isSystemManagerAdminIdentity({ uid = "", email = "" } = {}) {
+  try {
+    await assertSystemManagerAdminIdentity({ uid, email });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function normalizeAuditEmail(value = "") {
+  return sanitizeString(value).toLowerCase();
+}
+
+function resolveAuditActorCanManageProject(configSistema = {}, { uid = "", email = "" } = {}) {
+  const normalizedUid = sanitizeString(uid);
+  const normalizedEmail = normalizeAuditEmail(email);
+  const projectOwnerUids = [
+    configSistema?.ownerUid,
+    configSistema?.adminUid,
+    configSistema?.projectOwnerUid,
+  ].map((item) => sanitizeString(item)).filter(Boolean);
+  const projectOwnerEmails = [
+    configSistema?.ownerEmail,
+    configSistema?.adminEmail,
+    configSistema?.projectOwnerEmail,
+  ].map((item) => normalizeAuditEmail(item)).filter(Boolean);
+
+  return Boolean(
+    (normalizedUid && projectOwnerUids.includes(normalizedUid)) ||
+      (normalizedEmail && projectOwnerEmails.includes(normalizedEmail))
+  );
+}
+
+function resolveAuditOwnerUidFromItem(item = {}) {
+  return sanitizeString(
+    item?.ownerUserId ||
+      item?.ownerUid ||
+      item?.projectOwnerUid ||
+      item?.uidOwner ||
+      item?.uid ||
+      item?.actorUid ||
+      item?.criadoPor ||
+      item?.criadoPorUid
+  );
+}
+
+function resolveAuditCoCreatorsFromItem(item = {}) {
+  const candidates = [item?.coCriadoresUids, item?.coCriadores];
+  return candidates
+    .flatMap((candidate) => (Array.isArray(candidate) ? candidate : []))
+    .map((value) => sanitizeString(typeof value === "string" ? value : value?.uid))
+    .filter(Boolean);
+}
+
+function resolveAuditActorCanManageResource(item = {}, { uid = "" } = {}) {
+  const normalizedUid = sanitizeString(uid);
+  if (!normalizedUid) return false;
+  const ownerUid = resolveAuditOwnerUidFromItem(item);
+  const coCreators = resolveAuditCoCreatorsFromItem(item);
+  return ownerUid === normalizedUid || coCreators.includes(normalizedUid);
+}
+
+function canManageAuditByPermission({
+  configSistema = {},
+  permissao = "owner_projeto",
+  actor = {},
+  resource = {},
+  isManagerAdmin = false,
+} = {}) {
+  if (isManagerAdmin) return true;
+  if (configSistema?.auditoriaAtiva === false) return false;
+
+  const normalizedPermission = normalizeAuditPermission(permissao);
+  const isProjectOwner = resolveAuditActorCanManageProject(configSistema, actor);
+  const isResourceOwner = resolveAuditActorCanManageResource(resource, actor);
+
+  if (normalizedPermission === "owner_projeto") return isProjectOwner;
+  if (normalizedPermission === "admin_ou_dono_espaco") return isProjectOwner || isResourceOwner;
+  return isResourceOwner;
+}
+
+function resolveAuditViewPermissionFieldForCategory(category = "") {
+  const normalizedCategory = sanitizeString(category).toLowerCase();
+  if (normalizedCategory === "acessos") return "auditoriaVerAcessosPermissao";
+  if (normalizedCategory === "configuracoes") return "auditoriaVerConfiguracoesPermissao";
+  if (normalizedCategory === "rastreaveis") return "auditoriaVerRastreaveisPermissao";
+  return "auditoriaVerConteudoPermissao";
+}
+
+function resolveAuditCategoryFromLogData(data = {}) {
+  return sanitizeString(
+    data?.auditCategory ||
+      resolveAuditCategory({
+        action: data?.action,
+        entityType: data?.entityType,
+        metadata: data?.metadata,
+      })
+  ).toLowerCase() || "conteudo";
+}
+
+function resolveAuditViewPermissionForCategory(configSistema = {}, category = "") {
+  const field = resolveAuditViewPermissionFieldForCategory(category);
+  return normalizeAuditPermission(
+    configSistema?.[field],
+    configSistema?.auditoriaVerHistoricoPermissao || "owner_projeto"
+  );
+}
+
+async function filterAuditDocsByPermissions(managerDb, docs = [], {
+  decoded = null,
+  purpose = "",
+  projectSystemKey = "",
+} = {}) {
+  const actor = {
+    uid: sanitizeString(decoded?.uid),
+    email: sanitizeString(decoded?.email).toLowerCase(),
+  };
+  const isManagerAdmin = await isSystemManagerAdminIdentity(actor);
+  if (isManagerAdmin) return docs;
+
+  const purposeNormalized = sanitizeString(purpose).toLowerCase();
+  const configCache = new Map();
+  const getConfig = async (projectKey = "") => {
+    const normalizedProjectKey = sanitizeString(projectKey).toLowerCase();
+    if (!normalizedProjectKey) return null;
+    if (!configCache.has(normalizedProjectKey)) {
+      configCache.set(
+        normalizedProjectKey,
+        await getAuditConfigForProject(managerDb, normalizedProjectKey)
+      );
+    }
+    return configCache.get(normalizedProjectKey);
+  };
+
+  const allowedDocs = [];
+  for (const item of docs) {
+    const data = item?.data || {};
+    const normalizedProjectKey = resolveDocProjectSystemKey(
+      item?.docItem,
+      data,
+      projectSystemKey
+    );
+    if (!normalizedProjectKey) continue;
+
+    const configSistema = await getConfig(normalizedProjectKey);
+    if (!configSistema || configSistema?.auditoriaAtiva === false) continue;
+
+    const category = resolveAuditCategoryFromLogData(data);
+    if (!auditCategoryEnabledFromConfig(configSistema, category)) continue;
+
+    const canViewCategory = canManageAuditByPermission({
+      configSistema,
+      permissao: resolveAuditViewPermissionForCategory(configSistema, category),
+      actor,
+      resource: data,
+      isManagerAdmin: false,
+    });
+    if (!canViewCategory) continue;
+
+    if (purposeNormalized === "export") {
+      const canExport = canManageAuditByPermission({
+        configSistema,
+        permissao: normalizeAuditPermission(
+          configSistema?.auditoriaExportarPermissao,
+          "owner_projeto"
+        ),
+        actor,
+        resource: data,
+        isManagerAdmin: false,
+      });
+      if (!canExport) continue;
+    }
+
+    allowedDocs.push(item);
+  }
+
+  return allowedDocs;
+}
+
+async function assertAuditPermissionForProject(managerDb, {
+  projectSystemKey = "",
+  decoded = null,
+  permissionField = "auditoriaVerHistoricoPermissao",
+  defaultPermission = "owner_projeto",
+  resource = {},
+  allowAllProjectsForManager = false,
+} = {}) {
+  const actor = {
+    uid: sanitizeString(decoded?.uid),
+    email: sanitizeString(decoded?.email).toLowerCase(),
+  };
+  const isManagerAdmin = await isSystemManagerAdminIdentity(actor);
+  const normalizedProjectKey = sanitizeString(projectSystemKey).toLowerCase();
+
+  if (!normalizedProjectKey) {
+    if (allowAllProjectsForManager && isManagerAdmin) return {};
+    throw new HttpsError("permission-denied", "Informe um projeto para aplicar a permissao de auditoria.");
+  }
+
+  const configSistema = await getAuditConfigForProject(managerDb, normalizedProjectKey);
+  const fallbackPermission =
+    permissionField.startsWith("auditoriaVer") &&
+    permissionField !== "auditoriaVerHistoricoPermissao"
+      ? (configSistema?.auditoriaVerHistoricoPermissao || defaultPermission)
+      : defaultPermission;
+  const permission = normalizeAuditPermission(configSistema?.[permissionField], fallbackPermission);
+  const allowed = canManageAuditByPermission({
+    configSistema,
+    permissao: permission,
+    actor,
+    resource,
+    isManagerAdmin,
+  });
+
+  if (!allowed) {
+    throw new HttpsError("permission-denied", "Sem permissao para executar esta acao de auditoria.");
+  }
+
+  return configSistema;
+}
+
 function serializeAuditValue(value, depth = 0) {
   if (value === undefined) return null;
   if (value === null) return null;
@@ -1593,11 +2021,10 @@ function getAuditCollectionRef(targetDb, {
   sourcePath = "",
 } = {}) {
   const pathParts = sanitizeString(sourcePath).split("/").filter(Boolean);
-  const projetosIndex = pathParts.findIndex((part) => part === "projetos");
-  const pathProjectKey = projetosIndex >= 0 ? sanitizeString(pathParts[projetosIndex + 1]) : "";
-  const normalizedProjectKey = sanitizeString(pathProjectKey || projectSystemKey).toLowerCase();
+  const hasProjectInSource = pathParts.findIndex((part) => part === "projetos") >= 0;
+  const normalizedProjectKey = resolveAuditProjectKey({ projectSystemKey, sourcePath });
 
-  if (pathProjectKey && normalizedProjectKey) {
+  if (hasProjectInSource && normalizedProjectKey) {
     return targetDb.collection("projetos").doc(normalizedProjectKey).collection("auditLogs");
   }
 
@@ -1629,12 +2056,26 @@ async function writeAuditLog(targetDb, {
   if (!targetDb || !normalizedAction || !normalizedEntityType || !normalizedEntityId) return null;
 
   try {
+    const normalizedProjectKey = resolveAuditProjectKey({ projectSystemKey, sourcePath });
+    const auditCategory = resolveAuditCategory({
+      action: normalizedAction,
+      entityType: normalizedEntityType,
+      metadata,
+    });
+    const auditSeverity = resolveAuditSeverity({
+      action: normalizedAction,
+      entityType: normalizedEntityType,
+      metadata,
+    });
+    const auditConfig = await getAuditConfigForProject(targetDb, normalizedProjectKey);
+    if (!auditCategoryEnabledFromConfig(auditConfig, auditCategory)) return null;
+
     const auditRef = getAuditCollectionRef(targetDb, { projectSystemKey, sourcePath });
     return await auditRef.add(cleanFirestorePayload({
       action: normalizedAction,
       entityType: normalizedEntityType,
       entityId: normalizedEntityId,
-      projectSystemKey: sanitizeString(projectSystemKey).toLowerCase() || null,
+      projectSystemKey: normalizedProjectKey || sanitizeString(projectSystemKey).toLowerCase() || null,
       runtimeProjectId: sanitizeString(runtimeProjectId) || null,
       ownerUserId: sanitizeString(ownerUserId) || null,
       espacoId: sanitizeString(espacoId) || null,
@@ -1645,10 +2086,13 @@ async function writeAuditLog(targetDb, {
       motivo: sanitizeString(motivo) || null,
       source: sanitizeString(source) || "function",
       sourcePath: sanitizeString(sourcePath) || null,
+      auditCategory,
+      severity: auditSeverity,
       snapshotAntes: snapshotAntes ? serializeAuditValue(snapshotAntes) : null,
       snapshotDepois: snapshotDepois ? serializeAuditValue(snapshotDepois) : null,
       metadata: metadata ? serializeAuditValue(metadata) : null,
       criadoEm: serverTimestamp(),
+      expiresAt: buildAuditExpiresAt(auditConfig),
     }));
   } catch (error) {
     console.warn("Falha ao registrar auditoria:", error?.message || error);
@@ -4460,6 +4904,15 @@ exports.atualizarStatusLinkRastreavelGerenciadorHttp = onRequest(
       });
       const currentUid = sanitizeString(decoded?.uid);
       const currentEmail = sanitizeString(decoded?.email).toLowerCase();
+      if (action === "excluir") {
+        await assertAuditPermissionForProject(managerDb, {
+          projectSystemKey: target.projectSystemKey,
+          decoded,
+          permissionField: "auditoriaExcluirRegistrosPermissao",
+          resource: target.snap?.data?.() || {},
+        });
+      }
+
       const patchBase = {
         atualizadoEm: serverTimestamp(),
         atualizadoPor: currentUid || null,
@@ -4569,6 +5022,13 @@ exports.atualizarStatusQrPrintGerenciadorHttp = onRequest(
       });
       const currentUid = sanitizeString(decoded?.uid);
       const currentEmail = sanitizeString(decoded?.email).toLowerCase();
+      await assertAuditPermissionForProject(managerDb, {
+        projectSystemKey: target.projectSystemKey,
+        decoded,
+        permissionField: "auditoriaExcluirRegistrosPermissao",
+        resource: target.snap?.data?.() || {},
+      });
+
       const patch = {
         ativo: false,
         excluido: true,
@@ -4954,24 +5414,45 @@ exports.listarAuditLogsGerenciadorHttp = onRequest(
       const body = normalizeRequestBody(req);
       const token = getBearerToken(req);
       const { decoded } = await verifySharedBucketIdToken(token);
-      await assertSystemManagerAdminIdentity({
-        uid: decoded?.uid,
-        email: decoded?.email,
+      const managerDb = getSystemManagerDb();
+      const purpose = sanitizeString(body?.purpose).toLowerCase();
+      const auditCategory = sanitizeString(body?.auditCategory).toLowerCase();
+      await assertAuditPermissionForProject(managerDb, {
+        projectSystemKey: body?.projectSystemKey,
+        decoded,
+        permissionField:
+          purpose === "export"
+            ? "auditoriaExportarPermissao"
+            : (auditCategory
+                ? resolveAuditViewPermissionFieldForCategory(auditCategory)
+                : "auditoriaVerHistoricoPermissao"),
+        defaultPermission:
+          purpose === "export" || !auditCategory
+            ? "owner_projeto"
+            : "owner_projeto",
+        allowAllProjectsForManager: true,
       });
 
-      const managerDb = getSystemManagerDb();
       const docs = await listAuditLogDocsForManager(managerDb, {
         projectSystemKey: body?.projectSystemKey,
         action: body?.action,
         entityType: body?.entityType,
+        entityId: body?.entityId,
+        auditCategory: body?.auditCategory,
+        severity: body?.severity,
         startDate: body?.startDate,
         endDate: body?.endDate,
         maxItems: body?.limit,
       });
+      const filteredDocs = await filterAuditDocsByPermissions(managerDb, docs, {
+        decoded,
+        purpose,
+        projectSystemKey: body?.projectSystemKey,
+      });
 
       res.json({
         ok: true,
-        items: docs.map(({ docItem, data, runtimeProjectId }) => ({
+        items: filteredDocs.map(({ docItem, data, runtimeProjectId }) => ({
           id: docItem.id,
           auditPath: docItem.ref.path,
           runtimeProjectId: sanitizeString(data?.runtimeProjectId || runtimeProjectId) || null,
@@ -5013,6 +5494,18 @@ exports.marcarAcessosLidosGerenciadorHttp = onRequest(
         lidoPorUid: sanitizeString(decoded?.uid) || null,
         lidoPorEmail: sanitizeString(decoded?.email) || null,
       });
+      await writeAuditLog(managerDb, {
+        action: "marcou_acessos_lidos",
+        entityType: "acesso",
+        entityId: ids.length === 1 ? ids[0] : "bulk",
+        actorUid: decoded?.uid,
+        actorEmail: decoded?.email,
+        source: "gerenciador_function",
+        metadata: {
+          ids,
+          total,
+        },
+      });
 
       res.json({
         ok: true,
@@ -5053,6 +5546,35 @@ exports.removerAcessosGerenciadorHttp = onRequest(
       const accessSnapshots = await Promise.all(
         ids.map((accessId) => managerDb.collection("acessos").doc(accessId).get().catch(() => null))
       );
+      const projectKeys = Array.from(
+        new Set(
+          accessSnapshots
+            .filter((snap) => snap?.exists)
+            .map((snap) => {
+              const data = snap.data() || {};
+              return sanitizeString(data?.projectSystemKey || data?.runtimeProjectKey).toLowerCase();
+            })
+            .filter(Boolean)
+        )
+      );
+      if (!projectKeys.length) {
+        await assertAuditPermissionForProject(managerDb, {
+          decoded,
+          permissionField: "auditoriaExcluirRegistrosPermissao",
+          allowAllProjectsForManager: true,
+        });
+      } else {
+        await Promise.all(
+          projectKeys.map((projectSystemKey) =>
+            assertAuditPermissionForProject(managerDb, {
+              projectSystemKey,
+              decoded,
+              permissionField: "auditoriaExcluirRegistrosPermissao",
+            })
+          )
+        );
+      }
+
       const total = await deleteAccessRecords(managerDb, ids);
       await writeAuditLog(managerDb, {
         action: "removeu_acessos",
@@ -5164,6 +5686,23 @@ exports.salvarConfigAcessosGerenciadorHttp = onRequest(
           bloqueadoPorConfigEmail: sanitizeString(decoded?.email) || null,
         }
       );
+      await writeAuditLog(managerDb, {
+        action: "salvou_config_acessos",
+        entityType: "accessSettings",
+        entityId: "registro",
+        actorUid: decoded?.uid,
+        actorEmail: decoded?.email,
+        source: "gerenciador_function",
+        snapshotDepois: {
+          ipsBloqueadosRegistro,
+          usuariosBloqueadosRegistro,
+        },
+        metadata: {
+          totalIps: ipsBloqueadosRegistro.length,
+          totalUsuarios: usuariosBloqueadosRegistro.length,
+          registrosOcultados,
+        },
+      });
 
       res.json({
         ok: true,

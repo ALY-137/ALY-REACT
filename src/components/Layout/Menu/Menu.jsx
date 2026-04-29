@@ -36,7 +36,14 @@ import {
   CYBERPINK_SUBTHEME_STORAGE_KEY,
   normalizeCyberpinkSubtheme,
 } from "../Temas/cyberpink/subthemes";
-import { obterResumoAcessosNoGerenciador } from "../Sistema/gerenciadorSistemasApi";
+import {
+  listarAuditLogsNoGerenciador,
+  obterResumoAcessosNoGerenciador,
+} from "../Sistema/gerenciadorSistemasApi";
+import {
+  isAuditSeverityCritical,
+  resolveAuditSeverity,
+} from "../Sistema/auditSeverity";
 
 const SEGMENTOS_RESERVADOS_MENU = new Set([
   "contatos",
@@ -80,6 +87,10 @@ function Menu({ menuOpen }) {
   });
   const [badgeAcessos, setBadgeAcessos] = useState({
     naoLidos: 0,
+    limiteAtingido: false,
+  });
+  const [badgeAuditoria, setBadgeAuditoria] = useState({
+    criticos: 0,
     limiteAtingido: false,
   });
 
@@ -736,6 +747,49 @@ function Menu({ menuOpen }) {
     };
   }, [isManagerProject, temUsuarioAutenticado, usuarioEhOwnerGerenciador]);
 
+  useEffect(() => {
+    if (!isManagerProject || !usuarioEhOwnerGerenciador || !temUsuarioAutenticado) {
+      setBadgeAuditoria({ criticos: 0, limiteAtingido: false });
+      return undefined;
+    }
+
+    let ativo = true;
+    const atualizarBadgeAuditoria = async () => {
+      try {
+        const itens = await listarAuditLogsNoGerenciador({
+          limit: 120,
+          severity: "alto",
+        });
+        if (!ativo) return;
+        const criticos = Array.isArray(itens)
+          ? itens.filter((item) => isAuditSeverityCritical(item?.severity || resolveAuditSeverity(item))).length
+          : 0;
+        setBadgeAuditoria({
+          criticos,
+          limiteAtingido: Array.isArray(itens) && itens.length >= 120,
+        });
+      } catch (error) {
+        if (!ativo) return;
+        setBadgeAuditoria({ criticos: 0, limiteAtingido: false });
+        if (error?.code !== "permission-denied") {
+          console.error("Erro ao carregar notificacao de auditoria:", error);
+        }
+      }
+    };
+
+    void atualizarBadgeAuditoria();
+    const intervalId = window.setInterval(atualizarBadgeAuditoria, 60000);
+    window.addEventListener("focus", atualizarBadgeAuditoria);
+    window.addEventListener("auditoria-resumo-atualizado", atualizarBadgeAuditoria);
+
+    return () => {
+      ativo = false;
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", atualizarBadgeAuditoria);
+      window.removeEventListener("auditoria-resumo-atualizado", atualizarBadgeAuditoria);
+    };
+  }, [isManagerProject, temUsuarioAutenticado, usuarioEhOwnerGerenciador]);
+
   if (aguardandoAuthInicial) {
     return <ProjectLoadingFallback text="Carregando menu..." />;
   }
@@ -808,8 +862,20 @@ function Menu({ menuOpen }) {
             <div onClick={abrirRastreabilidade} className="gavetaOption">
               RASTREABILIDADE
             </div>
-            <div onClick={abrirAuditoria} className="gavetaOption">
+            <div
+              onClick={abrirAuditoria}
+              className={
+                badgeAuditoria.criticos > 0
+                  ? "gavetaOption gavetaOption--notified gavetaOption--critical"
+                  : "gavetaOption"
+              }
+            >
               AUDITORIA
+              {badgeAuditoria.criticos > 0 ? (
+                <span className="gavetaOption__badge gavetaOption__badge--critical" title="Eventos criticos de auditoria">
+                  {badgeAuditoria.limiteAtingido ? `${badgeAuditoria.criticos}+` : badgeAuditoria.criticos}
+                </span>
+              ) : null}
             </div>
             <div onClick={abrirGerenciadorIcones} className="gavetaOption">
               GERENCIADOR DE ICONES

@@ -654,6 +654,138 @@ service cloud.firestore {
         );
     }
 
+    function projetoAuditoriaAtiva(projectKey) {
+      return !hasProjetoSistemaConfig(projectKey) ||
+        !(
+          get(
+            /databases/$(database)/documents/projetos/$(projectKey)/add_ons/sistema_config
+          ).data.auditoriaAtiva == false
+        );
+    }
+
+    function projetoAuditoriaVerHistoricoPermissao(projectKey) {
+      return hasProjetoSistemaConfig(projectKey) &&
+        (get(
+          /databases/$(database)/documents/projetos/$(projectKey)/add_ons/sistema_config
+        ).data.auditoriaVerHistoricoPermissao is string)
+          ? get(
+            /databases/$(database)/documents/projetos/$(projectKey)/add_ons/sistema_config
+          ).data.auditoriaVerHistoricoPermissao
+          : "owner_projeto";
+    }
+
+    function projetoAuditoriaPermissaoCampo(projectKey, campo, fallback) {
+      return hasProjetoSistemaConfig(projectKey) &&
+        (get(
+          /databases/$(database)/documents/projetos/$(projectKey)/add_ons/sistema_config
+        ).data[campo] is string)
+          ? get(
+            /databases/$(database)/documents/projetos/$(projectKey)/add_ons/sistema_config
+          ).data[campo]
+          : fallback;
+    }
+
+    function projetoAuditoriaCategoriaPermissao(projectKey, categoria) {
+      return categoria == "acessos"
+        ? projetoAuditoriaPermissaoCampo(
+            projectKey,
+            "auditoriaVerAcessosPermissao",
+            projetoAuditoriaVerHistoricoPermissao(projectKey)
+          )
+        : categoria == "configuracoes"
+          ? projetoAuditoriaPermissaoCampo(
+              projectKey,
+              "auditoriaVerConfiguracoesPermissao",
+              projetoAuditoriaVerHistoricoPermissao(projectKey)
+            )
+          : categoria == "rastreaveis"
+            ? projetoAuditoriaPermissaoCampo(
+                projectKey,
+                "auditoriaVerRastreaveisPermissao",
+                projetoAuditoriaVerHistoricoPermissao(projectKey)
+              )
+            : projetoAuditoriaPermissaoCampo(
+                projectKey,
+                "auditoriaVerConteudoPermissao",
+                projetoAuditoriaVerHistoricoPermissao(projectKey)
+              );
+    }
+
+    function auditLogCategoria(data) {
+      return (data.auditCategory is string) ? data.auditCategory : "conteudo";
+    }
+
+    function projetoAuditoriaCategoriaAtiva(projectKey, categoria) {
+      return !hasProjetoSistemaConfig(projectKey) ||
+        !(
+          (categoria == "acessos" &&
+            get(/databases/$(database)/documents/projetos/$(projectKey)/add_ons/sistema_config).data.auditarAcessos == false) ||
+          (categoria == "configuracoes" &&
+            get(/databases/$(database)/documents/projetos/$(projectKey)/add_ons/sistema_config).data.auditarConfiguracoes == false) ||
+          (categoria == "rastreaveis" &&
+            get(/databases/$(database)/documents/projetos/$(projectKey)/add_ons/sistema_config).data.auditarRastreaveis == false) ||
+          (categoria == "conteudo" &&
+            get(/databases/$(database)/documents/projetos/$(projectKey)/add_ons/sistema_config).data.auditarConteudo == false)
+        );
+    }
+
+    function projetoAuditoriaExcluirRegistrosPermissao(projectKey) {
+      return hasProjetoSistemaConfig(projectKey) &&
+        (get(
+          /databases/$(database)/documents/projetos/$(projectKey)/add_ons/sistema_config
+        ).data.auditoriaExcluirRegistrosPermissao is string)
+          ? get(
+            /databases/$(database)/documents/projetos/$(projectKey)/add_ons/sistema_config
+          ).data.auditoriaExcluirRegistrosPermissao
+          : "owner_projeto";
+    }
+
+    function canManageProjetoAuditLogByPermission(projectKey, data, permissao) {
+      return projetoAuditoriaAtiva(projectKey) &&
+        (
+          isAdmin() ||
+          (
+            permissao == "owner_projeto" &&
+            isProjetoAdmin(projectKey)
+          ) ||
+          (
+            permissao == "admin_ou_dono_espaco" &&
+            (
+              isProjetoAdmin(projectKey) ||
+              (
+                (data.ownerUserId is string) &&
+                (data.espacoId is string) &&
+                canOwnProjetoEspacoByPath(projectKey, data.ownerUserId, data.espacoId)
+              )
+            )
+          ) ||
+          (
+            permissao != "owner_projeto" &&
+            permissao != "admin_ou_dono_espaco" &&
+            (data.ownerUserId is string) &&
+            (data.espacoId is string) &&
+            canOwnProjetoEspacoByPath(projectKey, data.ownerUserId, data.espacoId)
+          )
+        );
+    }
+
+    function canViewProjetoAuditLogData(projectKey, data) {
+      return projetoAuditoriaCategoriaAtiva(projectKey, auditLogCategoria(data)) &&
+        canManageProjetoAuditLogByPermission(
+        projectKey,
+        data,
+        projetoAuditoriaCategoriaPermissao(projectKey, auditLogCategoria(data))
+      );
+    }
+
+    function canViewAuditLogData(data) {
+      return isAdmin() ||
+        (
+          (data.projectSystemKey is string) &&
+          canViewProjetoAuditLogData(data.projectSystemKey, data)
+        );
+    }
+
     function canManageProjetoQrPrintData(projectKey, data) {
       return isAdmin() ||
         isProjetoAdmin(projectKey) ||
@@ -956,7 +1088,7 @@ service cloud.firestore {
 
     match /auditLogs/{auditId} {
       allow create: if isValidAuditLogCreate();
-      allow read: if isAdmin();
+      allow read: if canViewAuditLogData(resource.data);
       allow update, delete: if false;
     }
 
@@ -1104,7 +1236,7 @@ service cloud.firestore {
             isProjetoAdmin(projectKey) ||
             request.resource.data.projectSystemKey == projectKey
           );
-        allow read: if isAdmin() || isProjetoAdmin(projectKey);
+        allow read: if canViewProjetoAuditLogData(projectKey, resource.data);
         allow update, delete: if false;
       }
 

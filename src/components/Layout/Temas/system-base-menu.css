@@ -218,6 +218,12 @@ body.layout-navbar-tabs-sticky-disabled .menu-navbar {
   font-weight: 700;
 }
 
+.gavetaOption__badge--critical {
+  border-color: rgba(255, 79, 142, 0.72);
+  background: rgba(255, 79, 142, 0.24);
+  color: #ffe1eb;
+}
+
 .menuContentArea {
   width: min(96vw, 1000px);
   margin: 0 auto;

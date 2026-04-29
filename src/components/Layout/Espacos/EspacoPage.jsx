@@ -492,6 +492,17 @@ function CardActionIcon({ type }) {
     );
   }
 
+  if (type === "audit") {
+    return (
+      <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+        <path d="M7 4.5h18v23H7v-23Z" />
+        <path d="M11 10h10M11 15h10M11 20h6" />
+        <path d="M21 21.5 25.5 26" />
+        <circle cx="20" cy="20" r="4" />
+      </svg>
+    );
+  }
+
   return (
     <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
       <path d="M8 3.5h11l5 5V28H8V3.5Z" />
@@ -1077,6 +1088,26 @@ export default function EspacoPage() {
   const podeGerenciar = oneOwnerPublicaAtivaEfetiva
     ? usuarioEhOwnerProjeto
     : (podeGerenciarPadrao || usuarioEhOwnerProjeto);
+  const abrirAuditoriaEntidade = useCallback(
+    ({ entityType = "", entityId = "" } = {}) => {
+      const tipo = String(entityType || "").trim();
+      const id = String(entityId || "").trim();
+      if (!tipo || !id) return;
+
+      const projectSystemKey = String(
+        configSistemaAtual?.projectSystemKey || activeFirebaseProjectKey || ""
+      )
+        .trim()
+        .toLowerCase();
+      const params = new URLSearchParams({
+        entityType: tipo,
+        entityId: id,
+      });
+      if (projectSystemKey) params.set("projectSystemKey", projectSystemKey);
+      navigate(`/menu/gerenciador/auditoria?${params.toString()}`);
+    },
+    [configSistemaAtual?.projectSystemKey, navigate]
+  );
   const visibilidadeEspaco = espacoAtualEfetivo?.visibilidade || "publico";
   const visitanteOneOwnerPublico =
     oneOwnerPublicaAtivaEfetiva && !currentUid && !podeGerenciar;
@@ -5770,6 +5801,23 @@ export default function EspacoPage() {
                                     aria-label="Editar card"
                                   >
                                     <CardActionIcon type="gear" />
+                                  </button>
+                                ) : null}
+
+                                {podeGerenciar && configSistemaAtual?.auditoriaAtiva !== false ? (
+                                  <button
+                                    type="button"
+                                    className="cards-bloco-action-button"
+                                    onClick={() => {
+                                      abrirAuditoriaEntidade({
+                                        entityType: "card",
+                                        entityId: cardAtivo.id || `${bloco.id}-card-${indiceCardAtivo}`,
+                                      });
+                                    }}
+                                    title="Ver auditoria do card"
+                                    aria-label="Ver auditoria do card"
+                                  >
+                                    <CardActionIcon type="audit" />
                                   </button>
                                 ) : null}
 
