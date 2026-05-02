@@ -1481,6 +1481,68 @@ export async function salvarAddOnDoUsuarioProjeto({
   return true;
 }
 
+export async function salvarResumoAly137AddOnsUsuarioProjeto({
+  ownerUserId = "",
+  resumos = {},
+  atualizadoPorUid = null,
+} = {}) {
+  const ownerUidNormalizado = normalizeText(ownerUserId);
+  if (!ownerUidNormalizado) {
+    throw new Error("Usuario owner obrigatorio para atualizar XP dos add-ons.");
+  }
+
+  const entries = Object.entries(resumos || {}).filter(([addOnId]) => {
+    const id = normalizeText(addOnId);
+    return Boolean(id && id !== "sistema_config");
+  });
+
+  if (!entries.length) return true;
+
+  const addOnsCollection = getAddOnsUsuarioProjetoCollection(ownerUidNormalizado);
+  const entriesAtualizadas = (
+    await Promise.all(
+      entries.map(async ([addOnId, resumo]) => {
+        const addOnIdNormalizado = normalizeText(addOnId);
+        if (!addOnIdNormalizado) return null;
+
+        const addOnRef = doc(addOnsCollection, addOnIdNormalizado);
+        const snap = await getDoc(addOnRef);
+        if (!snap.exists()) {
+          // XP do ALY-137 nunca deve criar add-ons. IDs orfaos sao apenas ignorados.
+          return null;
+        }
+
+        await updateDoc(addOnRef, {
+          aly137Resumo: resumo || null,
+          atualizadoPorUid: normalizeText(atualizadoPorUid),
+          atualizadoEm: serverTimestamp(),
+        });
+
+        return [addOnIdNormalizado, resumo];
+      })
+    )
+  ).filter(Boolean);
+
+  if (!entriesAtualizadas.length) return true;
+
+  await auditarEventoGerenciador({
+    action: "atualizou_xp_addons_aly137",
+    entityType: "addOnUsuario",
+    entityId: ownerUidNormalizado,
+    ownerUserId: ownerUidNormalizado,
+    snapshotDepois: {
+      totalAddOns: entriesAtualizadas.length,
+      addOnIds: entriesAtualizadas.map(([addOnId]) => normalizeText(addOnId)).filter(Boolean),
+    },
+    metadata: {
+      auditCategory: "conteudo",
+      aly137: true,
+    },
+  });
+
+  return true;
+}
+
 export async function removerAddOnDoUsuarioProjeto({
   ownerUserId = "",
   addOnId = "",

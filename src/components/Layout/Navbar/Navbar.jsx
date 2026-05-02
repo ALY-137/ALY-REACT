@@ -1,10 +1,13 @@
 import { useLayoutEffect, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
+import { auth } from "../../Banco/init-firebase";
+import { registrarAuditLog } from "../Sistema/auditLogsApi";
 import {
   DEFAULT_SISTEMA_CONFIG,
   isOneOwnerComEntradaPublica,
   obterConfigSistemaCacheLocal,
 } from "../Sistema/configSistema";
+import { getOrCreateNavigationId } from "../Espacos/trackableLinksApi";
 
 const Navbar = ({ pages = [] }) => {
   const tabNodesRef = useRef(new Map());
@@ -47,6 +50,56 @@ const Navbar = ({ pages = [] }) => {
   const inactiveItems = menu.filter((item) => item !== activeItem);
   const getTabId = (item, index) =>
     String(item.id_espaco || item.id || item.rotaNormalizada || item.nomeNormalizado || index);
+
+  const getEspacoId = (item = {}) =>
+    String(item.id_espaco || item.id || item.espacoId || item.nome || "").trim();
+
+  const registrarTrocaEspaco = (destino = {}) => {
+    const destinoId = getEspacoId(destino);
+    const origemId = getEspacoId(activeItem);
+    if (!destinoId || destinoId === origemId) return;
+
+    const navigationId = getOrCreateNavigationId();
+    const detail = {
+      eventoTipo: "space_switch",
+      eventoAcao: "navbar_tab",
+      origemEspacoId: origemId || null,
+      origemEspacoNome: String(activeItem?.nome || "").trim() || null,
+      origemRota: activeItem?.rota || null,
+      destinoEspacoId: destinoId,
+      destinoEspacoNome: String(destino?.nome || "").trim() || null,
+      destinoRota: destino?.rota || null,
+      navigationId,
+    };
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("aly:space-switch", { detail }));
+    }
+
+    const currentUser = auth.currentUser;
+    if (!currentUser?.uid) return;
+
+    void registrarAuditLog({
+      action: "navegou_entre_espacos",
+      entityType: "acesso",
+      entityId: `space_switch:${navigationId}:${Date.now()}`,
+      ownerUserId: String(destino?.ownerUserId || activeItem?.ownerUserId || "").trim(),
+      espacoId: destinoId,
+      espacoNome: String(destino?.nome || "").trim(),
+      projectSystemKey: configSistema?.projectSystemKey || "",
+      source: "navbar_tab",
+      metadata: {
+        auditCategory: "acessos",
+        navigationId,
+        origemEspacoId: detail.origemEspacoId,
+        origemEspacoNome: detail.origemEspacoNome,
+        origemRota: detail.origemRota,
+        destinoEspacoId: detail.destinoEspacoId,
+        destinoEspacoNome: detail.destinoEspacoNome,
+        destinoRota: detail.destinoRota,
+      },
+    });
+  };
 
   const navbarAnimationSignature = useMemo(
     () =>
@@ -203,6 +256,7 @@ const Navbar = ({ pages = [] }) => {
         key={tabId}
         ref={(node) => setTabNode(tabId, node)}
         data-navbar-tab-id={tabId}
+        onClick={() => registrarTrocaEspaco(item)}
         className={
           isActive
             ? `navbar-tab navbar-tab--active ${legacyClassName} ${extraClassName}`.trim()

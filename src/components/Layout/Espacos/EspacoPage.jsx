@@ -23,6 +23,7 @@ import LoginButton from "../Geral/LoginButton";
 import Card from "../Objects/Objetos/Card";
 import Container from "../Objects/Containers/Container";
 import LiveModal from "./components/LiveModal";
+import Aly137Forja from "../Modulos/ALY137/Forja/Aly137Forja";
 import {
   LIVE_EFETIVE_TURN_URLS,
   LIVE_WEBRTC_CONFIG,
@@ -80,9 +81,24 @@ import {
 } from "../Sistema/configSistema";
 import { obterGeoAcessoAtual } from "../Sistema/acessoGeo";
 import { registrarAuditLog } from "../Sistema/auditLogsApi";
+import { usuarioPodeVerAuditoriaCategoriaProjeto } from "../Sistema/modulosPermissoes";
+import {
+  ALY137_ATRIBUTOS,
+  ALY137_PESOS_EVIDENCIA,
+  calcularNivelCardAly137,
+  calcularXpPorPesoAly137,
+  calcularResumoAly137,
+  calcularResumoAddOnsAly137DeCards,
+  criarEvidenciaAly137Padrao,
+  criarPayloadCardAly137,
+  normalizarCardAly137,
+  normalizarAtributosSelecionadosAly137,
+  normalizarPesoEvidenciaAly137,
+} from "../Sistema/aly137Utils";
 import {
   listarAddOnsDoUsuarioProjeto,
   listarIconCollectionsNoGerenciador,
+  salvarResumoAly137AddOnsUsuarioProjeto,
 } from "../Sistema/gerenciadorProjetosApi";
 import {
   buildIconSelectionValue,
@@ -105,6 +121,10 @@ import {
   listarLeiturasQrPrint,
   listarQrPrintsDoCard,
 } from "./qrPrintsApi";
+import {
+  criarLinkRastreavelEspaco,
+  getOrCreateNavigationId,
+} from "./trackableLinksApi";
 
 const getBlocosCollectionRefs = (ownerUserId, espacoId) =>
   getProjectCollectionCandidates(db, "users", ownerUserId, "espacos", espacoId, "blocos");
@@ -353,6 +373,24 @@ const isSvgAssetUrl = (value = "") => {
   );
 };
 
+const resolverTipoAddOn = (item = {}) =>
+  String(
+    item?.tipo ||
+      item?.type ||
+      item?.categoria ||
+      item?.grupo ||
+      item?.tipoAddOn ||
+      item?.categoriaAddOn ||
+      "geral"
+  )
+    .trim()
+    .toLowerCase() || "geral";
+
+const formatarTipoAddOn = (tipo = "") => {
+  const normalizado = String(tipo || "geral").trim();
+  return normalizado ? capitalizar(normalizado.replace(/[-_]+/g, " ")) : "Geral";
+};
+
 const normalizarCardsDoBloco = (valor) => {
   if (!Array.isArray(valor)) return [];
 
@@ -380,6 +418,7 @@ const normalizarCardsDoBloco = (valor) => {
           card?.addOnSubthemes || card?.addOnThemes,
           addOnIdsNormalizados
         ),
+        aly137: normalizarCardAly137(card?.aly137, addOnIdsNormalizados),
         usaAddOnsGerenciador: possuiCampoAddOns,
       };
     })
@@ -394,6 +433,26 @@ const normalizarCardsDoBloco = (valor) => {
         card.addOnIds.length
     )
     .sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
+};
+
+const obterKeyCardOrigemAly137 = (card = {}) =>
+  String(
+    card?.key ||
+      card?.id ||
+      `${card?.espacoId || ""}:${card?.blocoId || ""}:${card?.cardId || card?.id || ""}`
+  ).trim();
+
+const obterAddOnIdsDisponiveisCardOrigemAly137 = (card = {}) =>
+  normalizarAddOnIds([
+    ...(Array.isArray(card?.addOnIdsDisponiveis) ? card.addOnIdsDisponiveis : []),
+    ...(Array.isArray(card?.addOnIds) ? card.addOnIds : []),
+    ...Object.keys(card?.addOnsXp || {}),
+  ]);
+
+const filtrarAddOnsXpCardOrigemAly137 = (addOnsXp = {}, addOnIds = []) => {
+  const ids = new Set(normalizarAddOnIds(addOnIds));
+  if (!ids.size || !addOnsXp || typeof addOnsXp !== "object") return {};
+  return Object.fromEntries(Object.entries(addOnsXp).filter(([addOnId]) => ids.has(addOnId)));
 };
 
 const BLOCOS_PAGE_SIZE = 6;
@@ -473,6 +532,13 @@ const formatarDataCurta = (value = null) => {
   }
 };
 
+const normalizarTextoBusca = (value = "") =>
+  String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+
 function CardActionIcon({ type }) {
   if (type === "eye") {
     return (
@@ -499,6 +565,27 @@ function CardActionIcon({ type }) {
         <path d="M11 10h10M11 15h10M11 20h6" />
         <path d="M21 21.5 25.5 26" />
         <circle cx="20" cy="20" r="4" />
+      </svg>
+    );
+  }
+
+  if (type === "copy") {
+    return (
+      <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+        <path d="M11 9.5h13.5v17H11v-17Z" />
+        <path d="M7.5 22.5v-17H21" />
+        <path d="M15 15h5.5M15 19h5.5" />
+      </svg>
+    );
+  }
+
+  if (type === "share") {
+    return (
+      <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+        <circle cx="8" cy="16" r="3.5" />
+        <circle cx="22" cy="8" r="3.5" />
+        <circle cx="22" cy="24" r="3.5" />
+        <path d="M11.2 14.4 18.8 9.6M11.2 17.6l7.6 4.8" />
       </svg>
     );
   }
@@ -530,6 +617,24 @@ const criarEstadoEditorCard = (overrides = {}) => ({
   linkExterno: "",
   addOnIds: [],
   addOnSubthemes: {},
+  aly137Evidencias: [],
+  aly137CardsOrigemIds: [],
+  aly137CardsOrigemAddOnIds: {},
+  ...overrides,
+});
+
+const criarEstadoForjaInventario = (overrides = {}) => ({
+  aberto: false,
+  blocoDestinoId: "",
+  nome: "",
+  descricao: "",
+  busca: "",
+  cardKeys: [],
+  cardAddOnIds: {},
+  addOnIds: [],
+  arrastando: null,
+  criando: false,
+  erro: "",
   ...overrides,
 });
 
@@ -837,7 +942,15 @@ export default function EspacoPage() {
   const [iconCollectionsDisponiveis, setIconCollectionsDisponiveis] = useState([]);
   const [addOnsDisponiveisGerenciador, setAddOnsDisponiveisGerenciador] = useState([]);
   const [erroAddOnsGerenciador, setErroAddOnsGerenciador] = useState("");
+  const [cardsFragmentosSkin, setCardsFragmentosSkin] = useState([]);
+  const [cardsFragmentosSkinLoading, setCardsFragmentosSkinLoading] = useState(false);
+  const [erroCardsFragmentosSkin, setErroCardsFragmentosSkin] = useState("");
   const [buscaAddOnEditor, setBuscaAddOnEditor] = useState("");
+  const [filtroTipoAddOnEditor, setFiltroTipoAddOnEditor] = useState("");
+  const [buscaConteudoEspaco, setBuscaConteudoEspaco] = useState("");
+  const [buscaConteudoAuditada, setBuscaConteudoAuditada] = useState("");
+  const [compartilhandoRastreavelId, setCompartilhandoRastreavelId] = useState("");
+  const [editorCardAba, setEditorCardAba] = useState("conteudo");
   const [ownerUidProjeto, setOwnerUidProjeto] = useState(
     String(
       obterOwnerUidConfigurado(configSistemaCacheLocal) || ""
@@ -892,6 +1005,16 @@ export default function EspacoPage() {
     url: "",
     titulo: "",
     alt: "Imagem ampliada",
+  });
+  const [addOnFichaModal, setAddOnFichaModal] = useState({
+    aberto: false,
+    addOn: null,
+  });
+  const [forjaInventarioModal, setForjaInventarioModal] = useState(() =>
+    criarEstadoForjaInventario()
+  );
+  const [forjaPreviewModal, setForjaPreviewModal] = useState({
+    aberto: false,
   });
   const [previewImpressaoCard, setPreviewImpressaoCard] = useState(() =>
     criarEstadoPreviewImpressaoCard()
@@ -975,6 +1098,8 @@ export default function EspacoPage() {
   );
 
   const espacosLista = Array.isArray(espacos) ? espacos : [];
+  const espacoAtual = espacosLista.find((e) => e.nome === espacoNome);
+  const espacoId = espacoAtual?.id || espacoAtual?.id_espaco;
   const blocoEditorCardsAtual = useMemo(
     () =>
       blocos.find((item) => String(item?.id || "").trim() === editorBlocoCardsModal.blocoId) || null,
@@ -996,13 +1121,390 @@ export default function EspacoPage() {
       }, {}),
     [addOnsDisponiveisProjeto]
   );
+  const tiposAddOnsEditor = useMemo(
+    () =>
+      Array.from(new Set(addOnsDisponiveisProjeto.map((item) => resolverTipoAddOn(item))))
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [addOnsDisponiveisProjeto]
+  );
   const addOnsEditorFiltrados = useMemo(() => {
     const buscaNormalizada = String(buscaAddOnEditor || "").trim().toLowerCase();
+    const tipoNormalizado = String(filtroTipoAddOnEditor || "").trim().toLowerCase();
     return addOnsDisponiveisProjeto.filter((item) => {
+      const tipoItem = resolverTipoAddOn(item);
+      const passaTipo = !tipoNormalizado || tipoItem === tipoNormalizado;
+      if (!passaTipo) return false;
       if (!buscaNormalizada) return true;
-      return String(item?.nome || "").toLowerCase().includes(buscaNormalizada);
+      return [
+        item?.nome,
+        item?.descricao,
+        item?.categoria,
+        item?.grupo,
+        tipoItem,
+      ]
+        .map((value) => String(value || "").toLowerCase())
+        .some((value) => value.includes(buscaNormalizada));
     });
-  }, [addOnsDisponiveisProjeto, buscaAddOnEditor]);
+  }, [addOnsDisponiveisProjeto, buscaAddOnEditor, filtroTipoAddOnEditor]);
+  const cardsFragmentosEspacoAtual = useMemo(
+    () =>
+      (Array.isArray(blocos) ? blocos : []).flatMap((bloco) => {
+        const blocoId = String(bloco?.id || "").trim();
+        const blocoTitulo = String(bloco?.titulo || bloco?.nome || blocoId || "Bloco").trim();
+        return normalizarCardsDoBloco(bloco?.cards).map((card) => ({
+          ...card,
+          key: `${espacoId || "espaco"}:${blocoId}:${card.id}`,
+          id: `${espacoId || "espaco"}:${blocoId}:${card.id}`,
+          cardId: card.id,
+          blocoId,
+          blocoTitulo,
+          espacoId: String(espacoId || "").trim(),
+          espacoNome: String(espacoNome || "").trim(),
+          espacoSubtema: normalizeCyberpinkSubtheme(espacoAtual?.subtema),
+        }));
+      }),
+    [blocos, espacoAtual?.subtema, espacoId, espacoNome]
+  );
+  const cardsFragmentosSkinCombinados = useMemo(() => {
+    const mapa = new Map();
+    [...cardsFragmentosEspacoAtual, ...(Array.isArray(cardsFragmentosSkin) ? cardsFragmentosSkin : [])].forEach(
+      (card) => {
+        const key = String(card?.key || `${card?.espacoId || ""}:${card?.blocoId || ""}:${card?.cardId || card?.id || ""}`).trim();
+        if (!key || mapa.has(key)) return;
+        mapa.set(key, card);
+      }
+    );
+    return Array.from(mapa.values());
+  }, [cardsFragmentosEspacoAtual, cardsFragmentosSkin]);
+  const cardsAly137Espaco = useMemo(
+    () =>
+      (Array.isArray(blocos) ? blocos : []).flatMap((bloco) => {
+        const blocoId = String(bloco?.id || "").trim();
+        const blocoTitulo = String(bloco?.titulo || bloco?.nome || blocoId || "Bloco").trim();
+        return normalizarCardsDoBloco(bloco?.cards).map((card) => ({
+          ...card,
+          blocoId,
+          blocoTitulo,
+        }));
+      }),
+    [blocos]
+  );
+  const blocosCardsDisponiveisForja = useMemo(
+    () =>
+      (Array.isArray(blocos) ? blocos : [])
+        .filter((bloco) => String(bloco?.tipo || "").trim() === "cards")
+        .map((bloco) => ({
+          ...bloco,
+          titulo: String(bloco?.titulo || bloco?.nome || bloco?.id || "Bloco de cards").trim(),
+        })),
+    [blocos]
+  );
+  const aly137ResumoAddOnsPorId = useMemo(
+    () =>
+      calcularResumoAddOnsAly137DeCards({
+        cards: cardsAly137Espaco,
+        addOns: addOnsDisponiveisProjeto,
+      }),
+    [addOnsDisponiveisProjeto, cardsAly137Espaco]
+  );
+  const imagemPreviewEditorCard = useMemo(
+    () =>
+      String(
+        editorCardModal.imagemPreviewUrl ||
+          editorCardModal.imagem ||
+          editorCardModal.imagemOriginal ||
+          ""
+      ).trim() || "/logoNeon.png",
+    [editorCardModal.imagem, editorCardModal.imagemOriginal, editorCardModal.imagemPreviewUrl]
+  );
+  const aly137Habilitado = configSistemaAtual?.aly137Habilitado === true;
+  const cardsDisponiveisForjaEditor = useMemo(() => {
+    const blocoAtualId = String(editorCardModal?.bloco?.id || "").trim();
+    const cardAtualId = String(editorCardModal?.card?.id || "").trim();
+    const espacoAtualId = String(espacoId || "").trim();
+    return cardsFragmentosSkinCombinados
+      .map((card) => ({
+        ...card,
+        key: String(card?.key || `${card?.espacoId || ""}:${card?.blocoId || ""}:${card?.cardId || card?.id || ""}`).trim(),
+        id: String(card?.key || `${card?.espacoId || ""}:${card?.blocoId || ""}:${card?.cardId || card?.id || ""}`).trim(),
+        cardId: String(card?.cardId || card?.id || "").trim(),
+        nome: card?.nome || "Card",
+        descricao: card?.descricao || card?.descricaoExtra || "",
+        imagem: card?.imagem || "",
+        xpTotal: Number(card?.aly137?.xpTotal || 0),
+        nivel: Number(card?.aly137?.nivel || 0),
+        atributos: card?.aly137?.atributos || {},
+        espacoSubtema: normalizeCyberpinkSubtheme(card?.espacoSubtema),
+        addOnIds: normalizarAddOnIds(card?.addOnIds),
+        addOnIdsDisponiveis: obterAddOnIdsDisponiveisCardOrigemAly137({
+          ...card,
+          addOnsXp: card?.aly137?.addOnsXp || card?.addOnsXp || {},
+        }),
+        addOnSubthemes: normalizarAddOnSubthemes(card?.addOnSubthemes, card?.addOnIds),
+        addOnsXp: card?.aly137?.addOnsXp || {},
+      }))
+      .filter(
+        (item) =>
+          item.cardId &&
+          !(
+            String(item.espacoId || "") === espacoAtualId &&
+            item.blocoId === blocoAtualId &&
+            item.cardId === cardAtualId
+          )
+      );
+  }, [
+    cardsFragmentosSkinCombinados,
+    editorCardModal?.bloco?.id,
+    editorCardModal?.card?.id,
+    espacoId,
+  ]);
+  const cardsRelacionaveisEditorFiltrados = useMemo(() => {
+    if (!aly137Habilitado) return [];
+    const buscaNormalizada = String(buscaAddOnEditor || "").trim().toLowerCase();
+    const filtroNormalizado = String(filtroTipoAddOnEditor || "").trim().toLowerCase();
+    if (filtroNormalizado && filtroNormalizado !== "__card__") return [];
+    return cardsDisponiveisForjaEditor.filter((card) => {
+      if (!buscaNormalizada) return true;
+      return [
+        card?.nome,
+        card?.descricao,
+        card?.blocoTitulo,
+        "card",
+      ]
+        .map((value) => String(value || "").toLowerCase())
+        .some((value) => value.includes(buscaNormalizada));
+    });
+  }, [aly137Habilitado, buscaAddOnEditor, cardsDisponiveisForjaEditor, filtroTipoAddOnEditor]);
+  const cardsOrigemSelecionadosEditor = useMemo(() => {
+    const selecionados = new Set(
+      Array.isArray(editorCardModal?.aly137CardsOrigemIds)
+        ? editorCardModal.aly137CardsOrigemIds.map((item) => String(item || "").trim()).filter(Boolean)
+        : []
+    );
+    const mapaRelacionados =
+      editorCardModal?.aly137CardsOrigemAddOnIds &&
+      typeof editorCardModal.aly137CardsOrigemAddOnIds === "object"
+        ? editorCardModal.aly137CardsOrigemAddOnIds
+        : {};
+
+    return cardsDisponiveisForjaEditor
+      .filter((card) => selecionados.has(card.key))
+      .map((card) => {
+        const addOnIdsDisponiveis = obterAddOnIdsDisponiveisCardOrigemAly137(card);
+        const temConfig = Object.prototype.hasOwnProperty.call(mapaRelacionados, card.key);
+        const addOnIdsRelacionados = temConfig
+          ? normalizarAddOnIds(mapaRelacionados[card.key]).filter((addOnId) =>
+              addOnIdsDisponiveis.includes(addOnId)
+            )
+          : addOnIdsDisponiveis;
+        return {
+          ...card,
+          addOnIdsDisponiveis,
+          addOnIdsRelacionados,
+          addOnIds: addOnIdsRelacionados,
+          addOnsXp: filtrarAddOnsXpCardOrigemAly137(card?.addOnsXp, addOnIdsRelacionados),
+        };
+      });
+  }, [
+    cardsDisponiveisForjaEditor,
+    editorCardModal?.aly137CardsOrigemAddOnIds,
+    editorCardModal?.aly137CardsOrigemIds,
+  ]);
+  const addOnIdsHerdadosForjaEditor = useMemo(
+    () =>
+      normalizarAddOnIds(
+        cardsOrigemSelecionadosEditor.flatMap((card) => [
+          ...(Array.isArray(card?.addOnIds) ? card.addOnIds : []),
+          ...Object.keys(card?.addOnsXp || {}),
+        ])
+      ),
+    [cardsOrigemSelecionadosEditor]
+  );
+  const addOnSubthemesHerdadosForjaEditor = useMemo(
+    () =>
+      cardsOrigemSelecionadosEditor.reduce((acc, card) => {
+        const addOnIdsCard = normalizarAddOnIds(card?.addOnIdsRelacionados || card?.addOnIds);
+        const subthemesCard = normalizarAddOnSubthemes(card?.addOnSubthemes, addOnIdsCard);
+        addOnIdsCard.forEach((addOnId) => {
+          if (subthemesCard[addOnId] && !acc[addOnId]) {
+            acc[addOnId] = subthemesCard[addOnId];
+          }
+        });
+        return acc;
+      }, {}),
+    [cardsOrigemSelecionadosEditor]
+  );
+  const addOnIdsEfetivosEditorCard = useMemo(
+    () =>
+      normalizarAddOnIds([
+        ...normalizarAddOnIds(editorCardModal?.addOnIds),
+        ...addOnIdsHerdadosForjaEditor,
+      ]),
+    [addOnIdsHerdadosForjaEditor, editorCardModal?.addOnIds]
+  );
+  const addOnSubthemesEfetivosEditorCard = useMemo(
+    () =>
+      normalizarAddOnSubthemes(
+        {
+          ...addOnSubthemesHerdadosForjaEditor,
+          ...(editorCardModal?.addOnSubthemes && typeof editorCardModal.addOnSubthemes === "object"
+            ? editorCardModal.addOnSubthemes
+            : {}),
+        },
+        addOnIdsEfetivosEditorCard
+      ),
+    [
+      addOnIdsEfetivosEditorCard,
+      addOnSubthemesHerdadosForjaEditor,
+      editorCardModal?.addOnSubthemes,
+    ]
+  );
+  const addOnsEfetivosEditorCard = useMemo(
+    () =>
+      addOnIdsEfetivosEditorCard
+        .map((addOnId) => addOnsDisponiveisProjetoPorId[addOnId])
+        .filter(Boolean),
+    [addOnIdsEfetivosEditorCard, addOnsDisponiveisProjetoPorId]
+  );
+  const resumoAly137EditorCard = useMemo(
+    () =>
+      calcularResumoAly137({
+        evidencias: editorCardModal?.aly137Evidencias,
+        cardsOrigem: cardsOrigemSelecionadosEditor,
+        validAddOnIds: addOnIdsEfetivosEditorCard,
+      }),
+    [
+      addOnIdsEfetivosEditorCard,
+      cardsOrigemSelecionadosEditor,
+      editorCardModal?.aly137Evidencias,
+    ]
+  );
+  const cardsForjaInventarioSelecionados = useMemo(() => {
+    const selecionados = new Set(
+      Array.isArray(forjaInventarioModal?.cardKeys)
+        ? forjaInventarioModal.cardKeys.map((item) => String(item || "").trim()).filter(Boolean)
+        : []
+    );
+    const mapaRelacionados =
+      forjaInventarioModal?.cardAddOnIds && typeof forjaInventarioModal.cardAddOnIds === "object"
+        ? forjaInventarioModal.cardAddOnIds
+        : {};
+
+    return cardsDisponiveisForjaEditor
+      .filter((card) => selecionados.has(card.key))
+      .map((card) => {
+        const addOnIdsDisponiveis = obterAddOnIdsDisponiveisCardOrigemAly137(card);
+        const temConfig = Object.prototype.hasOwnProperty.call(mapaRelacionados, card.key);
+        const addOnIdsRelacionados = temConfig
+          ? normalizarAddOnIds(mapaRelacionados[card.key]).filter((addOnId) =>
+              addOnIdsDisponiveis.includes(addOnId)
+            )
+          : addOnIdsDisponiveis;
+        return {
+          ...card,
+          addOnIdsDisponiveis,
+          addOnIdsRelacionados,
+          addOnIds: addOnIdsRelacionados,
+          addOnsXp: filtrarAddOnsXpCardOrigemAly137(card?.addOnsXp, addOnIdsRelacionados),
+        };
+      });
+  }, [
+    cardsDisponiveisForjaEditor,
+    forjaInventarioModal?.cardAddOnIds,
+    forjaInventarioModal?.cardKeys,
+  ]);
+  const addOnIdsHerdadosForjaInventario = useMemo(
+    () =>
+      normalizarAddOnIds(
+        cardsForjaInventarioSelecionados.flatMap((card) => [
+          ...(Array.isArray(card?.addOnIdsRelacionados) ? card.addOnIdsRelacionados : []),
+          ...Object.keys(card?.addOnsXp || {}),
+        ])
+      ),
+    [cardsForjaInventarioSelecionados]
+  );
+  const addOnIdsDiretosForjaInventario = useMemo(
+    () => normalizarAddOnIds(forjaInventarioModal?.addOnIds),
+    [forjaInventarioModal?.addOnIds]
+  );
+  const addOnIdsEfetivosForjaInventario = useMemo(
+    () =>
+      normalizarAddOnIds([
+        ...addOnIdsDiretosForjaInventario,
+        ...addOnIdsHerdadosForjaInventario,
+      ]),
+    [addOnIdsDiretosForjaInventario, addOnIdsHerdadosForjaInventario]
+  );
+  const addOnsDiretosForjaInventario = useMemo(
+    () =>
+      addOnIdsDiretosForjaInventario
+        .map((addOnId) => addOnsDisponiveisProjetoPorId[addOnId])
+        .filter(Boolean),
+    [addOnIdsDiretosForjaInventario, addOnsDisponiveisProjetoPorId]
+  );
+  const resumoForjaInventario = useMemo(
+    () =>
+      calcularResumoAly137({
+        evidencias: [],
+        cardsOrigem: cardsForjaInventarioSelecionados,
+        validAddOnIds: addOnIdsEfetivosForjaInventario,
+      }),
+    [addOnIdsEfetivosForjaInventario, cardsForjaInventarioSelecionados]
+  );
+  const cardsInventarioForjaFiltrados = useMemo(() => {
+    const busca = normalizarTextoBusca(forjaInventarioModal?.busca);
+    if (!busca) return cardsDisponiveisForjaEditor;
+    return cardsDisponiveisForjaEditor.filter((card) =>
+      [card?.nome, card?.descricao, card?.espacoNome, card?.blocoTitulo, "card"]
+        .map(normalizarTextoBusca)
+        .some((texto) => texto.includes(busca))
+    );
+  }, [cardsDisponiveisForjaEditor, forjaInventarioModal?.busca]);
+  const addOnsInventarioForjaFiltrados = useMemo(() => {
+    const busca = normalizarTextoBusca(forjaInventarioModal?.busca);
+    if (!busca) return addOnsDisponiveisProjeto;
+    return addOnsDisponiveisProjeto.filter((addOn) =>
+      [addOn?.nome, addOn?.descricao, resolverTipoAddOn(addOn), "chip", "add-on"]
+        .map(normalizarTextoBusca)
+        .some((texto) => texto.includes(busca))
+    );
+  }, [addOnsDisponiveisProjeto, forjaInventarioModal?.busca]);
+  const conclusaoNivelAly137EditorCard = useMemo(() => {
+    const progresso = resumoAly137EditorCard?.progressoNivel || {};
+    const xpAtual = Number(resumoAly137EditorCard?.xpTotal || 0);
+    const xpAlvo = Number(progresso?.xpProximoNivel || 0);
+    const nivelAtual = Number(progresso?.nivel || resumoAly137EditorCard?.nivel || 0);
+    const conclusaoEtapa = nivelAtual <= 0 ? "formacao" : "nivel";
+    const nivelAlvo = xpAlvo ? (nivelAtual <= 0 ? 1 : nivelAtual) : 0;
+    const xpFaltante = xpAlvo ? Math.max(0, Math.round(xpAlvo - xpAtual)) : 0;
+    const evidencias = Array.isArray(editorCardModal?.aly137Evidencias)
+      ? editorCardModal.aly137Evidencias
+      : [];
+    const jaConcluiuNivel = evidencias.some((evidencia) => {
+      const tipo = String(evidencia?.tipo || "").trim();
+      const alvo = Number(evidencia?.nivelAlvo || 0);
+      const etapa = String(evidencia?.conclusaoEtapa || "").trim();
+      return tipo === "conclusao_nivel" && alvo === nivelAlvo && etapa === conclusaoEtapa;
+    });
+
+    return {
+      disponivel: Boolean(xpAlvo && xpFaltante > 0 && !jaConcluiuNivel),
+      jaConcluiuNivel,
+      nivelAtual,
+      nivelAlvo,
+      conclusaoEtapa,
+      xpAtual,
+      xpAlvo,
+      xpFaltante,
+      labelBotao: nivelAtual <= 0 ? "Concluir formacao" : `Concluir nivel ${nivelAtual}`,
+    };
+  }, [
+    editorCardModal?.aly137Evidencias,
+    resumoAly137EditorCard?.nivel,
+    resumoAly137EditorCard?.progressoNivel,
+    resumoAly137EditorCard?.xpTotal,
+  ]);
   const addOnsProjetoHabilitados =
     configSistemaAtual?.addOnsHabilitados === true;
   const blocoAddOnsProjetoHabilitado = configSistemaAtual?.blocoAddOnsHabilitado === true;
@@ -1032,13 +1534,33 @@ export default function EspacoPage() {
   );
 
   const persistedUid = localStorage.getItem("userId");
+  const buscaConteudoUrl = useMemo(() => {
+    const params = new URLSearchParams(location.search || "");
+    return params.get("busca") || "";
+  }, [location.search]);
   const authUserAtual = user || auth.currentUser || null;
   const authUid = auth.currentUser?.uid || null;
   const currentUidAutenticado = user?.uid || authUid || null;
   const currentUid = user?.uid || authUid || persistedUid || null;
-  const espacoAtual = espacosLista.find((e) => e.nome === espacoNome);
-  const espacoId = espacoAtual?.id || espacoAtual?.id_espaco;
   const oneOwnerPublicaAtivaEfetiva = Boolean(oneOwnerPublicaAtivaContexto || oneOwnerPublicaAtiva);
+
+  useEffect(() => {
+    if (typeof localStorage === "undefined") return;
+    const espacoSegmento = encodeRouteSegment(espacoNome || "");
+    const skinSegmento = encodeRouteSegment(skinsUsername || "");
+    const pathEspaco = oneOwnerPublicaAtivaEfetiva
+      ? espacoSegmento
+        ? `/${espacoSegmento}`
+        : ""
+      : skinSegmento && espacoSegmento
+        ? `/${skinSegmento}/${espacoSegmento}`
+        : "";
+
+    if (!pathEspaco) return;
+    localStorage.setItem("aly137ForjaLastSpacePath", pathEspaco);
+    localStorage.setItem("aly137ForjaLastSpaceName", String(espacoNome || "").trim());
+  }, [espacoNome, oneOwnerPublicaAtivaEfetiva, skinsUsername]);
+
   const ownerUidProjetoEfetivo = String(
     ownerUidProjeto || obterOwnerUidConfigurado(configSistemaCacheLocal) || ""
   ).trim();
@@ -1088,6 +1610,26 @@ export default function EspacoPage() {
   const podeGerenciar = oneOwnerPublicaAtivaEfetiva
     ? usuarioEhOwnerProjeto
     : (podeGerenciarPadrao || usuarioEhOwnerProjeto);
+  const podeVerAuditoriaConteudo = usuarioPodeVerAuditoriaCategoriaProjeto(
+    {
+      configSistema: configSistemaAtual || configSistemaCacheLocal,
+      usuarioUid: currentUidAutenticado || currentUid || "",
+      usuarioEmail: authUserAtual?.email || "",
+      recursoOwnerUid: ownerUserId || "",
+      coCriadoresUids: espacoAtualEfetivo?.coCriadoresUids || [],
+    },
+    "conteudo"
+  );
+  const podeVerAuditoriaRastreaveis = usuarioPodeVerAuditoriaCategoriaProjeto(
+    {
+      configSistema: configSistemaAtual || configSistemaCacheLocal,
+      usuarioUid: currentUidAutenticado || currentUid || "",
+      usuarioEmail: authUserAtual?.email || "",
+      recursoOwnerUid: ownerUserId || "",
+      coCriadoresUids: espacoAtualEfetivo?.coCriadoresUids || [],
+    },
+    "rastreaveis"
+  );
   const abrirAuditoriaEntidade = useCallback(
     ({ entityType = "", entityId = "" } = {}) => {
       const tipo = String(entityType || "").trim();
@@ -1104,9 +1646,22 @@ export default function EspacoPage() {
         entityId: id,
       });
       if (projectSystemKey) params.set("projectSystemKey", projectSystemKey);
-      navigate(`/menu/gerenciador/auditoria?${params.toString()}`);
+      const skinMenu = String(localStorage.getItem("skinLogadoUser") || "").trim();
+      const menuBase =
+        oneOwnerPublicaAtivaEfetiva && (isOwner || usuarioEhOwnerProjeto)
+          ? "/menu/owner"
+          : skinMenu
+            ? `/menu/${encodeRouteSegment(skinMenu)}`
+            : "/menu/gerenciador";
+      navigate(`${menuBase}/auditoria?${params.toString()}`);
     },
-    [configSistemaAtual?.projectSystemKey, navigate]
+    [
+      configSistemaAtual?.projectSystemKey,
+      isOwner,
+      navigate,
+      oneOwnerPublicaAtivaEfetiva,
+      usuarioEhOwnerProjeto,
+    ]
   );
   const visibilidadeEspaco = espacoAtualEfetivo?.visibilidade || "publico";
   const visitanteOneOwnerPublico =
@@ -1566,8 +2121,99 @@ export default function EspacoPage() {
     });
   };
 
+  const abrirFichaAddOn = useCallback(
+    (addOn = {}) => {
+      const addOnId = String(addOn?.id || addOn?.addonId || "").trim();
+      if (!addOnId) return;
+      setAddOnFichaModal({
+        aberto: true,
+        addOn: {
+          ...addOn,
+          id: addOnId,
+          aly137Resumo:
+            aly137ResumoAddOnsPorId[addOnId] ||
+            addOn?.aly137Resumo ||
+            null,
+        },
+      });
+    },
+    [aly137ResumoAddOnsPorId]
+  );
+
+  const abrirFichaCardFragmento = useCallback(
+    (cardOrigem = {}) => {
+      const cardOrigemId = String(cardOrigem?.cardId || cardOrigem?.id || "").trim();
+      const blocoOrigemId = String(cardOrigem?.blocoId || "").trim();
+      const espacoOrigemNome = String(cardOrigem?.espacoNome || espacoNome || "").trim();
+      const cardOrigemRota =
+        cardOrigemId && blocoOrigemId && espacoOrigemNome
+          ? oneOwnerPublicaAtivaEfetiva
+            ? `/${encodeRouteSegment(espacoOrigemNome)}/card/${encodeRouteSegment(blocoOrigemId)}/${encodeRouteSegment(cardOrigemId)}`
+            : skinsUsername
+              ? `/${encodeRouteSegment(skinsUsername)}/${encodeRouteSegment(espacoOrigemNome)}/card/${encodeRouteSegment(blocoOrigemId)}/${encodeRouteSegment(cardOrigemId)}`
+              : ""
+          : "";
+      const xpTotal = Number(cardOrigem?.xpTotal || 0);
+      const progressoNivel = calcularNivelCardAly137(xpTotal);
+      const addOnIdsCard = normalizarAddOnIds([
+        ...(Array.isArray(cardOrigem?.addOnIdsRelacionados)
+          ? cardOrigem.addOnIdsRelacionados
+          : Array.isArray(cardOrigem?.addOnIds)
+            ? cardOrigem.addOnIds
+            : []),
+        ...Object.keys(cardOrigem?.addOnsXp || {}),
+      ]);
+      const addOnsHerdados = addOnIdsCard
+        .map((addOnId) => addOnsDisponiveisProjetoPorId[addOnId])
+        .filter(Boolean);
+
+      setAddOnFichaModal({
+        aberto: true,
+        addOn: {
+          id: cardOrigemId || `card-fragmento-${Date.now()}`,
+          tipoFicha: "cardFragmento",
+          nome: String(cardOrigem?.nome || "Card relacionado").trim(),
+          descricao: String(cardOrigem?.descricao || "").trim(),
+          imagem: String(cardOrigem?.imagem || "").trim(),
+          espacoNome: espacoOrigemNome,
+          blocoTitulo: String(cardOrigem?.blocoTitulo || "").trim(),
+          cardPreview: {
+            cardId: cardOrigemId,
+            blocoId: blocoOrigemId,
+            nome: String(cardOrigem?.nome || "Card relacionado").trim(),
+            descricao: String(cardOrigem?.descricao || "").trim(),
+            imagem: String(cardOrigem?.imagem || "").trim(),
+            rota: cardOrigemRota,
+          },
+          subtema: normalizeCyberpinkSubtheme(cardOrigem?.espacoSubtema || espacoAtualEfetivo?.subtema),
+          aly137Resumo: {
+            xpTotal,
+            percentual: progressoNivel.percentual || 0,
+            nivelLabel: progressoNivel.label,
+            atributos: cardOrigem?.atributos || {},
+            addOnsHerdados,
+            totalAddOnsDisponiveis: normalizarAddOnIds(cardOrigem?.addOnIdsDisponiveis).length || addOnsHerdados.length,
+          },
+        },
+      });
+    },
+    [
+      addOnsDisponiveisProjetoPorId,
+      espacoAtualEfetivo?.subtema,
+      espacoNome,
+      oneOwnerPublicaAtivaEfetiva,
+      skinsUsername,
+    ]
+  );
+
+  const fecharFichaAddOn = useCallback(() => {
+    setAddOnFichaModal({ aberto: false, addOn: null });
+  }, []);
+
   const fecharEditorCard = useCallback(() => {
     setBuscaAddOnEditor("");
+    setFiltroTipoAddOnEditor("");
+    setEditorCardAba("conteudo");
     setEditorCardModal((prev) => {
       const previewAnterior = String(prev?.imagemPreviewUrl || "").trim();
       if (previewAnterior.startsWith("blob:")) {
@@ -1583,6 +2229,8 @@ export default function EspacoPage() {
 
   const abrirEditorCardDoBloco = useCallback((bloco, card = {}) => {
     setErroAcaoBloco("");
+    setEditorCardAba("conteudo");
+    setFiltroTipoAddOnEditor("");
     setEditorCardModal((prev) => {
       const previewAnterior = String(prev?.imagemPreviewUrl || "").trim();
       if (previewAnterior.startsWith("blob:")) {
@@ -1592,6 +2240,23 @@ export default function EspacoPage() {
           // no-op
         }
       }
+
+      const addOnIdsNormalizados = normalizarAddOnIds(card?.addOnIds);
+      const aly137Normalizado = normalizarCardAly137(card?.aly137, addOnIdsNormalizados);
+      const cardsOrigemKeys = aly137Normalizado.cardsOrigem.map((item) => {
+        const keySalva = obterKeyCardOrigemAly137(item);
+        if (keySalva.includes(":")) return keySalva;
+        return String(`${item.espacoId || espacoId || ""}:${item.blocoId || bloco?.id || ""}:${item.cardId || item.id || ""}`);
+      });
+      const cardsOrigemAddOnIds = aly137Normalizado.cardsOrigem.reduce((acc, item) => {
+        const keySalva = obterKeyCardOrigemAly137(item);
+        const key = keySalva.includes(":")
+          ? keySalva
+          : String(`${item.espacoId || espacoId || ""}:${item.blocoId || bloco?.id || ""}:${item.cardId || item.id || ""}`);
+        if (!key) return acc;
+        acc[key] = normalizarAddOnIds(item.addOnIdsRelacionados || item.addOnIds);
+        return acc;
+      }, {});
 
       return criarEstadoEditorCard({
         aberto: true,
@@ -1606,12 +2271,15 @@ export default function EspacoPage() {
         imagemOriginal: String(card?.imagem || "").trim(),
         imagemPathOriginal: String(card?.imagemPath || "").trim(),
         linkExterno: String(card?.linkExterno || "").trim(),
-        addOnIds: normalizarAddOnIds(card?.addOnIds),
-        addOnSubthemes: normalizarAddOnSubthemes(card?.addOnSubthemes, card?.addOnIds),
+        addOnIds: addOnIdsNormalizados,
+        addOnSubthemes: normalizarAddOnSubthemes(card?.addOnSubthemes, addOnIdsNormalizados),
+        aly137Evidencias: aly137Normalizado.evidencias,
+        aly137CardsOrigemIds: cardsOrigemKeys,
+        aly137CardsOrigemAddOnIds: cardsOrigemAddOnIds,
       });
     });
     setBuscaAddOnEditor("");
-  }, []);
+  }, [espacoId]);
 
   const montarRotaCardDoBloco = useCallback(
     (bloco = {}, card = {}) => {
@@ -1640,6 +2308,188 @@ export default function EspacoPage() {
     }
   }, []);
 
+  const montarRotaEspacoAtual = useCallback(() => {
+    const espacoNomeRota = encodeRouteSegment(espacoNome || "");
+    const skinsUsernameRota = encodeRouteSegment(skinsUsername || "");
+    if (!espacoNomeRota) return "";
+    if (oneOwnerPublicaAtivaEfetiva) return `/${espacoNomeRota}`;
+    if (!skinsUsernameRota) return "";
+    return `/${skinsUsernameRota}/${espacoNomeRota}`;
+  }, [espacoNome, oneOwnerPublicaAtivaEfetiva, skinsUsername]);
+
+  const compartilharUrl = useCallback(async ({ url = "", title = "", text = "" } = {}) => {
+    const urlNormalizada = String(url || "").trim();
+    if (!urlNormalizada) return false;
+
+    if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+      try {
+        await navigator.share({
+          title: title || document.title || "Compartilhar",
+          text,
+          url: urlNormalizada,
+        });
+        return true;
+      } catch (error) {
+        if (error?.name === "AbortError") return false;
+      }
+    }
+
+    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(urlNormalizada);
+      alert("Link copiado para a area de transferencia.");
+      return true;
+    }
+
+    if (typeof window !== "undefined") {
+      window.prompt("Copie o link:", urlNormalizada);
+      return true;
+    }
+
+    return false;
+  }, []);
+
+  const registrarCompartilhamentoAuditado = useCallback(
+    (payload = {}) => {
+      void registrarAuditLog(payload).catch((error) => {
+        console.warn("Falha ao auditar compartilhamento:", error?.message || error);
+      });
+    },
+    []
+  );
+
+  const criarCompartilhamentoRastreavel = useCallback(
+    async ({
+      destinoUrl = "",
+      destinoTipo = "espaco",
+      bloco = null,
+      card = null,
+      descricao = "",
+      criadoVia = "compartilhamento_site",
+    } = {}) => {
+      const destinoUrlNormalizada = String(destinoUrl || "").trim();
+      const navigationId = getOrCreateNavigationId();
+      if (!destinoUrlNormalizada) {
+        return {
+          urlRastreavel: "",
+          destinoUrl: "",
+          trackingId: "",
+          rastreavel: false,
+          navigationId,
+        };
+      }
+
+      try {
+        const link = await criarLinkRastreavelEspaco({
+          ownerUserId,
+          espacoId,
+          espacoNome,
+          skinsUsername,
+          destinoUrl: destinoUrlNormalizada,
+          destinoTipo,
+          targetType: destinoTipo,
+          blocoId: bloco?.id || "",
+          cardId: card?.id || "",
+          descricao,
+          origemPlanejada: descricao,
+          permissaoCriarLinks: configSistemaAtual?.rastreabilidadeCriarLinksPermissao || "",
+          permissaoHistoricoLinks: configSistemaAtual?.rastreabilidadeHistoricoLinksPermissao || "",
+          criadoVia,
+        });
+
+        return {
+          ...link,
+          urlRastreavel: link?.urlRastreavel || destinoUrlNormalizada,
+          rastreavel: Boolean(link?.trackingId),
+          navigationId,
+        };
+      } catch (error) {
+        console.warn("Falha ao criar link rastreavel de compartilhamento:", error?.message || error);
+        return {
+          urlRastreavel: destinoUrlNormalizada,
+          destinoUrl: destinoUrlNormalizada,
+          trackingId: "",
+          rastreavel: false,
+          navigationId,
+          erro: error?.message || "Falha ao criar link rastreavel.",
+        };
+      }
+    },
+    [
+      configSistemaAtual?.rastreabilidadeCriarLinksPermissao,
+      configSistemaAtual?.rastreabilidadeHistoricoLinksPermissao,
+      espacoId,
+      espacoNome,
+      ownerUserId,
+      skinsUsername,
+    ]
+  );
+
+  const compartilharCardRastreavel = useCallback(
+    async ({ bloco = null, card = null, rota = "" } = {}) => {
+      if (!card) return;
+      const cardId = String(card?.id || "").trim();
+      const rotaCard = String(rota || montarRotaCardDoBloco(bloco, card)).trim();
+      const destinoUrl = montarUrlAbsolutaCard(rotaCard);
+      const idAcao = `card:${bloco?.id || ""}:${cardId || card?.nome || ""}`;
+      if (!destinoUrl || compartilhandoRastreavelId) return;
+
+      setCompartilhandoRastreavelId(idAcao);
+      try {
+        const link = await criarCompartilhamentoRastreavel({
+          destinoUrl,
+          destinoTipo: "card",
+          bloco,
+          card,
+          descricao: `Compartilhamento do card ${card?.nome || ""}`.trim(),
+          criadoVia: "compartilhamento_card_site",
+        });
+
+        const compartilhado = await compartilharUrl({
+          url: link.urlRastreavel || destinoUrl,
+          title: card?.nome || "Card",
+          text: card?.descricaoExtra || card?.descricao || "Acesse este card.",
+        });
+
+        if (compartilhado) {
+          registrarCompartilhamentoAuditado({
+            action: "compartilhou_card",
+            entityType: "card",
+            entityId: cardId || `${bloco?.id || "bloco"}-card`,
+            ownerUserId,
+            espacoId,
+            espacoNome,
+            blocoId: bloco?.id || "",
+            cardId,
+            source: "card_compartilhar",
+            metadata: {
+              auditCategory: "rastreaveis",
+              navigationId: link.navigationId,
+              trackingId: link.trackingId || null,
+              linkRastreavel: link.rastreavel === true,
+              destinoUrl,
+              urlCompartilhada: link.urlRastreavel || destinoUrl,
+              autenticado: Boolean(currentUidAutenticado),
+            },
+          });
+        }
+      } finally {
+        setCompartilhandoRastreavelId("");
+      }
+    },
+    [
+      compartilhandoRastreavelId,
+      criarCompartilhamentoRastreavel,
+      currentUidAutenticado,
+      espacoId,
+      espacoNome,
+      montarRotaCardDoBloco,
+      montarUrlAbsolutaCard,
+      ownerUserId,
+      registrarCompartilhamentoAuditado,
+      compartilharUrl,
+    ]
+  );
+
   const abrirPreviewImpressaoCard = useCallback(
     ({ bloco = null, card = null, imagem = "", addOns = [], rota = "" } = {}) => {
       if (!card) return;
@@ -1666,6 +2516,669 @@ export default function EspacoPage() {
     },
     [montarRotaCardDoBloco, montarUrlAbsolutaCard]
   );
+
+  const moverAddOnEditorCard = useCallback((addOnId = "", direcao = 0) => {
+    const addOnIdNormalizado = String(addOnId || "").trim();
+    const deslocamento = Number(direcao) || 0;
+    if (!addOnIdNormalizado || !deslocamento) return;
+
+    setEditorCardModal((prev) => {
+      const ids = normalizarAddOnIds(prev?.addOnIds);
+      const indiceAtual = ids.indexOf(addOnIdNormalizado);
+      const proximoIndice = indiceAtual + deslocamento;
+      if (indiceAtual < 0 || proximoIndice < 0 || proximoIndice >= ids.length) return prev;
+
+      const proximosIds = [...ids];
+      const itemMovido = proximosIds[indiceAtual];
+      proximosIds[indiceAtual] = proximosIds[proximoIndice];
+      proximosIds[proximoIndice] = itemMovido;
+      return {
+        ...prev,
+        addOnIds: proximosIds,
+      };
+    });
+  }, []);
+
+  const duplicarCardDoBloco = useCallback(
+    (bloco = null, card = {}) => {
+      if (!podeGerenciar || !bloco?.id || !card) return;
+
+      const cardsDoBloco = normalizarCardsDoBloco(bloco?.cards);
+      const novoId = gerarIdCardTemporario();
+      abrirEditorCardDoBloco(bloco, {
+        ...card,
+        id: novoId,
+        __novo: true,
+        ordem: cardsDoBloco.length,
+        nome: `${String(card?.nome || "Card").trim() || "Card"} copia`,
+        imagemPath: "",
+      });
+    },
+    [abrirEditorCardDoBloco, podeGerenciar]
+  );
+
+  const adicionarEvidenciaAly137Editor = useCallback(() => {
+    setEditorCardModal((prev) => {
+      const addOnIdsValidos = normalizarAddOnIds(prev?.addOnIds);
+      return {
+        ...prev,
+        aly137Evidencias: [
+          ...(Array.isArray(prev?.aly137Evidencias) ? prev.aly137Evidencias : []),
+          criarEvidenciaAly137Padrao(addOnIdsValidos),
+        ],
+      };
+    });
+  }, []);
+
+  const adicionarConclusaoNivelAly137Editor = useCallback(() => {
+    if (!conclusaoNivelAly137EditorCard.disponivel) return;
+    const agoraIso = new Date().toISOString();
+    const nivelAlvo = conclusaoNivelAly137EditorCard.nivelAlvo;
+    const conclusaoEtapa = conclusaoNivelAly137EditorCard.conclusaoEtapa;
+    const xpFaltante = conclusaoNivelAly137EditorCard.xpFaltante;
+    const xpAlvo = conclusaoNivelAly137EditorCard.xpAlvo;
+    const xpAtual = conclusaoNivelAly137EditorCard.xpAtual;
+
+    setEditorCardModal((prev) => {
+      const evidenciasAtuais = Array.isArray(prev?.aly137Evidencias) ? prev.aly137Evidencias : [];
+      const jaExiste = evidenciasAtuais.some(
+        (evidencia) =>
+          String(evidencia?.tipo || "").trim() === "conclusao_nivel" &&
+          Number(evidencia?.nivelAlvo || 0) === nivelAlvo &&
+          String(evidencia?.conclusaoEtapa || "").trim() === conclusaoEtapa
+      );
+      if (jaExiste) return prev;
+
+      return {
+        ...prev,
+        aly137Evidencias: [
+          ...evidenciasAtuais,
+          {
+            id: `conclusao_${conclusaoEtapa}_${nivelAlvo}_${Date.now()}`,
+            tipo: "conclusao_nivel",
+            titulo:
+              conclusaoEtapa === "formacao"
+                ? "Conclusao da formacao do card"
+                : `Conclusao do nivel ${nivelAlvo}`,
+            descricao: `Evidencia de fechamento automatico: +${xpFaltante} XP para alcancar ${xpAlvo} XP.`,
+            peso: "pequeno",
+            xpManual: xpFaltante,
+            xpCalculadoAutomaticamente: true,
+            conclusaoEtapa,
+            nivelAlvo,
+            xpAlvo,
+            xpAntesConclusao: xpAtual,
+            atributoPrincipal: "",
+            atributosSelecionados: [],
+            atributosPesos: {},
+            atributos: {},
+            addOnIds: [],
+            criadoEm: agoraIso,
+            atualizadoEm: agoraIso,
+          },
+        ],
+      };
+    });
+  }, [conclusaoNivelAly137EditorCard]);
+
+  const atualizarEvidenciaAly137Editor = useCallback((evidenciaId = "", changes = {}) => {
+    const idNormalizado = String(evidenciaId || "").trim();
+    if (!idNormalizado) return;
+    setEditorCardModal((prev) => {
+      const addOnIdsValidos = normalizarAddOnIds(prev?.addOnIds);
+      return {
+        ...prev,
+        aly137Evidencias: (Array.isArray(prev?.aly137Evidencias) ? prev.aly137Evidencias : []).map(
+          (evidencia, index) =>
+            String(evidencia?.id || "") === idNormalizado
+              ? {
+                  ...evidencia,
+                  ...changes,
+                  addOnIds: normalizarAddOnIds(changes?.addOnIds || evidencia?.addOnIds).filter((addOnId) =>
+                    addOnIdsValidos.includes(addOnId)
+                  ),
+                  atualizadoEm: new Date().toISOString(),
+                }
+              : evidencia
+        ),
+      };
+    });
+  }, []);
+
+  const removerEvidenciaAly137Editor = useCallback((evidenciaId = "") => {
+    const idNormalizado = String(evidenciaId || "").trim();
+    if (!idNormalizado) return;
+    setEditorCardModal((prev) => ({
+      ...prev,
+      aly137Evidencias: (Array.isArray(prev?.aly137Evidencias) ? prev.aly137Evidencias : []).filter(
+        (evidencia) => String(evidencia?.id || "") !== idNormalizado
+      ),
+    }));
+  }, []);
+
+  const alternarAddOnEvidenciaAly137Editor = useCallback((evidenciaId = "", addOnId = "") => {
+    const idNormalizado = String(evidenciaId || "").trim();
+    const addOnNormalizado = String(addOnId || "").trim();
+    if (!idNormalizado || !addOnNormalizado) return;
+
+    setEditorCardModal((prev) => ({
+      ...prev,
+      aly137Evidencias: (Array.isArray(prev?.aly137Evidencias) ? prev.aly137Evidencias : []).map((evidencia) => {
+        if (String(evidencia?.id || "") !== idNormalizado) return evidencia;
+        const atuais = normalizarAddOnIds(evidencia?.addOnIds);
+        const proximos = atuais.includes(addOnNormalizado)
+          ? atuais.filter((id) => id !== addOnNormalizado)
+          : [...atuais, addOnNormalizado];
+        return {
+          ...evidencia,
+          addOnIds: proximos,
+          atualizadoEm: new Date().toISOString(),
+        };
+      }),
+    }));
+  }, []);
+
+  const alternarAtributoEvidenciaAly137Editor = useCallback((evidenciaId = "", atributoKey = "") => {
+    const idNormalizado = String(evidenciaId || "").trim();
+    const atributoNormalizado = String(atributoKey || "").trim().toLowerCase();
+    if (!idNormalizado || !atributoNormalizado) return;
+
+    setEditorCardModal((prev) => ({
+      ...prev,
+      aly137Evidencias: (Array.isArray(prev?.aly137Evidencias) ? prev.aly137Evidencias : []).map((evidencia) => {
+        if (String(evidencia?.id || "") !== idNormalizado) return evidencia;
+        const selecionadosSalvos = normalizarAtributosSelecionadosAly137(evidencia?.atributosSelecionados);
+        const selecionadosLegados = normalizarAtributosSelecionadosAly137(
+          evidencia?.atributoPrincipal ? [evidencia.atributoPrincipal] : []
+        );
+        const selecionadosPorValor = normalizarAtributosSelecionadosAly137(
+          Object.entries(evidencia?.atributos || {})
+            .filter(([, valor]) => Number(valor) > 0)
+            .map(([atributo]) => atributo)
+        );
+        const atuais = selecionadosSalvos.length
+          ? selecionadosSalvos
+          : selecionadosLegados.length
+            ? selecionadosLegados
+            : selecionadosPorValor;
+        const proximos = atuais.includes(atributoNormalizado)
+          ? atuais.filter((item) => item !== atributoNormalizado)
+          : [...atuais, atributoNormalizado];
+        const pesosAtuais =
+          evidencia?.atributosPesos && typeof evidencia.atributosPesos === "object"
+            ? evidencia.atributosPesos
+            : {};
+        const atributosPesos = proximos.reduce((acc, atributo) => {
+          acc[atributo] = normalizarPesoEvidenciaAly137(
+            pesosAtuais[atributo] || evidencia?.peso || "pequeno"
+          );
+          return acc;
+        }, {});
+        const atributos = proximos.reduce((acc, atributo) => {
+          acc[atributo] = calcularXpPorPesoAly137(atributosPesos[atributo]);
+          return acc;
+        }, {});
+
+        return {
+          ...evidencia,
+          atributoPrincipal: proximos[0] || "",
+          atributosSelecionados: proximos,
+          atributosPesos,
+          atributos,
+          atualizadoEm: new Date().toISOString(),
+        };
+      }),
+    }));
+  }, []);
+
+  const atualizarPesoAtributoEvidenciaAly137Editor = useCallback(
+    (evidenciaId = "", atributoKey = "", peso = "pequeno") => {
+      const idNormalizado = String(evidenciaId || "").trim();
+      const atributoNormalizado = String(atributoKey || "").trim().toLowerCase();
+      if (!idNormalizado || !atributoNormalizado) return;
+
+      setEditorCardModal((prev) => ({
+        ...prev,
+        aly137Evidencias: (Array.isArray(prev?.aly137Evidencias) ? prev.aly137Evidencias : []).map((evidencia) => {
+          if (String(evidencia?.id || "") !== idNormalizado) return evidencia;
+          const selecionados = normalizarAtributosSelecionadosAly137(
+            evidencia?.atributosSelecionados ||
+              (evidencia?.atributoPrincipal ? [evidencia.atributoPrincipal] : [])
+          );
+          const atributosSelecionados = selecionados.includes(atributoNormalizado)
+            ? selecionados
+            : [...selecionados, atributoNormalizado];
+          const atributosPesos = {
+            ...(evidencia?.atributosPesos && typeof evidencia.atributosPesos === "object"
+              ? evidencia.atributosPesos
+              : {}),
+            [atributoNormalizado]: normalizarPesoEvidenciaAly137(peso),
+          };
+          const atributos = atributosSelecionados.reduce((acc, atributo) => {
+            acc[atributo] = calcularXpPorPesoAly137(atributosPesos[atributo] || evidencia?.peso);
+            return acc;
+          }, {});
+
+          return {
+            ...evidencia,
+            atributoPrincipal: atributosSelecionados[0] || "",
+            atributosSelecionados,
+            atributosPesos,
+            atributos,
+            atualizadoEm: new Date().toISOString(),
+          };
+        }),
+      }));
+    },
+    []
+  );
+
+  const alternarCardOrigemForjaEditor = useCallback((cardKey = "") => {
+    const keyNormalizada = String(cardKey || "").trim();
+    if (!keyNormalizada) return;
+    setEditorCardModal((prev) => {
+      const atuais = Array.isArray(prev?.aly137CardsOrigemIds)
+        ? prev.aly137CardsOrigemIds.map((item) => String(item || "").trim()).filter(Boolean)
+        : [];
+      const mapaAtual =
+        prev?.aly137CardsOrigemAddOnIds && typeof prev.aly137CardsOrigemAddOnIds === "object"
+          ? prev.aly137CardsOrigemAddOnIds
+          : {};
+      const estaMarcado = atuais.includes(keyNormalizada);
+      const proximos = estaMarcado
+        ? atuais.filter((item) => item !== keyNormalizada)
+        : [...atuais, keyNormalizada];
+      const { [keyNormalizada]: _removido, ...mapaSemCard } = mapaAtual;
+      const cardOrigem = cardsDisponiveisForjaEditor.find((item) => item.key === keyNormalizada);
+      const addOnIdsDisponiveis = obterAddOnIdsDisponiveisCardOrigemAly137(cardOrigem);
+      return {
+        ...prev,
+        aly137CardsOrigemIds: proximos,
+        aly137CardsOrigemAddOnIds: estaMarcado
+          ? mapaSemCard
+          : {
+              ...mapaAtual,
+              [keyNormalizada]: addOnIdsDisponiveis,
+            },
+      };
+    });
+  }, [cardsDisponiveisForjaEditor]);
+
+  const alternarAddOnCardOrigemForjaEditor = useCallback((cardKey = "", addOnId = "") => {
+    const keyNormalizada = String(cardKey || "").trim();
+    const addOnNormalizado = String(addOnId || "").trim();
+    if (!keyNormalizada || !addOnNormalizado) return;
+
+    setEditorCardModal((prev) => {
+      const selecionados = Array.isArray(prev?.aly137CardsOrigemIds)
+        ? prev.aly137CardsOrigemIds.map((item) => String(item || "").trim()).filter(Boolean)
+        : [];
+      if (!selecionados.includes(keyNormalizada)) return prev;
+
+      const cardOrigem = cardsDisponiveisForjaEditor.find((item) => item.key === keyNormalizada);
+      const addOnIdsDisponiveis = obterAddOnIdsDisponiveisCardOrigemAly137(cardOrigem);
+      if (!addOnIdsDisponiveis.includes(addOnNormalizado)) return prev;
+
+      const mapaAtual =
+        prev?.aly137CardsOrigemAddOnIds && typeof prev.aly137CardsOrigemAddOnIds === "object"
+          ? prev.aly137CardsOrigemAddOnIds
+          : {};
+      const temConfig = Object.prototype.hasOwnProperty.call(mapaAtual, keyNormalizada);
+      const atuais = temConfig ? normalizarAddOnIds(mapaAtual[keyNormalizada]) : addOnIdsDisponiveis;
+      const proximos = atuais.includes(addOnNormalizado)
+        ? atuais.filter((item) => item !== addOnNormalizado)
+        : [...atuais, addOnNormalizado];
+
+      return {
+        ...prev,
+        aly137CardsOrigemAddOnIds: {
+          ...mapaAtual,
+          [keyNormalizada]: proximos.filter((item) => addOnIdsDisponiveis.includes(item)),
+        },
+      };
+    });
+  }, [cardsDisponiveisForjaEditor]);
+
+  const prepararForjaNovoCardEditor = useCallback(() => {
+    setEditorCardModal((prev) => {
+      if (!prev?.aberto || !prev?.bloco) return prev;
+      const cardsDoBloco = normalizarCardsDoBloco(prev.bloco?.cards);
+      const origemAtualKey = prev?.card?.id && !prev?.ehNovo
+        ? `${espacoId || ""}:${prev.bloco.id}:${prev.card.id}`
+        : "";
+      const origemAtual = origemAtualKey ? [origemAtualKey] : [];
+      const origemSelecionada = Array.isArray(prev?.aly137CardsOrigemIds) ? prev.aly137CardsOrigemIds : [];
+      const addOnIdsCardAtual = normalizarAddOnIds(prev?.card?.addOnIds);
+      const addOnIdsOrigemAtual = normalizarAddOnIds([
+        ...normalizarAddOnIds(prev?.addOnIds),
+        ...addOnIdsCardAtual,
+        ...Object.keys(prev?.card?.aly137?.addOnsXp || {}),
+      ]);
+      const addOnSubthemesCardAtual = normalizarAddOnSubthemes(
+        prev?.card?.addOnSubthemes,
+        addOnIdsCardAtual
+      );
+      const mapaCardsOrigemAddOnsAtual =
+        prev?.aly137CardsOrigemAddOnIds && typeof prev.aly137CardsOrigemAddOnIds === "object"
+          ? prev.aly137CardsOrigemAddOnIds
+          : {};
+      const addOnIdsForjados = normalizarAddOnIds([
+        ...normalizarAddOnIds(prev?.addOnIds),
+        ...addOnIdsCardAtual,
+        ...addOnIdsHerdadosForjaEditor,
+      ]);
+      return {
+        ...prev,
+        card: {
+          ...(prev.card || {}),
+          id: gerarIdCardTemporario(),
+          __novo: true,
+        },
+        ehNovo: true,
+        ordem: cardsDoBloco.length,
+        nome: `${String(prev?.nome || "Card").trim() || "Card"} / forja`,
+        imagemPathOriginal: "",
+        addOnIds: addOnIdsForjados,
+        addOnSubthemes: normalizarAddOnSubthemes(
+          {
+            ...addOnSubthemesCardAtual,
+            ...addOnSubthemesHerdadosForjaEditor,
+            ...(prev?.addOnSubthemes && typeof prev.addOnSubthemes === "object" ? prev.addOnSubthemes : {}),
+          },
+          addOnIdsForjados
+        ),
+        aly137CardsOrigemIds: Array.from(new Set([...origemAtual, ...origemSelecionada])),
+        aly137CardsOrigemAddOnIds: {
+          ...(origemAtualKey ? { [origemAtualKey]: addOnIdsOrigemAtual } : {}),
+          ...mapaCardsOrigemAddOnsAtual,
+        },
+      };
+    });
+    setEditorCardAba("aly137");
+  }, [addOnIdsHerdadosForjaEditor, addOnSubthemesHerdadosForjaEditor, espacoId]);
+
+  const abrirForjaPreviewEditor = useCallback(() => {
+    setForjaPreviewModal({ aberto: true });
+  }, []);
+
+  const fecharForjaPreviewEditor = useCallback(() => {
+    setForjaPreviewModal({ aberto: false });
+  }, []);
+
+  const confirmarForjaNovoCardEditor = useCallback(() => {
+    prepararForjaNovoCardEditor();
+    setForjaPreviewModal({ aberto: false });
+  }, [prepararForjaNovoCardEditor]);
+
+  const adicionarCardAoInventarioForja = useCallback((cardKey = "") => {
+    const keyNormalizada = String(cardKey || "").trim();
+    if (!keyNormalizada) return;
+    const cardOrigem = cardsDisponiveisForjaEditor.find((item) => item.key === keyNormalizada);
+    const addOnIdsDisponiveis = obterAddOnIdsDisponiveisCardOrigemAly137(cardOrigem);
+
+    setForjaInventarioModal((prev) => {
+      const atuais = Array.isArray(prev?.cardKeys)
+        ? prev.cardKeys.map((item) => String(item || "").trim()).filter(Boolean)
+        : [];
+      if (atuais.includes(keyNormalizada)) return prev;
+      return {
+        ...prev,
+        cardKeys: [...atuais, keyNormalizada],
+        cardAddOnIds: {
+          ...(prev?.cardAddOnIds && typeof prev.cardAddOnIds === "object" ? prev.cardAddOnIds : {}),
+          [keyNormalizada]: addOnIdsDisponiveis,
+        },
+      };
+    });
+  }, [cardsDisponiveisForjaEditor]);
+
+  const removerCardDoInventarioForja = useCallback((cardKey = "") => {
+    const keyNormalizada = String(cardKey || "").trim();
+    if (!keyNormalizada) return;
+    setForjaInventarioModal((prev) => {
+      const atuais = Array.isArray(prev?.cardKeys)
+        ? prev.cardKeys.map((item) => String(item || "").trim()).filter(Boolean)
+        : [];
+      const { [keyNormalizada]: _removido, ...cardAddOnIds } =
+        prev?.cardAddOnIds && typeof prev.cardAddOnIds === "object" ? prev.cardAddOnIds : {};
+      return {
+        ...prev,
+        cardKeys: atuais.filter((item) => item !== keyNormalizada),
+        cardAddOnIds,
+      };
+    });
+  }, []);
+
+  const alternarAddOnCardInventarioForja = useCallback((cardKey = "", addOnId = "") => {
+    const keyNormalizada = String(cardKey || "").trim();
+    const addOnNormalizado = String(addOnId || "").trim();
+    if (!keyNormalizada || !addOnNormalizado) return;
+    const cardOrigem = cardsDisponiveisForjaEditor.find((item) => item.key === keyNormalizada);
+    const addOnIdsDisponiveis = obterAddOnIdsDisponiveisCardOrigemAly137(cardOrigem);
+    if (!addOnIdsDisponiveis.includes(addOnNormalizado)) return;
+
+    setForjaInventarioModal((prev) => {
+      const mapaAtual = prev?.cardAddOnIds && typeof prev.cardAddOnIds === "object" ? prev.cardAddOnIds : {};
+      const atuais = Object.prototype.hasOwnProperty.call(mapaAtual, keyNormalizada)
+        ? normalizarAddOnIds(mapaAtual[keyNormalizada])
+        : addOnIdsDisponiveis;
+      const proximos = atuais.includes(addOnNormalizado)
+        ? atuais.filter((item) => item !== addOnNormalizado)
+        : [...atuais, addOnNormalizado];
+      return {
+        ...prev,
+        cardAddOnIds: {
+          ...mapaAtual,
+          [keyNormalizada]: proximos.filter((item) => addOnIdsDisponiveis.includes(item)),
+        },
+      };
+    });
+  }, [cardsDisponiveisForjaEditor]);
+
+  const alternarAddOnDiretoInventarioForja = useCallback((addOnId = "") => {
+    const addOnNormalizado = String(addOnId || "").trim();
+    if (!addOnNormalizado) return;
+    setForjaInventarioModal((prev) => {
+      const atuais = normalizarAddOnIds(prev?.addOnIds);
+      return {
+        ...prev,
+        addOnIds: atuais.includes(addOnNormalizado)
+          ? atuais.filter((item) => item !== addOnNormalizado)
+          : [...atuais, addOnNormalizado],
+      };
+    });
+  }, []);
+
+  const abrirForjaInventario = useCallback((opcoes = {}) => {
+    const blocoDestino = blocosCardsDisponiveisForja[0] || null;
+    setForjaInventarioModal(
+      criarEstadoForjaInventario({
+        aberto: true,
+        blocoDestinoId: String(blocoDestino?.id || "").trim(),
+        nome: "Card forjado",
+        descricao: "Card criado pela Forja.",
+        returnTo: String(opcoes?.returnTo || "").trim(),
+        erro: blocoDestino ? "" : "Crie um bloco do tipo cards antes de forjar.",
+      })
+    );
+  }, [blocosCardsDisponiveisForja]);
+
+  const fecharForjaInventario = useCallback(() => {
+    const returnTo = String(forjaInventarioModal?.returnTo || "").trim();
+    setForjaInventarioModal(criarEstadoForjaInventario());
+    if (returnTo) {
+      navigate(returnTo, { replace: true });
+    }
+  }, [forjaInventarioModal?.returnTo, navigate]);
+
+  const iniciarArrasteForjaInventario = useCallback((event, material = {}) => {
+    const tipo = String(material?.tipo || "").trim();
+    const id = String(material?.id || "").trim();
+    if (!tipo || !id) return;
+    const payload = JSON.stringify({ tipo, id });
+    event.dataTransfer?.setData("application/json", payload);
+    event.dataTransfer?.setData("text/plain", payload);
+    event.dataTransfer.effectAllowed = "copy";
+    setForjaInventarioModal((prev) => ({ ...prev, arrastando: { tipo, id } }));
+  }, []);
+
+  const finalizarArrasteForjaInventario = useCallback(() => {
+    setForjaInventarioModal((prev) => ({ ...prev, arrastando: null }));
+  }, []);
+
+  const soltarMaterialNaForjaInventario = useCallback((event) => {
+    event.preventDefault();
+    let payload = null;
+    try {
+      payload = JSON.parse(
+        event.dataTransfer?.getData("application/json") ||
+          event.dataTransfer?.getData("text/plain") ||
+          "{}"
+      );
+    } catch {
+      payload = forjaInventarioModal?.arrastando || null;
+    }
+    const tipo = String(payload?.tipo || "").trim();
+    const id = String(payload?.id || "").trim();
+    if (tipo === "card") {
+      adicionarCardAoInventarioForja(id);
+    }
+    if (tipo === "addon") {
+      alternarAddOnDiretoInventarioForja(id);
+    }
+    finalizarArrasteForjaInventario();
+  }, [
+    adicionarCardAoInventarioForja,
+    alternarAddOnDiretoInventarioForja,
+    finalizarArrasteForjaInventario,
+    forjaInventarioModal?.arrastando,
+  ]);
+
+  const criarCardDaForjaInventario = useCallback(async () => {
+    if (!podeGerenciar) {
+      setForjaInventarioModal((prev) => ({ ...prev, erro: "Sem permissao para criar card." }));
+      return;
+    }
+    const bloco = blocosCardsDisponiveisForja.find(
+      (item) => String(item?.id || "") === String(forjaInventarioModal?.blocoDestinoId || "")
+    );
+    if (!bloco?.id) {
+      setForjaInventarioModal((prev) => ({ ...prev, erro: "Selecione um bloco de destino." }));
+      return;
+    }
+    if (!cardsForjaInventarioSelecionados.length && !addOnIdsDiretosForjaInventario.length) {
+      setForjaInventarioModal((prev) => ({ ...prev, erro: "Arraste ao menos um card ou chip para a forja." }));
+      return;
+    }
+
+    setForjaInventarioModal((prev) => ({ ...prev, criando: true, erro: "" }));
+    try {
+      const cardId = gerarIdCardTemporario();
+      const cardsDoBloco = normalizarCardsDoBloco(bloco?.cards);
+      const addOnIds = addOnIdsEfetivosForjaInventario;
+      const aly137Payload = criarPayloadCardAly137({
+        evidencias: [],
+        cardsOrigem: cardsForjaInventarioSelecionados,
+        validAddOnIds: addOnIds,
+      });
+      const primeiroCard = cardsForjaInventarioSelecionados[0] || {};
+      const payload = {
+        id: cardId,
+        ordem: cardsDoBloco.length,
+        nome: String(forjaInventarioModal?.nome || "").trim() || "Card forjado",
+        descricaoExtra: "FORJA",
+        descricao: String(forjaInventarioModal?.descricao || "").trim(),
+        imagem: String(primeiroCard?.imagem || "").trim() || "/logoNeon.png",
+        imagemPath: "",
+        linkExterno: "",
+        addOnIds,
+        addOnSubthemes: {},
+        usaAddOnsGerenciador: true,
+        aly137: aly137Payload,
+      };
+      const cardRef = getBlocoCardDocRef(bloco, cardId);
+      if (!cardRef) throw new Error("Nao foi possivel localizar a referencia do card.");
+
+      await setDoc(cardRef, {
+        ...payload,
+        blocoId: bloco.id,
+        espacoId,
+        ownerUserId,
+        criadoEm: serverTimestamp(),
+      });
+      const cardsPersistidos = await persistirCardsDoBloco(bloco, [...cardsDoBloco, payload]);
+
+      if (aly137Habilitado && ownerUserId) {
+        const blocosParaResumoAly137 = (Array.isArray(blocos) ? blocos : []).map((item) =>
+          String(item?.id || "") === String(bloco.id)
+            ? { ...item, cards: cardsPersistidos }
+            : item
+        );
+        const cardsParaResumoAly137 = blocosParaResumoAly137.flatMap((item) => {
+          const blocoResumoId = String(item?.id || "").trim();
+          const blocoResumoTitulo = String(item?.titulo || item?.nome || blocoResumoId || "Bloco").trim();
+          return normalizarCardsDoBloco(item?.cards).map((cardResumo) => ({
+            ...cardResumo,
+            blocoId: blocoResumoId,
+            blocoTitulo: blocoResumoTitulo,
+          }));
+        });
+        const resumosAddOnsAly137 = calcularResumoAddOnsAly137DeCards({
+          cards: cardsParaResumoAly137,
+          addOns: addOnsDisponiveisProjeto,
+        });
+        await salvarResumoAly137AddOnsUsuarioProjeto({
+          ownerUserId,
+          resumos: resumosAddOnsAly137,
+          atualizadoPorUid: currentUidAutenticado,
+        }).catch((err) => {
+          console.warn("Falha ao sincronizar XP dos add-ons apos forja:", err?.message || err);
+        });
+      }
+
+      await registrarAuditLog({
+        action: "criou_card_forjado_inventario",
+        entityType: "card",
+        entityId: cardId,
+        entityPath: `espacos/${espacoId}/blocos/${bloco.id}/cards/${cardId}`,
+        projectId: String(configSistemaAtual?.projectSystemKey || activeFirebaseProjectKey || "").trim() || null,
+        ownerUserId,
+        user,
+        metadata: {
+          nome: payload.nome,
+          blocoId: bloco.id,
+          totalCardsOrigem: cardsForjaInventarioSelecionados.length,
+          totalAddOnsDiretos: addOnIdsDiretosForjaInventario.length,
+          xpTotal: aly137Payload?.xpTotal || 0,
+        },
+      });
+
+      setForjaInventarioModal(criarEstadoForjaInventario());
+    } catch (err) {
+      setForjaInventarioModal((prev) => ({
+        ...prev,
+        criando: false,
+        erro: err?.message || "Falha ao criar card forjado.",
+      }));
+    }
+  }, [
+    addOnIdsDiretosForjaInventario.length,
+    addOnIdsEfetivosForjaInventario,
+    addOnsDisponiveisProjeto,
+    aly137Habilitado,
+    blocos,
+    blocosCardsDisponiveisForja,
+    cardsForjaInventarioSelecionados,
+    configSistemaAtual?.projectSystemKey,
+    currentUidAutenticado,
+    espacoId,
+    forjaInventarioModal?.blocoDestinoId,
+    forjaInventarioModal?.descricao,
+    forjaInventarioModal?.nome,
+    ownerUserId,
+    podeGerenciar,
+    user,
+  ]);
 
   const carregarHistoricoQrPrintsCard = useCallback(
     async ({ bloco = null, card = null } = {}) => {
@@ -3112,6 +4625,31 @@ export default function EspacoPage() {
     };
   }, [mensagemRestricaoVisivel]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.search || "");
+    if (params.get("forja") !== "1") return;
+    if (!aly137Habilitado || forjaInventarioModal?.aberto) return;
+    if (!acessoEspacoResolvido || !podeVerEspaco) return;
+
+    const returnTo = String(params.get("returnTo") || "").trim();
+    abrirForjaInventario({ returnTo });
+    params.delete("forja");
+    params.delete("returnTo");
+    const queryRestante = params.toString();
+    navigate(`${location.pathname}${queryRestante ? `?${queryRestante}` : ""}`, {
+      replace: true,
+    });
+  }, [
+    acessoEspacoResolvido,
+    abrirForjaInventario,
+    aly137Habilitado,
+    forjaInventarioModal?.aberto,
+    location.pathname,
+    location.search,
+    navigate,
+    podeVerEspaco,
+  ]);
+
   const podeVerBloco = (bloco) => {
     if (podeGerenciar) return true;
 
@@ -3378,6 +4916,148 @@ export default function EspacoPage() {
   }, [configSistemaAtual?.addOnsHabilitados, ownerUserId]);
 
   useEffect(() => {
+    let ativo = true;
+
+    async function carregarCardsFragmentosDaSkin() {
+      if (!(editorCardModal?.aberto || forjaInventarioModal?.aberto) || !aly137Habilitado || !ownerUserId) {
+        setCardsFragmentosSkin([]);
+        setCardsFragmentosSkinLoading(false);
+        setErroCardsFragmentosSkin("");
+        return;
+      }
+
+      const skinIdNormalizado = String(skinIdAtual || "").trim();
+      const espacoAtualId = String(espacoId || "").trim();
+      const espacosRelacionados = (Array.isArray(espacosLista) ? espacosLista : [])
+        .filter((espaco) => {
+          const id = String(espaco?.id || espaco?.id_espaco || "").trim();
+          if (!id || id === espacoAtualId) return false;
+          if (!skinIdNormalizado) return true;
+          const skinOwner = String(espaco?.skinOwner || espaco?.id_skin || "").trim();
+          const relacionadas = Array.isArray(espaco?.skins_relacionadas)
+            ? espaco.skins_relacionadas.map((item) => String(item || "").trim())
+            : [];
+          return skinOwner === skinIdNormalizado || relacionadas.includes(skinIdNormalizado);
+        });
+
+      if (!espacosRelacionados.length) {
+        setCardsFragmentosSkin([]);
+        setCardsFragmentosSkinLoading(false);
+        setErroCardsFragmentosSkin("");
+        return;
+      }
+
+      setCardsFragmentosSkinLoading(true);
+      setErroCardsFragmentosSkin("");
+
+      try {
+        const cardsColetados = [];
+
+        for (const espaco of espacosRelacionados) {
+          if (!ativo) return;
+          const espacoRelacionadoId = String(espaco?.id || espaco?.id_espaco || "").trim();
+          if (!espacoRelacionadoId) continue;
+          const espacoRelacionadoNome = String(espaco?.nome || espaco?.titulo || espacoRelacionadoId).trim();
+          const espacoRelacionadoSubtema = normalizeCyberpinkSubtheme(espaco?.subtema);
+
+          let blocosSnapshot = null;
+          const blocosRefs = getBlocosCollectionRefs(ownerUserId, espacoRelacionadoId);
+          for (const blocosRef of blocosRefs) {
+            try {
+              const snap = await getDocs(blocosRef);
+              if (!blocosSnapshot || !snap.empty) {
+                blocosSnapshot = snap;
+              }
+              if (!snap.empty) break;
+            } catch (err) {
+              if (err?.code !== "permission-denied") throw err;
+            }
+          }
+
+          if (!blocosSnapshot?.empty && blocosSnapshot?.docs?.length) {
+            const blocosDaSkin = blocosSnapshot.docs
+              .map((docSnap) => ({ id: docSnap.id, ...(docSnap.data() || {}) }))
+              .sort((a, b) => (Number(a?.ordem) || 0) - (Number(b?.ordem) || 0));
+
+            for (const bloco of blocosDaSkin) {
+              if (!ativo) return;
+              const blocoId = String(bloco?.id || "").trim();
+              if (!blocoId) continue;
+              let cardsDoBloco = normalizarCardsDoBloco(bloco?.cards);
+
+              if (!cardsDoBloco.length) {
+                let cardsSnapshot = null;
+                const cardsRefs = getBlocoCardsCollectionRefs(ownerUserId, espacoRelacionadoId, blocoId);
+                for (const cardsRef of cardsRefs) {
+                  try {
+                    const snap = await getDocs(cardsRef);
+                    if (!cardsSnapshot || !snap.empty) {
+                      cardsSnapshot = snap;
+                    }
+                    if (!snap.empty) break;
+                  } catch (err) {
+                    if (err?.code !== "permission-denied") throw err;
+                  }
+                }
+
+                if (!cardsSnapshot?.empty && cardsSnapshot?.docs?.length) {
+                  cardsDoBloco = normalizarCardsDoBloco(
+                    cardsSnapshot.docs.map((docSnap) => ({
+                      id: docSnap.id,
+                      ...(docSnap.data() || {}),
+                    }))
+                  );
+                }
+              }
+
+              const blocoTitulo = String(bloco?.titulo || bloco?.nome || blocoId || "Bloco").trim();
+              cardsDoBloco.forEach((card) => {
+                cardsColetados.push({
+                  ...card,
+                  key: `${espacoRelacionadoId}:${blocoId}:${card.id}`,
+                  id: `${espacoRelacionadoId}:${blocoId}:${card.id}`,
+                  cardId: card.id,
+                  blocoId,
+                  blocoTitulo,
+                  espacoId: espacoRelacionadoId,
+                  espacoNome: espacoRelacionadoNome,
+                  espacoSubtema: espacoRelacionadoSubtema,
+                });
+              });
+            }
+          }
+        }
+
+        if (!ativo) return;
+        setCardsFragmentosSkin(cardsColetados);
+        setErroCardsFragmentosSkin("");
+      } catch (error) {
+        if (!ativo) return;
+        setCardsFragmentosSkin([]);
+        setErroCardsFragmentosSkin(error?.message || "Falha ao carregar cards da skin.");
+      } finally {
+        if (ativo) {
+          setCardsFragmentosSkinLoading(false);
+        }
+      }
+    }
+
+    void carregarCardsFragmentosDaSkin();
+
+    return () => {
+      ativo = false;
+    };
+  }, [
+    aly137Habilitado,
+    editorCardModal?.aberto,
+    espacoId,
+    espacosLista,
+    forjaInventarioModal?.aberto,
+    ownerUserId,
+    skinIdAtual,
+  ]);
+
+  useEffect(() => {
     carregarGoogleFontsNoDocumento(googleFontsUrlsProjeto);
   }, [googleFontsUrlsProjeto]);
 
@@ -3385,12 +5065,120 @@ export default function EspacoPage() {
     () => blocos.slice(0, visibleBlocosCount),
     [blocos, visibleBlocosCount]
   );
+  const termoBuscaConteudo = normalizarTextoBusca(buscaConteudoEspaco);
+  const blocosFiltradosPorBusca = useMemo(() => {
+    if (!termoBuscaConteudo || !podeVerEspaco) return [];
+
+    return blocos
+      .filter((bloco) => podeVerBloco(bloco))
+      .filter((bloco) => {
+        const cardsTexto = normalizarCardsDoBloco(bloco?.cards)
+          .flatMap((card) => [
+            card.nome,
+            card.descricaoExtra,
+            card.descricao,
+            card.linkExterno,
+          ]);
+        const subBlocosTexto = normalizarSubBlocosAddOns(
+          bloco?.subBlocos || bloco?.subblocos,
+          bloco?.subObjetos || bloco?.subobjetos
+        )
+          .flatMap((subBloco) => [
+            subBloco.titulo,
+            ...subBloco.subObjetos.flatMap((subObjeto) => [
+              subObjeto.nomeSnapshot,
+              subObjeto.descricaoSnapshot,
+              subObjeto.addonId,
+            ]),
+          ]);
+        const textoBusca = normalizarTextoBusca(
+          [
+            bloco?.titulo,
+            bloco?.nome,
+            bloco?.tipo,
+            bloco?.descricao,
+            bloco?.conteudo,
+            bloco?.visibilidade,
+            ...cardsTexto,
+            ...subBlocosTexto,
+          ].join(" ")
+        );
+        return textoBusca.includes(termoBuscaConteudo);
+      });
+  }, [
+    blocos,
+    compradorPorBloco,
+    currentUid,
+    isAssinante,
+    podeGerenciar,
+    podeVerEspaco,
+    termoBuscaConteudo,
+  ]);
+  const blocosParaRenderizar = termoBuscaConteudo ? blocosFiltradosPorBusca : blocosVisiveis;
+
+  const executarBuscaConteudo = useCallback(
+    (event = null) => {
+      if (event?.preventDefault) event.preventDefault();
+      const termoOriginal = String(buscaConteudoEspaco || "").trim();
+      const termoNormalizado = normalizarTextoBusca(termoOriginal);
+      setBuscaConteudoAuditada(termoNormalizado);
+      if (!termoNormalizado) return;
+
+      const navigationId = getOrCreateNavigationId();
+      void registrarAuditLog({
+        action: "pesquisou_conteudo",
+        entityType: "siteSearch",
+        entityId: `${espacoId || "espaco"}:${Date.now()}`,
+        ownerUserId,
+        espacoId,
+        espacoNome,
+        source: "espaco_busca",
+        metadata: {
+          auditCategory: "conteudo",
+          navigationId,
+          termo: termoOriginal,
+          termoNormalizado,
+          totalResultados: blocosFiltradosPorBusca.length,
+          autenticado: Boolean(currentUidAutenticado),
+          privacidadeAplicada: true,
+        },
+      }).catch((error) => {
+        console.warn("Falha ao auditar busca do espaco:", error?.message || error);
+      });
+    },
+    [
+      blocosFiltradosPorBusca.length,
+      buscaConteudoEspaco,
+      currentUidAutenticado,
+      espacoId,
+      espacoNome,
+      ownerUserId,
+    ]
+  );
+
+  useEffect(() => {
+    setBuscaConteudoEspaco(buscaConteudoUrl);
+    setBuscaConteudoAuditada("");
+  }, [buscaConteudoUrl, espacoId]);
+
+  useEffect(() => {
+    if (!acessoEspacoResolvido || !podeVerEspaco || !termoBuscaConteudo) return;
+    if (buscaConteudoAuditada === termoBuscaConteudo) return;
+    executarBuscaConteudo();
+  }, [
+    acessoEspacoResolvido,
+    buscaConteudoAuditada,
+    executarBuscaConteudo,
+    podeVerEspaco,
+    termoBuscaConteudo,
+  ]);
 
   useEffect(() => {
     setVisibleBlocosCount(BLOCOS_PAGE_SIZE);
   }, [espacoId, ownerUserId, blocos.length]);
 
   useEffect(() => {
+    if (termoBuscaConteudo) return undefined;
     if (blocos.length <= visibleBlocosCount) return undefined;
 
     const alvo = blocosInfiniteScrollRef.current;
@@ -3410,7 +5198,7 @@ export default function EspacoPage() {
 
     observer.observe(alvo);
     return () => observer.disconnect();
-  }, [blocos.length, visibleBlocosCount]);
+  }, [blocos.length, termoBuscaConteudo, visibleBlocosCount]);
 
   useEffect(() => {
     if (!espacoId || !ownerUserId) return;
@@ -4945,11 +6733,20 @@ export default function EspacoPage() {
     const imagemAtual = String(editorCardModal?.imagemOriginal || "").trim();
     const imagemPathAtual = String(editorCardModal?.imagemPathOriginal || "").trim();
     const linkNovo = String(editorCardModal?.linkExterno || "").trim();
-    const addOnIdsNovos = normalizarAddOnIds(editorCardModal?.addOnIds);
+    const addOnIdsNovos = normalizarAddOnIds(addOnIdsEfetivosEditorCard);
     const addOnSubthemesNovos = normalizarAddOnSubthemes(
-      editorCardModal?.addOnSubthemes,
+      addOnSubthemesEfetivosEditorCard,
       addOnIdsNovos
     );
+    const aly137Payload = aly137Habilitado
+      ? criarPayloadCardAly137({
+          evidencias: editorCardModal?.aly137Evidencias,
+          cardsOrigem: cardsOrigemSelecionadosEditor,
+          validAddOnIds: addOnIdsNovos,
+        })
+      : card?.aly137?.ativo
+        ? card.aly137
+        : null;
     const ehNovoCard = Boolean(editorCardModal?.ehNovo);
 
     const cardRef = getBlocoCardDocRef(bloco, card.id);
@@ -5016,6 +6813,9 @@ export default function EspacoPage() {
         addOnSubthemes: addOnSubthemesNovos,
         usaAddOnsGerenciador: true,
       };
+      if (aly137Payload) {
+        payload.aly137 = aly137Payload;
+      }
 
       const cardsAtualizadosOrigem = normalizarCardsDoBloco(
         ehNovoCard
@@ -5041,9 +6841,54 @@ export default function EspacoPage() {
       }
 
       const cardsPersistidos = await persistirCardsDoBloco(bloco, cardsAtualizadosOrigem);
+      if (aly137Habilitado && ownerUserId) {
+        const blocosParaResumoAly137 = (Array.isArray(blocos) ? blocos : []).map((item) =>
+          String(item?.id || "") === String(bloco.id)
+            ? { ...item, cards: cardsPersistidos }
+            : item
+        );
+        const cardsParaResumoAly137 = blocosParaResumoAly137.flatMap((item) => {
+          const blocoResumoId = String(item?.id || "").trim();
+          const blocoResumoTitulo = String(item?.titulo || item?.nome || blocoResumoId || "Bloco").trim();
+          return normalizarCardsDoBloco(item?.cards).map((cardResumo) => ({
+            ...cardResumo,
+            blocoId: blocoResumoId,
+            blocoTitulo: blocoResumoTitulo,
+          }));
+        });
+        const resumosAddOnsAly137 = calcularResumoAddOnsAly137DeCards({
+          cards: cardsParaResumoAly137,
+          addOns: addOnsDisponiveisProjeto,
+        });
+
+        try {
+          await salvarResumoAly137AddOnsUsuarioProjeto({
+            ownerUserId,
+            resumos: resumosAddOnsAly137,
+            atualizadoPorUid: currentUidAutenticado,
+          });
+          setAddOnsDisponiveisGerenciador((prev) =>
+            (Array.isArray(prev) ? prev : []).map((addOn) => {
+              const addOnId = String(addOn?.id || "").trim();
+              return {
+                ...addOn,
+                aly137Resumo: resumosAddOnsAly137[addOnId] || addOn?.aly137Resumo || null,
+              };
+            })
+          );
+        } catch (err) {
+          console.warn("Falha ao sincronizar XP dos add-ons ALY-137:", err?.message || err);
+        }
+      }
+      const actionAuditoriaCard =
+        ehNovoCard && aly137Payload?.cardsOrigem?.length
+          ? "forjou_card"
+          : ehNovoCard
+            ? "criou_card"
+            : "editou_card";
 
       await registrarAuditLog({
-        action: ehNovoCard ? "criou_card" : "editou_card",
+        action: actionAuditoriaCard,
         entityType: "card",
         entityId: payload.id,
         ownerUserId,
@@ -5059,7 +6904,57 @@ export default function EspacoPage() {
           espacoId,
           ownerUserId,
         },
+        metadata: aly137Payload
+          ? {
+              aly137: {
+                xpTotal: aly137Payload.xpTotal,
+                nivel: aly137Payload.nivel,
+                xpEvidencias: aly137Payload.xpEvidencias,
+                xpCardsOrigem: aly137Payload.xpCardsOrigem,
+                totalEvidencias: aly137Payload.evidencias?.length || 0,
+                totalCardsOrigem: aly137Payload.cardsOrigem?.length || 0,
+              },
+            }
+          : null,
       });
+      if (aly137Payload) {
+        const evidenciasAntes = Array.isArray(card?.aly137?.evidencias)
+          ? card.aly137.evidencias
+          : [];
+        const evidenciasDepois = Array.isArray(aly137Payload?.evidencias)
+          ? aly137Payload.evidencias
+          : [];
+        const mudouEvidencias =
+          JSON.stringify(evidenciasAntes) !== JSON.stringify(evidenciasDepois);
+
+        if (mudouEvidencias) {
+          await registrarAuditLog({
+            action: ehNovoCard ? "criou_evidencias_card" : "editou_evidencias_card",
+            entityType: "card",
+            entityId: payload.id,
+            ownerUserId,
+            espacoId,
+            espacoNome,
+            blocoId: bloco.id,
+            cardId: payload.id,
+            source: "aly137_editor",
+            snapshotAntes: {
+              evidencias: evidenciasAntes,
+            },
+            snapshotDepois: {
+              evidencias: evidenciasDepois,
+              xpTotal: aly137Payload.xpTotal,
+              atributos: aly137Payload.atributos,
+            },
+            metadata: {
+              auditCategory: "conteudo",
+              aly137: true,
+              totalEvidenciasAntes: evidenciasAntes.length,
+              totalEvidenciasDepois: evidenciasDepois.length,
+            },
+          });
+        }
+      }
       if (Array.isArray(cardsPersistidos) && cardsPersistidos.length) {
         const indiceSelecionado = cardsPersistidos.findIndex(
           (item) => String(item?.id || "") === String(payload.id || "")
@@ -5331,12 +7226,14 @@ export default function EspacoPage() {
   return (
     <div>
       {podeGerenciar && (
-        <CriadorBloco
-          onCreate={adicionarBloco}
-          espacoAtual={espacoAtual}
-          skinIdAtual={skinIdAtual}
-          podeCriarOverride={podeGerenciar}
-        />
+        <>
+          <CriadorBloco
+            onCreate={adicionarBloco}
+            espacoAtual={espacoAtual}
+            skinIdAtual={skinIdAtual}
+            podeCriarOverride={podeGerenciar}
+          />
+        </>
       )}
 
       {!!erroBlocos && <p style={{ color: "red" }}>{erroBlocos}</p>}
@@ -5377,9 +7274,16 @@ export default function EspacoPage() {
         />
       )}
 
+      {acessoEspacoResolvido && podeVerEspaco && termoBuscaConteudo ? (
+        <p className="espaco-site-search__summary">
+          {`${blocosFiltradosPorBusca.length} resultado(s) visivel(is) para "${buscaConteudoEspaco.trim()}".`}
+          {buscaConteudoAuditada === termoBuscaConteudo ? " Busca auditada." : ""}
+        </p>
+      ) : null}
+
       {acessoEspacoResolvido &&
         podeVerEspaco &&
-        blocosVisiveis.map((bloco, blocoIndex) => {
+        blocosParaRenderizar.map((bloco, blocoIndex) => {
           const blocoEhCards = bloco?.tipo === "cards";
           const blocoEhLive = bloco?.tipo === "live";
           const blocoEhAddOns = bloco?.tipo === "addons";
@@ -5394,8 +7298,11 @@ export default function EspacoPage() {
               addOns: subBloco.subObjetos
                 .map((subObjeto) => {
                   const addOnAtual = addOnsDisponiveisProjetoPorId[subObjeto.addonId] || {};
+                  const addOnId = String(subObjeto.addonId || addOnAtual?.id || "").trim();
                   return {
                     ...subObjeto,
+                    id: addOnId,
+                    addonId: addOnId,
                     nome:
                       String(addOnAtual?.nome || "").trim() ||
                       subObjeto.nomeSnapshot ||
@@ -5408,6 +7315,10 @@ export default function EspacoPage() {
                       String(addOnAtual?.url_img || "").trim() ||
                       subObjeto.imagemSnapshot ||
                       "",
+                    aly137Resumo:
+                      aly137ResumoAddOnsPorId[addOnId] ||
+                      addOnAtual?.aly137Resumo ||
+                      null,
                   };
                 })
                 .filter((item) => item.nome || item.url_img),
@@ -5746,6 +7657,10 @@ export default function EspacoPage() {
                                     )}
                                     usaAddOnsGerenciador={cardAtivo?.usaAddOnsGerenciador === true}
                                     addOns={addOnsCardAtivo}
+                                    aly137={cardAtivo.aly137}
+                                    onAddOnClick={abrirFichaAddOn}
+                                    onCardFragmentClick={abrirFichaCardFragmento}
+                                    cyberpinkSubtheme={normalizeCyberpinkSubtheme(espacoAtualEfetivo?.subtema)}
                                     nome={cardAtivo.nome || `Card ${indiceCardAtivo + 1}`}
                                     descricaoExtra={cardAtivo.descricaoExtra || ""}
                                     nomeDescricao={cardAtivo.nome || ""}
@@ -5786,6 +7701,23 @@ export default function EspacoPage() {
                                   <CardActionIcon type="eye" />
                                 </button>
 
+                                <button
+                                  type="button"
+                                  className="cards-bloco-action-button"
+                                  onClick={() =>
+                                    compartilharCardRastreavel({
+                                      bloco,
+                                      card: cardAtivo,
+                                      rota: rotaCardAtivo,
+                                    })
+                                  }
+                                  disabled={Boolean(compartilhandoRastreavelId) || !rotaCardAtivo}
+                                  title="Compartilhar card"
+                                  aria-label="Compartilhar card"
+                                >
+                                  <CardActionIcon type="share" />
+                                </button>
+
                                 {podeGerenciar ? (
                                   <button
                                     type="button"
@@ -5804,7 +7736,19 @@ export default function EspacoPage() {
                                   </button>
                                 ) : null}
 
-                                {podeGerenciar && configSistemaAtual?.auditoriaAtiva !== false ? (
+                                {podeGerenciar ? (
+                                  <button
+                                    type="button"
+                                    className="cards-bloco-action-button"
+                                    onClick={() => duplicarCardDoBloco(bloco, cardAtivo)}
+                                    title="Duplicar card"
+                                    aria-label="Duplicar card"
+                                  >
+                                    <CardActionIcon type="copy" />
+                                  </button>
+                                ) : null}
+
+                                {podeVerAuditoriaConteudo ? (
                                   <button
                                     type="button"
                                     className="cards-bloco-action-button"
@@ -5821,23 +7765,25 @@ export default function EspacoPage() {
                                   </button>
                                 ) : null}
 
-                                <button
-                                  type="button"
-                                  className="cards-bloco-action-button"
-                                  onClick={() =>
-                                    abrirPreviewImpressaoCard({
-                                      bloco,
-                                      card: cardAtivo,
-                                      imagem: imagemCardFinal,
-                                      addOns: addOnsCardAtivo,
-                                      rota: rotaCardAtivo,
-                                    })
-                                  }
-                                  title="Historico de Card Rastreaveis"
-                                  aria-label="Historico de Card Rastreaveis"
-                                >
-                                  <CardActionIcon type="print" />
-                                </button>
+                                {podeVerAuditoriaRastreaveis ? (
+                                  <button
+                                    type="button"
+                                    className="cards-bloco-action-button"
+                                    onClick={() =>
+                                      abrirPreviewImpressaoCard({
+                                        bloco,
+                                        card: cardAtivo,
+                                        imagem: imagemCardFinal,
+                                        addOns: addOnsCardAtivo,
+                                        rota: rotaCardAtivo,
+                                      })
+                                    }
+                                    title="Historico de Card Rastreaveis"
+                                    aria-label="Historico de Card Rastreaveis"
+                                  >
+                                    <CardActionIcon type="print" />
+                                  </button>
+                                ) : null}
                               </div>
 
                               {cardsDoBloco.length > 1 ? (
@@ -5932,14 +7878,21 @@ export default function EspacoPage() {
                               const podeColorir = Boolean(subthemeKey) && isSvgAssetUrl(addOnUrl);
                               const iconColor = getCyberpinkSubthemeIconColor(subthemeKey);
                               const label = String(addOn?.nome || "Add-on").trim() || "Add-on";
+                              const addOnResumoAly137 = addOn?.aly137Resumo || aly137ResumoAddOnsPorId[addOnId] || null;
 
                               return (
-                                <div
+                                <button
+                                  type="button"
                                   key={`${bloco.id}-${subBloco.id}-addon-${addOnId}`}
                                   className={`addons-bloco-item${
                                     addOn?.destaque ? " addons-bloco-item--destaque" : ""
                                   }`}
-                                  title={addOn?.descricao || label}
+                                  title={
+                                    addOnResumoAly137
+                                      ? `${label} / ${addOnResumoAly137.xpTotal || 0} XP`
+                                      : addOn?.descricao || label
+                                  }
+                                  onClick={() => abrirFichaAddOn(addOn)}
                                 >
                                   <svg
                                     className="addons-bloco-chip-corner addons-bloco-chip-corner--tl"
@@ -6002,7 +7955,15 @@ export default function EspacoPage() {
                                     )}
                                   </span>
                                   <span className="addons-bloco-name">{label}</span>
-                                </div>
+                                  {addOnResumoAly137 ? (
+                                    <span className="addons-bloco-xp">
+                                      <span>{`${addOnResumoAly137.xpTotal || 0} XP`}</span>
+                                      <em aria-hidden="true">
+                                        <span style={{ width: `${Math.min(100, addOnResumoAly137.percentual || 0)}%` }} />
+                                      </em>
+                                    </span>
+                                  ) : null}
+                                </button>
                               );
                             })}
                           </div>
@@ -6083,6 +8044,7 @@ export default function EspacoPage() {
 
       {acessoEspacoResolvido &&
         podeVerEspaco &&
+        !termoBuscaConteudo &&
         blocosVisiveis.length < blocos.length ? (
           <div
             ref={blocosInfiniteScrollRef}
@@ -6132,6 +8094,28 @@ export default function EspacoPage() {
         liveChatMensagem={liveChatMensagem}
         setLiveChatMensagem={setLiveChatMensagem}
         enviarMensagemLive={enviarMensagemLive}
+      />
+      <Aly137Forja
+        modal={forjaInventarioModal}
+        setModal={setForjaInventarioModal}
+        onClose={fecharForjaInventario}
+        blocosDestino={blocosCardsDisponiveisForja}
+        cardsInventario={cardsInventarioForjaFiltrados}
+        addOnsInventario={addOnsInventarioForjaFiltrados}
+        cardsFragmentosSkinLoading={cardsFragmentosSkinLoading}
+        addOnIdsDiretos={addOnIdsDiretosForjaInventario}
+        cardsSelecionados={cardsForjaInventarioSelecionados}
+        addOnsDiretos={addOnsDiretosForjaInventario}
+        addOnsPorId={addOnsDisponiveisProjetoPorId}
+        resumo={resumoForjaInventario}
+        onAdicionarCard={adicionarCardAoInventarioForja}
+        onRemoverCard={removerCardDoInventarioForja}
+        onAlternarAddOnCard={alternarAddOnCardInventarioForja}
+        onAlternarAddOnDireto={alternarAddOnDiretoInventarioForja}
+        onDragStartMaterial={iniciarArrasteForjaInventario}
+        onDragEndMaterial={finalizarArrasteForjaInventario}
+        onDropMaterial={soltarMaterialNaForjaInventario}
+        onCriarCard={criarCardDaForjaInventario}
       />
 
       {editorBlocoCardsModal.aberto && blocoEditorCardsAtual ? (
@@ -6703,37 +8687,18 @@ export default function EspacoPage() {
         <div
           role="dialog"
           aria-modal="true"
-          onClick={fecharEditorCard}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 99998,
-            background: "rgba(0, 0, 0, 0.82)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 16,
-          }}
+          className="card-editor-modal"
+          onClick={(event) => event.stopPropagation()}
         >
           <div
-            className="menuContentArea"
+            className="menuContentArea card-editor-modal__content"
             onClick={(event) => event.stopPropagation()}
-            style={{
-              width: "min(96vw, 720px)",
-              maxHeight: "92vh",
-              overflowY: "auto",
-              border: "1px solid rgba(255,255,255,0.16)",
-              background: "rgba(10, 6, 22, 0.96)",
-              padding: 18,
-              display: "grid",
-              gap: 12,
-            }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+            <div className="card-editor-modal__header">
               <div>
                 <strong>Editar card</strong>
-                <p style={{ margin: "4px 0 0", opacity: 0.72, fontSize: 12 }}>
-                  Ajuste titulo, descricao, imagem e link do card.
+                <p>
+                  Conteudo, visual, add-ons, rastreabilidade e impressao em um fluxo unico.
                 </p>
               </div>
               <button
@@ -6747,385 +8712,1261 @@ export default function EspacoPage() {
               </button>
             </div>
 
-            <label style={{ display: "grid", gap: 6 }}>
-              <span>Titulo</span>
-              <input
-                type="text"
-                value={editorCardModal.nome}
-                onChange={(event) =>
-                  setEditorCardModal((prev) => ({
-                    ...prev,
-                    nome: event.target.value,
-                  }))
-                }
-                placeholder="Titulo do card"
-              />
-            </label>
+            <div className="card-editor-tabs" role="tablist" aria-label="Abas do editor de card">
+              {[
+                ["conteudo", "Conteudo"],
+                ["visual", "Visual"],
+                ["addons", "Add-ons"],
+                ...(aly137Habilitado ? [["aly137", "XP / Forja"]] : []),
+                ["rastreabilidade", "Rastreabilidade"],
+                ["impressao", "Impressao"],
+              ].map(([abaId, label]) => (
+                <button
+                  key={abaId}
+                  type="button"
+                  role="tab"
+                  aria-selected={editorCardAba === abaId}
+                  className={`card-editor-tab${editorCardAba === abaId ? " is-active" : ""}`}
+                  onClick={() => setEditorCardAba(abaId)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
 
-            <label style={{ display: "grid", gap: 6 }}>
-              <span>Descricao extra do titulo</span>
-              <input
-                type="text"
-                value={editorCardModal.descricaoExtra}
-                onChange={(event) =>
-                  setEditorCardModal((prev) => ({
-                    ...prev,
-                    descricaoExtra: event.target.value,
-                  }))
-                }
-                placeholder="Ex.: 22.000 instalacoes"
-              />
-            </label>
+            <div className="card-editor-modal__layout">
+              <div className="card-editor-modal__fields">
+                {editorCardAba === "conteudo" ? (
+                  <section className="card-editor-panel" aria-label="Conteudo do card">
+                    <label>
+                      <span>Titulo</span>
+                      <input
+                        type="text"
+                        value={editorCardModal.nome}
+                        onChange={(event) =>
+                          setEditorCardModal((prev) => ({
+                            ...prev,
+                            nome: event.target.value,
+                          }))
+                        }
+                        placeholder="Titulo do card"
+                      />
+                    </label>
 
-            <label style={{ display: "grid", gap: 6 }}>
-              <span>Descricao</span>
-              <textarea
-                value={editorCardModal.descricao}
-                onChange={(event) =>
-                  setEditorCardModal((prev) => ({
-                    ...prev,
-                    descricao: event.target.value,
-                  }))
-                }
-                placeholder="Descricao do card"
-                rows={6}
-              />
-            </label>
+                    <label>
+                      <span>Descricao extra do titulo</span>
+                      <input
+                        type="text"
+                        value={editorCardModal.descricaoExtra}
+                        onChange={(event) =>
+                          setEditorCardModal((prev) => ({
+                            ...prev,
+                            descricaoExtra: event.target.value,
+                          }))
+                        }
+                        placeholder="Ex.: 22.000 instalacoes"
+                      />
+                    </label>
 
-            <div style={{ display: "grid", gap: 8 }}>
-              <strong>Add-ons do card</strong>
-              <input
-                type="search"
-                value={buscaAddOnEditor}
-                onChange={(event) => setBuscaAddOnEditor(event.target.value)}
-                placeholder="Pesquisar add-on por nome"
-              />
-              <div
-                style={{
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  borderRadius: 8,
-                  padding: 10,
-                  maxHeight: 220,
-                  overflowY: "auto",
-                  display: "grid",
-                  gap: 8,
-                }}
-              >
-                {!addOnsProjetoHabilitados ? (
-                  <p style={{ margin: 0, opacity: 0.76 }}>
-                    A base de add-ons esta desativada neste projeto.
-                  </p>
-                ) : erroAddOnsGerenciador ? (
-                  <p style={{ margin: 0, color: "#ff9db0" }}>{erroAddOnsGerenciador}</p>
-                ) : !addOnsDisponiveisProjeto.length ? (
-                  <p style={{ margin: 0, opacity: 0.76 }}>
-                    Nenhum add-on criado para este usuario/projeto.
-                  </p>
-                ) : !addOnsEditorFiltrados.length ? (
-                  <p style={{ margin: 0, opacity: 0.76 }}>
-                    Nenhum add-on encontrado para este filtro.
-                  </p>
-                ) : (
-                  addOnsEditorFiltrados.map((item) => {
-                    const marcado = normalizarAddOnIds(editorCardModal.addOnIds).includes(item.id);
-                    const subtemaSelecionado =
-                      normalizarAddOnSubthemes(editorCardModal.addOnSubthemes, [item.id])[item.id] ||
-                      "";
-                    const addOnEhSvg = isSvgAssetUrl(item?.url_img);
-                    return (
-                      <label
-                        key={item.id}
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "20px 34px minmax(0, 1fr)",
-                          gap: 10,
-                          alignItems: "center",
+                    <label>
+                      <span>Descricao</span>
+                      <textarea
+                        value={editorCardModal.descricao}
+                        onChange={(event) =>
+                          setEditorCardModal((prev) => ({
+                            ...prev,
+                            descricao: event.target.value,
+                          }))
+                        }
+                        placeholder="Descricao do card"
+                        rows={7}
+                      />
+                    </label>
+
+                    <label>
+                      <span>Link externo</span>
+                      <input
+                        type="text"
+                        value={editorCardModal.linkExterno}
+                        onChange={(event) =>
+                          setEditorCardModal((prev) => ({
+                            ...prev,
+                            linkExterno: event.target.value,
+                          }))
+                        }
+                        placeholder="https://..."
+                      />
+                    </label>
+                  </section>
+                ) : null}
+
+                {editorCardAba === "visual" ? (
+                  <section className="card-editor-panel" aria-label="Visual do card">
+                    <label>
+                      <span>URL da imagem</span>
+                      <input
+                        type="text"
+                        value={editorCardModal.imagem}
+                        onChange={(event) =>
+                          setEditorCardModal((prev) => {
+                            const previewAnterior = String(prev?.imagemPreviewUrl || "").trim();
+                            if (previewAnterior.startsWith("blob:")) {
+                              try {
+                                URL.revokeObjectURL(previewAnterior);
+                              } catch {
+                                // no-op
+                              }
+                            }
+                            return {
+                              ...prev,
+                              imagem: event.target.value,
+                              imagemArquivo: null,
+                              imagemPreviewUrl: "",
+                            };
+                          })
+                        }
+                        placeholder="https://..."
+                      />
+                    </label>
+
+                    <div className="card-editor-button-row">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const arquivo = await selecionarArquivoImagem();
+                          if (!arquivo) return;
+                          const previewUrl = URL.createObjectURL(arquivo);
+                          setEditorCardModal((prev) => {
+                            const previewAnterior = String(prev?.imagemPreviewUrl || "").trim();
+                            if (previewAnterior.startsWith("blob:")) {
+                              try {
+                                URL.revokeObjectURL(previewAnterior);
+                              } catch {
+                                // no-op
+                              }
+                            }
+                            return {
+                              ...prev,
+                              imagemArquivo: arquivo,
+                              imagemPreviewUrl: previewUrl,
+                            };
+                          });
                         }}
                       >
-                        <input
-                          type="checkbox"
-                          checked={marcado}
-                          onChange={() =>
-                            setEditorCardModal((prev) => {
-                              const atuais = normalizarAddOnIds(prev?.addOnIds);
-                              const addOnSubthemesAtuais = normalizarAddOnSubthemes(
-                                prev?.addOnSubthemes,
-                                atuais
-                              );
-                              const estaMarcado = atuais.includes(item.id);
-                              const proximosIds = estaMarcado
-                                ? atuais.filter((id) => id !== item.id)
-                                : [...atuais, item.id];
-                              const proximosSubtemas = estaMarcado
-                                ? Object.fromEntries(
-                                    Object.entries(addOnSubthemesAtuais).filter(
-                                      ([addOnId]) => addOnId !== item.id
-                                    )
-                                  )
-                                : addOnSubthemesAtuais;
-                              return {
-                                ...prev,
-                                addOnIds: proximosIds,
-                                addOnSubthemes: proximosSubtemas,
-                              };
-                            })
-                          }
-                        />
-                        <span
-                          style={{
-                            width: 34,
-                            height: 34,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            border: "1px solid rgba(255,255,255,0.12)",
-                            borderRadius: 8,
-                            overflow: "hidden",
-                            background: "rgba(255,255,255,0.04)",
-                          }}
-                        >
-                          {item?.url_img ? (
-                            <img
-                              src={item.url_img}
-                              alt={item.nome || "Add-on"}
-                              style={{ width: "100%", height: "100%", objectFit: "contain" }}
-                            />
-                          ) : null}
-                        </span>
-                        <span style={{ minWidth: 0 }}>
-                          <strong>{item.nome}</strong>
-                          {item?.descricao ? (
-                            <span style={{ display: "block", fontSize: 12, opacity: 0.74 }}>
-                              {item.descricao}
-                            </span>
-                          ) : null}
-                          {marcado && addOnEhSvg ? (
-                            <span style={{ display: "grid", gap: 4, marginTop: 8 }}>
-                              <span style={{ fontSize: 11, opacity: 0.72 }}>
-                                Cor do SVG no card
-                              </span>
-                              <select
-                                value={subtemaSelecionado}
-                                onChange={(event) => {
-                                  const proximoValor = String(event.target.value || "").trim();
-                                  setEditorCardModal((prev) => {
-                                    const mapaAtual = normalizarAddOnSubthemes(
-                                      prev?.addOnSubthemes,
-                                      prev?.addOnIds
-                                    );
+                        Escolher arquivo
+                      </button>
 
-                                    if (!proximoValor) {
-                                      const { [item.id]: _omitido, ...restante } = mapaAtual;
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditorCardModal((prev) => {
+                            const previewAnterior = String(prev?.imagemPreviewUrl || "").trim();
+                            if (previewAnterior.startsWith("blob:")) {
+                              try {
+                                URL.revokeObjectURL(previewAnterior);
+                              } catch {
+                                // no-op
+                              }
+                            }
+                            return {
+                              ...prev,
+                              imagem: "",
+                              imagemArquivo: null,
+                              imagemPreviewUrl: "",
+                            };
+                          })
+                        }
+                      >
+                        Remover imagem
+                      </button>
+
+                      {editorCardModal.imagemArquivo ? (
+                        <span className="card-editor-muted">
+                          {`Arquivo: ${editorCardModal.imagemArquivo.name}`}
+                        </span>
+                      ) : null}
+                    </div>
+
+                    <div className="card-editor-image-preview">
+                      <span>Imagem atual</span>
+                      <img
+                        src={imagemPreviewEditorCard}
+                        alt="Preview do card"
+                      />
+                    </div>
+                  </section>
+                ) : null}
+
+                {editorCardAba === "addons" ? (
+                  <section className="card-editor-panel" aria-label="Add-ons do card">
+                    <div className="card-editor-panel__title-row">
+                      <strong>Add-ons do card</strong>
+                      <span>
+                        {`${addOnIdsEfetivosEditorCard.length} add-on(s) / ${cardsOrigemSelecionadosEditor.length} card(s)`}
+                      </span>
+                    </div>
+
+                    <div className="card-editor-selected-addons">
+                      {addOnsEfetivosEditorCard.length ? (
+                        addOnsEfetivosEditorCard.map((item, index) => {
+                          const addOnId = String(item?.id || "").trim();
+                          const addOnEhSvg = isSvgAssetUrl(item?.url_img);
+                          const subtemaSelecionado =
+                            normalizarAddOnSubthemes(addOnSubthemesEfetivosEditorCard, [addOnId])[addOnId] ||
+                            "";
+                          const herdado = addOnIdsHerdadosForjaEditor.includes(addOnId);
+
+                          return (
+                            <div
+                              className={`card-editor-selected-addon${herdado ? " is-inherited" : ""}`}
+                              key={addOnId}
+                            >
+                              <span className="card-editor-selected-addon__icon">
+                                {item?.url_img ? <img src={item.url_img} alt="" /> : null}
+                              </span>
+                              <span className="card-editor-selected-addon__meta">
+                                <strong>{item.nome || "Add-on"}</strong>
+                                <small>
+                                  {`${formatarTipoAddOn(resolverTipoAddOn(item))}${herdado ? " / herdado da forja" : ""}`}
+                                </small>
+                              </span>
+                              <span className="card-editor-selected-addon__actions">
+                                <button
+                                  type="button"
+                                  onClick={() => moverAddOnEditorCard(addOnId, -1)}
+                                  disabled={herdado || index === 0}
+                                  aria-label="Mover add-on para esquerda"
+                                  title="Mover para esquerda"
+                                >
+                                  {"<"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => moverAddOnEditorCard(addOnId, 1)}
+                                  disabled={herdado || index >= addOnsEfetivosEditorCard.length - 1}
+                                  aria-label="Mover add-on para direita"
+                                  title="Mover para direita"
+                                >
+                                  {">"}
+                                </button>
+                              </span>
+                              {addOnEhSvg ? (
+                                <select
+                                  value={subtemaSelecionado}
+                                  onChange={(event) => {
+                                    const proximoValor = String(event.target.value || "").trim();
+                                    setEditorCardModal((prev) => {
+                                      const mapaAtual = normalizarAddOnSubthemes(
+                                        prev?.addOnSubthemes,
+                                        prev?.addOnIds
+                                      );
+
+                                      if (!proximoValor) {
+                                        const { [addOnId]: _omitido, ...restante } = mapaAtual;
+                                        return {
+                                          ...prev,
+                                          addOnSubthemes: restante,
+                                        };
+                                      }
+
                                       return {
                                         ...prev,
-                                        addOnSubthemes: restante,
+                                        addOnSubthemes: {
+                                          ...mapaAtual,
+                                          [addOnId]: normalizeCyberpinkSubtheme(proximoValor),
+                                        },
                                       };
-                                    }
+                                    });
+                                  }}
+                                >
+                                  <option value="">Padrao do espaco</option>
+                                  {CYBERPINK_SUBTHEMES.map((subtema) => (
+                                    <option key={subtema.value} value={subtema.value}>
+                                      {subtema.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : null}
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <p>Nenhum add-on selecionado ainda.</p>
+                      )}
+                      {cardsOrigemSelecionadosEditor.length ? (
+                        cardsOrigemSelecionadosEditor.map((cardOrigem) => {
+                          const addOnIdsDisponiveis = obterAddOnIdsDisponiveisCardOrigemAly137(cardOrigem);
+                          const addOnIdsRelacionados = normalizarAddOnIds(cardOrigem.addOnIdsRelacionados);
+                          return (
+                            <div
+                              className="card-editor-selected-addon card-editor-selected-addon--card"
+                              key={`card-fragmento-${cardOrigem.key}`}
+                            >
+                              <span className="card-editor-selected-addon__icon card-editor-selected-addon__icon--card">
+                                {cardOrigem.imagem ? (
+                                  <img src={cardOrigem.imagem} alt="" />
+                                ) : (
+                                  <span>{String(cardOrigem.nome || "C").slice(0, 2).toUpperCase()}</span>
+                                )}
+                              </span>
+                              <span className="card-editor-selected-addon__meta">
+                                <strong>{cardOrigem.nome || "Card"}</strong>
+                                <small>
+                                  {`Card / ${cardOrigem.espacoNome || "Espaco"} / ${cardOrigem.blocoTitulo || "Bloco"} / ${cardOrigem.xpTotal || 0} XP`}
+                                </small>
+                                <em>{`${addOnIdsRelacionados.length} de ${addOnIdsDisponiveis.length} add-on(s) relacionados`}</em>
+                              </span>
+                              <span className="card-editor-selected-addon__actions">
+                                <button
+                                  type="button"
+                                  onClick={() => alternarCardOrigemForjaEditor(cardOrigem.key)}
+                                  aria-label="Remover card relacionado"
+                                  title="Remover card relacionado"
+                                >
+                                  X
+                                </button>
+                              </span>
+                              <div className="card-editor-card-fragment-addons">
+                                <span>Add-ons deste card que entram na relacao</span>
+                                {addOnIdsDisponiveis.length ? (
+                                  addOnIdsDisponiveis.map((addOnId) => {
+                                    const addOn = addOnsDisponiveisProjetoPorId[addOnId] || {};
+                                    const marcado = addOnIdsRelacionados.includes(addOnId);
+                                    return (
+                                      <button
+                                        type="button"
+                                        key={`${cardOrigem.key}-${addOnId}`}
+                                        className={`card-editor-card-fragment-addon${marcado ? " is-selected" : ""}`}
+                                        onClick={() => alternarAddOnCardOrigemForjaEditor(cardOrigem.key, addOnId)}
+                                      >
+                                        {addOn?.url_img ? <img src={addOn.url_img} alt="" /> : null}
+                                        <span>{addOn?.nome || addOnId}</span>
+                                      </button>
+                                    );
+                                  })
+                                ) : (
+                                  <em>Este card nao possui add-ons disponiveis no snapshot.</em>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })
+                      ) : null}
+                    </div>
 
+                    <div className="card-editor-filters">
+                      <input
+                        type="search"
+                        value={buscaAddOnEditor}
+                        onChange={(event) => setBuscaAddOnEditor(event.target.value)}
+                        placeholder="Pesquisar por nome, tipo ou descricao"
+                      />
+                      <select
+                        value={filtroTipoAddOnEditor}
+                        onChange={(event) => setFiltroTipoAddOnEditor(event.target.value)}
+                      >
+                        <option value="">Todos os tipos</option>
+                        {tiposAddOnsEditor.map((tipo) => (
+                          <option key={tipo} value={tipo}>
+                            {formatarTipoAddOn(tipo)}
+                          </option>
+                        ))}
+                        {aly137Habilitado ? <option value="__card__">Cards</option> : null}
+                      </select>
+                    </div>
+
+                    <div className="card-editor-addons-list">
+                      {String(filtroTipoAddOnEditor || "").trim().toLowerCase() === "__card__" ? (
+                        <p>Filtro de cards ativo. Selecione os cards relacionaveis abaixo.</p>
+                      ) : !addOnsProjetoHabilitados ? (
+                        <p>A base de add-ons esta desativada neste projeto.</p>
+                      ) : erroAddOnsGerenciador ? (
+                        <p className="card-editor-error">{erroAddOnsGerenciador}</p>
+                      ) : !addOnsDisponiveisProjeto.length ? (
+                        <p>Nenhum add-on criado para este usuario/projeto.</p>
+                      ) : !addOnsEditorFiltrados.length ? (
+                        <p>Nenhum add-on encontrado para este filtro.</p>
+                      ) : (
+                        addOnsEditorFiltrados.map((item) => {
+                          const addOnId = String(item?.id || "").trim();
+                          const marcado = normalizarAddOnIds(editorCardModal.addOnIds).includes(addOnId);
+                          const addOnEhSvg = isSvgAssetUrl(item?.url_img);
+                          return (
+                            <label
+                              key={addOnId}
+                              className={`card-editor-addon-option${marcado ? " is-selected" : ""}`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={marcado}
+                                onChange={() =>
+                                  setEditorCardModal((prev) => {
+                                    const atuais = normalizarAddOnIds(prev?.addOnIds);
+                                    const addOnSubthemesAtuais = normalizarAddOnSubthemes(
+                                      prev?.addOnSubthemes,
+                                      atuais
+                                    );
+                                    const estaMarcado = atuais.includes(addOnId);
+                                    const proximosIds = estaMarcado
+                                      ? atuais.filter((id) => id !== addOnId)
+                                      : [...atuais, addOnId];
+                                    const proximosSubtemas = estaMarcado
+                                      ? Object.fromEntries(
+                                          Object.entries(addOnSubthemesAtuais).filter(
+                                            ([id]) => id !== addOnId
+                                          )
+                                        )
+                                      : addOnSubthemesAtuais;
                                     return {
                                       ...prev,
-                                      addOnSubthemes: {
-                                        ...mapaAtual,
-                                        [item.id]: normalizeCyberpinkSubtheme(proximoValor),
-                                      },
+                                      addOnIds: proximosIds,
+                                      addOnSubthemes: proximosSubtemas,
                                     };
-                                  });
-                                }}
-                              >
-                                <option value="">Padrao do espaco</option>
-                                {CYBERPINK_SUBTHEMES.map((subtema) => (
-                                  <option key={subtema.value} value={subtema.value}>
-                                    {`Subtema: ${subtema.label}`}
-                                  </option>
-                                ))}
-                              </select>
-                              <span style={{ fontSize: 11, opacity: 0.62 }}>
-                                Escolha um subtema para tingir este SVG no card.
+                                  })
+                                }
+                              />
+                              <span className="card-editor-addon-option__icon">
+                                {item?.url_img ? <img src={item.url_img} alt={item.nome || "Add-on"} /> : null}
                               </span>
-                            </span>
-                          ) : null}
-                          {marcado && !addOnEhSvg ? (
-                            <span style={{ display: "block", fontSize: 11, opacity: 0.58, marginTop: 8 }}>
-                              Cor dinamica disponivel apenas para add-ons em SVG.
-                            </span>
-                          ) : null}
+                              <span className="card-editor-addon-option__meta">
+                                <strong>{item.nome}</strong>
+                                <small>
+                                  {`${formatarTipoAddOn(resolverTipoAddOn(item))}${addOnEhSvg ? " / SVG colorivel" : ""}`}
+                                </small>
+                                {item?.descricao ? <em>{item.descricao}</em> : null}
+                              </span>
+                            </label>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    {aly137Habilitado ? (
+                      <div className="card-editor-addons-list card-editor-addons-list--cards">
+                        <div className="card-editor-panel__title-row">
+                          <strong>Cards como fragmentos</strong>
+                          <span>{`${cardsOrigemSelecionadosEditor.length} relacionado(s)`}</span>
+                        </div>
+                        {cardsFragmentosSkinLoading ? (
+                          <p>Carregando cards dos outros espacos da skin...</p>
+                        ) : erroCardsFragmentosSkin ? (
+                          <p className="card-editor-error">{erroCardsFragmentosSkin}</p>
+                        ) : !cardsDisponiveisForjaEditor.length ? (
+                          <p>Nenhum outro card disponivel nesta skin.</p>
+                        ) : !cardsRelacionaveisEditorFiltrados.length ? (
+                          <p>Nenhum card encontrado para este filtro.</p>
+                        ) : (
+                          cardsRelacionaveisEditorFiltrados.map((cardOrigem) => {
+                            const marcado = cardsOrigemSelecionadosEditor.some(
+                              (item) => item.key === cardOrigem.key
+                            );
+                            const addOnIdsDisponiveis = obterAddOnIdsDisponiveisCardOrigemAly137(cardOrigem);
+                            const cardSelecionado = cardsOrigemSelecionadosEditor.find(
+                              (item) => item.key === cardOrigem.key
+                            );
+                            const addOnIdsRelacionados = normalizarAddOnIds(
+                              cardSelecionado?.addOnIdsRelacionados || addOnIdsDisponiveis
+                            );
+                            return (
+                              <label
+                                key={`card-addon-option-${cardOrigem.key}`}
+                                className={`card-editor-addon-option card-editor-addon-option--card${
+                                  marcado ? " is-selected" : ""
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={marcado}
+                                  onChange={() => alternarCardOrigemForjaEditor(cardOrigem.key)}
+                                />
+                                <span className="card-editor-addon-option__icon card-editor-addon-option__icon--card">
+                                  {cardOrigem.imagem ? (
+                                    <img src={cardOrigem.imagem} alt={cardOrigem.nome || "Card"} />
+                                  ) : (
+                                    <span>{String(cardOrigem.nome || "C").slice(0, 2).toUpperCase()}</span>
+                                  )}
+                                </span>
+                                <span className="card-editor-addon-option__meta">
+                                  <strong>{cardOrigem.nome}</strong>
+                                  <small>
+                                    {`Card / ${cardOrigem.espacoNome || "Espaco"} / ${cardOrigem.blocoTitulo || "Bloco"} / ${cardOrigem.xpTotal || 0} XP`}
+                                  </small>
+                                  {marcado ? (
+                                    <em>{`${addOnIdsRelacionados.length} de ${addOnIdsDisponiveis.length} add-on(s) relacionados`}</em>
+                                  ) : null}
+                                  {cardOrigem.descricao ? <em>{cardOrigem.descricao}</em> : null}
+                                </span>
+                              </label>
+                            );
+                          })
+                        )}
+                      </div>
+                    ) : null}
+                  </section>
+                ) : null}
+
+                {editorCardAba === "aly137" && aly137Habilitado ? (
+                  <section className="card-editor-panel card-editor-panel--aly137" aria-label="XP e Forja">
+                    <div className="card-editor-panel__title-row">
+                      <strong>ALY-137 / XP e Forja</strong>
+                      <span>{resumoAly137EditorCard.nivelLabel}</span>
+                    </div>
+
+                    <div className="aly137-editor-summary">
+                      <div className="aly137-editor-summary__main">
+                        <strong>{`${resumoAly137EditorCard.xpTotal} XP`}</strong>
+                        <span>{`${resumoAly137EditorCard.progressoNivel.percentual}% ate o proximo nivel`}</span>
+                      </div>
+                      <span className="aly137-editor-bar" aria-hidden="true">
+                        <span style={{ width: `${resumoAly137EditorCard.progressoNivel.percentual}%` }} />
+                      </span>
+                      <div className="aly137-editor-attributes">
+                        {ALY137_ATRIBUTOS.map((atributo) => {
+                          const valor = Number(resumoAly137EditorCard.atributos?.[atributo.key] || 0);
+                          return (
+                            <div className="aly137-editor-attribute" key={atributo.key}>
+                              <span>{atributo.label}</span>
+                              <strong>{`${valor} XP`}</strong>
+                              <em aria-hidden="true">
+                                <span style={{ width: `${Math.min(100, valor)}%` }} />
+                              </em>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="card-editor-panel__title-row">
+                      <strong>Evidencias</strong>
+                      <span className="card-editor-modal__footer-actions">
+                        <button type="button" onClick={adicionarEvidenciaAly137Editor}>
+                          Adicionar evidencia
+                        </button>
+                        <button
+                          type="button"
+                          onClick={adicionarConclusaoNivelAly137Editor}
+                          disabled={!conclusaoNivelAly137EditorCard.disponivel}
+                          title={
+                            conclusaoNivelAly137EditorCard.jaConcluiuNivel
+                              ? "Este nivel ja possui evidencia de conclusao."
+                              : conclusaoNivelAly137EditorCard.xpAlvo
+                                ? `Adicionar +${conclusaoNivelAly137EditorCard.xpFaltante} XP ate ${conclusaoNivelAly137EditorCard.xpAlvo} XP.`
+                                : "Card ja esta no maior nivel configurado."
+                          }
+                        >
+                          {conclusaoNivelAly137EditorCard.xpAlvo
+                            ? `${conclusaoNivelAly137EditorCard.labelBotao} (+${conclusaoNivelAly137EditorCard.xpFaltante} XP)`
+                            : "Nivel maximo"}
+                        </button>
+                      </span>
+                    </div>
+
+                    <div className="aly137-editor-evidences">
+                      {Array.isArray(editorCardModal.aly137Evidencias) &&
+                      editorCardModal.aly137Evidencias.length ? (
+                        editorCardModal.aly137Evidencias.map((evidencia, index) => {
+                          const evidenciaNormalizada = resumoAly137EditorCard.evidencias[index] || evidencia;
+                          const evidenciaId = String(evidencia?.id || evidenciaNormalizada?.id || "").trim();
+                          const addOnsSelecionados = normalizarAddOnIds(evidencia?.addOnIds);
+                          const ehConclusaoNivel =
+                            String(evidencia?.tipo || evidenciaNormalizada?.tipo || "").trim() ===
+                            "conclusao_nivel";
+                          const atributosSelecionadosSalvos = normalizarAtributosSelecionadosAly137(
+                            evidencia?.atributosSelecionados
+                          );
+                          const atributosSelecionadosNormalizados = normalizarAtributosSelecionadosAly137(
+                            evidenciaNormalizada?.atributosSelecionados
+                          );
+                          const atributosSelecionadosLegados = normalizarAtributosSelecionadosAly137(
+                            evidencia?.atributoPrincipal ? [evidencia.atributoPrincipal] : []
+                          );
+                          const atributosSelecionados = atributosSelecionadosSalvos.length
+                            ? atributosSelecionadosSalvos
+                            : atributosSelecionadosNormalizados.length
+                              ? atributosSelecionadosNormalizados
+                              : atributosSelecionadosLegados;
+                          return (
+                            <div
+                              className={`aly137-editor-evidence${
+                                ehConclusaoNivel ? " aly137-editor-evidence--conclusao" : ""
+                              }`}
+                              key={evidenciaId || index}
+                            >
+                              <div className="aly137-editor-evidence__header">
+                                <strong>
+                                  {ehConclusaoNivel
+                                    ? evidenciaNormalizada?.conclusaoEtapa === "formacao"
+                                      ? "Conclusao da formacao"
+                                      : `Conclusao de nivel ${evidenciaNormalizada?.nivelAlvo || ""}`
+                                    : `Evidencia ${index + 1}`}
+                                </strong>
+                                <span>{`${evidenciaNormalizada?.xpTotal || 0} XP`}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => removerEvidenciaAly137Editor(evidenciaId)}
+                                  aria-label="Remover evidencia"
+                                  title="Remover evidencia"
+                                >
+                                  X
+                                </button>
+                              </div>
+
+                              <label>
+                                <span>Titulo da evidencia</span>
+                                <input
+                                  type="text"
+                                  value={evidencia?.titulo || ""}
+                                  onChange={(event) =>
+                                    atualizarEvidenciaAly137Editor(evidenciaId, {
+                                      titulo: event.target.value,
+                                    })
+                                  }
+                                  placeholder="Ex.: 10K de instalacoes"
+                                />
+                              </label>
+
+                              {ehConclusaoNivel ? (
+                                <div className="aly137-editor-conclusion-note">
+                                  <strong>Fechamento automatico</strong>
+                                  <span>
+                                    {`Completa o card de ${evidenciaNormalizada?.xpAntesConclusao || 0} XP para ${evidenciaNormalizada?.xpAlvo || 0} XP, sem promover automaticamente para o proximo nivel.`}
+                                  </span>
+                                  <small>
+                                    Novas evidencias depois do limite podem evoluir o card para o nivel seguinte.
+                                  </small>
+                                </div>
+                              ) : null}
+
+                              <div className="aly137-editor-evidence__grid">
+                                <label>
+                                  <span>Peso geral sem atributo</span>
+                                  <select
+                                    value={evidencia?.peso || "pequeno"}
+                                    onChange={(event) =>
+                                      atualizarEvidenciaAly137Editor(evidenciaId, {
+                                        peso: event.target.value,
+                                      })
+                                    }
+                                  >
+                                    {Object.values(ALY137_PESOS_EVIDENCIA).map((peso) => (
+                                      <option key={peso.key} value={peso.key}>
+                                        {`${peso.label} (${peso.multiplicador}x)`}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                              </div>
+
+                              <div className="aly137-editor-attribute-picks" aria-label="Atributos afetados pela evidencia">
+                                <span>Atributos afetados</span>
+                                {ALY137_ATRIBUTOS.map((atributo) => {
+                                  const marcado = atributosSelecionados.includes(atributo.key);
+                                  const pesoAtributo =
+                                    evidencia?.atributosPesos?.[atributo.key] || evidencia?.peso || "pequeno";
+                                  return (
+                                    <span
+                                      key={atributo.key}
+                                      className={`aly137-editor-attribute-pick${marcado ? " is-selected" : ""}`}
+                                    >
+                                      <button
+                                        type="button"
+                                        className={`aly137-editor-attribute-chip${marcado ? " is-selected" : ""}`}
+                                        onClick={() =>
+                                          alternarAtributoEvidenciaAly137Editor(evidenciaId, atributo.key)
+                                        }
+                                      >
+                                        {atributo.label}
+                                      </button>
+                                      <select
+                                        value={pesoAtributo}
+                                        disabled={!marcado}
+                                        onChange={(event) =>
+                                          atualizarPesoAtributoEvidenciaAly137Editor(
+                                            evidenciaId,
+                                            atributo.key,
+                                            event.target.value
+                                          )
+                                        }
+                                        aria-label={`Peso de ${atributo.label}`}
+                                      >
+                                        {Object.values(ALY137_PESOS_EVIDENCIA).map((peso) => (
+                                          <option key={peso.key} value={peso.key}>
+                                            {peso.label}
+                                          </option>
+                                        ))}
+                                      </select>
+                                      <small>{`${calcularXpPorPesoAly137(pesoAtributo)} XP`}</small>
+                                    </span>
+                                  );
+                                })}
+                                <em>
+                                  Cada atributo tem seu proprio peso. O XP total da evidencia soma os atributos selecionados.
+                                </em>
+                              </div>
+
+                              <label>
+                                <span>Descricao curta</span>
+                                <textarea
+                                  value={evidencia?.descricao || ""}
+                                  onChange={(event) =>
+                                    atualizarEvidenciaAly137Editor(evidenciaId, {
+                                      descricao: event.target.value,
+                                    })
+                                  }
+                                  rows={2}
+                                  placeholder="Anotacao opcional sobre a prova."
+                                />
+                              </label>
+
+                              <div className="aly137-editor-chip-list" aria-label="Add-ons afetados pela evidencia">
+                                <span>Add-ons que recebem XP</span>
+                                {addOnsEfetivosEditorCard.length ? (
+                                  addOnsEfetivosEditorCard.map((addOn) => {
+                                    const addOnId = String(addOn?.id || "").trim();
+                                    const marcado = addOnsSelecionados.includes(addOnId);
+                                    const herdado = addOnIdsHerdadosForjaEditor.includes(addOnId);
+                                    return (
+                                      <button
+                                        key={addOnId}
+                                        type="button"
+                                        className={`aly137-editor-chip${marcado ? " is-selected" : ""}`}
+                                        onClick={() => alternarAddOnEvidenciaAly137Editor(evidenciaId, addOnId)}
+                                      >
+                                        {addOn?.url_img ? <img src={addOn.url_img} alt="" /> : null}
+                                        <span>{`${addOn?.nome || "Add-on"}${herdado ? " / herdado" : ""}`}</span>
+                                      </button>
+                                    );
+                                  })
+                                ) : (
+                                  <em>Selecione add-ons na aba Add-ons para distribuir XP.</em>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <p>Nenhuma evidencia cadastrada. O card ainda nao tem XP de prova.</p>
+                      )}
+                    </div>
+
+                    <div className="card-editor-panel__title-row">
+                      <strong>Cards usados na forja</strong>
+                      <span>{`${cardsOrigemSelecionadosEditor.length} selecionado(s)`}</span>
+                    </div>
+
+                    <div className="aly137-editor-forge-list">
+                      {cardsDisponiveisForjaEditor.length ? (
+                        cardsDisponiveisForjaEditor.map((cardOrigem) => {
+                          const marcado = cardsOrigemSelecionadosEditor.some(
+                            (item) => item.key === cardOrigem.key
+                          );
+                          return (
+                            <button
+                              key={cardOrigem.key}
+                              type="button"
+                              className={`aly137-editor-forge-card${marcado ? " is-selected" : ""}`}
+                              onClick={() => alternarCardOrigemForjaEditor(cardOrigem.key)}
+                            >
+                              <span>{cardOrigem.nome}</span>
+                              <small>{`${cardOrigem.espacoNome || "Espaco"} / ${cardOrigem.blocoTitulo}`}</small>
+                              <strong>{`${cardOrigem.xpTotal || 0} XP`}</strong>
+                            </button>
+                          );
+                        })
+                      ) : (
+                        <p>Nenhum outro card disponivel para forja neste espaco.</p>
+                      )}
+                    </div>
+
+                    <div className="card-editor-button-row">
+                      <button
+                        type="button"
+                        onClick={abrirForjaPreviewEditor}
+                        disabled={!editorCardModal?.card?.id}
+                      >
+                        Abrir forja
+                      </button>
+                      <span className="card-editor-muted">
+                        A forja abre uma pre-visualizacao antes de preparar o novo card derivado.
+                      </span>
+                    </div>
+                  </section>
+                ) : null}
+
+                {editorCardAba === "rastreabilidade" ? (
+                  <section className="card-editor-panel" aria-label="Rastreabilidade do card">
+                    {(() => {
+                      const rotaCard = editorCardModal?.ehNovo
+                        ? ""
+                        : montarRotaCardDoBloco(editorCardModal.bloco, editorCardModal.card);
+                      const urlCard = rotaCard ? montarUrlAbsolutaCard(rotaCard) : "";
+
+                      return (
+                        <div className="card-editor-trace-panel">
+                          <strong>Visualizacao unica do card</strong>
+                          <p>
+                            Essa rota abre somente o card e preserva a leitura rastreavel quando usada por QR/link.
+                          </p>
+                          <code>{urlCard || "Salve o card antes de gerar rota rastreavel."}</code>
+                          <div className="card-editor-button-row">
+                            <button
+                              type="button"
+                              disabled={!rotaCard}
+                              onClick={() => rotaCard && navigate(rotaCard)}
+                            >
+                              Abrir card ampliado
+                            </button>
+                            {podeVerAuditoriaConteudo ? (
+                              <button
+                                type="button"
+                                disabled={!editorCardModal?.card?.id || editorCardModal?.ehNovo}
+                                onClick={() =>
+                                  abrirAuditoriaEntidade({
+                                    entityType: "card",
+                                    entityId: editorCardModal.card.id,
+                                  })
+                                }
+                              >
+                                Ver auditoria
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </section>
+                ) : null}
+
+                {editorCardAba === "impressao" && podeVerAuditoriaRastreaveis ? (
+                  <section className="card-editor-panel" aria-label="Impressao e QR do card">
+                    <div className="card-editor-trace-panel">
+                      <strong>Card rastreavel para impressao</strong>
+                      <p>
+                        Crie ou escolha um QR rastreavel no historico. A frente e o verso para impressao ficam dentro desse fluxo.
+                      </p>
+                      <div className="card-editor-button-row">
+                        <button
+                          type="button"
+                          disabled={editorCardModal?.ehNovo || !editorCardModal?.card?.id}
+                          onClick={() => {
+                            const cardPreview = {
+                              ...(editorCardModal.card || {}),
+                              nome: editorCardModal.nome,
+                              descricaoExtra: editorCardModal.descricaoExtra,
+                              descricao: editorCardModal.descricao,
+                              imagem: imagemPreviewEditorCard,
+                              linkExterno: editorCardModal.linkExterno,
+                              addOnIds: addOnIdsEfetivosEditorCard,
+                              addOnSubthemes: addOnSubthemesEfetivosEditorCard,
+                              aly137: aly137Habilitado
+                                ? resumoAly137EditorCard
+                                : editorCardModal.card?.aly137,
+                              usaAddOnsGerenciador: true,
+                            };
+                            abrirPreviewImpressaoCard({
+                              bloco: editorCardModal.bloco,
+                              card: cardPreview,
+                              imagem: imagemPreviewEditorCard,
+                              addOns: addOnsEfetivosEditorCard,
+                              rota: montarRotaCardDoBloco(editorCardModal.bloco, editorCardModal.card),
+                            });
+                          }}
+                        >
+                          Historico de card rastreavel
+                        </button>
+                      </div>
+                      {editorCardModal?.ehNovo ? (
+                        <span className="card-editor-muted">
+                          Salve o card antes de criar QR ou gerar impressao.
                         </span>
-                      </label>
-                    );
-                  })
+                      ) : null}
+                    </div>
+                  </section>
+                ) : null}
+
+                {!!erroAcaoBloco && (
+                  <p className="card-editor-error">{erroAcaoBloco}</p>
                 )}
               </div>
-              <span style={{ fontSize: 12, opacity: 0.78 }}>
-                {`${normalizarAddOnIds(editorCardModal.addOnIds).length} add-on(s) selecionado(s).`}
-              </span>
+
+              <aside className="card-editor-preview" aria-label="Previa fixa do card">
+                <span className="card-editor-preview__label">Previa fixa</span>
+                <div className="card-editor-preview__frame">
+                  <Card
+                    id={editorCardModal.card?.id || "card-editor-preview"}
+                    ownerUserId={ownerUserId}
+                    espacoId={espacoId}
+                    blocoId={editorCardModal.bloco?.id || ""}
+                    addOnIds={addOnIdsEfetivosEditorCard}
+                    addOnSubthemes={addOnSubthemesEfetivosEditorCard}
+                    usaAddOnsGerenciador={true}
+                    addOns={addOnsEfetivosEditorCard}
+                    aly137={aly137Habilitado ? resumoAly137EditorCard : editorCardModal.card?.aly137}
+                    onAddOnClick={abrirFichaAddOn}
+                    onCardFragmentClick={abrirFichaCardFragmento}
+                    cyberpinkSubtheme={normalizeCyberpinkSubtheme(espacoAtualEfetivo?.subtema)}
+                    nome={editorCardModal.nome || "Card"}
+                    descricaoExtra={editorCardModal.descricaoExtra || ""}
+                    nomeDescricao={editorCardModal.nome || ""}
+                    descricao={editorCardModal.descricao || ""}
+                    linkExterno={editorCardModal.linkExterno || ""}
+                    imagem={imagemPreviewEditorCard}
+                    idNome={`card-editor-preview-${editorCardModal.card?.id || "novo"}`}
+                    cardDescricaoDiv="cardDescricaoDiv"
+                    cardNome="cardNome"
+                    cardContainerDesktop="cardContainerDesktop card-editor-preview__card"
+                    cardCabecalho="cardCabecalho"
+                    cardImagem="cardImagem"
+                    cardDescricao="cardDescricao"
+                    imgCard="imgCard"
+                  />
+                </div>
+              </aside>
             </div>
 
-            <label style={{ display: "grid", gap: 6 }}>
-              <span>URL da imagem</span>
-              <input
-                type="text"
-                value={editorCardModal.imagem}
-                onChange={(event) =>
-                  setEditorCardModal((prev) => {
-                    const previewAnterior = String(prev?.imagemPreviewUrl || "").trim();
-                    if (previewAnterior.startsWith("blob:")) {
-                      try {
-                        URL.revokeObjectURL(previewAnterior);
-                      } catch {
-                        // no-op
-                      }
-                    }
-                    return {
-                      ...prev,
-                      imagem: event.target.value,
-                      imagemArquivo: null,
-                      imagemPreviewUrl: "",
-                    };
-                  })
-                }
-                placeholder="https://..."
-              />
-            </label>
-
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-              <button
-                type="button"
-                onClick={async () => {
-                  const arquivo = await selecionarArquivoImagem();
-                  if (!arquivo) return;
-                  const previewUrl = URL.createObjectURL(arquivo);
-                  setEditorCardModal((prev) => {
-                    const previewAnterior = String(prev?.imagemPreviewUrl || "").trim();
-                    if (previewAnterior.startsWith("blob:")) {
-                      try {
-                        URL.revokeObjectURL(previewAnterior);
-                      } catch {
-                        // no-op
-                      }
-                    }
-                    return {
-                      ...prev,
-                      imagemArquivo: arquivo,
-                      imagemPreviewUrl: previewUrl,
-                    };
-                  });
-                }}
-              >
-                Escolher arquivo
-              </button>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setEditorCardModal((prev) => {
-                    const previewAnterior = String(prev?.imagemPreviewUrl || "").trim();
-                    if (previewAnterior.startsWith("blob:")) {
-                      try {
-                        URL.revokeObjectURL(previewAnterior);
-                      } catch {
-                        // no-op
-                      }
-                    }
-                    return {
-                      ...prev,
-                      imagem: "",
-                      imagemArquivo: null,
-                      imagemPreviewUrl: "",
-                    };
-                  })
-                }
-              >
-                Remover imagem
-              </button>
-
-              {editorCardModal.imagemArquivo ? (
-                <span style={{ fontSize: 12, opacity: 0.78 }}>
-                  {`Arquivo: ${editorCardModal.imagemArquivo.name}`}
-                </span>
-              ) : null}
-            </div>
-
-            {(editorCardModal.imagemPreviewUrl || editorCardModal.imagem) ? (
-              <div style={{ display: "grid", gap: 6 }}>
-                <span style={{ fontSize: 12, opacity: 0.78 }}>Preview da imagem</span>
-                <img
-                  src={editorCardModal.imagemPreviewUrl || editorCardModal.imagem}
-                  alt="Preview do card"
-                  style={{
-                    width: "min(100%, 260px)",
-                    aspectRatio: "1 / 1",
-                    objectFit: "cover",
-                    border: "1px solid rgba(255,255,255,0.18)",
-                    background: "rgba(255,255,255,0.04)",
-                  }}
-                />
-              </div>
-            ) : null}
-
-            <label style={{ display: "grid", gap: 6 }}>
-              <span>Link externo</span>
-              <input
-                type="text"
-                value={editorCardModal.linkExterno}
-                onChange={(event) =>
-                  setEditorCardModal((prev) => ({
-                    ...prev,
-                    linkExterno: event.target.value,
-                  }))
-                }
-                placeholder="https://..."
-              />
-            </label>
-
-            {!!erroAcaoBloco && (
-              <p style={{ margin: 0, color: "#ff8fb8" }}>{erroAcaoBloco}</p>
-            )}
-
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-              <div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    void excluirCardDoBloco();
-                  }}
-                  disabled={
-                    cardEmAtualizacaoId ===
-                    `${editorCardModal?.bloco?.id || ""}:${editorCardModal?.card?.id || ""}`
-                  }
-                  style={{
-                    borderColor: "rgba(255, 120, 176, 0.42)",
-                    color: "#ff9bc9",
-                  }}
-                >
-                  {editorCardModal?.ehNovo ? "Descartar card" : "Excluir card"}
-                </button>
-              </div>
-
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-              <button type="button" onClick={fecharEditorCard}>
-                Cancelar
-              </button>
+            <div className="card-editor-modal__footer">
               <button
                 type="button"
                 onClick={() => {
-                  void salvarEdicaoCardDoBloco();
+                  void excluirCardDoBloco();
                 }}
                 disabled={
                   cardEmAtualizacaoId ===
                   `${editorCardModal?.bloco?.id || ""}:${editorCardModal?.card?.id || ""}`
                 }
+                className="card-editor-danger"
               >
-                {cardEmAtualizacaoId ===
-                `${editorCardModal?.bloco?.id || ""}:${editorCardModal?.card?.id || ""}`
-                  ? "Salvando card..."
-                  : "Salvar card"}
+                {editorCardModal?.ehNovo ? "Descartar card" : "Excluir card"}
               </button>
-              </div>
+
+              <span className="card-editor-modal__footer-actions">
+                <button type="button" onClick={fecharEditorCard}>
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void salvarEdicaoCardDoBloco();
+                  }}
+                  disabled={
+                    cardEmAtualizacaoId ===
+                    `${editorCardModal?.bloco?.id || ""}:${editorCardModal?.card?.id || ""}`
+                  }
+                >
+                  {cardEmAtualizacaoId ===
+                  `${editorCardModal?.bloco?.id || ""}:${editorCardModal?.card?.id || ""}`
+                    ? "Salvando card..."
+                    : "Salvar card"}
+                </button>
+              </span>
             </div>
           </div>
         </div>
       ) : null}
+      {addOnFichaModal.aberto && addOnFichaModal.addOn ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="aly137-addon-modal"
+          onClick={fecharFichaAddOn}
+        >
+          <div
+            className="aly137-addon-modal__content"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {(() => {
+              const addOn = addOnFichaModal.addOn || {};
+              const resumo = addOn?.aly137Resumo || {};
+              const atributos = resumo?.atributos || {};
+              const ehCardFragmento = addOn?.tipoFicha === "cardFragmento";
+              const cardPreview = addOn?.cardPreview || {};
+              const origemCard = [addOn?.espacoNome, addOn?.blocoTitulo]
+                .map((item) => String(item || "").trim())
+                .filter(Boolean)
+                .join(" / ");
+              const subtemaCardFragmento = normalizeCyberpinkSubtheme(addOn?.subtema);
+              const corCardFragmento = getCyberpinkSubthemeIconColor(subtemaCardFragmento);
+              return (
+                <>
+                  <div className="card-editor-modal__header">
+                    <div>
+                      <strong>{addOn.nome || "Add-on"}</strong>
+                      <p>{ehCardFragmento ? "Card fragmento de forja" : formatarTipoAddOn(resolverTipoAddOn(addOn))}</p>
+                    </div>
+                    <button
+                      type="button"
+                      className="card-editor-modal__close"
+                      onClick={fecharFichaAddOn}
+                      aria-label="Fechar ficha do add-on"
+                      title="Fechar"
+                    >
+                      <span className="card-editor-modal__close-icon" aria-hidden="true" />
+                    </button>
+                  </div>
 
+                  <div className="aly137-addon-modal__hero">
+                    <span className="aly137-addon-modal__icon">
+                      {addOn.url_img ? <img src={addOn.url_img} alt="" /> : null}
+                      {!addOn.url_img && ehCardFragmento ? (
+                        <svg
+                          className="aly137-addon-modal__card-icon"
+                          viewBox="0 0 32 32"
+                          aria-hidden="true"
+                          focusable="false"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          style={{
+                            color: corCardFragmento,
+                            filter: `drop-shadow(0 0 2px ${corCardFragmento}) drop-shadow(0 0 6px ${corCardFragmento})`,
+                          }}
+                        >
+                          <path d="M7 5.5h13l5 5V26.5H7V5.5Z" />
+                          <path d="M20 5.5V11h5" />
+                          <path d="M11 15h10M11 19h8M11 23h6" />
+                        </svg>
+                      ) : null}
+                    </span>
+                    <div className="aly137-editor-summary">
+                      <div className="aly137-editor-summary__main">
+                        <strong>{`${resumo?.xpTotal || 0} XP`}</strong>
+                        <span>
+                          {ehCardFragmento
+                            ? `${resumo?.nivelLabel || "Card"} / ${Math.min(100, resumo?.percentual || 0)}%`
+                            : `Nivel unico / ${Math.min(100, resumo?.percentual || 0)}%`}
+                        </span>
+                      </div>
+                      <span className="aly137-editor-bar" aria-hidden="true">
+                        <span style={{ width: `${Math.min(100, resumo?.percentual || 0)}%` }} />
+                      </span>
+                    </div>
+                  </div>
+
+                  {addOn.descricao ? <p className="aly137-addon-modal__description">{addOn.descricao}</p> : null}
+                  {ehCardFragmento && origemCard ? (
+                    <p className="aly137-addon-modal__description">{`Origem: ${origemCard}`}</p>
+                  ) : null}
+
+                  {ehCardFragmento ? (
+                    <aside className="aly137-addon-modal__card-preview">
+                      <div className="aly137-addon-modal__card-preview-image">
+                        {cardPreview.imagem ? (
+                          <img src={cardPreview.imagem} alt="" />
+                        ) : (
+                          <span>{String(cardPreview.nome || addOn.nome || "Card").slice(0, 2)}</span>
+                        )}
+                      </div>
+                      <div>
+                        <strong>{cardPreview.nome || addOn.nome || "Card relacionado"}</strong>
+                        {cardPreview.descricao ? <p>{cardPreview.descricao}</p> : null}
+                        <button
+                          type="button"
+                          className="aly137-addon-modal__card-preview-button"
+                          disabled={!cardPreview.rota}
+                          onClick={() => {
+                            if (cardPreview.rota) navigate(cardPreview.rota);
+                          }}
+                        >
+                          Ver card completo
+                        </button>
+                      </div>
+                    </aside>
+                  ) : null}
+
+                  <div className="aly137-editor-attributes">
+                    {ALY137_ATRIBUTOS.map((atributo) => {
+                      const valor = Number(atributos?.[atributo.key] || 0);
+                      return (
+                        <div className="aly137-editor-attribute" key={atributo.key}>
+                          <span>{atributo.label}</span>
+                          <strong>{`${valor} XP`}</strong>
+                          <em aria-hidden="true">
+                            <span style={{ width: `${Math.min(100, valor)}%` }} />
+                          </em>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="aly137-addon-modal__columns">
+                    {ehCardFragmento ? (
+                      <>
+                        <section>
+                          <strong>Origem</strong>
+                          <span className="aly137-forge-token">
+                            <span>{addOn.nome || "Card relacionado"}</span>
+                            <small>{origemCard || "Espaco / Bloco"}</small>
+                            <strong>{`${resumo?.xpTotal || 0} XP`}</strong>
+                          </span>
+                        </section>
+
+                        <section>
+                          <strong>Add-ons relacionados</strong>
+                          {Array.isArray(resumo?.addOnsHerdados) && resumo.addOnsHerdados.length ? (
+                            resumo.addOnsHerdados.map((item) => (
+                              <span className="aly137-forge-token" key={item.id}>
+                                {item.url_img ? <img src={item.url_img} alt="" /> : null}
+                                <span>{item.nome || "Add-on"}</span>
+                              </span>
+                            ))
+                          ) : (
+                            <p>Nenhum add-on deste card foi relacionado a este card.</p>
+                          )}
+                        </section>
+                      </>
+                    ) : (
+                      <>
+                        <section>
+                          <strong>Cards relacionados</strong>
+                          {Array.isArray(resumo?.cardsRelacionados) && resumo.cardsRelacionados.length ? (
+                            resumo.cardsRelacionados.map((cardItem) => (
+                              <span className="aly137-forge-token" key={`${cardItem.blocoId}-${cardItem.cardId}`}>
+                                <span>{cardItem.nome}</span>
+                                <small>{cardItem.blocoTitulo || "Bloco"}</small>
+                                <strong>{`${cardItem.xpTotal || 0} XP`}</strong>
+                              </span>
+                            ))
+                          ) : (
+                            <p>Nenhum card relacionado ainda.</p>
+                          )}
+                        </section>
+
+                        <section>
+                          <strong>Evidencias relacionadas</strong>
+                          {Array.isArray(resumo?.evidenciasRelacionadas) && resumo.evidenciasRelacionadas.length ? (
+                            resumo.evidenciasRelacionadas.slice(0, 12).map((evidencia) => (
+                              <span className="aly137-forge-token" key={`${evidencia.cardId}-${evidencia.evidenciaId}`}>
+                                <span>{evidencia.titulo}</span>
+                                <small>{evidencia.cardNome}</small>
+                                <strong>{`${evidencia.xpTotal || 0} XP`}</strong>
+                              </span>
+                            ))
+                          ) : (
+                            <p>Nenhuma evidencia vinculada ainda.</p>
+                          )}
+                        </section>
+                      </>
+                    )}
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      ) : null}
+      {forjaPreviewModal.aberto ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="aly137-forge-modal"
+          onClick={fecharForjaPreviewEditor}
+        >
+          <div
+            className="aly137-forge-modal__content"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="card-editor-modal__header">
+              <div>
+                <strong>Forja</strong>
+                <p>Revise os materiais antes de preparar o novo card derivado.</p>
+              </div>
+              <button
+                type="button"
+                className="card-editor-modal__close"
+                onClick={fecharForjaPreviewEditor}
+                aria-label="Fechar forja"
+                title="Fechar"
+              >
+                <span className="card-editor-modal__close-icon" aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="aly137-forge-modal__grid">
+              <section className="aly137-forge-modal__panel">
+                <strong>Resultado previsto</strong>
+                <div className="aly137-editor-summary">
+                  <div className="aly137-editor-summary__main">
+                    <strong>{`${resumoAly137EditorCard.xpTotal} XP`}</strong>
+                    <span>{resumoAly137EditorCard.nivelLabel}</span>
+                  </div>
+                  <span className="aly137-editor-bar" aria-hidden="true">
+                    <span style={{ width: `${resumoAly137EditorCard.progressoNivel.percentual}%` }} />
+                  </span>
+                </div>
+                <div className="aly137-editor-attributes">
+                  {ALY137_ATRIBUTOS.map((atributo) => {
+                    const valor = Number(resumoAly137EditorCard.atributos?.[atributo.key] || 0);
+                    return (
+                      <div className="aly137-editor-attribute" key={atributo.key}>
+                        <span>{atributo.label}</span>
+                        <strong>{`${valor} XP`}</strong>
+                        <em aria-hidden="true">
+                          <span style={{ width: `${Math.min(100, valor)}%` }} />
+                        </em>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section className="aly137-forge-modal__panel">
+                <strong>Cards de origem</strong>
+                <div className="aly137-editor-forge-list">
+                  {cardsOrigemSelecionadosEditor.length ? (
+                    cardsOrigemSelecionadosEditor.map((cardOrigem) => (
+                      <span className="aly137-forge-token" key={cardOrigem.key}>
+                        <span>{cardOrigem.nome}</span>
+                        <small>{`${cardOrigem.espacoNome || "Espaco"} / ${cardOrigem.blocoTitulo}`}</small>
+                        <strong>{`${cardOrigem.xpTotal || 0} XP`}</strong>
+                      </span>
+                    ))
+                  ) : (
+                    <p>Nenhum card de origem selecionado.</p>
+                  )}
+                </div>
+              </section>
+
+              <section className="aly137-forge-modal__panel">
+                <strong>Add-ons do card forjado</strong>
+                <div className="aly137-editor-chip-list">
+                  {addOnsEfetivosEditorCard.length ? (
+                    addOnsEfetivosEditorCard.map((addOn) => {
+                      const addOnId = String(addOn?.id || "").trim();
+                      const resumo = resumoAly137EditorCard.addOnsXp?.[addOnId] || null;
+                      const herdado = addOnIdsHerdadosForjaEditor.includes(addOnId);
+                      return (
+                        <span className="aly137-forge-token" key={addOnId}>
+                          {addOn?.url_img ? <img src={addOn.url_img} alt="" /> : null}
+                          <span>{`${addOn?.nome || "Add-on"}${herdado ? " / herdado" : ""}`}</span>
+                          <strong>{`${resumo?.xpTotal || 0} XP`}</strong>
+                        </span>
+                      );
+                    })
+                  ) : (
+                    <p>Nenhum add-on selecionado.</p>
+                  )}
+                </div>
+              </section>
+            </div>
+
+            <div className="card-editor-modal__footer">
+              <span className="card-editor-muted">
+                Confirmar prepara um novo card. O card original so e preservado se voce salvar este novo card.
+              </span>
+              <span className="card-editor-modal__footer-actions">
+                <button type="button" onClick={fecharForjaPreviewEditor}>
+                  Cancelar
+                </button>
+                <button type="button" onClick={confirmarForjaNovoCardEditor}>
+                  Confirmar forja
+                </button>
+              </span>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {previewImpressaoCard.aberto && previewImpressaoCard.card ? (
         <div
           role="dialog"
@@ -7371,15 +10212,24 @@ export default function EspacoPage() {
                   {`Visualizacao do rastreavel ${qrPrintSelecionadoParaImpressao.printId || qrPrintSelecionadoParaImpressao.id}.`}
                 </p>
               </div>
-              <button
-                type="button"
-                className="card-print-preview-modal__close"
-                onClick={fecharVisualizacaoImpressaoQr}
-                aria-label="Fechar visualizacao de impressao do card"
-                title="Fechar"
-              >
-                <span className="card-print-preview-modal__close-icon" aria-hidden="true" />
-              </button>
+              <div className="card-print-preview-modal__header-actions">
+                <button
+                  type="button"
+                  className="card-print-history__button"
+                  onClick={() => window.print()}
+                >
+                  Imprimir / PDF
+                </button>
+                <button
+                  type="button"
+                  className="card-print-preview-modal__close"
+                  onClick={fecharVisualizacaoImpressaoQr}
+                  aria-label="Fechar visualizacao de impressao do card"
+                  title="Fechar"
+                >
+                  <span className="card-print-preview-modal__close-icon" aria-hidden="true" />
+                </button>
+              </div>
             </div>
 
             <div className="card-print-preview-modal__grid">
@@ -7400,6 +10250,10 @@ export default function EspacoPage() {
                       previewImpressaoCard.card?.usaAddOnsGerenciador === true
                     }
                     addOns={previewImpressaoCard.addOns}
+                    aly137={previewImpressaoCard.card.aly137}
+                    onAddOnClick={abrirFichaAddOn}
+                    onCardFragmentClick={abrirFichaCardFragmento}
+                    cyberpinkSubtheme={normalizeCyberpinkSubtheme(espacoAtualEfetivo?.subtema)}
                     nome={previewImpressaoCard.card.nome || "Card"}
                     descricaoExtra=""
                     nomeDescricao={previewImpressaoCard.card.nome || ""}

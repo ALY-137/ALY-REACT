@@ -524,6 +524,53 @@ function Acesso({ configSistema = {}, user = null }) {
   }, [registrarSaidaPagina]);
 
   useEffect(() => {
+    const handleSpaceSwitch = (event) => {
+      const detail = event?.detail && typeof event.detail === "object" ? event.detail : {};
+      const origemEspacoId = normalizeText(detail.origemEspacoId);
+      const destinoEspacoId = normalizeText(detail.destinoEspacoId);
+      if (!destinoEspacoId || origemEspacoId === destinoEspacoId) return;
+
+      const basePayload = buildAcessoPayload({ user, configSistema, location });
+      const pageSessionId = pageSessionRef.current?.pageSessionId || null;
+      const navigationId = normalizeText(detail.navigationId) || basePayload.navigationId;
+
+      enviarEvento(
+        {
+          ...basePayload,
+          navigationId,
+          eventoTipo: "space_switch",
+          eventoAcao: normalizeText(detail.eventoAcao) || "navbar_tab",
+          pageSessionId,
+          origemEspacoId: origemEspacoId || null,
+          origemEspacoNome: normalizeText(detail.origemEspacoNome) || null,
+          origemRota: normalizeText(detail.origemRota) || null,
+          destinoEspacoId,
+          destinoEspacoNome: normalizeText(detail.destinoEspacoNome) || null,
+          destinoRota: normalizeText(detail.destinoRota) || null,
+        },
+        {
+          registroMotivo: "space_switch",
+          dedupeKey: `space_switch|${navigationId}|${origemEspacoId}|${destinoEspacoId}`,
+        }
+      );
+    };
+
+    window.addEventListener("aly:space-switch", handleSpaceSwitch);
+    return () => {
+      window.removeEventListener("aly:space-switch", handleSpaceSwitch);
+    };
+  }, [
+    user?.uid,
+    user?.email,
+    user?.displayName,
+    configSistema,
+    location.pathname,
+    location.search,
+    location.hash,
+    enviarEvento,
+  ]);
+
+  useEffect(() => {
     const handleClickCapture = (event) => {
       const element = resolveInteractiveElement(event.target);
       if (!element) return;

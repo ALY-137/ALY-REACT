@@ -68,6 +68,8 @@ function ehSegmentoReservadoMenu(valor) {
   return SEGMENTOS_RESERVADOS_MENU.has(String(valor || "").trim().toLowerCase());
 }
 
+const encodeRouteSegment = (value = "") => encodeURIComponent(String(value || "").trim());
+
 function Menu({ menuOpen }) {
   const { user, loading } = useAuth();
   const usuarioAuthAtual = user || auth.currentUser || null;
@@ -149,6 +151,7 @@ function Menu({ menuOpen }) {
   const nomeEspacoPluralUpper = nomeEspacoPlural.toUpperCase();
   const chatHabilitado = configSistema.chatHabilitado !== false;
   const addOnsHabilitados = configSistema.addOnsHabilitados === true;
+  const aly137Habilitado = configSistema.aly137Habilitado === true;
   const mercadoPagoHabilitado = configSistema.mercadoPagoHabilitado !== false;
   const pixManualHabilitado = configSistema.pixManualHabilitado !== false;
   const exibirBadgeProjetoFirebase = configSistema.exibirBadgeProjetoFirebase !== false;
@@ -177,6 +180,8 @@ function Menu({ menuOpen }) {
       )
   );
   const menuOneOwnerUsuarioComum = oneOwnerPublicaAtiva && !rotaOwnerMenuOneOwner;
+  const exibirGavetaForja =
+    aly137Habilitado && temUsuarioAutenticado && !menuOneOwnerUsuarioComum;
   const podeGerenciarUsuarios = usuarioEhOwnerProjeto && !oneOwnerPublicaAtiva;
   const ownerOneOwnerPodeGerenciarSkins =
     oneOwnerPublicaAtiva && rotaOwnerMenuOneOwner && usuarioEhOwnerProjeto;
@@ -323,6 +328,31 @@ function Menu({ menuOpen }) {
 
   function abrirAddOns() {
     navigateIfChanged(`/menu/${menuTargetUser}/addons`);
+  }
+
+  function abrirForja() {
+    const ultimoEspaco = String(
+      localStorage.getItem("aly137ForjaLastSpacePath") || ""
+    ).trim();
+    const destinoBase =
+      ultimoEspaco && ultimoEspaco.startsWith("/") && !ultimoEspaco.startsWith("/menu")
+        ? ultimoEspaco
+        : oneOwnerPublicaAtiva
+          ? "/home"
+          : skinLogadoUser
+            ? `/${encodeRouteSegment(skinLogadoUser)}/home`
+            : "";
+
+    if (!destinoBase) {
+      alert("Abra um espaco antes de acessar a Forja.");
+      return;
+    }
+
+    const [pathname, queryString = ""] = destinoBase.split("?");
+    const params = new URLSearchParams(queryString);
+    params.set("forja", "1");
+    params.set("returnTo", `/menu/${menuTargetUser}`);
+    navigate(`${pathname}?${params.toString()}`);
   }
 
   function abrirGerenciadoProjetos() {
@@ -900,6 +930,11 @@ function Menu({ menuOpen }) {
             {exibirGavetaAddOns ? (
               <div onClick={abrirAddOns} className="gavetaOption">
                 ADD-ONS
+              </div>
+            ) : null}
+            {exibirGavetaForja ? (
+              <div onClick={abrirForja} className="gavetaOption">
+                FORJA
               </div>
             ) : null}
             {exibirContatos && (

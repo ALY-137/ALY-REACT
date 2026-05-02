@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useOutletContext, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useOutletContext, useParams } from "react-router-dom";
 import { collection, doc, getDoc, getDocs } from "firebase/firestore";
 import { getDownloadURL, ref } from "firebase/storage";
 
@@ -20,6 +20,8 @@ import {
   usandoBucketCompartilhadoCrossProject,
 } from "../../Banco/sharedBucketApi";
 import { normalizeCyberpinkSubtheme } from "../Temas/cyberpink/subthemes";
+import QRCodeImage from "../../Funcionalidades/QRCode/QRCodeImage";
+import { normalizarCardAly137 } from "../Sistema/aly137Utils";
 
 const isRenderableUrl = (valor) =>
   typeof valor === "string" &&
@@ -87,6 +89,7 @@ const normalizarCard = (card = {}, index = 0) => {
       card?.addOnSubthemes || card?.addOnThemes,
       addOnIds
     ),
+    aly137: normalizarCardAly137(card?.aly137, addOnIds),
     usaAddOnsGerenciador: possuiCampoAddOns,
   };
 };
@@ -141,6 +144,7 @@ async function resolverUrlArquivo(path, user) {
 
 export default function CardRoutePage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { skinsUsername, espacoNome, blocoId, cardId } = useParams();
   const {
     espacos = [],
@@ -181,6 +185,14 @@ export default function CardRoutePage() {
     if (oneOwnerPublicaAtivaContexto || !skinSegment) return `/${espacoSegment}`;
     return `/${skinSegment}/${espacoSegment}`;
   }, [espacoNome, oneOwnerPublicaAtivaContexto, skinsUsername]);
+  const urlCardAtual = useMemo(() => {
+    const pathAtual = `${location.pathname || ""}${location.search || ""}`;
+    try {
+      return new URL(pathAtual, window.location.origin).href;
+    } catch {
+      return pathAtual;
+    }
+  }, [location.pathname, location.search]);
 
   const voltarParaEspacoPublicado = () => {
     if (rotaEspacoPublicado) {
@@ -355,6 +367,8 @@ export default function CardRoutePage() {
             addOnSubthemes={estado.card.addOnSubthemes}
             usaAddOnsGerenciador={estado.card.usaAddOnsGerenciador}
             addOns={estado.addOns}
+            aly137={estado.card.aly137}
+            cyberpinkSubtheme={normalizeCyberpinkSubtheme(espacoAtual?.subtema)}
             nome={estado.card.nome || "Card"}
             descricaoExtra={estado.card.descricaoExtra || ""}
             nomeDescricao={estado.card.nome || ""}
@@ -371,6 +385,55 @@ export default function CardRoutePage() {
             imgCard="imgCard"
           />
         </div>
+        <aside className="card-route-page__details" aria-label="Detalhes do card">
+          <span className="card-route-page__details-kicker">Card ampliado</span>
+          <h1>{estado.card.nome || "Card"}</h1>
+          {estado.card.descricaoExtra ? <p>{estado.card.descricaoExtra}</p> : null}
+          <dl>
+            <div>
+              <dt>Bloco</dt>
+              <dd>{estado.bloco?.titulo || estado.bloco?.nome || blocoId}</dd>
+            </div>
+            <div>
+              <dt>Add-ons</dt>
+              <dd>{estado.addOns.length}</dd>
+            </div>
+          </dl>
+          {estado.addOns.length ? (
+            <div className="card-route-page__addons">
+              {estado.addOns.map((addOn) => (
+                <span key={addOn.id} className="card-route-page__addon">
+                  {addOn.url_img ? <img src={addOn.url_img} alt="" /> : null}
+                  <span>{addOn.nome || "Add-on"}</span>
+                </span>
+              ))}
+            </div>
+          ) : (
+            <span className="card-route-page__empty">Nenhum add-on vinculado.</span>
+          )}
+          {estado.card.linkExterno ? (
+            <a
+              className="card-route-page__external"
+              href={estado.card.linkExterno}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Abrir link externo
+            </a>
+          ) : null}
+          {urlCardAtual ? (
+            <div className="card-route-page__qr">
+              <QRCodeImage
+                value={urlCardAtual}
+                size={72}
+                alt="QR code da visualizacao unica do card"
+                color="var(--cyberpink-subtheme-card-surface-shadow)"
+                bgColor="var(--cyberpink-subtheme-text)"
+              />
+              <span>QR da rota unica</span>
+            </div>
+          ) : null}
+        </aside>
       </div>
     </main>
   );

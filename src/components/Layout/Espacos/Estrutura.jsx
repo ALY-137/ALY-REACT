@@ -294,6 +294,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
   const [espacos, setEspacos] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [buscaNavbar, setBuscaNavbar] = useState("");
   const [hasNavigated, setHasNavigated] = useState(false);
   const [configSistemaAtual, setConfigSistemaAtual] = useState(
     () => obterConfigSistemaCacheLocal() || DEFAULT_SISTEMA_CONFIG
@@ -372,6 +373,42 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
       null,
     [espacos, nomeEspacoAtualRota]
   );
+  const exibirBuscaNavbar = Boolean(
+    !isCardViewerRoute &&
+      nomeEspacoAtualRota &&
+      segmentosRota[0] !== "menu" &&
+      segmentosRota[0] !== "r" &&
+      espacoAtivoTema
+  );
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search || "");
+    setBuscaNavbar(params.get("busca") || "");
+  }, [location.search]);
+
+  const enviarBuscaNavbar = (event) => {
+    event.preventDefault();
+    if (!exibirBuscaNavbar) return;
+
+    const params = new URLSearchParams(location.search || "");
+    const termo = String(buscaNavbar || "").trim();
+    if (termo) {
+      params.set("busca", termo);
+    } else {
+      params.delete("busca");
+    }
+
+    const query = params.toString();
+    navigate(`${location.pathname}${query ? `?${query}` : ""}`);
+  };
+
+  const limparBuscaNavbar = () => {
+    const params = new URLSearchParams(location.search || "");
+    params.delete("busca");
+    const query = params.toString();
+    setBuscaNavbar("");
+    navigate(`${location.pathname}${query ? `?${query}` : ""}`);
+  };
   const subtemaCyberpinkAtivo = useMemo(() => {
     const temaSistema = String(configSistemaAtual?.temaPadraoSistema || "")
       .trim()
@@ -1166,6 +1203,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
 
   const navbarMenuJSX = (
     <div id="navbar-menu" style={{ textAlign: "center" }}>
+      <div className="navbar-menu__row">
       {!user ? (
         <div className="navbar-menu__login-cta">
           <span
@@ -1183,6 +1221,32 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
           ≡
         </p>
       ) : null}
+
+        {exibirBuscaNavbar ? (
+          <form
+            className="navbar-menu__search"
+            onSubmit={enviarBuscaNavbar}
+            role="search"
+            aria-label="Buscar conteudo neste espaco"
+          >
+            <input
+              type="search"
+              value={buscaNavbar}
+              onChange={(event) => setBuscaNavbar(event.target.value)}
+              placeholder="buscar"
+              aria-label="Buscar conteudo neste espaco"
+            />
+            <button type="submit" aria-label="Buscar">
+              BUSCAR
+            </button>
+            {String(buscaNavbar || "").trim() ? (
+              <button type="button" onClick={limparBuscaNavbar} aria-label="Limpar busca">
+                X
+              </button>
+            ) : null}
+          </form>
+        ) : null}
+      </div>
     </div>
   );
 

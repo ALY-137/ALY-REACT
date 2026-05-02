@@ -4350,6 +4350,12 @@ exports.registrarAcessoPublico = onRequest(
         elementoId: sanitizeString(body?.elementoId) || null,
         elementoTexto: sanitizeString(body?.elementoTexto) || null,
         elementoHref: sanitizeString(body?.elementoHref) || null,
+        origemEspacoId: sanitizeString(body?.origemEspacoId) || null,
+        origemEspacoNome: sanitizeString(body?.origemEspacoNome) || null,
+        origemRota: sanitizeString(body?.origemRota) || null,
+        destinoEspacoId: sanitizeString(body?.destinoEspacoId) || null,
+        destinoEspacoNome: sanitizeString(body?.destinoEspacoNome) || null,
+        destinoRota: sanitizeString(body?.destinoRota) || null,
         duracaoMs: Number.isFinite(Number(body?.duracaoMs)) ? Number(body?.duracaoMs) : null,
         documentVisibility: sanitizeString(
           body?.documentVisibility || body?.visibilityState

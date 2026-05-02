@@ -6,10 +6,17 @@ import {
   getProjectDocCandidates,
 } from "../../../Banco/projectDataRefs";
 import {
+  CYBERPINK_SUBTHEME_STORAGE_KEY,
   getCyberpinkSubthemeIconFilter,
   getCyberpinkSubthemeIconColor,
   normalizeCyberpinkSubtheme,
 } from "../../Temas/cyberpink/subthemes";
+import {
+  ALY137_ATRIBUTOS,
+  calcularNivelCardAly137,
+  criarMapaAtributosAly137,
+  normalizarCardAly137,
+} from "../../Sistema/aly137Utils";
 
 async function getFirstExistingDoc(refs = []) {
   for (const refItem of refs) {
@@ -61,6 +68,27 @@ function isSvgAssetUrl(value = "") {
   return normalizado.endsWith(".svg") || normalizado.includes(".svg?") || normalizado.startsWith("data:image/svg+xml");
 }
 
+function CardFragmentIcon({ style = undefined }) {
+  return (
+    <svg
+      className="iconeAddOn iconeAddOn--card-fragment"
+      style={style}
+      viewBox="0 0 32 32"
+      aria-hidden="true"
+      focusable="false"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M7 5.5h13l5 5V26.5H7V5.5Z" />
+      <path d="M20 5.5V11h5" />
+      <path d="M11 15h10M11 19h8M11 23h6" />
+    </svg>
+  );
+}
+
 function Card({
   id,
   id_user,
@@ -91,6 +119,10 @@ function Card({
   linkExterno,
   imgCard,
   onImagemClick,
+  aly137,
+  onAddOnClick,
+  onCardFragmentClick,
+  cyberpinkSubtheme = "",
 }) {
   const cardRef = useRef(null);
   const [addOns, setAddOns] = useState([]);
@@ -112,6 +144,58 @@ function Card({
     () => (Array.isArray(addOnsProp) ? addOnsProp.filter(Boolean) : []),
     [addOnsProp]
   );
+  const aly137Normalizado = useMemo(() => normalizarCardAly137(aly137, addOnIdsNormalizados), [
+    aly137,
+    addOnIdsNormalizados,
+  ]);
+  const cardsOrigemAly137 = useMemo(
+    () => (Array.isArray(aly137Normalizado?.cardsOrigem) ? aly137Normalizado.cardsOrigem : []),
+    [aly137Normalizado]
+  );
+  const [subtemasCardsOrigem, setSubtemasCardsOrigem] = useState({});
+  const cyberpinkSubthemeFallback = useMemo(() => {
+    const salvo =
+      typeof window !== "undefined"
+        ? window.localStorage?.getItem(CYBERPINK_SUBTHEME_STORAGE_KEY)
+        : "";
+    return normalizeCyberpinkSubtheme(cyberpinkSubtheme || salvo || "");
+  }, [cyberpinkSubtheme]);
+  const addOnIdsHerdadosPorCards = useMemo(() => {
+    const ids = cardsOrigemAly137.flatMap((card) => [
+      ...(Array.isArray(card?.addOnIds) ? card.addOnIds : []),
+      ...Object.keys(card?.addOnsXp || {}),
+    ]);
+    return new Set(normalizarAddOnIds(ids));
+  }, [cardsOrigemAly137]);
+  const addOnsVisiveisNoCard = useMemo(() => {
+    if (!addOnIdsHerdadosPorCards.size) return addOns;
+    return addOns.filter((addon) => {
+      const addOnId = String(addon?.id || "").trim();
+      return addOnId && !addOnIdsHerdadosPorCards.has(addOnId);
+    });
+  }, [addOns, addOnIdsHerdadosPorCards]);
+  const aly137Stats = useMemo(() => {
+    if (!aly137Normalizado?.ativo) return [];
+    const progresso = aly137Normalizado.progressoNivel || calcularNivelCardAly137(aly137Normalizado.xpTotal);
+    const atributos = criarMapaAtributosAly137(aly137Normalizado.atributos);
+    return [
+      {
+        key: "xpTotal",
+        label: "XP total",
+        value: `${aly137Normalizado.xpTotal || 0} XP`,
+        percent: progresso.percentual || 0,
+      },
+      ...ALY137_ATRIBUTOS.map((atributo) => {
+        const xp = atributos[atributo.key] || 0;
+        return {
+          key: atributo.key,
+          label: atributo.label,
+          value: `${xp} XP`,
+          percent: Math.min(100, Math.round(xp)),
+        };
+      }),
+    ];
+  }, [aly137Normalizado]);
 
   useEffect(() => {
     const isCyberpink = document.body?.classList?.contains("theme-cyberpink");
@@ -227,6 +311,46 @@ function Card({
     id,
   ]);
 
+  useEffect(() => {
+    let cancelado = false;
+    const ownerId = String(ownerUserId || id_user || "").trim();
+    const espacosParaBuscar = Array.from(
+      new Set(
+        cardsOrigemAly137
+          .filter((cardOrigem) => !String(cardOrigem?.espacoSubtema || cardOrigem?.subtema || "").trim())
+          .map((cardOrigem) => String(cardOrigem?.espacoId || "").trim())
+          .filter(Boolean)
+      )
+    );
+
+    if (!ownerId || !espacosParaBuscar.length) {
+      setSubtemasCardsOrigem({});
+      return undefined;
+    }
+
+    async function carregarSubtemasOrigem() {
+      const proximos = {};
+      for (const espacoOrigemId of espacosParaBuscar) {
+        const refs = getProjectDocCandidates(db, "users", ownerId, "espacos", espacoOrigemId);
+        const snapshot = await getFirstExistingDoc(refs);
+        const dados = snapshot?.exists?.() ? snapshot.data() || {} : {};
+        const subtema = String(dados?.subtema || "").trim();
+        if (subtema) {
+          proximos[espacoOrigemId] = normalizeCyberpinkSubtheme(subtema);
+        }
+      }
+      if (!cancelado) {
+        setSubtemasCardsOrigem(proximos);
+      }
+    }
+
+    void carregarSubtemasOrigem();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [cardsOrigemAly137, ownerUserId, id_user]);
+
   return (
     <div id={idNome} ref={cardRef} className={cardContainerClassName}>
       <span className="cyberpink-card-top-rail" aria-hidden="true" />
@@ -255,7 +379,42 @@ function Card({
           <div className={cardDescricaoDiv}>
             <div className="cardDescricaoDiv__scroll">
               <div className="checkBoxHab">
-                {addOns.map((addon) => (
+                {cardsOrigemAly137.map((cardOrigem, index) => {
+                  const cardOrigemId = String(cardOrigem?.id || cardOrigem?.cardId || index).trim();
+                  const label = String(cardOrigem?.nome || "Card relacionado").trim();
+                  const titulo = `${label} / ${cardOrigem?.xpTotal || 0} XP`;
+                  const espacoOrigemId = String(cardOrigem?.espacoId || "").trim();
+                  const subthemeCardOrigem = normalizeCyberpinkSubtheme(
+                    cardOrigem?.espacoSubtema ||
+                      cardOrigem?.subtema ||
+                      subtemasCardsOrigem[espacoOrigemId] ||
+                      cyberpinkSubthemeFallback
+                  );
+                  const iconColor = getCyberpinkSubthemeIconColor(subthemeCardOrigem);
+                  return (
+                    <button
+                      key={`card-fragment-${cardOrigemId}-${index}`}
+                      type="button"
+                      className="iconeAddOnWrap iconeAddOnWrap--card-fragment"
+                      title={titulo}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        if (typeof onCardFragmentClick === "function") {
+                          onCardFragmentClick(cardOrigem);
+                        }
+                      }}
+                    >
+                      <CardFragmentIcon
+                        style={{
+                          color: iconColor,
+                          filter: `drop-shadow(0 0 2px ${iconColor}) drop-shadow(0 0 5px ${iconColor})`,
+                        }}
+                      />
+                    </button>
+                  );
+                })}
+                {addOnsVisiveisNoCard.map((addon) => (
                   (() => {
                     const addOnId = String(addon?.id || "").trim();
                     const addOnUrl = String(addon?.url_img || "").trim();
@@ -263,32 +422,44 @@ function Card({
                     const podeColorir = Boolean(subthemeKey) && isSvgAssetUrl(addOnUrl);
                     const label = String(addon?.nome || "Add-on").trim() || "Add-on";
                     const iconColor = getCyberpinkSubthemeIconColor(subthemeKey);
-
-                    if (podeColorir) {
-                      return (
-                        <img
-                          key={addOnId}
-                          src={addOnUrl}
-                          alt={label}
-                          title={label}
-                          className="iconeAddOn iconeAddOn--tinted"
-                          style={{
-                            filter: `${getCyberpinkSubthemeIconFilter(
-                              subthemeKey
-                            )} drop-shadow(0 0 2px ${iconColor}) drop-shadow(0 0 5px ${iconColor})`,
-                          }}
-                        />
-                      );
-                    }
-
-                    return (
+                    const addOnXp = aly137Normalizado?.addOnsXp?.[addOnId] || null;
+                    const iconNode = podeColorir ? (
                       <img
-                        key={addOnId}
+                        src={addOnUrl}
+                        alt={label}
+                        title={label}
+                        className="iconeAddOn iconeAddOn--tinted"
+                        style={{
+                          filter: `${getCyberpinkSubthemeIconFilter(
+                            subthemeKey
+                          )} drop-shadow(0 0 2px ${iconColor}) drop-shadow(0 0 5px ${iconColor})`,
+                        }}
+                      />
+                    ) : (
+                      <img
                         src={addOnUrl}
                         alt={label}
                         title={label}
                         className="iconeAddOn"
                       />
+                    );
+
+                    return (
+                      <button
+                        key={addOnId}
+                        type="button"
+                        className="iconeAddOnWrap"
+                        title={addOnXp ? `${label} / ${addOnXp.xpTotal || 0} XP` : label}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          if (typeof onAddOnClick === "function") {
+                            onAddOnClick(addon);
+                          }
+                        }}
+                      >
+                        {iconNode}
+                      </button>
                     );
                   })()
                 ))}
@@ -296,6 +467,23 @@ function Card({
 
               {nomeDescricao && <p className="txtTituloPri"> [ {nomeDescricao} ] </p>}
               {descricao && <p className="txtDescricao"> {descricao}</p>}
+              {aly137Stats.length ? (
+                <div className="cardAly137Stats" aria-label="XP e atributos do card">
+                  <div className="cardAly137Stats__header">
+                    <span>{aly137Normalizado.nivelLabel || "Em formacao"}</span>
+                    <strong>{`${aly137Normalizado.xpTotal || 0} XP`}</strong>
+                  </div>
+                  {aly137Stats.map((stat) => (
+                    <div className="cardAly137Stat" key={stat.key}>
+                      <span className="cardAly137Stat__label">{stat.label}</span>
+                      <span className="cardAly137Stat__value">{stat.value}</span>
+                      <span className="cardAly137Stat__bar" aria-hidden="true">
+                        <span style={{ width: `${Math.max(0, Math.min(100, stat.percent))}%` }} />
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
               {atividade && criador && <p className="txtTitulo"> [ {atividade} ] por {criador}.</p>}
               {data && <p className="txtTitulo"> [ PERIODO ] {data}.</p>}
               {linkExterno && (

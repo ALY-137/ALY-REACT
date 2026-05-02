@@ -4827,6 +4827,12 @@ function ListaAcessos({ modo = "acessos" }) {
                           <span>{`Status: ${acessoLido ? "LIDO" : "NAO LIDO"}`}</span>
                           <span>{`Perfil: ${normalizeText(acesso?.perfilAcesso) || "--"}`}</span>
                           <span>{`Evento: ${normalizeText(acesso?.eventoTipo) || "--"}`}</span>
+                          {normalizeText(acesso?.eventoTipo) === "space_switch" ? (
+                            <>
+                              <span>{`Espaco origem: ${normalizeText(acesso?.origemEspacoNome || acesso?.origemEspacoId) || "--"}`}</span>
+                              <span>{`Espaco destino: ${normalizeText(acesso?.destinoEspacoNome || acesso?.destinoEspacoId) || "--"}`}</span>
+                            </>
+                          ) : null}
                           <span>{`Motivo: ${motivoRegistro}`}</span>
                           <span>{`Bloqueio: ${registroBloqueado ? motivoBloqueio : "--"}`}</span>
                           <span>{`Visibilidade: ${visibilidadeAba}`}</span>

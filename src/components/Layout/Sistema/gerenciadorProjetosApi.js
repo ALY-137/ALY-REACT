@@ -19,6 +19,7 @@ export {
   listarAddOnsDoUsuarioProjeto,
   criarAddOnDoUsuarioProjeto,
   salvarAddOnDoUsuarioProjeto,
+  salvarResumoAly137AddOnsUsuarioProjeto,
   removerAddOnDoUsuarioProjeto,
 } from "./gerenciadorSistemasApi";
 

@@ -50,7 +50,7 @@ function buildNavigationId(value = "") {
   return `nav_${(hash >>> 0).toString(16)}`;
 }
 
-function getOrCreateNavigationId() {
+export function getOrCreateNavigationId() {
   if (typeof window === "undefined") return buildNavigationId("server");
 
   try {
@@ -255,10 +255,15 @@ export async function criarLinkRastreavelEspaco({
   espacoNome = "",
   skinsUsername = "",
   destinoUrl = "",
+  destinoTipo = "espaco",
+  targetType = "",
+  blocoId = "",
+  cardId = "",
   descricao = "",
   origemPlanejada = "",
   permissaoCriarLinks = "",
   permissaoHistoricoLinks = "",
+  criadoVia = "espaco_rastreabilidade",
 } = {}) {
   const trackingId = createFirestoreId("trackableLinks");
   const normalizedOwnerUserId = normalizeText(ownerUserId);
@@ -279,11 +284,13 @@ export async function criarLinkRastreavelEspaco({
     cleanPayload({
       id: trackingId,
       trackingId,
-      tipo: "link_espaco",
-      targetType: "espaco",
-      destinoTipo: "espaco",
+      tipo: normalizeText(destinoTipo) === "card" ? "link_card" : "link_espaco",
+      targetType: normalizeText(targetType || destinoTipo) || "espaco",
+      destinoTipo: normalizeText(destinoTipo) || "espaco",
       ownerUserId: normalizedOwnerUserId,
       espacoId: normalizedEspacoId,
+      blocoId: normalizeText(blocoId) || null,
+      cardId: normalizeText(cardId) || null,
       espacoNome: normalizeText(espacoNome) || null,
       skinsUsername: normalizeText(skinsUsername) || null,
       spaceKey: buildSpaceKey(normalizedOwnerUserId, normalizedEspacoId),
@@ -302,6 +309,8 @@ export async function criarLinkRastreavelEspaco({
       runtimeProjectId: normalizeText(activeFirebaseProjectId) || null,
       criadoPor: normalizeText(currentUser?.uid) || null,
       criadoPorEmail: normalizeText(currentUser?.email) || null,
+      criadoPorNavigationId: getOrCreateNavigationId(),
+      criadoVia: normalizeText(criadoVia) || "espaco_rastreabilidade",
       criadoEm: serverTimestamp(),
       atualizadoEm: serverTimestamp(),
     })
@@ -321,8 +330,17 @@ export async function criarLinkRastreavelEspaco({
       destinoUrl: normalizedDestinoUrl,
       trackingRoute,
       urlRastreavel,
+      destinoTipo: normalizeText(destinoTipo) || "espaco",
+      blocoId: normalizeText(blocoId) || null,
+      cardId: normalizeText(cardId) || null,
       origemPlanejada: normalizeText(origemPlanejada || descricao) || null,
       status: "ativo",
+      navigationId: getOrCreateNavigationId(),
+    },
+    metadata: {
+      auditCategory: "rastreaveis",
+      criadoVia: normalizeText(criadoVia) || "espaco_rastreabilidade",
+      destinoTipo: normalizeText(destinoTipo) || "espaco",
     },
   });
 
