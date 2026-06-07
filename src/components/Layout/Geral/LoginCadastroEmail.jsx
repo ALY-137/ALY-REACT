@@ -96,7 +96,7 @@ function LoginCadastroEmail({ onLogin, configSistema = null }) {
     return resolverDestinoPosLoginProjeto(configEfetiva);
   };
 
-  const finalizarLogin = async (firebaseUser) => {
+  const finalizarLogin = async (firebaseUser, loginContext = {}) => {
     if (typeof firebaseUser?.getIdToken === "function") {
       try {
         await firebaseUser.getIdToken(true);
@@ -107,7 +107,12 @@ function LoginCadastroEmail({ onLogin, configSistema = null }) {
 
     let bootstrapResult = null;
     try {
-      bootstrapResult = await bootstrapUser(firebaseUser);
+      bootstrapResult = await bootstrapUser(firebaseUser, {
+        loginMethod: "email_password",
+        authProvider: "password",
+        loginFlow: loginContext.loginFlow || "login",
+        emailForHash: loginContext.emailForHash || firebaseUser?.email || "",
+      });
     } catch (bootstrapError) {
       if (bootstrapError?.code !== "permission-denied") {
         console.warn("Falha no bootstrap do usuario apos login email:", bootstrapError);
@@ -183,10 +188,16 @@ function LoginCadastroEmail({ onLogin, configSistema = null }) {
     try {
       if (modo === "cadastro") {
         const credenciais = await createUserWithEmailAndPassword(auth, emailLimpo, senha);
-        await finalizarLogin(credenciais.user);
+        await finalizarLogin(credenciais.user, {
+          loginFlow: "cadastro",
+          emailForHash: emailLimpo,
+        });
       } else {
         const credenciais = await signInWithEmailAndPassword(auth, emailLimpo, senha);
-        await finalizarLogin(credenciais.user);
+        await finalizarLogin(credenciais.user, {
+          loginFlow: "login",
+          emailForHash: emailLimpo,
+        });
       }
     } catch (erroAuth) {
       if (isErroAcessoOwner(erroAuth)) {

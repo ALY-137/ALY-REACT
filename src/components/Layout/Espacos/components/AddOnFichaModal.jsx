@@ -35,12 +35,19 @@ export default function AddOnFichaModal({
   const subtemaCardFragmento = normalizeCyberpinkSubtheme(addOn?.subtema);
   const corCardFragmento = getCyberpinkSubthemeIconColor(subtemaCardFragmento);
   const subtemaAddOnBruto = String(
-    addOn?.subtema || addOn?.subtheme || addOn?.theme || ""
+    addOn?.subtemaRelacaoCard ||
+      addOn?.subtemaConfiguradoNoCard ||
+      addOn?.subtema ||
+      addOn?.subtheme ||
+      addOn?.theme ||
+      ""
   ).trim();
   const subtemaAddOn = subtemaAddOnBruto ? normalizeCyberpinkSubtheme(subtemaAddOnBruto) : "";
   const corIconeSubtema = subtemaAddOn ? getCyberpinkSubthemeIconColor(subtemaAddOn) : "";
   const filtroIconeSubtema = subtemaAddOn ? getCyberpinkSubthemeIconFilter(subtemaAddOn) : "";
-  const urlIconeAddOn = String(addOn.url_img || "").trim();
+  const urlIconeAddOn = String(
+    addOn.url_img || addOn.imagemSnapshot || addOn.imageUrl || addOn.imagem || ""
+  ).trim();
   const podeColorirIconeAddOn = Boolean(subtemaAddOn && urlIconeAddOn && isSvgAssetUrl(urlIconeAddOn));
   const estiloIconeSubtema = subtemaAddOn
     ? {
@@ -94,6 +101,13 @@ export default function AddOnFichaModal({
                 src={urlIconeAddOn}
                 alt=""
                 className={podeColorirIconeAddOn ? "is-subtheme-tinted" : undefined}
+                style={
+                  podeColorirIconeAddOn
+                    ? {
+                        filter: `${filtroIconeSubtema} drop-shadow(0 0 2px ${corIconeSubtema}) drop-shadow(0 0 7px ${corIconeSubtema})`,
+                      }
+                    : undefined
+                }
               />
             ) : null}
             {!urlIconeAddOn && ehCardFragmento ? (

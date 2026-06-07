@@ -11,6 +11,7 @@ import { activeFirebaseProjectKey, db } from "./init-firebase";
 import { getProjectCollectionCandidates } from "./projectDataRefs";
 import { buildProjectDataPathCandidates } from "./projectDataNamespace";
 import { buildSharedFunctionsUrl } from "./sharedFunctionsApi";
+import { buildEmailPasswordLoginSecurityHash } from "./loginSecurityHash";
 
 function normalizeText(value) {
   return String(value || "").trim();
@@ -46,15 +47,78 @@ async function writeMirror(refs = [], payload = {}) {
   }
 }
 
-async function appendLoginMirror(userRefs = []) {
+function cleanUndefined(value) {
+  if (typeof value === "undefined") return undefined;
+  if (Array.isArray(value)) {
+    return value.map(cleanUndefined).filter((item) => typeof item !== "undefined");
+  }
+  if (!value || typeof value !== "object") return value;
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) return value;
+
+  return Object.entries(value).reduce((acc, [key, item]) => {
+    const itemLimpo = cleanUndefined(item);
+    if (typeof itemLimpo !== "undefined") {
+      acc[key] = itemLimpo;
+    }
+    return acc;
+  }, {});
+}
+
+function resolveAuthProvider(user, extras = {}) {
+  const explicit = normalizeText(extras?.loginMethod || extras?.authProvider).toLowerCase();
+  if (explicit) return explicit;
+
+  const providers = Array.isArray(user?.providerData) ? user.providerData : [];
+  const providerId = normalizeText(providers[0]?.providerId).toLowerCase();
+  return providerId || "unknown";
+}
+
+function isEmailPasswordProvider(provider = "") {
+  const normalizado = normalizeText(provider).toLowerCase();
+  return normalizado === "password" || normalizado === "email_password" || normalizado === "email-password";
+}
+
+async function buildLoginMetadata(user, extras = {}) {
+  const provider = resolveAuthProvider(user, extras);
+  const metadata = {
+    provider,
+    providerId: provider,
+    loginFlow: normalizeText(extras?.loginFlow || extras?.fluxoAuthEmailSenha),
+  };
+
+  if (!isEmailPasswordProvider(provider)) {
+    return cleanUndefined(metadata);
+  }
+
+  const projectSystemKey = getProjectSystemKeyForMirror();
+  const hashPayload = await buildEmailPasswordLoginSecurityHash({
+    uid: user?.uid,
+    email: extras?.emailForHash || user?.email || "",
+    projectKey: projectSystemKey,
+  });
+
+  return cleanUndefined({
+    ...metadata,
+    provider: "email_password",
+    providerId: "password",
+    projectSystemKey,
+    emailPasswordHash: hashPayload,
+    emailHash: hashPayload?.emailHash,
+    loginFingerprintHash: hashPayload?.loginFingerprintHash,
+  });
+}
+
+async function appendLoginMirror(userRefs = [], loginMetadata = {}) {
   if (!userRefs.length) return;
   const loginId = doc(collection(userRefs[0], "logins")).id;
   for (const userRef of userRefs) {
     await setDoc(
       doc(collection(userRef, "logins"), loginId),
-      {
+      cleanUndefined({
         data: serverTimestamp(),
-      },
+        ...loginMetadata,
+      }),
       { merge: true }
     );
   }
@@ -161,7 +225,7 @@ export async function espelharUsuarioNoGerenciador(user, extras = {}) {
   });
 }
 
-export const bootstrapUser = async (user) => {
+export const bootstrapUser = async (user, extras = {}) => {
   if (!user?.uid) return;
   if (user?.isAnonymous === true) {
     return { ignored: true, reason: "anonymous-user" };
@@ -176,6 +240,7 @@ export const bootstrapUser = async (user) => {
 
   const userRefs = buildUserDocRefs(user.uid);
   const userSnap = await readFirstExisting(userRefs);
+  const loginMetadata = await buildLoginMetadata(user, extras);
 
   if (!userSnap?.exists?.()) {
     await writeMirror(userRefs, {
@@ -190,7 +255,7 @@ export const bootstrapUser = async (user) => {
       updatedAt: serverTimestamp(),
     });
 
-    await appendLoginMirror(userRefs);
+    await appendLoginMirror(userRefs, loginMetadata);
     try {
       await espelharUsuarioNoGerenciador(user);
     } catch (error) {
@@ -208,7 +273,7 @@ export const bootstrapUser = async (user) => {
     updatedAt: serverTimestamp(),
   });
 
-  await appendLoginMirror(userRefs);
+  await appendLoginMirror(userRefs, loginMetadata);
   try {
     await espelharUsuarioNoGerenciador(user);
   } catch (error) {

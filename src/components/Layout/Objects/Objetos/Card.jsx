@@ -491,7 +491,13 @@ function Card({
                           event.preventDefault();
                           event.stopPropagation();
                           if (typeof onAddOnClick === "function") {
-                            onAddOnClick(addon);
+                            onAddOnClick({
+                              ...addon,
+                              subtema: subthemeKey,
+                              subtemaRelacaoCard: subthemeKey,
+                              subtemaConfiguradoNoCard: subthemeKey,
+                              cardRelacaoAddOnId: addOnId,
+                            });
                           }
                         }}
                       >

@@ -1,6 +1,6 @@
 # ALY-REACT - Trabalho de Seguranca
 
-Atualizado em: 2026-05-28
+Atualizado em: 2026-06-07
 
 ## Objetivo
 
@@ -163,6 +163,37 @@ Plano:
 2. testar permissao de upload/delecao;
 3. remover fallback por UID.
 
+### 4. Hash de logins por e-mail e senha
+
+Arquivos envolvidos:
+
+- `src/components/Banco/loginSecurityHash.js`
+- `src/components/Banco/bootstrapUser.js`
+- `src/components/Layout/Geral/LoginCadastroEmail.jsx`
+
+Status:
+
+- foi adicionada uma camada de hash SHA-256 para registros de login feitos por e-mail/senha;
+- os hashes sao gravados nos subdocumentos `users/{uid}/logins/{loginId}` e no namespace equivalente `projetos/{projectKey}/users/{uid}/logins/{loginId}`;
+- o hash usa e-mail normalizado, UID e contexto do projeto para gerar identificadores de auditoria sem gravar o e-mail puro no registro de login;
+- o fluxo tambem registra `provider: "email_password"`, `providerId: "password"` e `loginFlow` (`login` ou `cadastro`).
+
+Decisao de seguranca:
+
+- a senha nao e salva no app;
+- a senha tambem nao e hasheada no frontend, porque hash de senha no cliente ainda poderia virar credencial reutilizavel se vazasse;
+- o armazenamento e a verificacao da senha continuam sob responsabilidade do Firebase Auth;
+- o app registra somente hashes auxiliares para auditoria/correlacao de login por e-mail/senha.
+
+Campos adicionados ao log:
+
+- `emailHash`
+- `loginFingerprintHash`
+- `emailPasswordHash.hashAlgorithm`
+- `emailPasswordHash.hashVersion`
+- `emailPasswordHash.passwordManagedBy`
+- `emailPasswordHash.passwordStoredInApp`
+
 ## Arquivos alterados neste trabalho
 
 - `.gitignore`
@@ -174,6 +205,9 @@ Plano:
 - `package-lock.json`
 - `src/components/Layout/Espacos/SkinsEspaco.jsx`
 - `src/components/Layout/Espacos/EspacoPage.jsx`
+- `src/components/Banco/loginSecurityHash.js`
+- `src/components/Banco/bootstrapUser.js`
+- `src/components/Layout/Geral/LoginCadastroEmail.jsx`
 
 ## Checklist antes de deployar rules
 
