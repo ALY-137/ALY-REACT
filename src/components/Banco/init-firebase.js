@@ -29,6 +29,7 @@ export let activeFirebaseMessagingVapidKey = "";
 const FIRESTORE_COMPAT_SETTINGS = {
   experimentalAutoDetectLongPolling: true,
   useFetchStreams: false,
+  ignoreUndefinedProperties: true,
 };
 
 export function createFirestoreCompatInstance(firebaseApp) {

@@ -329,10 +329,67 @@ No codigo, a interface da forja deve ficar isolada como modulo opcional em:
 src/components/Layout/Modulos/ALY137/Forja/
 ```
 
-A pagina do espaco pode continuar fornecendo dados, permissoes e callbacks de
-persistencia, mas a tela da forja nao deve morar diretamente na estrutura base
-do espaco. Isso preserva a ideia de que ALY-137 e um modulo ativavel, nao uma
-obrigacao de todo projeto que usa cards.
+A separacao atual fica assim:
+
+```txt
+src/components/Layout/Modulos/ALY137/Forja/Aly137Forja.jsx
+src/components/Layout/Modulos/ALY137/Forja/useAly137Forja.js
+src/components/Layout/Modulos/ALY137/Forja/aly137ForjaApi.js
+```
+
+`Aly137Forja.jsx` controla a tela. `useAly137Forja.js` controla estado,
+inventario, selecao de materiais, drag/drop e preview de XP/atributos.
+`aly137ForjaApi.js` concentra a criacao persistida do card forjado, incluindo
+payload, snapshot ALY-137, atualizacao de XP dos add-ons e auditoria.
+
+A pagina do espaco ainda fornece contexto, referencias e callbacks de bloco,
+porque a criacao real do card depende do owner, espaco e estrutura atual do
+Firestore. A tela, a logica de interacao e a regra de persistencia da forja nao
+devem morar diretamente na estrutura base do espaco. Isso preserva a ideia de
+que ALY-137 e um modulo ativavel, nao uma obrigacao de todo projeto que usa
+cards.
+
+Partes visuais relacionadas ao card tambem foram separadas de `EspacoPage.jsx`
+para reduzir sobrecarga do componente principal:
+
+```txt
+src/components/Layout/Espacos/components/AddOnFichaModal.jsx
+src/components/Layout/Espacos/components/EditorCardModal.jsx
+src/components/Layout/Espacos/components/ForjaPreviewModal.jsx
+src/components/Layout/Espacos/components/CardPrintPreviewModal.jsx
+```
+
+`CardPrintPreviewModal.jsx` concentra o historico de cards rastreaveis e a
+visualizacao frente/verso para impressao, enquanto `EspacoPage.jsx` continua
+responsavel por estados, permissoes e chamadas de persistencia.
+`EditorCardModal.jsx` concentra o editor visual do card: abas de conteudo,
+imagem, add-ons, XP/Forja, rastreabilidade, impressao e preview fixo.
+
+O editor de card foi quebrado por abas para evitar que uma unica janela volte a
+virar um componente gigante:
+
+```txt
+src/components/Layout/Espacos/components/EditorCardConteudoTab.jsx
+src/components/Layout/Espacos/components/EditorCardVisualTab.jsx
+src/components/Layout/Espacos/components/EditorCardAddOnsTab.jsx
+src/components/Layout/Espacos/components/EditorCardAly137Tab.jsx
+src/components/Layout/Espacos/components/EditorCardRastreabilidadeTab.jsx
+src/components/Layout/Espacos/components/EditorCardImpressaoTab.jsx
+src/components/Layout/Espacos/components/EditorCardPreview.jsx
+src/components/Layout/Espacos/components/EditorBlocoCardsModal.jsx
+src/components/Layout/Espacos/components/EditorBlocoHeader.jsx
+src/components/Layout/Espacos/components/EditorBlocoConfigPanel.jsx
+src/components/Layout/Espacos/components/EditorBlocoCardsList.jsx
+src/components/Layout/Espacos/components/EditorBlocoAddOnsPanel.jsx
+```
+
+`EditorCardModal.jsx` agora funciona como casca/orquestrador: cabecalho, tabs,
+layout e rodape. Cada aba cuida apenas do seu painel.
+`EditorBlocoCardsModal.jsx` concentra o editor visual de blocos do tipo cards e
+add-ons, incluindo reordenacao de cards, cabecalho do bloco e subblocos de
+add-ons. As chamadas de persistencia continuam no `EspacoPage.jsx`.
+Esse modal tambem foi quebrado em paineis menores: header/acoes rapidas,
+configuracao de bloco, lista de cards e subblocos de add-ons.
 
 No editor do card, cards tambem podem aparecer na aba de add-ons como
 `Cards como fragmentos`. Essa selecao nao transforma o card em um add-on comum

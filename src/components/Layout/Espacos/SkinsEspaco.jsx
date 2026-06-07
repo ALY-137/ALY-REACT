@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { getDoc } from "firebase/firestore";
+import DOMPurify from "dompurify";
 
 import { db } from "../../Banco/init-firebase";
 import { getProjectDocCandidates } from "../../Banco/projectDataRefs";
@@ -76,7 +77,7 @@ const SkinsEspaco = () => {
   return (
     <div>
       <h1>{espaco.nome}</h1>
-      {espaco.conteudo && <div dangerouslySetInnerHTML={{ __html: espaco.conteudo }} />}
+      {espaco.conteudo && <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(espaco.conteudo) }} />}
     </div>
   );
 };

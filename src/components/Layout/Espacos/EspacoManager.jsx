@@ -68,6 +68,44 @@ const LABEL_VISIBILIDADE_ESPACO = {
   exclusivo_assinante: "Exclusivo assinante",
 };
 const CYBERPINK_THEME_KEY = "CYBERPINK";
+const ORDENACAO_BLOCOS_POSTAGEM = "postagem";
+const ORDENACAO_BLOCOS_LIVRE = "livre";
+
+const normalizarOrdenacaoBlocos = (valor = "") =>
+  String(valor || "").trim() === ORDENACAO_BLOCOS_LIVRE
+    ? ORDENACAO_BLOCOS_LIVRE
+    : ORDENACAO_BLOCOS_POSTAGEM;
+
+const obterScorePostagemBloco = (bloco = {}) => {
+  const criadoEm =
+    bloco?.criadoEm?.seconds ||
+    bloco?.createdAt?.seconds ||
+    bloco?.updatedAt?.seconds ||
+    0;
+  return Number(criadoEm) || 0;
+};
+
+const ordenarBlocosGerenciador = (lista = [], modo = ORDENACAO_BLOCOS_POSTAGEM) =>
+  [...lista].sort((a, b) => {
+    if (normalizarOrdenacaoBlocos(modo) === ORDENACAO_BLOCOS_LIVRE) {
+      const ordemA = Number(a?.ordem);
+      const ordemB = Number(b?.ordem);
+      const temOrdemA = Number.isFinite(ordemA);
+      const temOrdemB = Number.isFinite(ordemB);
+
+      if (temOrdemA && temOrdemB && ordemA !== ordemB) return ordemA - ordemB;
+      if (temOrdemA && !temOrdemB) return -1;
+      if (!temOrdemA && temOrdemB) return 1;
+    }
+
+    const scoreA = obterScorePostagemBloco(a);
+    const scoreB = obterScorePostagemBloco(b);
+    if (scoreA !== scoreB) return scoreB - scoreA;
+    return String(a?.titulo || a?.nome || a?.id || "").localeCompare(
+      String(b?.titulo || b?.nome || b?.id || ""),
+      "pt-BR"
+    );
+  });
 
 const criarEstadoLinksRastreaveis = (patch = {}) => ({
   aberto: false,
@@ -194,6 +232,13 @@ export default function EspacoManager() {
   const [editingVisibilidade, setEditingVisibilidade] = useState("privado");
   const [editingIconSelection, setEditingIconSelection] = useState("");
   const [editingSubtema, setEditingSubtema] = useState(normalizeCyberpinkSubtheme());
+  const [editingOrdenacaoBlocos, setEditingOrdenacaoBlocos] = useState(
+    ORDENACAO_BLOCOS_POSTAGEM
+  );
+  const [blocosEdicaoEspaco, setBlocosEdicaoEspaco] = useState([]);
+  const [loadingBlocosEdicao, setLoadingBlocosEdicao] = useState(false);
+  const [erroBlocosEdicao, setErroBlocosEdicao] = useState("");
+  const [salvandoOrdemBlocos, setSalvandoOrdemBlocos] = useState(false);
   const [novaSelecaoIcone, setNovaSelecaoIcone] = useState("");
   const [novoSubtema, setNovoSubtema] = useState(normalizeCyberpinkSubtheme());
   const [homeIconSelection, setHomeIconSelection] = useState("");
@@ -532,6 +577,7 @@ export default function EspacoManager() {
       skins_relacionadas: [skinIdAtual],
       skinOwner: skinIdAtual,
       visibilidade: novaVisibilidade || "privado",
+      ordenacaoBlocos: ORDENACAO_BLOCOS_POSTAGEM,
       subtema: normalizeCyberpinkSubtheme(novoSubtema),
       ...iconPayload,
       createdAt: serverTimestamp(),
@@ -567,12 +613,46 @@ export default function EspacoManager() {
     carregarEspacos();
   };
 
+  const carregarBlocosDoEspacoEdicao = useCallback(
+    async (espacoIdAlvo, modo = ORDENACAO_BLOCOS_POSTAGEM) => {
+      const espacoIdNormalizado = String(espacoIdAlvo || "").trim();
+      if (!userId || !espacoIdNormalizado) {
+        setBlocosEdicaoEspaco([]);
+        return;
+      }
+
+      setLoadingBlocosEdicao(true);
+      setErroBlocosEdicao("");
+
+      try {
+        const blocosSnap = await getDocs(
+          getPrimaryProjectCollection(db, "users", userId, "espacos", espacoIdNormalizado, "blocos")
+        );
+        const blocos = blocosSnap.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+        }));
+        setBlocosEdicaoEspaco(ordenarBlocosGerenciador(blocos, modo));
+      } catch (err) {
+        console.error("Erro ao carregar blocos do espaco:", err);
+        setErroBlocosEdicao(err?.message || "Falha ao carregar blocos deste espaco.");
+        setBlocosEdicaoEspaco([]);
+      } finally {
+        setLoadingBlocosEdicao(false);
+      }
+    },
+    [userId]
+  );
+
   const iniciarEdicao = (espaco) => {
+    const modoOrdenacao = normalizarOrdenacaoBlocos(espaco?.ordenacaoBlocos);
     setEditingEspacoId(espaco.id);
     setEditingNome(espaco.nome || "");
     setEditingVisibilidade(espaco.visibilidade || "publico");
     setEditingIconSelection(buildIconSelectionValue(espaco));
     setEditingSubtema(normalizeCyberpinkSubtheme(espaco?.subtema));
+    setEditingOrdenacaoBlocos(modoOrdenacao);
+    carregarBlocosDoEspacoEdicao(espaco.id, modoOrdenacao);
   };
 
   const cancelarEdicao = () => {
@@ -581,6 +661,9 @@ export default function EspacoManager() {
     setEditingVisibilidade("privado");
     setEditingIconSelection("");
     setEditingSubtema(normalizeCyberpinkSubtheme());
+    setEditingOrdenacaoBlocos(ORDENACAO_BLOCOS_POSTAGEM);
+    setBlocosEdicaoEspaco([]);
+    setErroBlocosEdicao("");
   };
 
   const salvarEdicao = async (espacoId) => {
@@ -594,6 +677,7 @@ export default function EspacoManager() {
       id_espaco: espacoId,
       nome: editingNome.trim(),
       visibilidade: editingVisibilidade || "publico",
+      ordenacaoBlocos: normalizarOrdenacaoBlocos(editingOrdenacaoBlocos),
       subtema: normalizeCyberpinkSubtheme(editingSubtema),
       ...iconPayload,
       ownerUserId: espacoExistente?.ownerUserId || userId,
@@ -602,6 +686,7 @@ export default function EspacoManager() {
     await updateDoc(getPrimaryProjectDoc(db, "users", userId, "espacos", espacoId), {
       nome: editingNome.trim(),
       visibilidade: editingVisibilidade || "publico",
+      ordenacaoBlocos: normalizarOrdenacaoBlocos(editingOrdenacaoBlocos),
       subtema: normalizeCyberpinkSubtheme(editingSubtema),
       ...iconPayload,
     });
@@ -736,6 +821,91 @@ export default function EspacoManager() {
 
     setEspacosRelacionados(ordenada);
     await salvarOrdem(ordenada);
+  };
+
+  const moverBlocoDoEspaco = async (espacoId, blocoId, direcao) => {
+    const espacoIdNormalizado = String(espacoId || "").trim();
+    const blocoIdNormalizado = String(blocoId || "").trim();
+    const index = blocosEdicaoEspaco.findIndex((bloco) => bloco.id === blocoIdNormalizado);
+    if (!userId || !espacoIdNormalizado || index < 0) return;
+
+    const novoIndex = index + direcao;
+    if (novoIndex < 0 || novoIndex >= blocosEdicaoEspaco.length) return;
+
+    const ordenada = [...blocosEdicaoEspaco];
+    const [movido] = ordenada.splice(index, 1);
+    ordenada.splice(novoIndex, 0, movido);
+    const ordenadaComOrdem = ordenada.map((bloco, ordemIndex) => ({
+      ...bloco,
+      ordem: ordemIndex + 1,
+    }));
+
+    setBlocosEdicaoEspaco(ordenadaComOrdem);
+    setSalvandoOrdemBlocos(true);
+    setErroBlocosEdicao("");
+
+    try {
+      await updateDoc(getPrimaryProjectDoc(db, "users", userId, "espacos", espacoIdNormalizado), {
+        ordenacaoBlocos: ORDENACAO_BLOCOS_LIVRE,
+      });
+
+      await Promise.all(
+        ordenadaComOrdem.map((bloco) =>
+          updateDoc(
+            getPrimaryProjectDoc(
+              db,
+              "users",
+              userId,
+              "espacos",
+              espacoIdNormalizado,
+              "blocos",
+              bloco.id
+            ),
+            {
+              ordem: bloco.ordem,
+              updatedAt: serverTimestamp(),
+            }
+          )
+        )
+      );
+
+      const espaco = espacosRelacionados.find((item) => item.id === espacoIdNormalizado);
+      if (espaco) {
+        await sincronizarEstruturaPublicaEspaco(userId, {
+          ...espaco,
+          id: espaco.id,
+          ordenacaoBlocos: ORDENACAO_BLOCOS_LIVRE,
+          ownerUserId: espaco.ownerUserId || userId,
+        });
+      }
+
+      setEditingOrdenacaoBlocos(ORDENACAO_BLOCOS_LIVRE);
+      await registrarAuditLog({
+        action: "reordenou_blocos",
+        entityType: "bloco",
+        entityId: "ordem",
+        ownerUserId: userId,
+        espacoId: espacoIdNormalizado,
+        espacoNome: espaco?.nome || "",
+        source: "espaco_manager",
+        snapshotDepois: ordenadaComOrdem.map((bloco) => ({
+          id: bloco.id,
+          titulo: bloco.titulo || bloco.nome || bloco.tipo || "",
+          tipo: bloco.tipo || "",
+          ordem: bloco.ordem,
+        })),
+        metadata: {
+          skinId: skinIdAtual,
+          totalBlocos: ordenadaComOrdem.length,
+        },
+      });
+    } catch (err) {
+      console.error("Erro ao reordenar blocos:", err);
+      setErroBlocosEdicao(err?.message || "Falha ao salvar ordem dos blocos.");
+      await carregarBlocosDoEspacoEdicao(espacoIdNormalizado, ORDENACAO_BLOCOS_LIVRE);
+    } finally {
+      setSalvandoOrdemBlocos(false);
+    }
   };
 
   const relacionar = async (id) => {
@@ -1801,6 +1971,10 @@ export default function EspacoManager() {
                   <small className="espaco-manager__meta">
                     {`Ordem ${e.ordem ?? "-"} | ${
                       LABEL_VISIBILIDADE_ESPACO[e.visibilidade || "publico"] || "Publico"
+                    } | Blocos: ${
+                      normalizarOrdenacaoBlocos(e.ordenacaoBlocos) === ORDENACAO_BLOCOS_LIVRE
+                        ? "ordem livre"
+                        : "postagem"
                     }${
                       projetoUsaSubtemasCyberpink
                         ? ` | ${getCyberpinkSubthemeLabel(e?.subtema)}`
@@ -1894,6 +2068,75 @@ export default function EspacoManager() {
                         ))}
                       </select>
                     ) : null}
+
+                    <select
+                      value={editingOrdenacaoBlocos}
+                      onChange={(event) => {
+                        const modo = normalizarOrdenacaoBlocos(event.target.value);
+                        setEditingOrdenacaoBlocos(modo);
+                        setBlocosEdicaoEspaco((prev) => ordenarBlocosGerenciador(prev, modo));
+                      }}
+                      title="Ordenacao dos blocos deste espaco"
+                    >
+                      <option value={ORDENACAO_BLOCOS_POSTAGEM}>Ordem de postagem</option>
+                      <option value={ORDENACAO_BLOCOS_LIVRE}>Ordem livre</option>
+                    </select>
+                  </div>
+
+                  <div className="espaco-manager__block-order">
+                    <div className="espaco-manager__block-order-head">
+                      <strong>Blocos deste espaco</strong>
+                      <span>
+                        {editingOrdenacaoBlocos === ORDENACAO_BLOCOS_LIVRE
+                          ? "Modo livre: use subir e descer."
+                          : "Modo postagem: mais recentes primeiro."}
+                      </span>
+                    </div>
+
+                    {loadingBlocosEdicao ? (
+                      <ProjectLoadingFallback text="Carregando blocos..." inline />
+                    ) : erroBlocosEdicao ? (
+                      <p className="espaco-manager__note">{erroBlocosEdicao}</p>
+                    ) : blocosEdicaoEspaco.length ? (
+                      <div className="espaco-manager__block-order-list">
+                        {blocosEdicaoEspaco.map((bloco, blocoIndex) => (
+                          <div key={bloco.id} className="espaco-manager__block-order-item">
+                            <span className="espaco-manager__block-order-rank">
+                              {String(blocoIndex + 1).padStart(2, "0")}
+                            </span>
+                            <div className="espaco-manager__block-order-info">
+                              <strong>{bloco.titulo || bloco.nome || `Bloco ${blocoIndex + 1}`}</strong>
+                              <small>{bloco.tipo || "bloco"}</small>
+                            </div>
+                            {editingOrdenacaoBlocos === ORDENACAO_BLOCOS_LIVRE ? (
+                              <div className="espaco-manager__block-order-actions">
+                                <button
+                                  type="button"
+                                  onClick={() => moverBlocoDoEspaco(e.id, bloco.id, -1)}
+                                  disabled={blocoIndex === 0 || salvandoOrdemBlocos}
+                                >
+                                  Subir
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => moverBlocoDoEspaco(e.id, bloco.id, 1)}
+                                  disabled={
+                                    blocoIndex === blocosEdicaoEspaco.length - 1 ||
+                                    salvandoOrdemBlocos
+                                  }
+                                >
+                                  Descer
+                                </button>
+                              </div>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="espaco-manager__note">
+                        Nenhum bloco criado neste espaco ainda.
+                      </p>
+                    )}
                   </div>
 
                   <div className="espaco-manager__actions">

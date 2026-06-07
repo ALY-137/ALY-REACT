@@ -234,8 +234,13 @@ export function normalizarCardsOrigemAly137(cardsOrigem = []) {
         blocoId: normalizarTexto(card?.blocoId),
         blocoTitulo: normalizarTexto(card?.blocoTitulo),
         nome: normalizarTexto(card?.nome) || "Card de origem",
-        descricao: normalizarTexto(card?.descricao),
+        descricao: normalizarTexto(card?.descricaoPrevia || card?.descricao),
+        descricaoPrevia: normalizarTexto(card?.descricaoPrevia || card?.descricao),
+        descricaoCompleta: normalizarTexto(
+          card?.descricaoCompleta || card?.descricaoPrevia || card?.descricao
+        ),
         imagem: normalizarTexto(card?.imagem),
+        iconeSvg: normalizarTexto(card?.iconeSvg || card?.iconeAddOnSvg || card?.cardFragmentIconSvg),
         xpTotal,
         nivel: normalizarNumero(card?.nivel || card?.aly137?.nivel),
         atributos,

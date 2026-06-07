@@ -5,65 +5,134 @@ service firebase.storage {
       return request.auth != null;
     }
 
-    function isAdmin() {
+    function isContaReal() {
+      return signedIn() &&
+        request.auth.token.firebase.sign_in_provider != "anonymous";
+    }
+
+    function isAdminClaim() {
+      return signedIn() &&
+        (
+          request.auth.token.role == "admin" ||
+          request.auth.token.isAdmin == true
+        );
+    }
+
+    function isAdminFallback() {
+      // Fallback temporario ate configurar custom claims para o owner principal.
       return signedIn() &&
         request.auth.uid == "WnGJjmU6btgKmMMFAQq5Hpupsap1";
     }
 
-    function isOwner(userId) {
-      return signedIn() && request.auth.uid == userId;
+    function isAdmin() {
+      return isAdminClaim() || isAdminFallback();
     }
 
+    function isOwner(userId) {
+      return isContaReal() && request.auth.uid == userId;
+    }
+
+    function canManageUserAssets(userId) {
+      return isAdmin() || isOwner(userId);
+    }
+
+    function isAllowedImageUpload(maxSizeMb) {
+      return request.resource != null &&
+        request.resource.size <= maxSizeMb * 1024 * 1024 &&
+        request.resource.contentType.matches('image/.*');
+    }
+
+    // Assets globais de tema/landing que precisam renderizar antes do login.
     match /imagens/{allPaths=**} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow create, update: if isAdmin() && isAllowedImageUpload(10);
+      allow delete: if isAdmin();
     }
 
-    // Branding do projeto (logo do login, favicon e ativos semelhantes).
-    // A leitura precisa ser publica porque a tela de login usa esses assets
-    // antes da autenticacao. Escrita fica restrita ao dono do path ou admin.
+    // Caminho legado de branding.
     match /branding/{projectKey}/{userId}/{allPaths=**} {
       allow read: if true;
-      allow write: if isAdmin() || isOwner(userId);
+      allow create, update: if canManageUserAssets(userId) && isAllowedImageUpload(5);
+      allow delete: if canManageUserAssets(userId);
+    }
+
+    // Caminho real usado pelo frontend para logo, favicon e ativos de projeto.
+    match /users/{userId}/branding/{projectKey}/{allPaths=**} {
+      allow read: if true;
+      allow create, update: if canManageUserAssets(userId) && isAllowedImageUpload(5);
+      allow delete: if canManageUserAssets(userId);
+    }
+
+    // Icones de colecoes aparecem em interfaces publicas do projeto.
+    match /users/{userId}/icon-collections/{allPaths=**} {
+      allow read: if true;
+      allow create, update: if canManageUserAssets(userId) && isAllowedImageUpload(5);
+      allow delete: if canManageUserAssets(userId);
     }
 
     // Compatibilidade legado: caminho antigo.
     match /users/{userId}/blocos/{allPaths=**} {
-      allow read, write: if isAdmin() || isOwner(userId);
+      allow read, write: if canManageUserAssets(userId);
     }
 
-    // Icones de add-ons do usuario/projeto.
+    // Avatar de skin/perfil pode aparecer em paginas publicas.
+    match /users/{userId}/skins/{skinId}/avatar/{allPaths=**} {
+      allow read: if true;
+      allow create, update: if canManageUserAssets(userId) && isAllowedImageUpload(5);
+      allow delete: if canManageUserAssets(userId);
+    }
+
+    // Icones de add-ons podem aparecer em cards publicos, QR e previews.
     match /users/{userId}/add_ons/{allPaths=**} {
       allow read: if true;
-      allow write: if isAdmin() || isOwner(userId);
+      allow create, update: if canManageUserAssets(userId) && isAllowedImageUpload(5);
+      allow delete: if canManageUserAssets(userId);
     }
 
-    // Preview desfocado: sempre publico para exibir bloqueio sem vazar original.
+    // Fotos de produtos de venda aparecem no catalogo publico e nos blocos de venda.
+    match /users/{userId}/produtos_venda/{produtoId}/{allPaths=**} {
+      allow read: if true;
+      allow create, update: if canManageUserAssets(userId) && isAllowedImageUpload(10);
+      allow delete: if canManageUserAssets(userId);
+    }
+
+    // QR PIX: comprador precisa estar autenticado; URLs tokenizadas continuam
+    // podendo ser exibidas pelo documento liberado no fluxo de pagamento.
+    match /users/{userId}/integracoes/pixManual/qrs/{allPaths=**} {
+      allow read: if canManageUserAssets(userId) || signedIn();
+      allow create, update: if canManageUserAssets(userId) && isAllowedImageUpload(5);
+      allow delete: if canManageUserAssets(userId);
+    }
+
+    // Preview desfocado: publico para mostrar bloqueio sem vazar o original.
     match /users/{userId}/espacos/{espacoId}/blocos/{blocoId}/preview/{allPaths=**} {
       allow read: if true;
-      allow write: if isAdmin() || isOwner(userId);
+      allow create, update: if canManageUserAssets(userId) && isAllowedImageUpload(10);
+      allow delete: if canManageUserAssets(userId);
     }
 
-    // Original: protegido para anonimos.
-    // Visitante deslogado usa URL tokenizada persistida no documento do bloco publico.
+    // Original: Firestore decide quem ve o bloco e entrega URLs/paths.
+    // Leitura via SDK fica limitada a usuarios autenticados e gestores; visitantes
+    // deslogados usam URLs tokenizadas gravadas nos docs publicos/liberados.
     match /users/{userId}/espacos/{espacoId}/blocos/{blocoId}/original/{allPaths=**} {
-      allow read: if isAdmin() || isOwner(userId) || signedIn();
-      allow write: if isAdmin() || isOwner(userId);
+      allow read: if canManageUserAssets(userId) || signedIn();
+      allow create, update: if canManageUserAssets(userId) && isAllowedImageUpload(25);
+      allow delete: if canManageUserAssets(userId);
     }
 
-    // Imagens de cards dentro do bloco:
-    // users/{ownerUserId}/espacos/{espacoId}/blocos/{blocoId}/cards/{cardId}/{arquivo}
+    // Imagens de cards precisam renderizar em blocos publicos, deck fisico e QR.
+    // A visibilidade do card/bloco continua sendo controlada no Firestore.
     match /users/{userId}/espacos/{espacoId}/blocos/{blocoId}/cards/{cardId}/{allPaths=**} {
-      // Mantem leitura publica para cards de blocos publicos.
-      // Se quiser endurecer, troque para: isAdmin() || isOwner(userId) || signedIn()
       allow read: if true;
-      allow write: if isAdmin() || isOwner(userId);
+      allow create, update: if canManageUserAssets(userId) && isAllowedImageUpload(10);
+      allow delete: if canManageUserAssets(userId);
     }
 
-    // Live banner e demais ativos publicos da live.
+    // Banners e ativos publicos de live.
     match /users/{userId}/espacos/{espacoId}/blocos/{blocoId}/live/{allPaths=**} {
       allow read: if true;
-      allow write: if isAdmin() || isOwner(userId);
+      allow create, update: if canManageUserAssets(userId) && isAllowedImageUpload(10);
+      allow delete: if canManageUserAssets(userId);
     }
 
     match /{allPaths=**} {

@@ -76,6 +76,7 @@ function Chat() {
   const { contactId, conversationId } = useParams();
   const [mensagem, setMensagem] = useState("");
   const [chatMensagens, setChatMensagens] = useState([]);
+  const [conversaAtual, setConversaAtual] = useState(null);
   const [chatHabilitado, setChatHabilitado] = useState(DEFAULT_SISTEMA_CONFIG.chatHabilitado);
   const [iconSkinPadraoUrl, setIconSkinPadraoUrl] = useState(
     DEFAULT_SISTEMA_CONFIG.iconSkinPadraoUrl || ""
@@ -215,6 +216,7 @@ function Chat() {
   useEffect(() => {
     if (!chatHabilitado || !contactId || !conversationId) {
       setChatMensagens([]);
+      setConversaAtual(null);
       if (acessoLiveLiberado) {
         setErroChat("");
       }
@@ -225,6 +227,11 @@ function Chat() {
       setChatMensagens([]);
       return;
     }
+
+    void (async () => {
+      const conversaSnap = await getFirstExistingDoc(getConversaRefs(contactId, conversationId));
+      setConversaAtual(conversaSnap?.exists?.() ? conversaSnap.data() || null : null);
+    })();
 
     const chatRef = getFirstRef(getChatRefs(contactId, conversationId));
     if (!chatRef) {
@@ -477,6 +484,25 @@ function Chat() {
 
   return (
     <div className="contentPageDetForm">
+      {conversaAtual?.assunto ? (
+        <div
+          style={{
+            display: "grid",
+            gap: 4,
+            marginBottom: 10,
+            padding: 10,
+            border: "1px solid rgba(255,255,255,0.18)",
+          }}
+        >
+          <strong>{conversaAtual.assunto}</strong>
+          {conversaAtual?.produtoSnapshot?.nome ? (
+            <span style={{ fontSize: 12, opacity: 0.78 }}>
+              {conversaAtual.produtoSnapshot.nome}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="contentChat" ref={contentChatRef}>
         {chatMensagens.map((mensagemItem, index) => {
           const remetenteAtual = obterChaveRemetente(mensagemItem);

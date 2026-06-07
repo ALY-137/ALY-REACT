@@ -56,6 +56,7 @@ const SEGMENTOS_RESERVADOS_MENU = new Set([
   "solicitacoes",
   "pedidos",
   "addons",
+  "vendas",
   "propriedades-sistema",
   "espacos",
   "configuracoes-gerenciador",
@@ -192,6 +193,7 @@ function Menu({ menuOpen }) {
     (Boolean(skinLogadoUser) && !menuOneOwnerUsuarioComum);
   const exibirGavetaAddOns =
     addOnsHabilitados && temUsuarioAutenticado && !menuOneOwnerUsuarioComum;
+  const exibirGavetaVendas = exibirGestaoEspacos;
   const exibirGavetaChat = chatHabilitado && Boolean(skinLogadoUser);
   const exibirContatos = exibirGavetaChat && usuarioEhOwnerProjeto;
   const exibirConversas = exibirGavetaChat && !usuarioEhOwnerProjeto;
@@ -328,6 +330,10 @@ function Menu({ menuOpen }) {
 
   function abrirAddOns() {
     navigateIfChanged(`/menu/${menuTargetUser}/addons`);
+  }
+
+  function abrirVendas() {
+    navigateIfChanged(`/menu/${menuTargetUser}/vendas`);
   }
 
   function abrirForja() {
@@ -582,6 +588,10 @@ function Menu({ menuOpen }) {
         setBackAction(() => returnMenu);
       } else if (path.endsWith("/addons")) {
         setAtualTxt("ADD-ONS");
+        setBackText("MENU");
+        setBackAction(() => returnMenu);
+      } else if (path.endsWith("/vendas")) {
+        setAtualTxt("VENDAS");
         setBackText("MENU");
         setBackAction(() => returnMenu);
       } else if (path.endsWith("/propriedades")) {
@@ -930,6 +940,11 @@ function Menu({ menuOpen }) {
             {exibirGavetaAddOns ? (
               <div onClick={abrirAddOns} className="gavetaOption">
                 ADD-ONS
+              </div>
+            ) : null}
+            {exibirGavetaVendas ? (
+              <div onClick={abrirVendas} className="gavetaOption">
+                VENDAS
               </div>
             ) : null}
             {exibirGavetaForja ? (

@@ -17,11 +17,38 @@ service cloud.firestore {
             );
     }
 
+    function currentUserEmail() {
+      return signedIn() &&
+        (request.auth.token.email is string)
+          ? request.auth.token.email
+          : "";
+    }
+
+    function configuredOwnerEmailRuntime() {
+      return hasSistemaConfig() &&
+        (get(/databases/$(database)/documents/add_ons/sistema_config).data.ownerEmail is string)
+          ? get(/databases/$(database)/documents/add_ons/sistema_config).data.ownerEmail
+          : (
+              hasSistemaConfig() &&
+              (get(/databases/$(database)/documents/add_ons/sistema_config).data.adminEmail is string)
+                ? get(/databases/$(database)/documents/add_ons/sistema_config).data.adminEmail
+                : ""
+            );
+    }
+
     function isAdminDinamico() {
       return signedIn() &&
         hasSistemaConfig() &&
-        configuredOwnerUidRuntime() != "" &&
-        request.auth.uid == configuredOwnerUidRuntime();
+        (
+          (
+            configuredOwnerUidRuntime() != "" &&
+            request.auth.uid == configuredOwnerUidRuntime()
+          ) ||
+          (
+            configuredOwnerEmailRuntime() != "" &&
+            currentUserEmail() == configuredOwnerEmailRuntime()
+          )
+        );
     }
 
     function signedIn() {
@@ -34,9 +61,11 @@ service cloud.firestore {
     }
 
     function isAdmin() {
+      // ✅ MELHORADO: Usar custom claims em vez de UIDs/emails hardcoded
+      // Configure via Firebase Admin SDK: user.setCustomUserClaims({role: 'admin'})
       return signedIn() && (
-        request.auth.uid == "WnGJjmU6btgKmMMFAQq5Hpupsap1" ||
-        request.auth.token.email == "savannapassarela@gmail.com" ||
+        request.auth.token.role == "admin" ||
+        request.auth.token.isAdmin == true ||
         isAdminDinamico()
       );
     }
@@ -266,10 +295,38 @@ service cloud.firestore {
             );
     }
 
+    function projetoAdminEmail(projectKey) {
+      return hasProjetoSistemaConfig(projectKey) &&
+        (get(
+          /databases/$(database)/documents/projetos/$(projectKey)/add_ons/sistema_config
+        ).data.ownerEmail is string)
+          ? get(
+            /databases/$(database)/documents/projetos/$(projectKey)/add_ons/sistema_config
+          ).data.ownerEmail
+          : (
+              hasProjetoSistemaConfig(projectKey) &&
+              (get(
+                /databases/$(database)/documents/projetos/$(projectKey)/add_ons/sistema_config
+              ).data.adminEmail is string)
+                ? get(
+                  /databases/$(database)/documents/projetos/$(projectKey)/add_ons/sistema_config
+                ).data.adminEmail
+                : ""
+            );
+    }
+
     function isProjetoAdmin(projectKey) {
       return signedIn() &&
-        projetoAdminUid(projectKey) != "" &&
-        request.auth.uid == projetoAdminUid(projectKey);
+        (
+          (
+            projetoAdminUid(projectKey) != "" &&
+            request.auth.uid == projetoAdminUid(projectKey)
+          ) ||
+          (
+            projetoAdminEmail(projectKey) != "" &&
+            currentUserEmail() == projetoAdminEmail(projectKey)
+          )
+        );
     }
 
     function isProjetoOneOwnerPublicMode(projectKey) {
@@ -902,6 +959,24 @@ service cloud.firestore {
         allow write: if isAdmin() || isOwner(userId);
       }
 
+      match /produtos_venda/{produtoId} {
+        allow read: if true;
+        allow create, update: if (isAdmin() || isOwner(userId)) &&
+          request.resource.data.ownerUserId == userId;
+        allow delete: if isAdmin() || isOwner(userId);
+      }
+
+      match /pedidos_venda/{pedidoId} {
+        allow read: if isAdmin() ||
+          isOwner(userId) ||
+          (signedIn() && resource.data.clienteUid == request.auth.uid);
+        allow create: if signedIn() &&
+          request.resource.data.ownerUserId == userId &&
+          request.resource.data.clienteUid == request.auth.uid &&
+          request.resource.data.status == "solicitado";
+        allow update, delete: if isAdmin() || isOwner(userId);
+      }
+
       match /integracoes/{integracaoId} {
         allow read: if isAdmin() ||
           isOwner(userId) ||
@@ -1313,6 +1388,25 @@ service cloud.firestore {
           allow write: if isAdmin() || isProjetoAdmin(projectKey) || isOwner(userId);
         }
 
+        match /produtos_venda/{produtoId} {
+          allow read: if true;
+          allow create, update: if (isAdmin() || isProjetoAdmin(projectKey) || isOwner(userId)) &&
+            request.resource.data.ownerUserId == userId;
+          allow delete: if isAdmin() || isProjetoAdmin(projectKey) || isOwner(userId);
+        }
+
+        match /pedidos_venda/{pedidoId} {
+          allow read: if isAdmin() ||
+            isProjetoAdmin(projectKey) ||
+            isOwner(userId) ||
+            (signedIn() && resource.data.clienteUid == request.auth.uid);
+          allow create: if signedIn() &&
+            request.resource.data.ownerUserId == userId &&
+            request.resource.data.clienteUid == request.auth.uid &&
+            request.resource.data.status == "solicitado";
+          allow update, delete: if isAdmin() || isProjetoAdmin(projectKey) || isOwner(userId);
+        }
+
         match /integracoes/{integracaoId} {
           allow read: if isAdmin() ||
             isProjetoAdmin(projectKey) ||
@@ -1501,6 +1595,28 @@ service cloud.firestore {
       allow get, list: if isAdmin() ||
         (signedIn() && resource.data.ownerUserId == request.auth.uid) ||
         canReadPublic(resource.data.visibilidade);
+    }
+
+    // Catalogo de vendas pode ser publico em qualquer namespace do projeto.
+    // Escritas continuam cobertas pelos caminhos especificos de owner acima.
+    match /{path=**}/produtos_venda/{produtoId} {
+      allow get, list: if true;
+    }
+
+    // Fallback seguro para pedidos em caminhos legados/namespaceados inesperados.
+    match /{path=**}/pedidos_venda/{pedidoId} {
+      allow get: if isAdmin() ||
+        (signedIn() && (
+          resource.data.ownerUserId == request.auth.uid ||
+          resource.data.clienteUid == request.auth.uid
+        ));
+      allow list: if isAdmin();
+      allow create: if signedIn() &&
+        request.resource.data.ownerUserId == request.auth.uid &&
+        request.resource.data.clienteUid == request.auth.uid &&
+        request.resource.data.status == "solicitado";
+      allow update, delete: if isAdmin() ||
+        (signedIn() && resource.data.ownerUserId == request.auth.uid);
     }
 
     match /{doc=**} {

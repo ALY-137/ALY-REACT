@@ -68,6 +68,14 @@ function isSvgAssetUrl(value = "") {
   return normalizado.endsWith(".svg") || normalizado.includes(".svg?") || normalizado.startsWith("data:image/svg+xml");
 }
 
+function svgTextoParaDataUrl(svgTexto = "") {
+  const texto = String(svgTexto || "").trim();
+  if (!texto) return "";
+  if (texto.startsWith("data:image/svg+xml")) return texto;
+  if (!texto.includes("<svg")) return texto;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(texto)}`;
+}
+
 function CardFragmentIcon({ style = undefined }) {
   return (
     <svg
@@ -123,6 +131,7 @@ function Card({
   onAddOnClick,
   onCardFragmentClick,
   cyberpinkSubtheme = "",
+  previewSemFundoAddOn = false,
 }) {
   const cardRef = useRef(null);
   const [addOns, setAddOns] = useState([]);
@@ -196,6 +205,19 @@ function Card({
       }),
     ];
   }, [aly137Normalizado]);
+  const addOnPreviewCleanStyle = previewSemFundoAddOn
+    ? {
+        background: "transparent",
+        border: 0,
+        boxShadow: "none",
+        clipPath: "none",
+        padding: 0,
+        width: "auto",
+        height: "auto",
+        minWidth: 0,
+        minHeight: 0,
+      }
+    : undefined;
 
   useEffect(() => {
     const isCyberpink = document.body?.classList?.contains("theme-cyberpink");
@@ -391,11 +413,17 @@ function Card({
                       cyberpinkSubthemeFallback
                   );
                   const iconColor = getCyberpinkSubthemeIconColor(subthemeCardOrigem);
+                  const iconeSvgCustomizado = svgTextoParaDataUrl(
+                    cardOrigem?.iconeSvg || cardOrigem?.iconeAddOnSvg || cardOrigem?.cardFragmentIconSvg || ""
+                  );
                   return (
                     <button
                       key={`card-fragment-${cardOrigemId}-${index}`}
                       type="button"
-                      className="iconeAddOnWrap iconeAddOnWrap--card-fragment"
+                      className={`iconeAddOnWrap iconeAddOnWrap--card-fragment${
+                        previewSemFundoAddOn ? " iconeAddOnWrap--preview-sem-fundo" : ""
+                      }`}
+                      style={addOnPreviewCleanStyle}
                       title={titulo}
                       onClick={(event) => {
                         event.preventDefault();
@@ -405,12 +433,20 @@ function Card({
                         }
                       }}
                     >
-                      <CardFragmentIcon
-                        style={{
-                          color: iconColor,
-                          filter: `drop-shadow(0 0 2px ${iconColor}) drop-shadow(0 0 5px ${iconColor})`,
-                        }}
-                      />
+                      {iconeSvgCustomizado ? (
+                        <img
+                          src={iconeSvgCustomizado}
+                          alt={label}
+                          className="iconeAddOn iconeAddOn--card-fragment-custom"
+                        />
+                      ) : (
+                        <CardFragmentIcon
+                          style={{
+                            color: iconColor,
+                            filter: `drop-shadow(0 0 2px ${iconColor}) drop-shadow(0 0 5px ${iconColor})`,
+                          }}
+                        />
+                      )}
                     </button>
                   );
                 })}
@@ -448,7 +484,8 @@ function Card({
                       <button
                         key={addOnId}
                         type="button"
-                        className="iconeAddOnWrap"
+                        className={`iconeAddOnWrap${previewSemFundoAddOn ? " iconeAddOnWrap--preview-sem-fundo" : ""}`}
+                        style={addOnPreviewCleanStyle}
                         title={addOnXp ? `${label} / ${addOnXp.xpTotal || 0} XP` : label}
                         onClick={(event) => {
                           event.preventDefault();

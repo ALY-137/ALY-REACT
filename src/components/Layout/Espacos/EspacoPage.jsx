@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useOutletContext, useParams } from "react-router-dom";
+import DOMPurify from "dompurify";
 import {
   addDoc,
   collection,
@@ -22,8 +23,17 @@ import EditorBloco from "../Blocos/EditorBloco";
 import LoginButton from "../Geral/LoginButton";
 import Card from "../Objects/Objetos/Card";
 import Container from "../Objects/Containers/Container";
+import AddOnFichaModal from "./components/AddOnFichaModal";
+import CardPrintPreviewModal from "./components/CardPrintPreviewModal";
+import BlocoPublicoRenderer from "./components/BlocoPublicoRenderer";
+import EditorBlocoCardsModal from "./components/EditorBlocoCardsModal";
+import EditorCardModal from "./components/EditorCardModal";
+import ForjaPreviewModal from "./components/ForjaPreviewModal";
 import LiveModal from "./components/LiveModal";
+import RestricaoEspaco from "./components/RestricaoEspaco";
 import Aly137Forja from "../Modulos/ALY137/Forja/Aly137Forja";
+import useAly137Forja from "../Modulos/ALY137/Forja/useAly137Forja";
+import { criarCardForjadoAly137 } from "../Modulos/ALY137/Forja/aly137ForjaApi";
 import {
   LIVE_EFETIVE_TURN_URLS,
   LIVE_WEBRTC_CONFIG,
@@ -106,11 +116,8 @@ import {
   parseIconSelectionValue,
 } from "../Sistema/iconCollectionsUtils";
 import { solicitarSolicitacaoPixManualBloco } from "../Pagamentos/mercadoPagoApi";
-import QRCodeImage from "../../Funcionalidades/QRCode/QRCodeImage";
+import { garantirConversaProdutoVenda } from "../Vendas/vendasApi";
 import {
-  CYBERPINK_SUBTHEMES,
-  getCyberpinkSubthemeIconColor,
-  getCyberpinkSubthemeIconFilter,
   normalizeCyberpinkSubtheme,
 } from "../Temas/cyberpink/subthemes";
 import { seforAdm } from "../../Scripts/verificacoes/verificaAdm";
@@ -190,6 +197,59 @@ const getEspacoAssinanteRefs = (ownerUserId, espacoId, assinanteId) =>
   );
 const getPedidosCollectionRefs = (ownerUserId) =>
   getProjectCollectionCandidates(db, "users", ownerUserId, "pedidos");
+
+const VISIBILIDADES_BLOCOS_PUBLICAS = ["publico", null];
+const VISIBILIDADES_BLOCOS_AUTENTICADO = [
+  "publico",
+  "publico_restritivo",
+  "privado",
+  "exclusivo_assinante",
+  "exclusivo_comprador",
+  "comprado",
+  null,
+];
+
+const obterVisibilidadesConsultaBlocos = ({ podeGerenciar = false, autenticado = false } = {}) => {
+  if (podeGerenciar) return null;
+  return autenticado ? VISIBILIDADES_BLOCOS_AUTENTICADO : VISIBILIDADES_BLOCOS_PUBLICAS;
+};
+
+async function adicionarDocsBlocosPorVisibilidade(docs, blocosRef, visibilidades = []) {
+  const consultas = (Array.isArray(visibilidades) ? visibilidades : []).map((visibilidade) =>
+    query(blocosRef, where("visibilidade", "==", visibilidade))
+  );
+
+  const results = await Promise.allSettled(consultas.map((qRef) => getDocs(qRef)));
+
+  for (const result of results) {
+    if (result.status === "fulfilled") {
+      docs.push(...result.value.docs.map((d) => ({ __legacy: false, docSnap: d })));
+    } else if (
+      result.reason?.code &&
+      result.reason.code !== "permission-denied" &&
+      result.reason.code !== "failed-precondition"
+    ) {
+      throw result.reason;
+    }
+  }
+}
+
+async function adicionarDocsLegadosPorVisibilidade(docs, blocosRef, visibilidades = []) {
+  const consultas = (Array.isArray(visibilidades) ? visibilidades : []).map((visibilidade) =>
+    query(blocosRef, where("visibilidade", "==", visibilidade))
+  );
+
+  for (const consulta of consultas) {
+    try {
+      const snap = await getDocs(consulta);
+      docs.push(...snap.docs.map((d) => ({ __legacy: false, docSnap: d })));
+    } catch (err) {
+      if (err?.code !== "permission-denied" && err?.code !== "failed-precondition") {
+        throw err;
+      }
+    }
+  }
+}
 
 const isRenderableUrl = (valor) =>
   typeof valor === "string" &&
@@ -391,6 +451,12 @@ const formatarTipoAddOn = (tipo = "") => {
   return normalizado ? capitalizar(normalizado.replace(/[-_]+/g, " ")) : "Geral";
 };
 
+const obterDescricaoPreviaCard = (card = {}) =>
+  String(card?.descricaoPrevia || card?.descricao || "").trim();
+
+const obterDescricaoCompletaCard = (card = {}) =>
+  String(card?.descricaoCompleta || obterDescricaoPreviaCard(card)).trim();
+
 const normalizarCardsDoBloco = (valor) => {
   if (!Array.isArray(valor)) return [];
 
@@ -403,13 +469,17 @@ const normalizarCardsDoBloco = (valor) => {
         Array.isArray(card?.addOnIds) ||
         Array.isArray(card?.addOnsIds) ||
         Array.isArray(card?.addons) ||
-        (card?.addOnSubthemes && typeof card.addOnSubthemes === "object");
+          (card?.addOnSubthemes && typeof card.addOnSubthemes === "object");
+      const descricaoPrevia = obterDescricaoPreviaCard(card);
+      const descricaoCompleta = obterDescricaoCompletaCard(card);
       return {
         id: String(card?.id || `card_${index}`),
         ordem: Number.isFinite(card?.ordem) ? Number(card.ordem) : index,
         nome: String(card?.nome || "").trim(),
         descricaoExtra: String(card?.descricaoExtra || "").trim(),
-        descricao: String(card?.descricao || "").trim(),
+        descricaoPrevia,
+        descricaoCompleta,
+        descricao: descricaoPrevia,
         imagem: String(card?.imagem || "").trim(),
         imagemPath: String(card?.imagemPath || "").trim(),
         linkExterno: String(card?.linkExterno || "").trim(),
@@ -426,6 +496,8 @@ const normalizarCardsDoBloco = (valor) => {
       (card) =>
         card.nome ||
         card.descricaoExtra ||
+        card.descricaoPrevia ||
+        card.descricaoCompleta ||
         card.descricao ||
         card.imagem ||
         card.imagemPath ||
@@ -456,25 +528,95 @@ const filtrarAddOnsXpCardOrigemAly137 = (addOnsXp = {}, addOnIds = []) => {
 };
 
 const BLOCOS_PAGE_SIZE = 6;
+const ORDENACAO_BLOCOS_POSTAGEM = "postagem";
+const ORDENACAO_BLOCOS_LIVRE = "livre";
 
-const obterScoreOrdenacaoBloco = (bloco = {}) => {
-  const ordem = Number(bloco?.ordem);
-  if (Number.isFinite(ordem)) return ordem;
-  const criadoEm =
-    bloco?.criadoEm?.seconds ||
-    bloco?.createdAt?.seconds ||
-    bloco?.updatedAt?.seconds ||
-    0;
-  return Number(criadoEm) || 0;
+const ehObjetoPlanoFirestore = (value) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+};
+
+const limparUndefinedFirestore = (value) => {
+  if (typeof value === "undefined") return undefined;
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => limparUndefinedFirestore(item))
+      .filter((item) => typeof item !== "undefined");
+  }
+  if (!ehObjetoPlanoFirestore(value)) return value;
+
+  return Object.entries(value).reduce((acc, [key, item]) => {
+    const itemLimpo = limparUndefinedFirestore(item);
+    if (typeof itemLimpo !== "undefined") {
+      acc[key] = itemLimpo;
+    }
+    return acc;
+  }, {});
+};
+
+const normalizarOrdenacaoBlocos = (valor = "") =>
+  String(valor || "").trim() === ORDENACAO_BLOCOS_LIVRE
+    ? ORDENACAO_BLOCOS_LIVRE
+    : ORDENACAO_BLOCOS_POSTAGEM;
+
+const obterMsDataBloco = (valor) => {
+  if (!valor) return 0;
+  if (Number.isFinite(Number(valor))) return Number(valor);
+  if (valor instanceof Date) return valor.getTime();
+  if (typeof valor === "string") {
+    const parsed = Date.parse(valor);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  if (typeof valor?.toMillis === "function") {
+    const ms = Number(valor.toMillis());
+    return Number.isFinite(ms) ? ms : 0;
+  }
+  if (Number.isFinite(Number(valor?.seconds))) {
+    return Number(valor.seconds) * 1000;
+  }
+  return 0;
+};
+
+const obterScorePostagemBloco = (bloco = {}) => {
+  return (
+    obterMsDataBloco(bloco?.criadoEm) ||
+    obterMsDataBloco(bloco?.createdAt) ||
+    obterMsDataBloco(bloco?.updatedAt) ||
+    obterMsDataBloco(bloco?.atualizadoEm) ||
+    (Number.isFinite(Number(bloco?.ordem)) ? Number(bloco.ordem) : 0)
+  );
 };
 
 const ordenarBlocosMaisRecentesPrimeiro = (lista = []) =>
   [...lista].sort((a, b) => {
-    const scoreA = obterScoreOrdenacaoBloco(a);
-    const scoreB = obterScoreOrdenacaoBloco(b);
+    const scoreA = obterScorePostagemBloco(a);
+    const scoreB = obterScorePostagemBloco(b);
     if (scoreA !== scoreB) return scoreB - scoreA;
     return String(b?.id || "").localeCompare(String(a?.id || ""), "pt-BR");
   });
+
+const ordenarBlocosPorOrdemLivre = (lista = []) =>
+  [...lista].sort((a, b) => {
+    const ordemA = Number(a?.ordem);
+    const ordemB = Number(b?.ordem);
+    const temOrdemA = Number.isFinite(ordemA);
+    const temOrdemB = Number.isFinite(ordemB);
+
+    if (temOrdemA && temOrdemB && ordemA !== ordemB) return ordemA - ordemB;
+    if (temOrdemA && !temOrdemB) return -1;
+    if (!temOrdemA && temOrdemB) return 1;
+
+    const scoreA = obterScorePostagemBloco(a);
+    const scoreB = obterScorePostagemBloco(b);
+    if (scoreA !== scoreB) return scoreB - scoreA;
+    return String(a?.id || "").localeCompare(String(b?.id || ""), "pt-BR");
+  });
+
+const ordenarBlocosPorModo = (lista = [], modo = ORDENACAO_BLOCOS_POSTAGEM) =>
+  normalizarOrdenacaoBlocos(modo) === ORDENACAO_BLOCOS_LIVRE
+    ? ordenarBlocosPorOrdemLivre(lista)
+    : ordenarBlocosMaisRecentesPrimeiro(lista);
 
 const formatarPreco = (precoCentavos, moeda = "BRL") => {
   const valorNumerico = Number(precoCentavos);
@@ -608,33 +750,21 @@ const criarEstadoEditorCard = (overrides = {}) => ({
   ordem: 0,
   nome: "",
   descricaoExtra: "",
+  descricaoPrevia: "",
+  descricaoCompleta: "",
   descricao: "",
   imagem: "",
   imagemOriginal: "",
   imagemPathOriginal: "",
   imagemArquivo: null,
   imagemPreviewUrl: "",
+  iconeSvg: "",
   linkExterno: "",
   addOnIds: [],
   addOnSubthemes: {},
   aly137Evidencias: [],
   aly137CardsOrigemIds: [],
   aly137CardsOrigemAddOnIds: {},
-  ...overrides,
-});
-
-const criarEstadoForjaInventario = (overrides = {}) => ({
-  aberto: false,
-  blocoDestinoId: "",
-  nome: "",
-  descricao: "",
-  busca: "",
-  cardKeys: [],
-  cardAddOnIds: {},
-  addOnIds: [],
-  arrastando: null,
-  criando: false,
-  erro: "",
   ...overrides,
 });
 
@@ -710,14 +840,14 @@ async function migrarBlocosLegadosRaizParaNamespace(ownerUserId, espacoId, bloco
     const blocoRef = getBlocoDocRefs(ownerUserId, espacoId, blocoId)[0];
     await setDoc(
       blocoRef,
-      {
+      limparUndefinedFirestore({
         ...blocoData,
         id: blocoId,
         ownerUserId: String(blocoData?.ownerUserId || ownerUserId).trim() || ownerUserId,
         espacoId: String(blocoData?.espacoId || espacoId).trim() || espacoId,
         cards: cardsFinal,
         updatedAt: serverTimestamp(),
-      },
+      }),
       { merge: true }
     );
 
@@ -725,12 +855,14 @@ async function migrarBlocosLegadosRaizParaNamespace(ownerUserId, espacoId, bloco
       cardsFinal.map((card) =>
         setDoc(
           getBlocoCardDocRefs(ownerUserId, espacoId, blocoId, card.id)[0],
-          {
+          limparUndefinedFirestore({
             id: card.id,
             ordem: card.ordem,
             nome: card.nome || "",
             descricaoExtra: card.descricaoExtra || "",
-            descricao: card.descricao || "",
+            descricaoPrevia: card.descricaoPrevia || "",
+            descricaoCompleta: card.descricaoCompleta || "",
+            descricao: card.descricaoPrevia || card.descricao || "",
             imagem: card.imagem || "",
             imagemPath: card.imagemPath || "",
             linkExterno: card.linkExterno || "",
@@ -738,7 +870,7 @@ async function migrarBlocosLegadosRaizParaNamespace(ownerUserId, espacoId, bloco
             espacoId,
             ownerUserId,
             updatedAt: serverTimestamp(),
-          },
+          }),
           { merge: true }
         )
       )
@@ -1010,9 +1142,6 @@ export default function EspacoPage() {
     aberto: false,
     addOn: null,
   });
-  const [forjaInventarioModal, setForjaInventarioModal] = useState(() =>
-    criarEstadoForjaInventario()
-  );
   const [forjaPreviewModal, setForjaPreviewModal] = useState({
     aberto: false,
   });
@@ -1100,6 +1229,7 @@ export default function EspacoPage() {
   const espacosLista = Array.isArray(espacos) ? espacos : [];
   const espacoAtual = espacosLista.find((e) => e.nome === espacoNome);
   const espacoId = espacoAtual?.id || espacoAtual?.id_espaco;
+  const modoOrdenacaoBlocosEspaco = normalizarOrdenacaoBlocos(espacoAtual?.ordenacaoBlocos);
   const blocoEditorCardsAtual = useMemo(
     () =>
       blocos.find((item) => String(item?.id || "").trim() === editorBlocoCardsModal.blocoId) || null,
@@ -1230,7 +1360,9 @@ export default function EspacoPage() {
         id: String(card?.key || `${card?.espacoId || ""}:${card?.blocoId || ""}:${card?.cardId || card?.id || ""}`).trim(),
         cardId: String(card?.cardId || card?.id || "").trim(),
         nome: card?.nome || "Card",
-        descricao: card?.descricao || card?.descricaoExtra || "",
+        descricao: card?.descricaoPrevia || card?.descricao || card?.descricaoExtra || "",
+        descricaoPrevia: card?.descricaoPrevia || card?.descricao || "",
+        descricaoCompleta: card?.descricaoCompleta || card?.descricaoPrevia || card?.descricao || "",
         imagem: card?.imagem || "",
         xpTotal: Number(card?.aly137?.xpTotal || 0),
         nivel: Number(card?.aly137?.nivel || 0),
@@ -1300,6 +1432,7 @@ export default function EspacoPage() {
           : addOnIdsDisponiveis;
         return {
           ...card,
+          iconeSvg: String(card?.iconeSvg || card?.iconeAddOnSvg || "").trim(),
           addOnIdsDisponiveis,
           addOnIdsRelacionados,
           addOnIds: addOnIdsRelacionados,
@@ -1380,96 +1513,42 @@ export default function EspacoPage() {
       editorCardModal?.aly137Evidencias,
     ]
   );
-  const cardsForjaInventarioSelecionados = useMemo(() => {
-    const selecionados = new Set(
-      Array.isArray(forjaInventarioModal?.cardKeys)
-        ? forjaInventarioModal.cardKeys.map((item) => String(item || "").trim()).filter(Boolean)
-        : []
-    );
-    const mapaRelacionados =
-      forjaInventarioModal?.cardAddOnIds && typeof forjaInventarioModal.cardAddOnIds === "object"
-        ? forjaInventarioModal.cardAddOnIds
-        : {};
+  const retornarDaForjaParaMenu = useCallback(
+    (returnTo = "") => {
+      const destino = String(returnTo || "").trim();
+      if (destino) navigate(destino, { replace: true });
+    },
+    [navigate]
+  );
 
-    return cardsDisponiveisForjaEditor
-      .filter((card) => selecionados.has(card.key))
-      .map((card) => {
-        const addOnIdsDisponiveis = obterAddOnIdsDisponiveisCardOrigemAly137(card);
-        const temConfig = Object.prototype.hasOwnProperty.call(mapaRelacionados, card.key);
-        const addOnIdsRelacionados = temConfig
-          ? normalizarAddOnIds(mapaRelacionados[card.key]).filter((addOnId) =>
-              addOnIdsDisponiveis.includes(addOnId)
-            )
-          : addOnIdsDisponiveis;
-        return {
-          ...card,
-          addOnIdsDisponiveis,
-          addOnIdsRelacionados,
-          addOnIds: addOnIdsRelacionados,
-          addOnsXp: filtrarAddOnsXpCardOrigemAly137(card?.addOnsXp, addOnIdsRelacionados),
-        };
-      });
-  }, [
-    cardsDisponiveisForjaEditor,
-    forjaInventarioModal?.cardAddOnIds,
-    forjaInventarioModal?.cardKeys,
-  ]);
-  const addOnIdsHerdadosForjaInventario = useMemo(
-    () =>
-      normalizarAddOnIds(
-        cardsForjaInventarioSelecionados.flatMap((card) => [
-          ...(Array.isArray(card?.addOnIdsRelacionados) ? card.addOnIdsRelacionados : []),
-          ...Object.keys(card?.addOnsXp || {}),
-        ])
-      ),
-    [cardsForjaInventarioSelecionados]
-  );
-  const addOnIdsDiretosForjaInventario = useMemo(
-    () => normalizarAddOnIds(forjaInventarioModal?.addOnIds),
-    [forjaInventarioModal?.addOnIds]
-  );
-  const addOnIdsEfetivosForjaInventario = useMemo(
-    () =>
-      normalizarAddOnIds([
-        ...addOnIdsDiretosForjaInventario,
-        ...addOnIdsHerdadosForjaInventario,
-      ]),
-    [addOnIdsDiretosForjaInventario, addOnIdsHerdadosForjaInventario]
-  );
-  const addOnsDiretosForjaInventario = useMemo(
-    () =>
-      addOnIdsDiretosForjaInventario
-        .map((addOnId) => addOnsDisponiveisProjetoPorId[addOnId])
-        .filter(Boolean),
-    [addOnIdsDiretosForjaInventario, addOnsDisponiveisProjetoPorId]
-  );
-  const resumoForjaInventario = useMemo(
-    () =>
-      calcularResumoAly137({
-        evidencias: [],
-        cardsOrigem: cardsForjaInventarioSelecionados,
-        validAddOnIds: addOnIdsEfetivosForjaInventario,
-      }),
-    [addOnIdsEfetivosForjaInventario, cardsForjaInventarioSelecionados]
-  );
-  const cardsInventarioForjaFiltrados = useMemo(() => {
-    const busca = normalizarTextoBusca(forjaInventarioModal?.busca);
-    if (!busca) return cardsDisponiveisForjaEditor;
-    return cardsDisponiveisForjaEditor.filter((card) =>
-      [card?.nome, card?.descricao, card?.espacoNome, card?.blocoTitulo, "card"]
-        .map(normalizarTextoBusca)
-        .some((texto) => texto.includes(busca))
-    );
-  }, [cardsDisponiveisForjaEditor, forjaInventarioModal?.busca]);
-  const addOnsInventarioForjaFiltrados = useMemo(() => {
-    const busca = normalizarTextoBusca(forjaInventarioModal?.busca);
-    if (!busca) return addOnsDisponiveisProjeto;
-    return addOnsDisponiveisProjeto.filter((addOn) =>
-      [addOn?.nome, addOn?.descricao, resolverTipoAddOn(addOn), "chip", "add-on"]
-        .map(normalizarTextoBusca)
-        .some((texto) => texto.includes(busca))
-    );
-  }, [addOnsDisponiveisProjeto, forjaInventarioModal?.busca]);
+  const {
+    modal: forjaInventarioModal,
+    setModal: setForjaInventarioModal,
+    cardsSelecionados: cardsForjaInventarioSelecionados,
+    addOnIdsDiretos: addOnIdsDiretosForjaInventario,
+    addOnIdsEfetivos: addOnIdsEfetivosForjaInventario,
+    addOnsDiretos: addOnsDiretosForjaInventario,
+    resumo: resumoForjaInventario,
+    cardsInventarioFiltrados: cardsInventarioForjaFiltrados,
+    addOnsInventarioFiltrados: addOnsInventarioForjaFiltrados,
+    adicionarCard: adicionarCardAoInventarioForja,
+    removerCard: removerCardDoInventarioForja,
+    alternarAddOnCard: alternarAddOnCardInventarioForja,
+    alternarAddOnDireto: alternarAddOnDiretoInventarioForja,
+    abrir: abrirForjaInventario,
+    fechar: fecharForjaInventario,
+    resetar: resetarForjaInventario,
+    iniciarArraste: iniciarArrasteForjaInventario,
+    finalizarArraste: finalizarArrasteForjaInventario,
+    soltarMaterial: soltarMaterialNaForjaInventario,
+  } = useAly137Forja({
+    cardsDisponiveis: cardsDisponiveisForjaEditor,
+    addOnsDisponiveis: addOnsDisponiveisProjeto,
+    addOnsPorId: addOnsDisponiveisProjetoPorId,
+    blocosDestino: blocosCardsDisponiveisForja,
+    resolverTipoAddOn,
+    onReturn: retornarDaForjaParaMenu,
+  });
   const conclusaoNivelAly137EditorCard = useMemo(() => {
     const progresso = resumoAly137EditorCard?.progressoNivel || {};
     const xpAtual = Number(resumoAly137EditorCard?.xpTotal || 0);
@@ -1610,16 +1689,7 @@ export default function EspacoPage() {
   const podeGerenciar = oneOwnerPublicaAtivaEfetiva
     ? usuarioEhOwnerProjeto
     : (podeGerenciarPadrao || usuarioEhOwnerProjeto);
-  const podeVerAuditoriaConteudo = usuarioPodeVerAuditoriaCategoriaProjeto(
-    {
-      configSistema: configSistemaAtual || configSistemaCacheLocal,
-      usuarioUid: currentUidAutenticado || currentUid || "",
-      usuarioEmail: authUserAtual?.email || "",
-      recursoOwnerUid: ownerUserId || "",
-      coCriadoresUids: espacoAtualEfetivo?.coCriadoresUids || [],
-    },
-    "conteudo"
-  );
+  const podeVerAuditoriaConteudo = false;
   const podeVerAuditoriaRastreaveis = usuarioPodeVerAuditoriaCategoriaProjeto(
     {
       configSistema: configSistemaAtual || configSistemaCacheLocal,
@@ -1646,7 +1716,9 @@ export default function EspacoPage() {
         entityId: id,
       });
       if (projectSystemKey) params.set("projectSystemKey", projectSystemKey);
-      const skinMenu = String(localStorage.getItem("skinLogadoUser") || "").trim();
+      const skinMenu = String(
+        localStorage.getItem("skinLogadoUser") || skinsUsername || ""
+      ).trim();
       const menuBase =
         oneOwnerPublicaAtivaEfetiva && (isOwner || usuarioEhOwnerProjeto)
           ? "/menu/owner"
@@ -1660,12 +1732,11 @@ export default function EspacoPage() {
       isOwner,
       navigate,
       oneOwnerPublicaAtivaEfetiva,
+      skinsUsername,
       usuarioEhOwnerProjeto,
     ]
   );
   const visibilidadeEspaco = espacoAtualEfetivo?.visibilidade || "publico";
-  const visitanteOneOwnerPublico =
-    oneOwnerPublicaAtivaEfetiva && !currentUid && !podeGerenciar;
   const nomeRemetenteLive = String(
     localStorage.getItem("skinLogadoUser") ||
       authUserAtual?.displayName ||
@@ -2173,7 +2244,18 @@ export default function EspacoPage() {
           id: cardOrigemId || `card-fragmento-${Date.now()}`,
           tipoFicha: "cardFragmento",
           nome: String(cardOrigem?.nome || "Card relacionado").trim(),
-          descricao: String(cardOrigem?.descricao || "").trim(),
+          descricao: String(
+            cardOrigem?.descricaoPrevia || cardOrigem?.descricao || ""
+          ).trim(),
+          descricaoPrevia: String(
+            cardOrigem?.descricaoPrevia || cardOrigem?.descricao || ""
+          ).trim(),
+          descricaoCompleta: String(
+            cardOrigem?.descricaoCompleta ||
+              cardOrigem?.descricaoPrevia ||
+              cardOrigem?.descricao ||
+              ""
+          ).trim(),
           imagem: String(cardOrigem?.imagem || "").trim(),
           espacoNome: espacoOrigemNome,
           blocoTitulo: String(cardOrigem?.blocoTitulo || "").trim(),
@@ -2257,7 +2339,8 @@ export default function EspacoPage() {
         acc[key] = normalizarAddOnIds(item.addOnIdsRelacionados || item.addOnIds);
         return acc;
       }, {});
-
+      const descricaoPrevia = obterDescricaoPreviaCard(card);
+      const descricaoCompleta = obterDescricaoCompletaCard(card);
       return criarEstadoEditorCard({
         aberto: true,
         bloco,
@@ -2266,10 +2349,13 @@ export default function EspacoPage() {
         ordem: Number.isFinite(card?.ordem) ? Number(card.ordem) : 0,
         nome: String(card?.nome || "").trim(),
         descricaoExtra: String(card?.descricaoExtra || "").trim(),
-        descricao: String(card?.descricao || "").trim(),
+        descricaoPrevia,
+        descricaoCompleta,
+        descricao: descricaoPrevia,
         imagem: String(card?.imagem || "").trim(),
         imagemOriginal: String(card?.imagem || "").trim(),
         imagemPathOriginal: String(card?.imagemPath || "").trim(),
+        iconeSvg: String(card?.iconeSvg || card?.iconeAddOnSvg || "").trim(),
         linkExterno: String(card?.linkExterno || "").trim(),
         addOnIds: addOnIdsNormalizados,
         addOnSubthemes: normalizarAddOnSubthemes(card?.addOnSubthemes, addOnIdsNormalizados),
@@ -2447,7 +2533,7 @@ export default function EspacoPage() {
         const compartilhado = await compartilharUrl({
           url: link.urlRastreavel || destinoUrl,
           title: card?.nome || "Card",
-          text: card?.descricaoExtra || card?.descricao || "Acesse este card.",
+          text: card?.descricaoExtra || card?.descricaoPrevia || card?.descricao || "Acesse este card.",
         });
 
         if (compartilhado) {
@@ -2910,250 +2996,30 @@ export default function EspacoPage() {
     setForjaPreviewModal({ aberto: false });
   }, [prepararForjaNovoCardEditor]);
 
-  const adicionarCardAoInventarioForja = useCallback((cardKey = "") => {
-    const keyNormalizada = String(cardKey || "").trim();
-    if (!keyNormalizada) return;
-    const cardOrigem = cardsDisponiveisForjaEditor.find((item) => item.key === keyNormalizada);
-    const addOnIdsDisponiveis = obterAddOnIdsDisponiveisCardOrigemAly137(cardOrigem);
-
-    setForjaInventarioModal((prev) => {
-      const atuais = Array.isArray(prev?.cardKeys)
-        ? prev.cardKeys.map((item) => String(item || "").trim()).filter(Boolean)
-        : [];
-      if (atuais.includes(keyNormalizada)) return prev;
-      return {
-        ...prev,
-        cardKeys: [...atuais, keyNormalizada],
-        cardAddOnIds: {
-          ...(prev?.cardAddOnIds && typeof prev.cardAddOnIds === "object" ? prev.cardAddOnIds : {}),
-          [keyNormalizada]: addOnIdsDisponiveis,
-        },
-      };
-    });
-  }, [cardsDisponiveisForjaEditor]);
-
-  const removerCardDoInventarioForja = useCallback((cardKey = "") => {
-    const keyNormalizada = String(cardKey || "").trim();
-    if (!keyNormalizada) return;
-    setForjaInventarioModal((prev) => {
-      const atuais = Array.isArray(prev?.cardKeys)
-        ? prev.cardKeys.map((item) => String(item || "").trim()).filter(Boolean)
-        : [];
-      const { [keyNormalizada]: _removido, ...cardAddOnIds } =
-        prev?.cardAddOnIds && typeof prev.cardAddOnIds === "object" ? prev.cardAddOnIds : {};
-      return {
-        ...prev,
-        cardKeys: atuais.filter((item) => item !== keyNormalizada),
-        cardAddOnIds,
-      };
-    });
-  }, []);
-
-  const alternarAddOnCardInventarioForja = useCallback((cardKey = "", addOnId = "") => {
-    const keyNormalizada = String(cardKey || "").trim();
-    const addOnNormalizado = String(addOnId || "").trim();
-    if (!keyNormalizada || !addOnNormalizado) return;
-    const cardOrigem = cardsDisponiveisForjaEditor.find((item) => item.key === keyNormalizada);
-    const addOnIdsDisponiveis = obterAddOnIdsDisponiveisCardOrigemAly137(cardOrigem);
-    if (!addOnIdsDisponiveis.includes(addOnNormalizado)) return;
-
-    setForjaInventarioModal((prev) => {
-      const mapaAtual = prev?.cardAddOnIds && typeof prev.cardAddOnIds === "object" ? prev.cardAddOnIds : {};
-      const atuais = Object.prototype.hasOwnProperty.call(mapaAtual, keyNormalizada)
-        ? normalizarAddOnIds(mapaAtual[keyNormalizada])
-        : addOnIdsDisponiveis;
-      const proximos = atuais.includes(addOnNormalizado)
-        ? atuais.filter((item) => item !== addOnNormalizado)
-        : [...atuais, addOnNormalizado];
-      return {
-        ...prev,
-        cardAddOnIds: {
-          ...mapaAtual,
-          [keyNormalizada]: proximos.filter((item) => addOnIdsDisponiveis.includes(item)),
-        },
-      };
-    });
-  }, [cardsDisponiveisForjaEditor]);
-
-  const alternarAddOnDiretoInventarioForja = useCallback((addOnId = "") => {
-    const addOnNormalizado = String(addOnId || "").trim();
-    if (!addOnNormalizado) return;
-    setForjaInventarioModal((prev) => {
-      const atuais = normalizarAddOnIds(prev?.addOnIds);
-      return {
-        ...prev,
-        addOnIds: atuais.includes(addOnNormalizado)
-          ? atuais.filter((item) => item !== addOnNormalizado)
-          : [...atuais, addOnNormalizado],
-      };
-    });
-  }, []);
-
-  const abrirForjaInventario = useCallback((opcoes = {}) => {
-    const blocoDestino = blocosCardsDisponiveisForja[0] || null;
-    setForjaInventarioModal(
-      criarEstadoForjaInventario({
-        aberto: true,
-        blocoDestinoId: String(blocoDestino?.id || "").trim(),
-        nome: "Card forjado",
-        descricao: "Card criado pela Forja.",
-        returnTo: String(opcoes?.returnTo || "").trim(),
-        erro: blocoDestino ? "" : "Crie um bloco do tipo cards antes de forjar.",
-      })
-    );
-  }, [blocosCardsDisponiveisForja]);
-
-  const fecharForjaInventario = useCallback(() => {
-    const returnTo = String(forjaInventarioModal?.returnTo || "").trim();
-    setForjaInventarioModal(criarEstadoForjaInventario());
-    if (returnTo) {
-      navigate(returnTo, { replace: true });
-    }
-  }, [forjaInventarioModal?.returnTo, navigate]);
-
-  const iniciarArrasteForjaInventario = useCallback((event, material = {}) => {
-    const tipo = String(material?.tipo || "").trim();
-    const id = String(material?.id || "").trim();
-    if (!tipo || !id) return;
-    const payload = JSON.stringify({ tipo, id });
-    event.dataTransfer?.setData("application/json", payload);
-    event.dataTransfer?.setData("text/plain", payload);
-    event.dataTransfer.effectAllowed = "copy";
-    setForjaInventarioModal((prev) => ({ ...prev, arrastando: { tipo, id } }));
-  }, []);
-
-  const finalizarArrasteForjaInventario = useCallback(() => {
-    setForjaInventarioModal((prev) => ({ ...prev, arrastando: null }));
-  }, []);
-
-  const soltarMaterialNaForjaInventario = useCallback((event) => {
-    event.preventDefault();
-    let payload = null;
-    try {
-      payload = JSON.parse(
-        event.dataTransfer?.getData("application/json") ||
-          event.dataTransfer?.getData("text/plain") ||
-          "{}"
-      );
-    } catch {
-      payload = forjaInventarioModal?.arrastando || null;
-    }
-    const tipo = String(payload?.tipo || "").trim();
-    const id = String(payload?.id || "").trim();
-    if (tipo === "card") {
-      adicionarCardAoInventarioForja(id);
-    }
-    if (tipo === "addon") {
-      alternarAddOnDiretoInventarioForja(id);
-    }
-    finalizarArrasteForjaInventario();
-  }, [
-    adicionarCardAoInventarioForja,
-    alternarAddOnDiretoInventarioForja,
-    finalizarArrasteForjaInventario,
-    forjaInventarioModal?.arrastando,
-  ]);
-
   const criarCardDaForjaInventario = useCallback(async () => {
-    if (!podeGerenciar) {
-      setForjaInventarioModal((prev) => ({ ...prev, erro: "Sem permissao para criar card." }));
-      return;
-    }
-    const bloco = blocosCardsDisponiveisForja.find(
-      (item) => String(item?.id || "") === String(forjaInventarioModal?.blocoDestinoId || "")
-    );
-    if (!bloco?.id) {
-      setForjaInventarioModal((prev) => ({ ...prev, erro: "Selecione um bloco de destino." }));
-      return;
-    }
-    if (!cardsForjaInventarioSelecionados.length && !addOnIdsDiretosForjaInventario.length) {
-      setForjaInventarioModal((prev) => ({ ...prev, erro: "Arraste ao menos um card ou chip para a forja." }));
-      return;
-    }
-
     setForjaInventarioModal((prev) => ({ ...prev, criando: true, erro: "" }));
     try {
-      const cardId = gerarIdCardTemporario();
-      const cardsDoBloco = normalizarCardsDoBloco(bloco?.cards);
-      const addOnIds = addOnIdsEfetivosForjaInventario;
-      const aly137Payload = criarPayloadCardAly137({
-        evidencias: [],
-        cardsOrigem: cardsForjaInventarioSelecionados,
-        validAddOnIds: addOnIds,
-      });
-      const primeiroCard = cardsForjaInventarioSelecionados[0] || {};
-      const payload = {
-        id: cardId,
-        ordem: cardsDoBloco.length,
-        nome: String(forjaInventarioModal?.nome || "").trim() || "Card forjado",
-        descricaoExtra: "FORJA",
-        descricao: String(forjaInventarioModal?.descricao || "").trim(),
-        imagem: String(primeiroCard?.imagem || "").trim() || "/logoNeon.png",
-        imagemPath: "",
-        linkExterno: "",
-        addOnIds,
-        addOnSubthemes: {},
-        usaAddOnsGerenciador: true,
-        aly137: aly137Payload,
-      };
-      const cardRef = getBlocoCardDocRef(bloco, cardId);
-      if (!cardRef) throw new Error("Nao foi possivel localizar a referencia do card.");
-
-      await setDoc(cardRef, {
-        ...payload,
-        blocoId: bloco.id,
+      await criarCardForjadoAly137({
+        podeGerenciar,
+        blocosDestino: blocosCardsDisponiveisForja,
+        modal: forjaInventarioModal,
+        cardsSelecionados: cardsForjaInventarioSelecionados,
+        addOnIdsDiretos: addOnIdsDiretosForjaInventario,
+        addOnIdsEfetivos: addOnIdsEfetivosForjaInventario,
+        addOnsDisponiveis: addOnsDisponiveisProjeto,
+        aly137Habilitado,
+        blocos,
+        normalizarCardsDoBloco,
+        gerarIdCard: gerarIdCardTemporario,
+        getBlocoCardDocRef,
+        persistirCardsDoBloco,
         espacoId,
         ownerUserId,
-        criadoEm: serverTimestamp(),
-      });
-      const cardsPersistidos = await persistirCardsDoBloco(bloco, [...cardsDoBloco, payload]);
-
-      if (aly137Habilitado && ownerUserId) {
-        const blocosParaResumoAly137 = (Array.isArray(blocos) ? blocos : []).map((item) =>
-          String(item?.id || "") === String(bloco.id)
-            ? { ...item, cards: cardsPersistidos }
-            : item
-        );
-        const cardsParaResumoAly137 = blocosParaResumoAly137.flatMap((item) => {
-          const blocoResumoId = String(item?.id || "").trim();
-          const blocoResumoTitulo = String(item?.titulo || item?.nome || blocoResumoId || "Bloco").trim();
-          return normalizarCardsDoBloco(item?.cards).map((cardResumo) => ({
-            ...cardResumo,
-            blocoId: blocoResumoId,
-            blocoTitulo: blocoResumoTitulo,
-          }));
-        });
-        const resumosAddOnsAly137 = calcularResumoAddOnsAly137DeCards({
-          cards: cardsParaResumoAly137,
-          addOns: addOnsDisponiveisProjeto,
-        });
-        await salvarResumoAly137AddOnsUsuarioProjeto({
-          ownerUserId,
-          resumos: resumosAddOnsAly137,
-          atualizadoPorUid: currentUidAutenticado,
-        }).catch((err) => {
-          console.warn("Falha ao sincronizar XP dos add-ons apos forja:", err?.message || err);
-        });
-      }
-
-      await registrarAuditLog({
-        action: "criou_card_forjado_inventario",
-        entityType: "card",
-        entityId: cardId,
-        entityPath: `espacos/${espacoId}/blocos/${bloco.id}/cards/${cardId}`,
-        projectId: String(configSistemaAtual?.projectSystemKey || activeFirebaseProjectKey || "").trim() || null,
-        ownerUserId,
+        currentUidAutenticado,
+        projectId: String(configSistemaAtual?.projectSystemKey || activeFirebaseProjectKey || "").trim(),
         user,
-        metadata: {
-          nome: payload.nome,
-          blocoId: bloco.id,
-          totalCardsOrigem: cardsForjaInventarioSelecionados.length,
-          totalAddOnsDiretos: addOnIdsDiretosForjaInventario.length,
-          xpTotal: aly137Payload?.xpTotal || 0,
-        },
       });
-
-      setForjaInventarioModal(criarEstadoForjaInventario());
+      resetarForjaInventario();
     } catch (err) {
       setForjaInventarioModal((prev) => ({
         ...prev,
@@ -3162,7 +3028,7 @@ export default function EspacoPage() {
       }));
     }
   }, [
-    addOnIdsDiretosForjaInventario.length,
+    addOnIdsDiretosForjaInventario,
     addOnIdsEfetivosForjaInventario,
     addOnsDisponiveisProjeto,
     aly137Habilitado,
@@ -3172,11 +3038,10 @@ export default function EspacoPage() {
     configSistemaAtual?.projectSystemKey,
     currentUidAutenticado,
     espacoId,
-    forjaInventarioModal?.blocoDestinoId,
-    forjaInventarioModal?.descricao,
-    forjaInventarioModal?.nome,
+    forjaInventarioModal,
     ownerUserId,
     podeGerenciar,
+    resetarForjaInventario,
     user,
   ]);
 
@@ -4503,7 +4368,7 @@ export default function EspacoPage() {
     if (!liveModal.aberto || !liveModal.contactId || !liveModal.conversationId) {
       setLiveChatMensagens([]);
       if (!currentUidAutenticado) {
-        setLiveChatErro("Faça login para participar do chat da live.");
+        setLiveChatErro("FaÃ§a login para participar do chat da live.");
       } else {
         setLiveChatErro("");
       }
@@ -4511,7 +4376,7 @@ export default function EspacoPage() {
     }
     if (!currentUidAutenticado) {
       setLiveChatMensagens([]);
-      setLiveChatErro("Faça login para participar do chat da live.");
+      setLiveChatErro("FaÃ§a login para participar do chat da live.");
       return undefined;
     }
 
@@ -5076,6 +4941,8 @@ export default function EspacoPage() {
           .flatMap((card) => [
             card.nome,
             card.descricaoExtra,
+            card.descricaoPrevia,
+            card.descricaoCompleta,
             card.descricao,
             card.linkExterno,
           ]);
@@ -5267,31 +5134,27 @@ export default function EspacoPage() {
         const blocosRefs = getBlocosCollectionRefs(ownerUserId, espacoId);
 
         const docs = [];
+        const visibilidadesConsulta = obterVisibilidadesConsultaBlocos({
+          podeGerenciar,
+          autenticado: Boolean(currentUidAutenticado),
+        });
+        const consultaColecaoCompletaPermitida = !visibilidadesConsulta;
 
-        if (visitanteOneOwnerPublico) {
-          for (const blocosRef of blocosRefs) {
-            const queriesPublicas = [
-              query(blocosRef, where("visibilidade", "==", "publico")),
-              query(blocosRef, where("visibilidade", "==", null)),
-            ];
-
-            const results = await Promise.allSettled(
-              queriesPublicas.map((qRef) => getDocs(qRef))
-            );
-
-            for (const result of results) {
-              if (result.status === "fulfilled") {
-                docs.push(
-                  ...result.value.docs.map((d) => ({ __legacy: false, docSnap: d }))
-                );
-              } else if (
-                result.reason?.code &&
-                result.reason.code !== "permission-denied" &&
-                result.reason.code !== "failed-precondition"
-              ) {
-                throw result.reason;
-              }
+        for (const blocosRef of blocosRefs) {
+          if (consultaColecaoCompletaPermitida) {
+            try {
+              const snap = await getDocs(blocosRef);
+              docs.push(...snap.docs.map((d) => ({ __legacy: false, docSnap: d })));
+            } catch (allErr) {
+              if (allErr?.code !== "permission-denied") throw allErr;
+              await adicionarDocsBlocosPorVisibilidade(
+                docs,
+                blocosRef,
+                VISIBILIDADES_BLOCOS_AUTENTICADO
+              );
             }
+          } else {
+            await adicionarDocsBlocosPorVisibilidade(docs, blocosRef, visibilidadesConsulta);
 
             if (!docs.length) {
               try {
@@ -5306,71 +5169,18 @@ export default function EspacoPage() {
                 }
               }
             }
-
-            if (docs.length) break;
           }
-        } else {
-          for (const blocosRef of blocosRefs) {
-            try {
-              const snap = await getDocs(blocosRef);
-              docs.push(...snap.docs.map((d) => ({ __legacy: false, docSnap: d })));
-            } catch (allErr) {
-              if (allErr?.code !== "permission-denied") throw allErr;
 
-              const queries = [
-                query(blocosRef, where("visibilidade", "==", "publico")),
-                query(blocosRef, where("visibilidade", "==", "publico_restritivo")),
-                query(blocosRef, where("visibilidade", "==", "privado")),
-                query(blocosRef, where("visibilidade", "==", "exclusivo_assinante")),
-                query(blocosRef, where("visibilidade", "==", "exclusivo_comprador")),
-                query(blocosRef, where("visibilidade", "==", "comprado")),
-                query(blocosRef, where("visibilidade", "==", null)),
-              ];
-
-              const results = await Promise.allSettled(
-                queries.map((qRef) => getDocs(qRef))
-              );
-
-              for (const result of results) {
-                if (result.status === "fulfilled") {
-                  docs.push(
-                    ...result.value.docs.map((d) => ({ __legacy: false, docSnap: d }))
-                  );
-                } else if (
-                  result.reason?.code &&
-                  result.reason.code !== "permission-denied" &&
-                  result.reason.code !== "failed-precondition"
-                ) {
-                  throw result.reason;
-                }
-              }
-            }
-
-            if (docs.length) break;
-          }
+          if (docs.length) break;
         }
 
         if (!docs.length) {
           if (namespaceAtivoProjeto()) {
             const legacyRootRef = getLegacyBlocosCollectionRef(ownerUserId, espacoId);
-            const consultasLegadas = visitanteOneOwnerPublico
-              ? [
-                  query(legacyRootRef, where("visibilidade", "==", "publico")),
-                  query(legacyRootRef, where("visibilidade", "==", null)),
-                ]
-              : [
-                  query(legacyRootRef, where("visibilidade", "==", "publico")),
-                  query(legacyRootRef, where("visibilidade", "==", "publico_restritivo")),
-                  query(legacyRootRef, where("visibilidade", "==", "privado")),
-                  query(legacyRootRef, where("visibilidade", "==", "exclusivo_assinante")),
-                  query(legacyRootRef, where("visibilidade", "==", "exclusivo_comprador")),
-                  query(legacyRootRef, where("visibilidade", "==", "comprado")),
-                  query(legacyRootRef, where("visibilidade", "==", null)),
-                ];
 
-            for (const consultaLegada of consultasLegadas) {
+            if (consultaColecaoCompletaPermitida) {
               try {
-                const legacyRootSnap = await getDocs(consultaLegada);
+                const legacyRootSnap = await getDocs(legacyRootRef);
                 if (legacyRootSnap.docs.length) {
                   await migrarBlocosLegadosRaizParaNamespace(
                     ownerUserId,
@@ -5380,14 +5190,38 @@ export default function EspacoPage() {
                   docs.push(
                     ...legacyRootSnap.docs.map((d) => ({ __legacy: false, docSnap: d }))
                   );
-                  break;
                 }
               } catch (legacyRootErr) {
-                if (
-                  legacyRootErr?.code !== "permission-denied" &&
-                  legacyRootErr?.code !== "failed-precondition"
-                ) {
+                if (legacyRootErr?.code !== "permission-denied") {
                   throw legacyRootErr;
+                }
+                await adicionarDocsLegadosPorVisibilidade(
+                  docs,
+                  legacyRootRef,
+                  VISIBILIDADES_BLOCOS_AUTENTICADO
+                );
+              }
+            } else {
+              await adicionarDocsLegadosPorVisibilidade(
+                docs,
+                legacyRootRef,
+                visibilidadesConsulta
+              );
+            }
+
+            if (docs.length) {
+              try {
+                await migrarBlocosLegadosRaizParaNamespace(
+                  ownerUserId,
+                  espacoId,
+                  docs.map((item) => item.docSnap)
+                );
+              } catch (migracaoErr) {
+                if (
+                  migracaoErr?.code !== "permission-denied" &&
+                  migracaoErr?.code !== "failed-precondition"
+                ) {
+                  throw migracaoErr;
                 }
               }
             }
@@ -5424,7 +5258,7 @@ export default function EspacoPage() {
           });
         }
 
-        const lista = ordenarBlocosMaisRecentesPrimeiro([...dedupe.values()]);
+        const lista = ordenarBlocosPorModo([...dedupe.values()], modoOrdenacaoBlocosEspaco);
         setBlocos(lista);
       } catch (err) {
         console.error("Erro ao carregar blocos:", err);
@@ -5439,6 +5273,9 @@ export default function EspacoPage() {
     podeVerEspaco,
     espacoExigeChecagemAssinatura,
     assinaturaCheckPronto,
+    currentUidAutenticado,
+    modoOrdenacaoBlocosEspaco,
+    podeGerenciar,
     reloadNonce,
   ]);
 
@@ -5944,7 +5781,7 @@ export default function EspacoPage() {
   const avatarMensagemRestricao = String(mensagemRestricaoAvatarUrl || "").trim();
   const conteudoEspacoBruto = String(espacoAtualEfetivo?.conteudo || "").trim();
   const conteudoEspaco =
-    conteudoEspacoBruto.toLowerCase() === PLACEHOLDER_HOME_CONTENT ? "" : conteudoEspacoBruto;
+    conteudoEspacoBruto.toLowerCase() === PLACEHOLDER_HOME_CONTENT ? "" : DOMPurify.sanitize(conteudoEspacoBruto);
 
   const resolverMenuBaseUsuario = () => {
     const skinMenu = String(localStorage.getItem("skinLogadoUser") || "").trim();
@@ -6095,6 +5932,47 @@ export default function EspacoPage() {
     );
   };
 
+  const abrirChatProdutoVenda = async ({ bloco = {}, produto = {} } = {}) => {
+    if (configSistemaAtual?.chatHabilitado === false) {
+      return { ok: false, message: "Chat desativado neste projeto." };
+    }
+
+    if (!currentUidAutenticado) {
+      return { ok: false, message: "Faca login para tirar duvidas sobre este produto." };
+    }
+
+    const menuBase = resolverMenuBaseUsuario();
+    if (!menuBase) {
+      return { ok: false, message: `Selecione uma ${nomeSkinSingular} para acessar o chat.` };
+    }
+
+    const resultado = await garantirConversaProdutoVenda({
+      ownerUserId: ownerUserId || bloco?.ownerUserId || bloco?.criadoPor || "",
+      clienteUid: currentUidAutenticado,
+      clienteNome: authUserAtual?.displayName || "",
+      clienteEmail: authUserAtual?.email || "",
+      clienteSkin: localStorage.getItem("skinLogadoUser") || "",
+      produto,
+      bloco,
+      espacoId,
+      mensagemInicial: `Ola, tenho uma duvida sobre ${produto?.nome || "este produto"}.`,
+    });
+
+    const contactId = String(resultado?.contactId || "").trim();
+    const conversationId = String(resultado?.conversationId || "principal").trim();
+    if (!contactId) {
+      return { ok: false, message: "Nao foi possivel abrir a conversa." };
+    }
+
+    navigate(
+      `${menuBase}/contatos/${encodeURIComponent(contactId)}/chat/${encodeURIComponent(
+        conversationId || "principal"
+      )}`
+    );
+
+    return { ok: true };
+  };
+
   const abrirLiveBloco = async (bloco = {}) => {
     if (!livesHabilitadas) {
       alert("Lives desativadas neste projeto.");
@@ -6174,7 +6052,7 @@ export default function EspacoPage() {
     const texto = String(liveChatMensagem || "").trim();
     if (!texto) return;
     if (!currentUidAutenticado) {
-      setLiveChatErro("Faça login para enviar mensagens na live.");
+      setLiveChatErro("FaÃ§a login para enviar mensagens na live.");
       return;
     }
 
@@ -6209,10 +6087,10 @@ export default function EspacoPage() {
     setBlocos((prev) => {
       const dedupe = new Map(prev.map((item) => [item.id, item]));
       dedupe.set(bloco.id, bloco);
-      return ordenarBlocosMaisRecentesPrimeiro([...dedupe.values()]);
+      return ordenarBlocosPorModo([...dedupe.values()], modoOrdenacaoBlocosEspaco);
     });
 
-    // Reconsulta após breve janela para pegar dados consolidados (rules/indexações).
+    // Reconsulta apÃ³s breve janela para pegar dados consolidados (rules/indexaÃ§Ãµes).
     window.setTimeout(() => {
       setReloadNonce((n) => n + 1);
     }, 1200);
@@ -6244,10 +6122,10 @@ export default function EspacoPage() {
         ordem: index,
       }));
 
-      await updateDoc(blocoRef, {
+      await updateDoc(blocoRef, limparUndefinedFirestore({
         cards: cardsAtualizados,
         updatedAt: serverTimestamp(),
-      });
+      }));
 
       await Promise.all(
         cardsAtualizados.map((card) => {
@@ -6255,12 +6133,14 @@ export default function EspacoPage() {
           if (!cardRef) return Promise.resolve();
           return setDoc(
             cardRef,
-            {
+            limparUndefinedFirestore({
               id: card.id,
               ordem: card.ordem,
               nome: card.nome || "",
               descricaoExtra: card.descricaoExtra || "",
-              descricao: card.descricao || "",
+              descricaoPrevia: card.descricaoPrevia || "",
+              descricaoCompleta: card.descricaoCompleta || card.descricaoPrevia || "",
+              descricao: card.descricaoPrevia || card.descricao || "",
               imagem: card.imagem || "",
               imagemPath: card.imagemPath || "",
               linkExterno: card.linkExterno || "",
@@ -6270,15 +6150,16 @@ export default function EspacoPage() {
               espacoId,
               ownerUserId,
               updatedAt: serverTimestamp(),
-            },
+            }),
             { merge: true }
           );
         })
       );
 
       setBlocos((prev) =>
-        ordenarBlocosMaisRecentesPrimeiro(
-          prev.map((item) => (item.id === bloco.id ? { ...item, cards: cardsAtualizados } : item))
+        ordenarBlocosPorModo(
+          prev.map((item) => (item.id === bloco.id ? { ...item, cards: cardsAtualizados } : item)),
+          modoOrdenacaoBlocosEspaco
         )
       );
 
@@ -6297,7 +6178,7 @@ export default function EspacoPage() {
 
       return cardsAtualizados;
     },
-    [espacoId, ownerUserId]
+    [espacoId, modoOrdenacaoBlocosEspaco, ownerUserId]
   );
 
   const persistirSubBlocosAddOnsDoBloco = useCallback(
@@ -6333,7 +6214,7 @@ export default function EspacoPage() {
       setBlocoEmAtualizacaoId(bloco.id);
 
       try {
-        await updateDoc(blocoRef, {
+        await updateDoc(blocoRef, limparUndefinedFirestore({
           estruturaAddOns: "subblocos_v1",
           subBlocos: subBlocosAtualizados,
           subObjetos: subObjetosAtualizados,
@@ -6343,10 +6224,10 @@ export default function EspacoPage() {
             itemLayout: "grid",
           },
           updatedAt: serverTimestamp(),
-        });
+        }));
 
         setBlocos((prev) =>
-          ordenarBlocosMaisRecentesPrimeiro(
+          ordenarBlocosPorModo(
             prev.map((item) =>
               item.id === bloco.id
                 ? {
@@ -6361,7 +6242,8 @@ export default function EspacoPage() {
                     },
                   }
                 : item
-            )
+            ),
+            modoOrdenacaoBlocosEspaco
           )
         );
 
@@ -6374,7 +6256,7 @@ export default function EspacoPage() {
         setBlocoEmAtualizacaoId(null);
       }
     },
-    [espacoId, ownerUserId]
+    [espacoId, modoOrdenacaoBlocosEspaco, ownerUserId]
   );
 
   useEffect(() => {
@@ -6450,10 +6332,12 @@ export default function EspacoPage() {
       setBlocoEmAtualizacaoId(blocoId);
 
       try {
-        await updateDoc(blocoRef, payload);
+        const payloadFirestore = limparUndefinedFirestore(payload);
+        await updateDoc(blocoRef, payloadFirestore);
         setBlocos((prev) =>
-          ordenarBlocosMaisRecentesPrimeiro(
-            prev.map((item) => (item.id === blocoId ? { ...item, ...payload } : item))
+          ordenarBlocosPorModo(
+            prev.map((item) => (item.id === blocoId ? { ...item, ...payloadFirestore } : item)),
+            modoOrdenacaoBlocosEspaco
           )
         );
         return true;
@@ -6465,7 +6349,7 @@ export default function EspacoPage() {
         setBlocoEmAtualizacaoId(null);
       }
     },
-    [blocos, nomeBlocoPlural, nomeBlocoSingular, podeGerenciar]
+    [blocos, modoOrdenacaoBlocosEspaco, nomeBlocoPlural, nomeBlocoSingular, podeGerenciar]
   );
 
   const atualizarBloco = async (blocoId, updates = {}) => {
@@ -6653,7 +6537,8 @@ export default function EspacoPage() {
         imagens,
       };
 
-      await updateDoc(getBlocoDocRef(bloco), payload);
+      const payloadFirestore = limparUndefinedFirestore(payload);
+      await updateDoc(getBlocoDocRef(bloco), payloadFirestore);
 
       await registrarAuditLog({
         action: "editou_bloco",
@@ -6667,7 +6552,7 @@ export default function EspacoPage() {
         snapshotAntes: bloco,
         snapshotDepois: {
           ...bloco,
-          ...payload,
+          ...payloadFirestore,
         },
       });
 
@@ -6685,8 +6570,9 @@ export default function EspacoPage() {
       }
 
       setBlocos((prev) =>
-        ordenarBlocosMaisRecentesPrimeiro(
-          prev.map((item) => (item.id === blocoId ? { ...item, ...payload } : item))
+        ordenarBlocosPorModo(
+          prev.map((item) => (item.id === blocoId ? { ...item, ...payload } : item)),
+          modoOrdenacaoBlocosEspaco
         )
       );
       setOriginaisPorBloco((prev) => {
@@ -6726,12 +6612,21 @@ export default function EspacoPage() {
     const cardKey = `${bloco.id}:${card.id}`;
     const nomeNovo = String(editorCardModal?.nome || "").trim();
     const descricaoExtraNova = String(editorCardModal?.descricaoExtra || "").trim();
-    const descricaoNova = String(editorCardModal?.descricao || "").trim();
+    const descricaoPreviaNova = String(
+      editorCardModal?.descricaoPrevia || editorCardModal?.descricao || ""
+    ).trim();
+    const descricaoCompletaInformada = String(editorCardModal?.descricaoCompleta || "").trim();
+    const descricaoCompletaNova = descricaoCompletaInformada
+      ? descricaoCompletaInformada.includes(descricaoPreviaNova)
+        ? descricaoCompletaInformada
+        : [descricaoPreviaNova, descricaoCompletaInformada].filter(Boolean).join("\n\n")
+      : descricaoPreviaNova;
     const ordemNova = Number.isFinite(editorCardModal?.ordem)
       ? Number(editorCardModal.ordem)
       : normalizarCardsDoBloco(bloco?.cards).length;
     const imagemAtual = String(editorCardModal?.imagemOriginal || "").trim();
     const imagemPathAtual = String(editorCardModal?.imagemPathOriginal || "").trim();
+    const iconeSvgNovo = String(editorCardModal?.iconeSvg || "").trim();
     const linkNovo = String(editorCardModal?.linkExterno || "").trim();
     const addOnIdsNovos = normalizarAddOnIds(addOnIdsEfetivosEditorCard);
     const addOnSubthemesNovos = normalizarAddOnSubthemes(
@@ -6805,9 +6700,12 @@ export default function EspacoPage() {
         ordem: ordemNova,
         nome: String(nomeNovo || "").trim(),
         descricaoExtra: String(descricaoExtraNova || "").trim(),
-        descricao: String(descricaoNova || "").trim(),
+        descricaoPrevia: descricaoPreviaNova,
+        descricaoCompleta: descricaoCompletaNova,
+        descricao: descricaoPreviaNova,
         imagem: imagemFinal,
         imagemPath: imagemPathFinal,
+        iconeSvg: iconeSvgNovo,
         linkExterno: String(linkNovo || "").trim(),
         addOnIds: addOnIdsNovos,
         addOnSubthemes: addOnSubthemesNovos,
@@ -6816,28 +6714,29 @@ export default function EspacoPage() {
       if (aly137Payload) {
         payload.aly137 = aly137Payload;
       }
+      const payloadFirestore = limparUndefinedFirestore(payload);
 
       const cardsAtualizadosOrigem = normalizarCardsDoBloco(
         ehNovoCard
-          ? [...(Array.isArray(bloco?.cards) ? bloco.cards : []), payload]
+          ? [...(Array.isArray(bloco?.cards) ? bloco.cards : []), payloadFirestore]
           : (Array.isArray(bloco?.cards) ? bloco.cards : []).map((cardItem) =>
-              String(cardItem?.id || "") === String(card.id) ? { ...cardItem, ...payload } : cardItem
+              String(cardItem?.id || "") === String(card.id) ? { ...cardItem, ...payloadFirestore } : cardItem
             )
       );
 
       if (ehNovoCard) {
-        await setDoc(cardRef, {
-          ...payload,
+        await setDoc(cardRef, limparUndefinedFirestore({
+          ...payloadFirestore,
           blocoId: bloco.id,
           espacoId,
           ownerUserId,
           criadoEm: serverTimestamp(),
-        });
+        }));
       } else {
-        await updateDoc(cardRef, {
-          ...payload,
+        await updateDoc(cardRef, limparUndefinedFirestore({
+          ...payloadFirestore,
           updatedAt: serverTimestamp(),
-        });
+        }));
       }
 
       const cardsPersistidos = await persistirCardsDoBloco(bloco, cardsAtualizadosOrigem);
@@ -7241,30 +7140,12 @@ export default function EspacoPage() {
 
       {!acessoEspacoResolvido && carregamentoAcessoEspacoJSX}
 
-      {acessoEspacoResolvido && !podeVerEspaco && (
-        <div className="espaco-restricao-wrapper">
-          {avatarMensagemRestricao ? (
-            <img
-              src={avatarMensagemRestricao}
-              alt="Avatar da mensagem"
-              className="espaco-restricao-avatar"
-            />
-          ) : null}
-
-          <div className="espaco-restricao-balao">
-            {avatarMensagemRestricao ? (
-              <span aria-hidden="true" className="espaco-restricao-balao-ponteiro" />
-            ) : null}
-
-            <div className="espaco-restricao-conteudo">
-              <span aria-hidden="true" className="espaco-restricao-aviso-icon" />
-              <p className="espaco-restricao-texto" style={estiloMensagemRestricaoEspaco}>
-                {mensagemRestricaoEspaco}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+      <RestricaoEspaco
+        visivel={acessoEspacoResolvido && !podeVerEspaco}
+        avatarUrl={avatarMensagemRestricao}
+        mensagem={mensagemRestricaoEspaco}
+        estiloMensagem={estiloMensagemRestricaoEspaco}
+      />
 
       {acessoEspacoResolvido && podeVerEspaco && !!conteudoEspaco && (
         <div
@@ -7287,7 +7168,13 @@ export default function EspacoPage() {
           const blocoEhCards = bloco?.tipo === "cards";
           const blocoEhLive = bloco?.tipo === "live";
           const blocoEhAddOns = bloco?.tipo === "addons";
+          const blocoEhVenda = bloco?.tipo === "venda";
           const cardsDoBloco = normalizarCardsDoBloco(bloco?.cards);
+          const produtosVenda = Array.isArray(bloco?.produtosVenda)
+            ? bloco.produtosVenda
+            : Array.isArray(bloco?.produtos)
+              ? bloco.produtos
+              : [];
           const subBlocosAddOnsDoBloco = normalizarSubBlocosAddOns(
             bloco?.subBlocos || bloco?.subblocos,
             bloco?.subObjetos || bloco?.subobjetos
@@ -7384,7 +7271,7 @@ export default function EspacoPage() {
               null,
           })).filter((item) => item.originalPath || item.previewPath || item.displayUrl);
 
-          const imagensParaExibir = blocoEhCards || blocoEhLive || blocoEhAddOns
+          const imagensParaExibir = blocoEhCards || blocoEhLive || blocoEhAddOns || blocoEhVenda
             ? []
             : bloqueado
             ? imagensBloqueadas
@@ -7397,648 +7284,74 @@ export default function EspacoPage() {
                 : fallbackLegado;
 
           return (
-            <Container
-              key={bloco.id}
-              titulo={tituloBloco}
-              iconUrl={iconeBloco}
-              variante="home"
-              style={
-                !podeGerenciar && blocoIndex === 0
-                  ? { marginTop: tituloBloco || iconeBloco ? 96 : 64 }
-                  : undefined
-              }
-              className={`bloco-imagem${
-                !podeGerenciar && blocoIndex === 0
-                  ? " bloco-imagem--first-without-creator"
-                  : ""
-              }`}
-            >
-              {!!imagensParaExibir.length && (
-                <div
-                  style={{
-                    filter: bloqueado ? "blur(10px)" : "none",
-                    opacity: bloqueado ? 0.7 : 1,
-                    transition: "filter 150ms ease",
-                  }}
-                >
-                  {imagensParaExibir.map((url, i) => (
-                    bloqueado ? (
-                      <img
-                        key={`${bloco.id}-${i}`}
-                        src={url}
-                        alt=""
-                        style={{ maxWidth: "200px", margin: "4px" }}
-                      />
-                    ) : (
-                      <button
-                        key={`${bloco.id}-${i}`}
-                        type="button"
-                        className="image-zoom-trigger"
-                        onClick={() =>
-                          abrirModalImagem({
-                            url,
-                            titulo: tituloBloco || `${nomeBlocoSingularCapitalizado} ${i + 1}`,
-                            alt: "Imagem ampliada do bloco",
-                          })
-                        }
-                        style={{
-                          border: "none",
-                          background: "transparent",
-                          padding: 0,
-                          margin: "4px",
-                          cursor: "zoom-in",
-                        }}
-                        title="Clique para ampliar"
-                      >
-                        <img
-                          src={url}
-                          alt=""
-                          style={{ maxWidth: "200px", display: "block" }}
-                        />
-                      </button>
-                    )
-                  ))}
-                </div>
-              )}
-
-              {blocoEhLive && (
-                <div style={{ marginBottom: 10 }}>
-                  {!!liveBannerUrl && (
-                    bloqueado ? (
-                      <img
-                        src={liveBannerUrl}
-                        alt="Anuncio da live"
-                        style={{
-                          width: "min(100%, 520px)",
-                          maxHeight: 240,
-                          objectFit: "cover",
-                          borderRadius: 8,
-                          filter: "blur(10px)",
-                          opacity: 0.75,
-                        }}
-                      />
-                    ) : (
-                      <button
-                        type="button"
-                        className="image-zoom-trigger"
-                        onClick={() =>
-                          abrirModalImagem({
-                            url: liveBannerUrl,
-                            titulo: tituloBloco || "Anuncio da live",
-                            alt: "Anuncio da live ampliado",
-                          })
-                        }
-                        style={{
-                          border: "none",
-                          background: "transparent",
-                          padding: 0,
-                          cursor: "zoom-in",
-                        }}
-                        title="Clique para ampliar"
-                      >
-                        <img
-                          src={liveBannerUrl}
-                          alt="Anuncio da live"
-                          style={{
-                            width: "min(100%, 520px)",
-                            maxHeight: 240,
-                            objectFit: "cover",
-                            borderRadius: 8,
-                          }}
-                        />
-                      </button>
-                    )
-                  )}
-
-                  <p style={{ margin: "8px 0 4px" }}>
-                    <strong>Inicio:</strong> {formatarDataHoraLive(liveInicioMs)}
-                  </p>
-                  <p style={{ margin: "0 0 8px" }}>
-                    <strong>Fim:</strong> {formatarDataHoraLive(liveFimMs)}
-                  </p>
-
-                  {!bloqueado ? (
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                      {liveEmAndamento ? (
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.preventDefault();
-                            event.stopPropagation();
-                            void abrirLiveBloco(bloco);
-                          }}
-                        >
-                          Entrar na live
-                        </button>
-                      ) : liveAgendada ? (
-                        <span>Live agendada.</span>
-                      ) : liveEncerrada ? (
-                        <span>Live encerrada.</span>
-                      ) : (
-                        <span>Live indisponivel no momento.</span>
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-              )}
-
-              {blocoEhCards && !bloqueado && !!cardsDoBloco.length && (
-                <div style={{ display: "grid", gap: 12, justifyItems: "center" }}>
-                  {cardAtivo ? (
-                    <div style={{ display: "grid", gap: 8, justifyItems: "center", width: "100%" }}>
-                      {(() => {
-                        const cardKey = `${bloco.id}:${cardAtivo.id || indiceCardAtivo}`;
-                        const imagemCardResolvida =
-                          imagensCardsPorBloco?.[bloco.id]?.[cardAtivo.id] || "";
-                        const imagemCardFinal = isRenderableUrl(cardAtivo.imagem)
-                          ? cardAtivo.imagem
-                          : imagemCardResolvida || "/logoNeon.png";
-                        const addOnsCardAtivo = normalizarAddOnIds(cardAtivo.addOnIds)
-                          .map((addOnId) => addOnsDisponiveisProjetoPorId[addOnId])
-                          .filter(Boolean);
-                        const rotaCardAtivo = montarRotaCardDoBloco(bloco, cardAtivo);
-                        const estadoArrasteAtual = cardArrastePorBloco?.[bloco.id] || {};
-                        const deslocamentoArraste = Number(estadoArrasteAtual.deltaX) || 0;
-                        const arrasteAtivo = Boolean(estadoArrasteAtual.dragging);
-                        return (
-                          <>
-                            <div
-                              className="cards-bloco-viewer"
-                              style={{
-                                position: "relative",
-                                width: "100%",
-                                maxWidth: 367,
-                                minHeight: 445,
-                                margin: "0 auto 18px",
-                                padding: "0 46px",
-                                boxSizing: "border-box",
-                                display: "flex",
-                                justifyContent: "center",
-                                alignItems: "flex-start",
-                              }}
-                            >
-                              {cardsDoBloco.length > 1 ? (
-                                <button
-                                  type="button"
-                                  className="cards-bloco-nav cards-bloco-nav--prev"
-                                  onClick={() =>
-                                    selecionarCardDoBloco(bloco.id, indiceCardAtivo - 1)
-                                  }
-                                  disabled={indiceCardAtivo <= 0}
-                                  aria-label="Mostrar card anterior"
-                                >
-                                  {"<<"}
-                                </button>
-                              ) : null}
-
-                              <div
-                                className="cards-bloco-stage"
-                                style={{
-                                  width: "100%",
-                                  display: "flex",
-                                  justifyContent: "center",
-                                  touchAction: "pan-y",
-                                  userSelect: "none",
-                                  cursor: cardsDoBloco.length > 1
-                                    ? arrasteAtivo
-                                      ? "grabbing"
-                                      : "grab"
-                                    : "default",
-                                }}
-                                onPointerDown={(event) => {
-                                  if (cardsDoBloco.length <= 1) return;
-                                  if (event.pointerType === "mouse" && event.button !== 0) return;
-                                  event.currentTarget.setPointerCapture?.(event.pointerId);
-                                  iniciarArrasteCardDoBloco(bloco.id, event.clientX);
-                                }}
-                                onPointerMove={(event) => {
-                                  if (cardsDoBloco.length <= 1) return;
-                                  atualizarArrasteCardDoBloco(bloco.id, event.clientX);
-                                }}
-                                onPointerUp={(event) => {
-                                  if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
-                                    event.currentTarget.releasePointerCapture(event.pointerId);
-                                  }
-                                  finalizarArrasteCardDoBloco(
-                                    bloco.id,
-                                    indiceCardAtivo,
-                                    cardsDoBloco.length
-                                  );
-                                }}
-                                onPointerCancel={(event) => {
-                                  if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
-                                    event.currentTarget.releasePointerCapture(event.pointerId);
-                                  }
-                                  finalizarArrasteCardDoBloco(
-                                    bloco.id,
-                                    indiceCardAtivo,
-                                    cardsDoBloco.length
-                                  );
-                                }}
-                              >
-                                <div
-                                  key={cardKey}
-                                  className="cards-bloco-card-shell"
-                                  style={{
-                                    transform: `translateX(${deslocamentoArraste}px)`,
-                                    transition: arrasteAtivo ? "none" : "transform 220ms ease",
-                                    willChange: "transform",
-                                  }}
-                                >
-                                  <Card
-                                    id={cardAtivo.id || `${bloco.id}-card-${indiceCardAtivo}`}
-                                    ownerUserId={ownerUserId}
-                                    espacoId={espacoId}
-                                    blocoId={bloco.id}
-                                    addOnIds={normalizarAddOnIds(cardAtivo.addOnIds)}
-                                    addOnSubthemes={normalizarAddOnSubthemes(
-                                      cardAtivo.addOnSubthemes,
-                                      cardAtivo.addOnIds
-                                    )}
-                                    usaAddOnsGerenciador={cardAtivo?.usaAddOnsGerenciador === true}
-                                    addOns={addOnsCardAtivo}
-                                    aly137={cardAtivo.aly137}
-                                    onAddOnClick={abrirFichaAddOn}
-                                    onCardFragmentClick={abrirFichaCardFragmento}
-                                    cyberpinkSubtheme={normalizeCyberpinkSubtheme(espacoAtualEfetivo?.subtema)}
-                                    nome={cardAtivo.nome || `Card ${indiceCardAtivo + 1}`}
-                                    descricaoExtra={cardAtivo.descricaoExtra || ""}
-                                    nomeDescricao={cardAtivo.nome || ""}
-                                    descricao={cardAtivo.descricao || ""}
-                                    linkExterno={cardAtivo.linkExterno || ""}
-                                    imagem={imagemCardFinal}
-                                    idNome={`${bloco.id}-card-${indiceCardAtivo}`}
-                                    cardDescricaoDiv="cardDescricaoDiv"
-                                    cardNome="cardNome"
-                                    cardContainerDesktop="cardContainerDesktop"
-                                    cardCabecalho="cardCabecalho"
-                                    cardImagem="cardImagem"
-                                    cardDescricao="cardDescricao"
-                                    imgCard="imgCard"
-                                    onImagemClick={(imagemUrl) =>
-                                      abrirModalImagem({
-                                        url: imagemUrl,
-                                        titulo:
-                                          cardAtivo.nome || tituloBloco || nomeBlocoSingularCapitalizado,
-                                        alt: "Imagem ampliada do card",
-                                      })
-                                    }
-                                  />
-                                </div>
-                              </div>
-
-                              <div className="cards-bloco-actions" aria-label="Acoes do card">
-                                <button
-                                  type="button"
-                                  className="cards-bloco-action-button"
-                                  onClick={() => {
-                                    if (rotaCardAtivo) navigate(rotaCardAtivo);
-                                  }}
-                                  disabled={!rotaCardAtivo}
-                                  title="Ver card ampliado"
-                                  aria-label="Ver card ampliado"
-                                >
-                                  <CardActionIcon type="eye" />
-                                </button>
-
-                                <button
-                                  type="button"
-                                  className="cards-bloco-action-button"
-                                  onClick={() =>
-                                    compartilharCardRastreavel({
-                                      bloco,
-                                      card: cardAtivo,
-                                      rota: rotaCardAtivo,
-                                    })
-                                  }
-                                  disabled={Boolean(compartilhandoRastreavelId) || !rotaCardAtivo}
-                                  title="Compartilhar card"
-                                  aria-label="Compartilhar card"
-                                >
-                                  <CardActionIcon type="share" />
-                                </button>
-
-                                {podeGerenciar ? (
-                                  <button
-                                    type="button"
-                                    className="cards-bloco-action-button"
-                                    onClick={() => {
-                                      abrirEditorCardDoBloco(bloco, cardAtivo);
-                                    }}
-                                    disabled={
-                                      cardEmAtualizacaoId ===
-                                      `${bloco.id}:${cardAtivo.id || indiceCardAtivo}`
-                                    }
-                                    title="Editar card"
-                                    aria-label="Editar card"
-                                  >
-                                    <CardActionIcon type="gear" />
-                                  </button>
-                                ) : null}
-
-                                {podeGerenciar ? (
-                                  <button
-                                    type="button"
-                                    className="cards-bloco-action-button"
-                                    onClick={() => duplicarCardDoBloco(bloco, cardAtivo)}
-                                    title="Duplicar card"
-                                    aria-label="Duplicar card"
-                                  >
-                                    <CardActionIcon type="copy" />
-                                  </button>
-                                ) : null}
-
-                                {podeVerAuditoriaConteudo ? (
-                                  <button
-                                    type="button"
-                                    className="cards-bloco-action-button"
-                                    onClick={() => {
-                                      abrirAuditoriaEntidade({
-                                        entityType: "card",
-                                        entityId: cardAtivo.id || `${bloco.id}-card-${indiceCardAtivo}`,
-                                      });
-                                    }}
-                                    title="Ver auditoria do card"
-                                    aria-label="Ver auditoria do card"
-                                  >
-                                    <CardActionIcon type="audit" />
-                                  </button>
-                                ) : null}
-
-                                {podeVerAuditoriaRastreaveis ? (
-                                  <button
-                                    type="button"
-                                    className="cards-bloco-action-button"
-                                    onClick={() =>
-                                      abrirPreviewImpressaoCard({
-                                        bloco,
-                                        card: cardAtivo,
-                                        imagem: imagemCardFinal,
-                                        addOns: addOnsCardAtivo,
-                                        rota: rotaCardAtivo,
-                                      })
-                                    }
-                                    title="Historico de Card Rastreaveis"
-                                    aria-label="Historico de Card Rastreaveis"
-                                  >
-                                    <CardActionIcon type="print" />
-                                  </button>
-                                ) : null}
-                              </div>
-
-                              {cardsDoBloco.length > 1 ? (
-                                <button
-                                  type="button"
-                                  className="cards-bloco-nav cards-bloco-nav--next"
-                                  onClick={() =>
-                                    selecionarCardDoBloco(bloco.id, indiceCardAtivo + 1)
-                                  }
-                                  disabled={indiceCardAtivo >= cardsDoBloco.length - 1}
-                                  aria-label="Mostrar proximo card"
-                                >
-                                  {">>"}
-                                </button>
-                              ) : null}
-                            </div>
-                          </>
-                        );
-                      })()}
-
-                      {cardsDoBloco.length > 1 ? (
-                        <div className="cards-bloco-count">
-                          <span className="cards-bloco-count-text">
-                            {`Card ${indiceCardAtivo + 1} de ${cardsDoBloco.length}`}
-                          </span>
-                        </div>
-                      ) : null}
-
-                      {cardsDoBloco.length > 1 ? (
-                        <div className="cards-bloco-thumbs">
-                          {cardsDoBloco.map((card, cardIndex) => {
-                            const imagemCardResolvida =
-                              imagensCardsPorBloco?.[bloco.id]?.[card.id] || "";
-                            const imagemCardFinal = isRenderableUrl(card.imagem)
-                              ? card.imagem
-                              : imagemCardResolvida || "/logoNeon.png";
-                            const ativo = cardIndex === indiceCardAtivo;
-                            return (
-                              <div
-                                key={`${bloco.id}-thumb-${card.id || cardIndex}`}
-                                className={`cards-bloco-thumb-slot${ativo ? " is-active" : ""}`}
-                              >
-                                <button
-                                  type="button"
-                                  className={`cards-bloco-thumb${ativo ? " is-active" : ""}`}
-                                  onClick={() => selecionarCardDoBloco(bloco.id, cardIndex)}
-                                  title={card.nome || `Card ${cardIndex + 1}`}
-                                >
-                                  <span className="cards-bloco-thumb-inner">
-                                    <span className="cards-bloco-thumb-header">
-                                      <span className="cards-bloco-thumb-title">
-                                        {card.nome || `Card ${cardIndex + 1}`}
-                                      </span>
-                                    </span>
-                                    <span className="cards-bloco-thumb-media">
-                                      <img
-                                        src={imagemCardFinal}
-                                        alt=""
-                                        className="cards-bloco-thumb-image"
-                                      />
-                                    </span>
-                                  </span>
-                                </button>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
-              )}
-
-              {blocoEhAddOns && !bloqueado && (
-                <div className="addons-bloco-subblocos" aria-label="Add-ons do bloco">
-                  {addOnsPorSubBloco.length ? (
-                    addOnsPorSubBloco.map((subBloco) => (
-                      <section key={`${bloco.id}-${subBloco.id}`} className="addons-bloco-subbloco">
-                        {subBloco.titulo ? (
-                          <h4 className="addons-bloco-subbloco-title">{subBloco.titulo}</h4>
-                        ) : null}
-                        <div
-                          className="addons-bloco-carousel"
-                          role="region"
-                          aria-label={`Carrossel de add-ons: ${subBloco.titulo || "Subbloco"}`}
-                        >
-                          <div className="addons-bloco-track">
-                            {subBloco.addOns.map((addOn) => {
-                              const addOnId = String(addOn?.addonId || addOn?.id || "").trim();
-                              const addOnUrl = String(addOn?.url_img || "").trim();
-                              const subthemeKey = normalizarSubtemaAddOnOpcional(addOn?.subtema);
-                              const podeColorir = Boolean(subthemeKey) && isSvgAssetUrl(addOnUrl);
-                              const iconColor = getCyberpinkSubthemeIconColor(subthemeKey);
-                              const label = String(addOn?.nome || "Add-on").trim() || "Add-on";
-                              const addOnResumoAly137 = addOn?.aly137Resumo || aly137ResumoAddOnsPorId[addOnId] || null;
-
-                              return (
-                                <button
-                                  type="button"
-                                  key={`${bloco.id}-${subBloco.id}-addon-${addOnId}`}
-                                  className={`addons-bloco-item${
-                                    addOn?.destaque ? " addons-bloco-item--destaque" : ""
-                                  }`}
-                                  title={
-                                    addOnResumoAly137
-                                      ? `${label} / ${addOnResumoAly137.xpTotal || 0} XP`
-                                      : addOn?.descricao || label
-                                  }
-                                  onClick={() => abrirFichaAddOn(addOn)}
-                                >
-                                  <svg
-                                    className="addons-bloco-chip-corner addons-bloco-chip-corner--tl"
-                                    viewBox="0 0 10 10"
-                                    aria-hidden="true"
-                                    focusable="false"
-                                  >
-                                    <path d="M10 0 L0 10" />
-                                  </svg>
-                                  <svg
-                                    className="addons-bloco-chip-corner addons-bloco-chip-corner--tr"
-                                    viewBox="0 0 10 10"
-                                    aria-hidden="true"
-                                    focusable="false"
-                                  >
-                                    <path d="M0 0 L10 10" />
-                                  </svg>
-                                  <svg
-                                    className="addons-bloco-chip-corner addons-bloco-chip-corner--bl"
-                                    viewBox="0 0 10 10"
-                                    aria-hidden="true"
-                                    focusable="false"
-                                  >
-                                    <path d="M0 0 L10 10" />
-                                  </svg>
-                                  <svg
-                                    className="addons-bloco-chip-corner addons-bloco-chip-corner--br"
-                                    viewBox="0 0 10 10"
-                                    aria-hidden="true"
-                                    focusable="false"
-                                  >
-                                    <path d="M10 0 L0 10" />
-                                  </svg>
-                                  <span className="addons-bloco-chip-pins addons-bloco-chip-pins--top" aria-hidden="true" />
-                                  <span className="addons-bloco-chip-pins addons-bloco-chip-pins--bottom" aria-hidden="true" />
-                                  <span className="addons-bloco-icon">
-                                    {addOnUrl ? (
-                                      <img
-                                        src={addOnUrl}
-                                        alt={label}
-                                        className={
-                                          podeColorir
-                                            ? "addons-bloco-icon-img is-tinted"
-                                            : "addons-bloco-icon-img"
-                                        }
-                                        style={
-                                          podeColorir
-                                            ? {
-                                                filter: `${getCyberpinkSubthemeIconFilter(
-                                                  subthemeKey
-                                                )} drop-shadow(0 0 2px ${iconColor}) drop-shadow(0 0 6px ${iconColor})`,
-                                              }
-                                            : undefined
-                                        }
-                                      />
-                                    ) : (
-                                      <span className="addons-bloco-icon-fallback">
-                                        {label.slice(0, 2).toUpperCase()}
-                                      </span>
-                                    )}
-                                  </span>
-                                  <span className="addons-bloco-name">{label}</span>
-                                  {addOnResumoAly137 ? (
-                                    <span className="addons-bloco-xp">
-                                      <span>{`${addOnResumoAly137.xpTotal || 0} XP`}</span>
-                                      <em aria-hidden="true">
-                                        <span style={{ width: `${Math.min(100, addOnResumoAly137.percentual || 0)}%` }} />
-                                      </em>
-                                    </span>
-                                  ) : null}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </section>
-                    ))
-                  ) : (
-                    <p style={{ margin: 0, opacity: 0.76 }}>
-                      Nenhum add-on configurado neste bloco.
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {!!precoCompradorFormatado && (
-                <p style={{ margin: "6px 0 8px" }}>
-                  Valor: <strong>{precoCompradorFormatado}</strong>
-                </p>
-              )}
-
-              {bloqueado && !imagensParaExibir.length && (
-                <div
-                  style={{
-                    width: 200,
-                    height: 120,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    background: "linear-gradient(135deg, #2f2f2f, #5c5c5c)",
-                    color: "#f0f0f0",
-                    borderRadius: 6,
-                    filter: "blur(1px)",
-                  }}
-                >
-                  Preview protegido
-                </div>
-              )}
-
-              {bloqueado && (
-                <div style={{ marginTop: 8 }}>
-                  <p>{`Conteudo restrito do ${nomeBlocoSingular}.`}</p>
-                  {renderCtaRestricao(tipoRestricao, bloco)}
-                </div>
-              )}
-
-              {!bloqueado && !blocoEhLive && sessaoChatBloco?.contactId ? (
-                <div style={{ marginTop: 8 }}>
-                  <button onClick={() => abrirChatSessaoBloco(bloco.id)}>
-                    Abrir chat da sessao
-                  </button>
-                </div>
-              ) : null}
-
-              {podeGerenciar && !blocoEhCards && !blocoEhLive && !blocoEhAddOns && (
-                <EditorBloco
-                  bloco={bloco}
-                  imagensEditor={imagensEditor}
-                  onSalvar={(updates) => atualizarBloco(bloco.id, updates)}
-                  onExcluir={() => excluirBloco(bloco.id)}
-                  salvando={blocoEmAtualizacaoId === bloco.id}
-                  excluindo={blocoEmExclusaoId === bloco.id}
-                />
-              )}
-
-              {podeGerenciar && (blocoEhCards || blocoEhLive || blocoEhAddOns) && (
-                <div className="bloco-acoes">
-                  <button
-                    type="button"
-                    onClick={() => abrirEditorBlocoCards(bloco)}
-                  >
-                    Editar bloco
-                  </button>
-                </div>
-              )}
-            </Container>
+            <BlocoPublicoRenderer
+              key={`${bloco.id || "bloco"}-${blocoIndex}`}
+              bloco={bloco}
+              blocoIndex={blocoIndex}
+              tituloBloco={tituloBloco}
+              iconeBloco={iconeBloco}
+              podeGerenciar={podeGerenciar}
+              bloqueado={bloqueado}
+              imagensParaExibir={imagensParaExibir}
+              abrirModalImagem={abrirModalImagem}
+              nomeBlocoSingularCapitalizado={nomeBlocoSingularCapitalizado}
+              blocoEhLive={blocoEhLive}
+              liveBannerUrl={liveBannerUrl}
+              liveInicioMs={liveInicioMs}
+              liveFimMs={liveFimMs}
+              liveEmAndamento={liveEmAndamento}
+              liveAgendada={liveAgendada}
+              liveEncerrada={liveEncerrada}
+              abrirLiveBloco={abrirLiveBloco}
+              blocoEhCards={blocoEhCards}
+              cardsDoBloco={cardsDoBloco}
+              cardAtivo={cardAtivo}
+              indiceCardAtivo={indiceCardAtivo}
+              imagensCardsPorBloco={imagensCardsPorBloco}
+              isRenderableUrl={isRenderableUrl}
+              selecionarCardDoBloco={selecionarCardDoBloco}
+              iniciarArrasteCardDoBloco={iniciarArrasteCardDoBloco}
+              atualizarArrasteCardDoBloco={atualizarArrasteCardDoBloco}
+              finalizarArrasteCardDoBloco={finalizarArrasteCardDoBloco}
+              cardArrastePorBloco={cardArrastePorBloco}
+              addOnsDisponiveisProjetoPorId={addOnsDisponiveisProjetoPorId}
+              normalizarAddOnIds={normalizarAddOnIds}
+              normalizarAddOnSubthemes={normalizarAddOnSubthemes}
+              montarRotaCardDoBloco={montarRotaCardDoBloco}
+              abrirFichaAddOn={abrirFichaAddOn}
+              abrirFichaCardFragmento={abrirFichaCardFragmento}
+              navigate={navigate}
+              abrirEditorBlocoCards={abrirEditorBlocoCards}
+              abrirEditorCardDoBloco={abrirEditorCardDoBloco}
+              podeVerAuditoriaConteudo={podeVerAuditoriaConteudo}
+              abrirAuditoriaEntidade={abrirAuditoriaEntidade}
+              podeVerAuditoriaRastreaveis={podeVerAuditoriaRastreaveis}
+              abrirPreviewImpressaoCard={abrirPreviewImpressaoCard}
+              currentUid={currentUid}
+              tipoRestricao={tipoRestricao}
+              sessaoChatBloco={sessaoChatBloco}
+              abrirChatSessaoBloco={abrirChatSessaoBloco}
+              renderCtaRestricao={renderCtaRestricao}
+              nomeBlocoSingular={nomeBlocoSingular}
+              precoCompradorFormatado={precoCompradorFormatado}
+              blocoEhAddOns={blocoEhAddOns}
+              blocoEhVenda={blocoEhVenda}
+              produtosVenda={produtosVenda}
+              ownerUserId={ownerUserId}
+              currentUidAutenticado={currentUidAutenticado}
+              authUserAtual={authUserAtual}
+              abrirChatProdutoVenda={abrirChatProdutoVenda}
+              addOnsPorSubBloco={addOnsPorSubBloco}
+              normalizarSubtemaAddOnOpcional={normalizarSubtemaAddOnOpcional}
+              isSvgAssetUrl={isSvgAssetUrl}
+              aly137ResumoAddOnsPorId={aly137ResumoAddOnsPorId}
+              excluirBloco={excluirBloco}
+              atualizarBloco={atualizarBloco}
+              blocoEmAtualizacaoId={blocoEmAtualizacaoId}
+              blocoEmExclusaoId={blocoEmExclusaoId}
+              imagensEditor={imagensEditor}
+              espacoId={espacoId}
+            />
           );
         })}
 
@@ -8117,2190 +7430,154 @@ export default function EspacoPage() {
         onDropMaterial={soltarMaterialNaForjaInventario}
         onCriarCard={criarCardDaForjaInventario}
       />
-
-      {editorBlocoCardsModal.aberto && blocoEditorCardsAtual ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 99997,
-            background: "rgba(0, 0, 0, 0.8)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 16,
-          }}
-        >
-          <div
-            className="menuContentArea"
-            onClick={(event) => event.stopPropagation()}
-            style={{
-              width: "min(96vw, 760px)",
-              maxHeight: "92vh",
-              overflowY: "auto",
-              border: "1px solid rgba(255,255,255,0.16)",
-              background: "rgba(10, 6, 22, 0.96)",
-              padding: 18,
-              display: "grid",
-              gap: 14,
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
-              <div>
-                <strong>Editar bloco</strong>
-                <p style={{ margin: "4px 0 0", opacity: 0.72, fontSize: 12 }}>
-                  {blocoEditorCardsAtual?.tipo === "addons"
-                    ? "Gerencie os subobjetos de add-ons deste bloco."
-                    : blocoEditorCardsAtual?.tipo === "cards"
-                      ? "Gerencie os cards deste bloco e adicione novos itens."
-                      : "Ajuste as configuracoes deste bloco."}
-                </p>
-              </div>
-              <button type="button" onClick={fecharEditorBlocoCards}>
-                Fechar
-              </button>
-            </div>
-
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-              {blocoEditorCardsAtual?.tipo === "cards" ? (
-                <>
-                  <span style={{ fontSize: 12, opacity: 0.78 }}>
-                    {`Cards no bloco: ${cardsEditorBlocoAtual.length}`}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      abrirEditorCardDoBloco(blocoEditorCardsAtual, {
-                        id: gerarIdCardTemporario(),
-                        ordem: cardsEditorBlocoAtual.length,
-                        __novo: true,
-                        nome: "",
-                        descricaoExtra: "",
-                        descricao: "",
-                        imagem: "",
-                        imagemPath: "",
-                        linkExterno: "",
-                      })
-                    }
-                  >
-                    Adicionar card
-                  </button>
-                </>
-              ) : blocoEditorCardsAtual?.tipo === "addons" ? (
-                <span style={{ fontSize: 12, opacity: 0.78 }}>
-                  {`Add-ons no bloco: ${subObjetosAddOnsEditorBlocoAtual.length}`}
-                </span>
-              ) : (
-                <span style={{ fontSize: 12, opacity: 0.78 }}>
-                  Ajuste o cabecalho deste bloco.
-                </span>
-              )}
-            </div>
-
-            <div style={{ display: "grid", gap: 10 }}>
-              <label style={{ display: "grid", gap: 6 }}>
-                <span>Titulo do bloco</span>
-                <input
-                  type="text"
-                  value={editorBlocoCardsModal.titulo}
-                  onChange={(event) =>
-                    setEditorBlocoCardsModal((prev) => ({
-                      ...prev,
-                      titulo: event.target.value,
-                    }))
-                  }
-                  placeholder="Opcional"
-                  disabled={blocoEmAtualizacaoId === blocoEditorCardsAtual.id}
-                />
-              </label>
-
-              <label style={{ display: "grid", gap: 6 }}>
-                <span>Icone do bloco</span>
-                {projetoPossuiColecoesIcones ? (
-                  <select
-                    value={editorBlocoCardsModal.iconeSelecao}
-                    onChange={(event) => {
-                      const valor = event.target.value;
-                      const iconPayload = parseIconSelectionValue(valor, iconCollectionsFiltradas);
-                      setEditorBlocoCardsModal((prev) => ({
-                        ...prev,
-                        iconeSelecao: valor,
-                        icone: iconPayload.iconUrl,
-                      }));
-                    }}
-                    disabled={blocoEmAtualizacaoId === blocoEditorCardsAtual.id}
-                  >
-                    <option value="">Sem icone</option>
-                    {iconCollectionsFiltradas.map((colecao) => (
-                      <optgroup key={colecao.id} label={colecao.nome}>
-                        {(colecao.icons || []).map((icon) => (
-                          <option key={icon.id} value={`${colecao.id}::${icon.id}`}>
-                            {icon.label}
-                          </option>
-                        ))}
-                      </optgroup>
-                    ))}
-                  </select>
-                ) : (
-                  <p style={{ margin: 0, fontSize: 12, opacity: 0.72 }}>
-                    Nenhuma colecao de icones permitida para este projeto/tema.
-                  </p>
-                )}
-              </label>
-
-              <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const iconPayload = projetoPossuiColecoesIcones
-                      ? parseIconSelectionValue(
-                          editorBlocoCardsModal.iconeSelecao,
-                          iconCollectionsFiltradas
-                        )
-                      : {
-                          iconCollectionId: String(blocoEditorCardsAtual?.iconCollectionId || "").trim(),
-                          iconId: String(blocoEditorCardsAtual?.iconId || "").trim(),
-                          iconUrl: String(blocoEditorCardsAtual?.icone || blocoEditorCardsAtual?.iconUrl || "").trim(),
-                          iconLabel: String(blocoEditorCardsAtual?.iconLabel || "").trim(),
-                        };
-                    atualizarMetadadosBloco(blocoEditorCardsAtual.id, {
-                      titulo: editorBlocoCardsModal.titulo,
-                      icone: iconPayload.iconUrl,
-                      iconUrl: iconPayload.iconUrl,
-                      iconCollectionId: iconPayload.iconCollectionId,
-                      iconId: iconPayload.iconId,
-                      iconLabel: iconPayload.iconLabel,
-                    });
-                  }}
-                  disabled={blocoEmAtualizacaoId === blocoEditorCardsAtual.id}
-                >
-                  {blocoEmAtualizacaoId === blocoEditorCardsAtual.id
-                    ? "Salvando bloco..."
-                    : "Salvar cabecalho"}
-                </button>
-              </div>
-            </div>
-
-            {blocoEditorCardsAtual?.tipo === "cards" ? (
-              <div style={{ display: "grid", gap: 10 }}>
-                {cardsEditorBlocoAtual.length ? (
-                <>
-                  <p style={{ margin: 0, fontSize: 12, opacity: 0.72 }}>
-                    Arraste as miniaturas para reordenar os cards do bloco.
-                  </p>
-                  {cardsEditorBlocoAtual.map((card, index) => {
-                  const imagemCardResolvida =
-                    imagensCardsPorBloco?.[blocoEditorCardsAtual.id]?.[card.id] || "";
-                  const imagemCardFinal = isRenderableUrl(card.imagem)
-                    ? card.imagem
-                    : imagemCardResolvida || "/logoNeon.png";
-                  return (
-                    <div
-                      key={`editor-bloco-card-${card.id || index}`}
-                      draggable={blocoEmAtualizacaoId !== blocoEditorCardsAtual.id}
-                      onDragStart={() =>
-                        setDragCardInfo({
-                          blocoId: blocoEditorCardsAtual.id,
-                          cardId: String(card.id || ""),
-                        })
-                      }
-                      onDragEnd={() => setDragCardInfo({ blocoId: "", cardId: "" })}
-                      onDragOver={(event) => {
-                        event.preventDefault();
-                      }}
-                      onDrop={async (event) => {
-                        event.preventDefault();
-                        const origemIndex = cardsEditorBlocoAtual.findIndex(
-                          (item) =>
-                            String(item?.id || "") === String(dragCardInfo?.cardId || "")
-                        );
-                        if (
-                          dragCardInfo?.blocoId !== blocoEditorCardsAtual.id ||
-                          origemIndex < 0
-                        ) {
-                          return;
-                        }
-                        await reordenarCardsDoBloco(blocoEditorCardsAtual, origemIndex, index);
-                        setDragCardInfo({ blocoId: "", cardId: "" });
-                      }}
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "64px minmax(0, 1fr) auto",
-                        gap: 10,
-                        alignItems: "center",
-                        border:
-                          dragCardInfo?.blocoId === blocoEditorCardsAtual.id &&
-                          dragCardInfo?.cardId === String(card.id || "")
-                            ? "1px solid rgba(255,255,255,0.5)"
-                            : "1px solid rgba(255,255,255,0.1)",
-                        padding: 10,
-                        background: "rgba(255,255,255,0.03)",
-                        cursor: "grab",
-                        opacity:
-                          dragCardInfo?.blocoId === blocoEditorCardsAtual.id &&
-                          dragCardInfo?.cardId === String(card.id || "")
-                            ? 0.72
-                            : 1,
-                      }}
-                    >
-                      <img
-                        src={imagemCardFinal}
-                        alt=""
-                        style={{
-                          width: 64,
-                          height: 64,
-                          objectFit: "cover",
-                          border: "1px solid rgba(255,255,255,0.16)",
-                          background: "rgba(0,0,0,0.25)",
-                        }}
-                      />
-                      <div style={{ minWidth: 0 }}>
-                        <strong style={{ display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {card.nome || `Card ${index + 1}`}
-                        </strong>
-                        <p style={{ margin: "4px 0 0", fontSize: 11, opacity: 0.56 }}>
-                          {`Posicao ${index + 1}`}
-                        </p>
-                        {!!card.descricaoExtra && (
-                          <p style={{ margin: "4px 0 0", fontSize: 12, opacity: 0.78 }}>
-                            {card.descricaoExtra}
-                          </p>
-                        )}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => abrirEditorCardDoBloco(blocoEditorCardsAtual, card)}
-                        disabled={cardEmAtualizacaoId === `${blocoEditorCardsAtual.id}:${card.id}`}
-                      >
-                        {cardEmAtualizacaoId === `${blocoEditorCardsAtual.id}:${card.id}`
-                          ? "Salvando..."
-                          : "Editar"}
-                      </button>
-                    </div>
-                  );
-                })}
-                </>
-              ) : (
-                <p style={{ margin: 0, opacity: 0.76 }}>
-                  Nenhum card cadastrado ainda.
-                </p>
-                )}
-              </div>
-            ) : null}
-
-            {blocoEditorCardsAtual?.tipo === "addons" ? (
-              <div style={{ display: "grid", gap: 10 }}>
-                <strong>Subblocos de add-ons</strong>
-                <input
-                  type="search"
-                  value={buscaAddOnEditor}
-                  onChange={(event) => setBuscaAddOnEditor(event.target.value)}
-                  placeholder="Pesquisar add-on por nome"
-                  disabled={blocoEmAtualizacaoId === blocoEditorCardsAtual.id}
-                />
-                {subBlocosAddOnsEditorBlocoAtual.length ? (
-                  subBlocosAddOnsEditorBlocoAtual.map((subBloco, subBlocoIndex) => {
-                    const bloqueadoEditor = blocoEmAtualizacaoId === blocoEditorCardsAtual.id;
-                    const subObjetosSubBloco = normalizarSubObjetosAddOns(subBloco.subObjetos);
-
-                    return (
-                      <section
-                        key={subBloco.id}
-                        style={{
-                          border: "1px solid rgba(255,255,255,0.12)",
-                          borderRadius: 8,
-                          padding: 10,
-                          display: "grid",
-                          gap: 8,
-                        }}
-                      >
-                        <div
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: "minmax(0, 1fr) auto",
-                            gap: 8,
-                            alignItems: "center",
-                          }}
-                        >
-                          <input
-                            type="text"
-                            defaultValue={subBloco.titulo}
-                            placeholder={`Nome do subbloco ${subBlocoIndex + 1}`}
-                            disabled={bloqueadoEditor}
-                            onBlur={(event) => {
-                              const titulo = String(event.target.value || "").trim();
-                              if (titulo === subBloco.titulo) return;
-                              const proximosSubBlocos = subBlocosAddOnsEditorBlocoAtual.map(
-                                (item, index) =>
-                                  index === subBlocoIndex
-                                    ? {
-                                        ...item,
-                                        titulo: titulo || `Subbloco ${subBlocoIndex + 1}`,
-                                      }
-                                    : item
-                              );
-                              void persistirSubBlocosAddOnsDoBloco(
-                                blocoEditorCardsAtual,
-                                proximosSubBlocos
-                              );
-                            }}
-                          />
-                          {subBlocosAddOnsEditorBlocoAtual.length > 1 ? (
-                            <button
-                              type="button"
-                              disabled={bloqueadoEditor}
-                              onClick={() => {
-                                const proximosSubBlocos = subBlocosAddOnsEditorBlocoAtual.filter(
-                                  (_, index) => index !== subBlocoIndex
-                                );
-                                void persistirSubBlocosAddOnsDoBloco(
-                                  blocoEditorCardsAtual,
-                                  proximosSubBlocos
-                                );
-                              }}
-                              style={{ color: "#ff5aa5" }}
-                            >
-                              Remover
-                            </button>
-                          ) : null}
-                        </div>
-
-                        <div
-                          style={{
-                            border: "1px solid rgba(255,255,255,0.12)",
-                            borderRadius: 8,
-                            padding: 10,
-                            maxHeight: 320,
-                            overflowY: "auto",
-                            display: "grid",
-                            gap: 8,
-                          }}
-                        >
-                          {!addOnsProjetoHabilitados ? (
-                            <p style={{ margin: 0, opacity: 0.76 }}>
-                              A base de add-ons esta desativada neste projeto.
-                            </p>
-                          ) : !blocoAddOnsProjetoHabilitado ? (
-                            <p style={{ margin: 0, opacity: 0.76 }}>
-                              Blocos do tipo Add-ons estao desativados neste projeto.
-                            </p>
-                          ) : erroAddOnsGerenciador ? (
-                            <p style={{ margin: 0, color: "#ff9db0" }}>{erroAddOnsGerenciador}</p>
-                          ) : !addOnsDisponiveisProjeto.length ? (
-                            <p style={{ margin: 0, opacity: 0.76 }}>
-                              Nenhum add-on criado para este usuario/projeto.
-                            </p>
-                          ) : !addOnsEditorFiltrados.length ? (
-                            <p style={{ margin: 0, opacity: 0.76 }}>
-                              Nenhum add-on encontrado para este filtro.
-                            </p>
-                          ) : (
-                            addOnsEditorFiltrados.map((item) => {
-                              const addOnId = String(item?.id || "").trim();
-                              const subObjetoAtual = subObjetosSubBloco.find(
-                                (subObjeto) => String(subObjeto?.addonId || "") === addOnId
-                              );
-                              const marcado = Boolean(subObjetoAtual);
-                              const subtemaSelecionado =
-                                normalizarSubtemaAddOnOpcional(subObjetoAtual?.subtema) || "";
-                              const addOnEhSvg = isSvgAssetUrl(item?.url_img);
-
-                              return (
-                                <label
-                                  key={`${subBloco.id}-${addOnId}`}
-                                  style={{
-                                    display: "grid",
-                                    gridTemplateColumns: "20px 38px minmax(0, 1fr)",
-                                    gap: 10,
-                                    alignItems: "center",
-                                  }}
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={marcado}
-                                    disabled={bloqueadoEditor}
-                                    onChange={() => {
-                                      const proximosSubBlocos = subBlocosAddOnsEditorBlocoAtual.map(
-                                        (itemSubBloco, index) => {
-                                          if (index !== subBlocoIndex) return itemSubBloco;
-                                          const atuais = normalizarSubObjetosAddOns(
-                                            itemSubBloco.subObjetos
-                                          );
-                                          const proximosSubObjetos = marcado
-                                            ? atuais.filter(
-                                                (subObjeto) =>
-                                                  String(subObjeto?.addonId || "") !== addOnId
-                                              )
-                                            : [
-                                                ...atuais,
-                                                criarSubObjetoAddOnRef(item, atuais.length),
-                                              ];
-                                          return {
-                                            ...itemSubBloco,
-                                            subObjetos: proximosSubObjetos,
-                                          };
-                                        }
-                                      );
-
-                                      void persistirSubBlocosAddOnsDoBloco(
-                                        blocoEditorCardsAtual,
-                                        proximosSubBlocos
-                                      );
-                                    }}
-                                  />
-                                  <span
-                                    style={{
-                                      width: 38,
-                                      height: 38,
-                                      display: "flex",
-                                      alignItems: "center",
-                                      justifyContent: "center",
-                                      border: "1px solid rgba(255,255,255,0.12)",
-                                      borderRadius: 8,
-                                      overflow: "hidden",
-                                      background: "rgba(255,255,255,0.04)",
-                                    }}
-                                  >
-                                    {item?.url_img ? (
-                                      <img
-                                        src={item.url_img}
-                                        alt={item.nome || "Add-on"}
-                                        style={{ width: "100%", height: "100%", objectFit: "contain" }}
-                                      />
-                                    ) : null}
-                                  </span>
-                                  <span style={{ minWidth: 0 }}>
-                                    <strong>{item.nome}</strong>
-                                    {item?.descricao ? (
-                                      <span style={{ display: "block", fontSize: 12, opacity: 0.74 }}>
-                                        {item.descricao}
-                                      </span>
-                                    ) : null}
-                                    {marcado && addOnEhSvg ? (
-                                      <span style={{ display: "grid", gap: 4, marginTop: 8 }}>
-                                        <span style={{ fontSize: 11, opacity: 0.72 }}>
-                                          Subtema do SVG neste subbloco
-                                        </span>
-                                        <select
-                                          value={subtemaSelecionado}
-                                          disabled={bloqueadoEditor}
-                                          onChange={(event) => {
-                                            const proximoValor = normalizarSubtemaAddOnOpcional(
-                                              event.target.value
-                                            );
-                                            const proximosSubBlocos =
-                                              subBlocosAddOnsEditorBlocoAtual.map(
-                                                (itemSubBloco, index) => {
-                                                  if (index !== subBlocoIndex) return itemSubBloco;
-                                                  return {
-                                                    ...itemSubBloco,
-                                                    subObjetos: normalizarSubObjetosAddOns(
-                                                      itemSubBloco.subObjetos
-                                                    ).map((subObjeto) =>
-                                                      String(subObjeto?.addonId || "") === addOnId
-                                                        ? {
-                                                            ...subObjeto,
-                                                            subtema: proximoValor,
-                                                          }
-                                                        : subObjeto
-                                                    ),
-                                                  };
-                                                }
-                                              );
-
-                                            void persistirSubBlocosAddOnsDoBloco(
-                                              blocoEditorCardsAtual,
-                                              proximosSubBlocos
-                                            );
-                                          }}
-                                        >
-                                          <option value="">Padrao do espaco</option>
-                                          {CYBERPINK_SUBTHEMES.map((subtema) => (
-                                            <option key={subtema.value} value={subtema.value}>
-                                              {`Subtema: ${subtema.label}`}
-                                            </option>
-                                          ))}
-                                        </select>
-                                      </span>
-                                    ) : null}
-                                    {marcado && !addOnEhSvg ? (
-                                      <span style={{ display: "block", fontSize: 11, opacity: 0.58, marginTop: 8 }}>
-                                        Cor dinamica disponivel apenas para add-ons em SVG.
-                                      </span>
-                                    ) : null}
-                                  </span>
-                                </label>
-                              );
-                            })
-                          )}
-                        </div>
-
-                        <span className="bloco-addons-editor__summary" style={{ fontSize: 12 }}>
-                          {`${subObjetosSubBloco.length} subobjeto(s) neste subbloco.`}
-                        </span>
-                      </section>
-                    );
-                  })
-                ) : (
-                  <p style={{ margin: 0, opacity: 0.76 }}>Nenhum subbloco criado.</p>
-                )}
-                <button
-                  type="button"
-                  disabled={blocoEmAtualizacaoId === blocoEditorCardsAtual.id}
-                  onClick={() => {
-                    const atuais = subBlocosAddOnsEditorBlocoAtual.length
-                      ? subBlocosAddOnsEditorBlocoAtual
-                      : [criarSubBlocoAddOns(0)];
-                    void persistirSubBlocosAddOnsDoBloco(blocoEditorCardsAtual, [
-                      ...atuais,
-                      criarSubBlocoAddOns(atuais.length),
-                    ]);
-                  }}
-                >
-                  Adicionar subbloco
-                </button>
-                <span className="bloco-addons-editor__summary" style={{ fontSize: 12 }}>
-                  {`${addOnIdsEditorBlocoAtual.length} subobjeto(s) selecionado(s).`}
-                </span>
-              </div>
-            ) : null}
-
-            <div style={{ display: "flex", justifyContent: "flex-end", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 12 }}>
-              <button
-                type="button"
-                onClick={() => excluirBloco(blocoEditorCardsAtual.id)}
-                disabled={blocoEmExclusaoId === blocoEditorCardsAtual.id}
-                style={{ color: "#ff5aa5" }}
-              >
-                {blocoEmExclusaoId === blocoEditorCardsAtual.id
-                  ? `Excluindo ${nomeBlocoSingularCapitalizado}...`
-                  : `Excluir ${nomeBlocoSingularCapitalizado}`}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {editorCardModal.aberto ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="card-editor-modal"
-          onClick={(event) => event.stopPropagation()}
-        >
-          <div
-            className="menuContentArea card-editor-modal__content"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="card-editor-modal__header">
-              <div>
-                <strong>Editar card</strong>
-                <p>
-                  Conteudo, visual, add-ons, rastreabilidade e impressao em um fluxo unico.
-                </p>
-              </div>
-              <button
-                type="button"
-                className="card-editor-modal__close"
-                onClick={fecharEditorCard}
-                aria-label="Fechar editor de card"
-                title="Fechar"
-              >
-                <span className="card-editor-modal__close-icon" aria-hidden="true" />
-              </button>
-            </div>
-
-            <div className="card-editor-tabs" role="tablist" aria-label="Abas do editor de card">
-              {[
-                ["conteudo", "Conteudo"],
-                ["visual", "Visual"],
-                ["addons", "Add-ons"],
-                ...(aly137Habilitado ? [["aly137", "XP / Forja"]] : []),
-                ["rastreabilidade", "Rastreabilidade"],
-                ["impressao", "Impressao"],
-              ].map(([abaId, label]) => (
-                <button
-                  key={abaId}
-                  type="button"
-                  role="tab"
-                  aria-selected={editorCardAba === abaId}
-                  className={`card-editor-tab${editorCardAba === abaId ? " is-active" : ""}`}
-                  onClick={() => setEditorCardAba(abaId)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            <div className="card-editor-modal__layout">
-              <div className="card-editor-modal__fields">
-                {editorCardAba === "conteudo" ? (
-                  <section className="card-editor-panel" aria-label="Conteudo do card">
-                    <label>
-                      <span>Titulo</span>
-                      <input
-                        type="text"
-                        value={editorCardModal.nome}
-                        onChange={(event) =>
-                          setEditorCardModal((prev) => ({
-                            ...prev,
-                            nome: event.target.value,
-                          }))
-                        }
-                        placeholder="Titulo do card"
-                      />
-                    </label>
-
-                    <label>
-                      <span>Descricao extra do titulo</span>
-                      <input
-                        type="text"
-                        value={editorCardModal.descricaoExtra}
-                        onChange={(event) =>
-                          setEditorCardModal((prev) => ({
-                            ...prev,
-                            descricaoExtra: event.target.value,
-                          }))
-                        }
-                        placeholder="Ex.: 22.000 instalacoes"
-                      />
-                    </label>
-
-                    <label>
-                      <span>Descricao</span>
-                      <textarea
-                        value={editorCardModal.descricao}
-                        onChange={(event) =>
-                          setEditorCardModal((prev) => ({
-                            ...prev,
-                            descricao: event.target.value,
-                          }))
-                        }
-                        placeholder="Descricao do card"
-                        rows={7}
-                      />
-                    </label>
-
-                    <label>
-                      <span>Link externo</span>
-                      <input
-                        type="text"
-                        value={editorCardModal.linkExterno}
-                        onChange={(event) =>
-                          setEditorCardModal((prev) => ({
-                            ...prev,
-                            linkExterno: event.target.value,
-                          }))
-                        }
-                        placeholder="https://..."
-                      />
-                    </label>
-                  </section>
-                ) : null}
-
-                {editorCardAba === "visual" ? (
-                  <section className="card-editor-panel" aria-label="Visual do card">
-                    <label>
-                      <span>URL da imagem</span>
-                      <input
-                        type="text"
-                        value={editorCardModal.imagem}
-                        onChange={(event) =>
-                          setEditorCardModal((prev) => {
-                            const previewAnterior = String(prev?.imagemPreviewUrl || "").trim();
-                            if (previewAnterior.startsWith("blob:")) {
-                              try {
-                                URL.revokeObjectURL(previewAnterior);
-                              } catch {
-                                // no-op
-                              }
-                            }
-                            return {
-                              ...prev,
-                              imagem: event.target.value,
-                              imagemArquivo: null,
-                              imagemPreviewUrl: "",
-                            };
-                          })
-                        }
-                        placeholder="https://..."
-                      />
-                    </label>
-
-                    <div className="card-editor-button-row">
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          const arquivo = await selecionarArquivoImagem();
-                          if (!arquivo) return;
-                          const previewUrl = URL.createObjectURL(arquivo);
-                          setEditorCardModal((prev) => {
-                            const previewAnterior = String(prev?.imagemPreviewUrl || "").trim();
-                            if (previewAnterior.startsWith("blob:")) {
-                              try {
-                                URL.revokeObjectURL(previewAnterior);
-                              } catch {
-                                // no-op
-                              }
-                            }
-                            return {
-                              ...prev,
-                              imagemArquivo: arquivo,
-                              imagemPreviewUrl: previewUrl,
-                            };
-                          });
-                        }}
-                      >
-                        Escolher arquivo
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setEditorCardModal((prev) => {
-                            const previewAnterior = String(prev?.imagemPreviewUrl || "").trim();
-                            if (previewAnterior.startsWith("blob:")) {
-                              try {
-                                URL.revokeObjectURL(previewAnterior);
-                              } catch {
-                                // no-op
-                              }
-                            }
-                            return {
-                              ...prev,
-                              imagem: "",
-                              imagemArquivo: null,
-                              imagemPreviewUrl: "",
-                            };
-                          })
-                        }
-                      >
-                        Remover imagem
-                      </button>
-
-                      {editorCardModal.imagemArquivo ? (
-                        <span className="card-editor-muted">
-                          {`Arquivo: ${editorCardModal.imagemArquivo.name}`}
-                        </span>
-                      ) : null}
-                    </div>
-
-                    <div className="card-editor-image-preview">
-                      <span>Imagem atual</span>
-                      <img
-                        src={imagemPreviewEditorCard}
-                        alt="Preview do card"
-                      />
-                    </div>
-                  </section>
-                ) : null}
-
-                {editorCardAba === "addons" ? (
-                  <section className="card-editor-panel" aria-label="Add-ons do card">
-                    <div className="card-editor-panel__title-row">
-                      <strong>Add-ons do card</strong>
-                      <span>
-                        {`${addOnIdsEfetivosEditorCard.length} add-on(s) / ${cardsOrigemSelecionadosEditor.length} card(s)`}
-                      </span>
-                    </div>
-
-                    <div className="card-editor-selected-addons">
-                      {addOnsEfetivosEditorCard.length ? (
-                        addOnsEfetivosEditorCard.map((item, index) => {
-                          const addOnId = String(item?.id || "").trim();
-                          const addOnEhSvg = isSvgAssetUrl(item?.url_img);
-                          const subtemaSelecionado =
-                            normalizarAddOnSubthemes(addOnSubthemesEfetivosEditorCard, [addOnId])[addOnId] ||
-                            "";
-                          const herdado = addOnIdsHerdadosForjaEditor.includes(addOnId);
-
-                          return (
-                            <div
-                              className={`card-editor-selected-addon${herdado ? " is-inherited" : ""}`}
-                              key={addOnId}
-                            >
-                              <span className="card-editor-selected-addon__icon">
-                                {item?.url_img ? <img src={item.url_img} alt="" /> : null}
-                              </span>
-                              <span className="card-editor-selected-addon__meta">
-                                <strong>{item.nome || "Add-on"}</strong>
-                                <small>
-                                  {`${formatarTipoAddOn(resolverTipoAddOn(item))}${herdado ? " / herdado da forja" : ""}`}
-                                </small>
-                              </span>
-                              <span className="card-editor-selected-addon__actions">
-                                <button
-                                  type="button"
-                                  onClick={() => moverAddOnEditorCard(addOnId, -1)}
-                                  disabled={herdado || index === 0}
-                                  aria-label="Mover add-on para esquerda"
-                                  title="Mover para esquerda"
-                                >
-                                  {"<"}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => moverAddOnEditorCard(addOnId, 1)}
-                                  disabled={herdado || index >= addOnsEfetivosEditorCard.length - 1}
-                                  aria-label="Mover add-on para direita"
-                                  title="Mover para direita"
-                                >
-                                  {">"}
-                                </button>
-                              </span>
-                              {addOnEhSvg ? (
-                                <select
-                                  value={subtemaSelecionado}
-                                  onChange={(event) => {
-                                    const proximoValor = String(event.target.value || "").trim();
-                                    setEditorCardModal((prev) => {
-                                      const mapaAtual = normalizarAddOnSubthemes(
-                                        prev?.addOnSubthemes,
-                                        prev?.addOnIds
-                                      );
-
-                                      if (!proximoValor) {
-                                        const { [addOnId]: _omitido, ...restante } = mapaAtual;
-                                        return {
-                                          ...prev,
-                                          addOnSubthemes: restante,
-                                        };
-                                      }
-
-                                      return {
-                                        ...prev,
-                                        addOnSubthemes: {
-                                          ...mapaAtual,
-                                          [addOnId]: normalizeCyberpinkSubtheme(proximoValor),
-                                        },
-                                      };
-                                    });
-                                  }}
-                                >
-                                  <option value="">Padrao do espaco</option>
-                                  {CYBERPINK_SUBTHEMES.map((subtema) => (
-                                    <option key={subtema.value} value={subtema.value}>
-                                      {subtema.label}
-                                    </option>
-                                  ))}
-                                </select>
-                              ) : null}
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <p>Nenhum add-on selecionado ainda.</p>
-                      )}
-                      {cardsOrigemSelecionadosEditor.length ? (
-                        cardsOrigemSelecionadosEditor.map((cardOrigem) => {
-                          const addOnIdsDisponiveis = obterAddOnIdsDisponiveisCardOrigemAly137(cardOrigem);
-                          const addOnIdsRelacionados = normalizarAddOnIds(cardOrigem.addOnIdsRelacionados);
-                          return (
-                            <div
-                              className="card-editor-selected-addon card-editor-selected-addon--card"
-                              key={`card-fragmento-${cardOrigem.key}`}
-                            >
-                              <span className="card-editor-selected-addon__icon card-editor-selected-addon__icon--card">
-                                {cardOrigem.imagem ? (
-                                  <img src={cardOrigem.imagem} alt="" />
-                                ) : (
-                                  <span>{String(cardOrigem.nome || "C").slice(0, 2).toUpperCase()}</span>
-                                )}
-                              </span>
-                              <span className="card-editor-selected-addon__meta">
-                                <strong>{cardOrigem.nome || "Card"}</strong>
-                                <small>
-                                  {`Card / ${cardOrigem.espacoNome || "Espaco"} / ${cardOrigem.blocoTitulo || "Bloco"} / ${cardOrigem.xpTotal || 0} XP`}
-                                </small>
-                                <em>{`${addOnIdsRelacionados.length} de ${addOnIdsDisponiveis.length} add-on(s) relacionados`}</em>
-                              </span>
-                              <span className="card-editor-selected-addon__actions">
-                                <button
-                                  type="button"
-                                  onClick={() => alternarCardOrigemForjaEditor(cardOrigem.key)}
-                                  aria-label="Remover card relacionado"
-                                  title="Remover card relacionado"
-                                >
-                                  X
-                                </button>
-                              </span>
-                              <div className="card-editor-card-fragment-addons">
-                                <span>Add-ons deste card que entram na relacao</span>
-                                {addOnIdsDisponiveis.length ? (
-                                  addOnIdsDisponiveis.map((addOnId) => {
-                                    const addOn = addOnsDisponiveisProjetoPorId[addOnId] || {};
-                                    const marcado = addOnIdsRelacionados.includes(addOnId);
-                                    return (
-                                      <button
-                                        type="button"
-                                        key={`${cardOrigem.key}-${addOnId}`}
-                                        className={`card-editor-card-fragment-addon${marcado ? " is-selected" : ""}`}
-                                        onClick={() => alternarAddOnCardOrigemForjaEditor(cardOrigem.key, addOnId)}
-                                      >
-                                        {addOn?.url_img ? <img src={addOn.url_img} alt="" /> : null}
-                                        <span>{addOn?.nome || addOnId}</span>
-                                      </button>
-                                    );
-                                  })
-                                ) : (
-                                  <em>Este card nao possui add-ons disponiveis no snapshot.</em>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })
-                      ) : null}
-                    </div>
-
-                    <div className="card-editor-filters">
-                      <input
-                        type="search"
-                        value={buscaAddOnEditor}
-                        onChange={(event) => setBuscaAddOnEditor(event.target.value)}
-                        placeholder="Pesquisar por nome, tipo ou descricao"
-                      />
-                      <select
-                        value={filtroTipoAddOnEditor}
-                        onChange={(event) => setFiltroTipoAddOnEditor(event.target.value)}
-                      >
-                        <option value="">Todos os tipos</option>
-                        {tiposAddOnsEditor.map((tipo) => (
-                          <option key={tipo} value={tipo}>
-                            {formatarTipoAddOn(tipo)}
-                          </option>
-                        ))}
-                        {aly137Habilitado ? <option value="__card__">Cards</option> : null}
-                      </select>
-                    </div>
-
-                    <div className="card-editor-addons-list">
-                      {String(filtroTipoAddOnEditor || "").trim().toLowerCase() === "__card__" ? (
-                        <p>Filtro de cards ativo. Selecione os cards relacionaveis abaixo.</p>
-                      ) : !addOnsProjetoHabilitados ? (
-                        <p>A base de add-ons esta desativada neste projeto.</p>
-                      ) : erroAddOnsGerenciador ? (
-                        <p className="card-editor-error">{erroAddOnsGerenciador}</p>
-                      ) : !addOnsDisponiveisProjeto.length ? (
-                        <p>Nenhum add-on criado para este usuario/projeto.</p>
-                      ) : !addOnsEditorFiltrados.length ? (
-                        <p>Nenhum add-on encontrado para este filtro.</p>
-                      ) : (
-                        addOnsEditorFiltrados.map((item) => {
-                          const addOnId = String(item?.id || "").trim();
-                          const marcado = normalizarAddOnIds(editorCardModal.addOnIds).includes(addOnId);
-                          const addOnEhSvg = isSvgAssetUrl(item?.url_img);
-                          return (
-                            <label
-                              key={addOnId}
-                              className={`card-editor-addon-option${marcado ? " is-selected" : ""}`}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={marcado}
-                                onChange={() =>
-                                  setEditorCardModal((prev) => {
-                                    const atuais = normalizarAddOnIds(prev?.addOnIds);
-                                    const addOnSubthemesAtuais = normalizarAddOnSubthemes(
-                                      prev?.addOnSubthemes,
-                                      atuais
-                                    );
-                                    const estaMarcado = atuais.includes(addOnId);
-                                    const proximosIds = estaMarcado
-                                      ? atuais.filter((id) => id !== addOnId)
-                                      : [...atuais, addOnId];
-                                    const proximosSubtemas = estaMarcado
-                                      ? Object.fromEntries(
-                                          Object.entries(addOnSubthemesAtuais).filter(
-                                            ([id]) => id !== addOnId
-                                          )
-                                        )
-                                      : addOnSubthemesAtuais;
-                                    return {
-                                      ...prev,
-                                      addOnIds: proximosIds,
-                                      addOnSubthemes: proximosSubtemas,
-                                    };
-                                  })
-                                }
-                              />
-                              <span className="card-editor-addon-option__icon">
-                                {item?.url_img ? <img src={item.url_img} alt={item.nome || "Add-on"} /> : null}
-                              </span>
-                              <span className="card-editor-addon-option__meta">
-                                <strong>{item.nome}</strong>
-                                <small>
-                                  {`${formatarTipoAddOn(resolverTipoAddOn(item))}${addOnEhSvg ? " / SVG colorivel" : ""}`}
-                                </small>
-                                {item?.descricao ? <em>{item.descricao}</em> : null}
-                              </span>
-                            </label>
-                          );
-                        })
-                      )}
-                    </div>
-
-                    {aly137Habilitado ? (
-                      <div className="card-editor-addons-list card-editor-addons-list--cards">
-                        <div className="card-editor-panel__title-row">
-                          <strong>Cards como fragmentos</strong>
-                          <span>{`${cardsOrigemSelecionadosEditor.length} relacionado(s)`}</span>
-                        </div>
-                        {cardsFragmentosSkinLoading ? (
-                          <p>Carregando cards dos outros espacos da skin...</p>
-                        ) : erroCardsFragmentosSkin ? (
-                          <p className="card-editor-error">{erroCardsFragmentosSkin}</p>
-                        ) : !cardsDisponiveisForjaEditor.length ? (
-                          <p>Nenhum outro card disponivel nesta skin.</p>
-                        ) : !cardsRelacionaveisEditorFiltrados.length ? (
-                          <p>Nenhum card encontrado para este filtro.</p>
-                        ) : (
-                          cardsRelacionaveisEditorFiltrados.map((cardOrigem) => {
-                            const marcado = cardsOrigemSelecionadosEditor.some(
-                              (item) => item.key === cardOrigem.key
-                            );
-                            const addOnIdsDisponiveis = obterAddOnIdsDisponiveisCardOrigemAly137(cardOrigem);
-                            const cardSelecionado = cardsOrigemSelecionadosEditor.find(
-                              (item) => item.key === cardOrigem.key
-                            );
-                            const addOnIdsRelacionados = normalizarAddOnIds(
-                              cardSelecionado?.addOnIdsRelacionados || addOnIdsDisponiveis
-                            );
-                            return (
-                              <label
-                                key={`card-addon-option-${cardOrigem.key}`}
-                                className={`card-editor-addon-option card-editor-addon-option--card${
-                                  marcado ? " is-selected" : ""
-                                }`}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={marcado}
-                                  onChange={() => alternarCardOrigemForjaEditor(cardOrigem.key)}
-                                />
-                                <span className="card-editor-addon-option__icon card-editor-addon-option__icon--card">
-                                  {cardOrigem.imagem ? (
-                                    <img src={cardOrigem.imagem} alt={cardOrigem.nome || "Card"} />
-                                  ) : (
-                                    <span>{String(cardOrigem.nome || "C").slice(0, 2).toUpperCase()}</span>
-                                  )}
-                                </span>
-                                <span className="card-editor-addon-option__meta">
-                                  <strong>{cardOrigem.nome}</strong>
-                                  <small>
-                                    {`Card / ${cardOrigem.espacoNome || "Espaco"} / ${cardOrigem.blocoTitulo || "Bloco"} / ${cardOrigem.xpTotal || 0} XP`}
-                                  </small>
-                                  {marcado ? (
-                                    <em>{`${addOnIdsRelacionados.length} de ${addOnIdsDisponiveis.length} add-on(s) relacionados`}</em>
-                                  ) : null}
-                                  {cardOrigem.descricao ? <em>{cardOrigem.descricao}</em> : null}
-                                </span>
-                              </label>
-                            );
-                          })
-                        )}
-                      </div>
-                    ) : null}
-                  </section>
-                ) : null}
-
-                {editorCardAba === "aly137" && aly137Habilitado ? (
-                  <section className="card-editor-panel card-editor-panel--aly137" aria-label="XP e Forja">
-                    <div className="card-editor-panel__title-row">
-                      <strong>ALY-137 / XP e Forja</strong>
-                      <span>{resumoAly137EditorCard.nivelLabel}</span>
-                    </div>
-
-                    <div className="aly137-editor-summary">
-                      <div className="aly137-editor-summary__main">
-                        <strong>{`${resumoAly137EditorCard.xpTotal} XP`}</strong>
-                        <span>{`${resumoAly137EditorCard.progressoNivel.percentual}% ate o proximo nivel`}</span>
-                      </div>
-                      <span className="aly137-editor-bar" aria-hidden="true">
-                        <span style={{ width: `${resumoAly137EditorCard.progressoNivel.percentual}%` }} />
-                      </span>
-                      <div className="aly137-editor-attributes">
-                        {ALY137_ATRIBUTOS.map((atributo) => {
-                          const valor = Number(resumoAly137EditorCard.atributos?.[atributo.key] || 0);
-                          return (
-                            <div className="aly137-editor-attribute" key={atributo.key}>
-                              <span>{atributo.label}</span>
-                              <strong>{`${valor} XP`}</strong>
-                              <em aria-hidden="true">
-                                <span style={{ width: `${Math.min(100, valor)}%` }} />
-                              </em>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    <div className="card-editor-panel__title-row">
-                      <strong>Evidencias</strong>
-                      <span className="card-editor-modal__footer-actions">
-                        <button type="button" onClick={adicionarEvidenciaAly137Editor}>
-                          Adicionar evidencia
-                        </button>
-                        <button
-                          type="button"
-                          onClick={adicionarConclusaoNivelAly137Editor}
-                          disabled={!conclusaoNivelAly137EditorCard.disponivel}
-                          title={
-                            conclusaoNivelAly137EditorCard.jaConcluiuNivel
-                              ? "Este nivel ja possui evidencia de conclusao."
-                              : conclusaoNivelAly137EditorCard.xpAlvo
-                                ? `Adicionar +${conclusaoNivelAly137EditorCard.xpFaltante} XP ate ${conclusaoNivelAly137EditorCard.xpAlvo} XP.`
-                                : "Card ja esta no maior nivel configurado."
-                          }
-                        >
-                          {conclusaoNivelAly137EditorCard.xpAlvo
-                            ? `${conclusaoNivelAly137EditorCard.labelBotao} (+${conclusaoNivelAly137EditorCard.xpFaltante} XP)`
-                            : "Nivel maximo"}
-                        </button>
-                      </span>
-                    </div>
-
-                    <div className="aly137-editor-evidences">
-                      {Array.isArray(editorCardModal.aly137Evidencias) &&
-                      editorCardModal.aly137Evidencias.length ? (
-                        editorCardModal.aly137Evidencias.map((evidencia, index) => {
-                          const evidenciaNormalizada = resumoAly137EditorCard.evidencias[index] || evidencia;
-                          const evidenciaId = String(evidencia?.id || evidenciaNormalizada?.id || "").trim();
-                          const addOnsSelecionados = normalizarAddOnIds(evidencia?.addOnIds);
-                          const ehConclusaoNivel =
-                            String(evidencia?.tipo || evidenciaNormalizada?.tipo || "").trim() ===
-                            "conclusao_nivel";
-                          const atributosSelecionadosSalvos = normalizarAtributosSelecionadosAly137(
-                            evidencia?.atributosSelecionados
-                          );
-                          const atributosSelecionadosNormalizados = normalizarAtributosSelecionadosAly137(
-                            evidenciaNormalizada?.atributosSelecionados
-                          );
-                          const atributosSelecionadosLegados = normalizarAtributosSelecionadosAly137(
-                            evidencia?.atributoPrincipal ? [evidencia.atributoPrincipal] : []
-                          );
-                          const atributosSelecionados = atributosSelecionadosSalvos.length
-                            ? atributosSelecionadosSalvos
-                            : atributosSelecionadosNormalizados.length
-                              ? atributosSelecionadosNormalizados
-                              : atributosSelecionadosLegados;
-                          return (
-                            <div
-                              className={`aly137-editor-evidence${
-                                ehConclusaoNivel ? " aly137-editor-evidence--conclusao" : ""
-                              }`}
-                              key={evidenciaId || index}
-                            >
-                              <div className="aly137-editor-evidence__header">
-                                <strong>
-                                  {ehConclusaoNivel
-                                    ? evidenciaNormalizada?.conclusaoEtapa === "formacao"
-                                      ? "Conclusao da formacao"
-                                      : `Conclusao de nivel ${evidenciaNormalizada?.nivelAlvo || ""}`
-                                    : `Evidencia ${index + 1}`}
-                                </strong>
-                                <span>{`${evidenciaNormalizada?.xpTotal || 0} XP`}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => removerEvidenciaAly137Editor(evidenciaId)}
-                                  aria-label="Remover evidencia"
-                                  title="Remover evidencia"
-                                >
-                                  X
-                                </button>
-                              </div>
-
-                              <label>
-                                <span>Titulo da evidencia</span>
-                                <input
-                                  type="text"
-                                  value={evidencia?.titulo || ""}
-                                  onChange={(event) =>
-                                    atualizarEvidenciaAly137Editor(evidenciaId, {
-                                      titulo: event.target.value,
-                                    })
-                                  }
-                                  placeholder="Ex.: 10K de instalacoes"
-                                />
-                              </label>
-
-                              {ehConclusaoNivel ? (
-                                <div className="aly137-editor-conclusion-note">
-                                  <strong>Fechamento automatico</strong>
-                                  <span>
-                                    {`Completa o card de ${evidenciaNormalizada?.xpAntesConclusao || 0} XP para ${evidenciaNormalizada?.xpAlvo || 0} XP, sem promover automaticamente para o proximo nivel.`}
-                                  </span>
-                                  <small>
-                                    Novas evidencias depois do limite podem evoluir o card para o nivel seguinte.
-                                  </small>
-                                </div>
-                              ) : null}
-
-                              <div className="aly137-editor-evidence__grid">
-                                <label>
-                                  <span>Peso geral sem atributo</span>
-                                  <select
-                                    value={evidencia?.peso || "pequeno"}
-                                    onChange={(event) =>
-                                      atualizarEvidenciaAly137Editor(evidenciaId, {
-                                        peso: event.target.value,
-                                      })
-                                    }
-                                  >
-                                    {Object.values(ALY137_PESOS_EVIDENCIA).map((peso) => (
-                                      <option key={peso.key} value={peso.key}>
-                                        {`${peso.label} (${peso.multiplicador}x)`}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </label>
-                              </div>
-
-                              <div className="aly137-editor-attribute-picks" aria-label="Atributos afetados pela evidencia">
-                                <span>Atributos afetados</span>
-                                {ALY137_ATRIBUTOS.map((atributo) => {
-                                  const marcado = atributosSelecionados.includes(atributo.key);
-                                  const pesoAtributo =
-                                    evidencia?.atributosPesos?.[atributo.key] || evidencia?.peso || "pequeno";
-                                  return (
-                                    <span
-                                      key={atributo.key}
-                                      className={`aly137-editor-attribute-pick${marcado ? " is-selected" : ""}`}
-                                    >
-                                      <button
-                                        type="button"
-                                        className={`aly137-editor-attribute-chip${marcado ? " is-selected" : ""}`}
-                                        onClick={() =>
-                                          alternarAtributoEvidenciaAly137Editor(evidenciaId, atributo.key)
-                                        }
-                                      >
-                                        {atributo.label}
-                                      </button>
-                                      <select
-                                        value={pesoAtributo}
-                                        disabled={!marcado}
-                                        onChange={(event) =>
-                                          atualizarPesoAtributoEvidenciaAly137Editor(
-                                            evidenciaId,
-                                            atributo.key,
-                                            event.target.value
-                                          )
-                                        }
-                                        aria-label={`Peso de ${atributo.label}`}
-                                      >
-                                        {Object.values(ALY137_PESOS_EVIDENCIA).map((peso) => (
-                                          <option key={peso.key} value={peso.key}>
-                                            {peso.label}
-                                          </option>
-                                        ))}
-                                      </select>
-                                      <small>{`${calcularXpPorPesoAly137(pesoAtributo)} XP`}</small>
-                                    </span>
-                                  );
-                                })}
-                                <em>
-                                  Cada atributo tem seu proprio peso. O XP total da evidencia soma os atributos selecionados.
-                                </em>
-                              </div>
-
-                              <label>
-                                <span>Descricao curta</span>
-                                <textarea
-                                  value={evidencia?.descricao || ""}
-                                  onChange={(event) =>
-                                    atualizarEvidenciaAly137Editor(evidenciaId, {
-                                      descricao: event.target.value,
-                                    })
-                                  }
-                                  rows={2}
-                                  placeholder="Anotacao opcional sobre a prova."
-                                />
-                              </label>
-
-                              <div className="aly137-editor-chip-list" aria-label="Add-ons afetados pela evidencia">
-                                <span>Add-ons que recebem XP</span>
-                                {addOnsEfetivosEditorCard.length ? (
-                                  addOnsEfetivosEditorCard.map((addOn) => {
-                                    const addOnId = String(addOn?.id || "").trim();
-                                    const marcado = addOnsSelecionados.includes(addOnId);
-                                    const herdado = addOnIdsHerdadosForjaEditor.includes(addOnId);
-                                    return (
-                                      <button
-                                        key={addOnId}
-                                        type="button"
-                                        className={`aly137-editor-chip${marcado ? " is-selected" : ""}`}
-                                        onClick={() => alternarAddOnEvidenciaAly137Editor(evidenciaId, addOnId)}
-                                      >
-                                        {addOn?.url_img ? <img src={addOn.url_img} alt="" /> : null}
-                                        <span>{`${addOn?.nome || "Add-on"}${herdado ? " / herdado" : ""}`}</span>
-                                      </button>
-                                    );
-                                  })
-                                ) : (
-                                  <em>Selecione add-ons na aba Add-ons para distribuir XP.</em>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <p>Nenhuma evidencia cadastrada. O card ainda nao tem XP de prova.</p>
-                      )}
-                    </div>
-
-                    <div className="card-editor-panel__title-row">
-                      <strong>Cards usados na forja</strong>
-                      <span>{`${cardsOrigemSelecionadosEditor.length} selecionado(s)`}</span>
-                    </div>
-
-                    <div className="aly137-editor-forge-list">
-                      {cardsDisponiveisForjaEditor.length ? (
-                        cardsDisponiveisForjaEditor.map((cardOrigem) => {
-                          const marcado = cardsOrigemSelecionadosEditor.some(
-                            (item) => item.key === cardOrigem.key
-                          );
-                          return (
-                            <button
-                              key={cardOrigem.key}
-                              type="button"
-                              className={`aly137-editor-forge-card${marcado ? " is-selected" : ""}`}
-                              onClick={() => alternarCardOrigemForjaEditor(cardOrigem.key)}
-                            >
-                              <span>{cardOrigem.nome}</span>
-                              <small>{`${cardOrigem.espacoNome || "Espaco"} / ${cardOrigem.blocoTitulo}`}</small>
-                              <strong>{`${cardOrigem.xpTotal || 0} XP`}</strong>
-                            </button>
-                          );
-                        })
-                      ) : (
-                        <p>Nenhum outro card disponivel para forja neste espaco.</p>
-                      )}
-                    </div>
-
-                    <div className="card-editor-button-row">
-                      <button
-                        type="button"
-                        onClick={abrirForjaPreviewEditor}
-                        disabled={!editorCardModal?.card?.id}
-                      >
-                        Abrir forja
-                      </button>
-                      <span className="card-editor-muted">
-                        A forja abre uma pre-visualizacao antes de preparar o novo card derivado.
-                      </span>
-                    </div>
-                  </section>
-                ) : null}
-
-                {editorCardAba === "rastreabilidade" ? (
-                  <section className="card-editor-panel" aria-label="Rastreabilidade do card">
-                    {(() => {
-                      const rotaCard = editorCardModal?.ehNovo
-                        ? ""
-                        : montarRotaCardDoBloco(editorCardModal.bloco, editorCardModal.card);
-                      const urlCard = rotaCard ? montarUrlAbsolutaCard(rotaCard) : "";
-
-                      return (
-                        <div className="card-editor-trace-panel">
-                          <strong>Visualizacao unica do card</strong>
-                          <p>
-                            Essa rota abre somente o card e preserva a leitura rastreavel quando usada por QR/link.
-                          </p>
-                          <code>{urlCard || "Salve o card antes de gerar rota rastreavel."}</code>
-                          <div className="card-editor-button-row">
-                            <button
-                              type="button"
-                              disabled={!rotaCard}
-                              onClick={() => rotaCard && navigate(rotaCard)}
-                            >
-                              Abrir card ampliado
-                            </button>
-                            {podeVerAuditoriaConteudo ? (
-                              <button
-                                type="button"
-                                disabled={!editorCardModal?.card?.id || editorCardModal?.ehNovo}
-                                onClick={() =>
-                                  abrirAuditoriaEntidade({
-                                    entityType: "card",
-                                    entityId: editorCardModal.card.id,
-                                  })
-                                }
-                              >
-                                Ver auditoria
-                              </button>
-                            ) : null}
-                          </div>
-                        </div>
-                      );
-                    })()}
-                  </section>
-                ) : null}
-
-                {editorCardAba === "impressao" && podeVerAuditoriaRastreaveis ? (
-                  <section className="card-editor-panel" aria-label="Impressao e QR do card">
-                    <div className="card-editor-trace-panel">
-                      <strong>Card rastreavel para impressao</strong>
-                      <p>
-                        Crie ou escolha um QR rastreavel no historico. A frente e o verso para impressao ficam dentro desse fluxo.
-                      </p>
-                      <div className="card-editor-button-row">
-                        <button
-                          type="button"
-                          disabled={editorCardModal?.ehNovo || !editorCardModal?.card?.id}
-                          onClick={() => {
-                            const cardPreview = {
-                              ...(editorCardModal.card || {}),
-                              nome: editorCardModal.nome,
-                              descricaoExtra: editorCardModal.descricaoExtra,
-                              descricao: editorCardModal.descricao,
-                              imagem: imagemPreviewEditorCard,
-                              linkExterno: editorCardModal.linkExterno,
-                              addOnIds: addOnIdsEfetivosEditorCard,
-                              addOnSubthemes: addOnSubthemesEfetivosEditorCard,
-                              aly137: aly137Habilitado
-                                ? resumoAly137EditorCard
-                                : editorCardModal.card?.aly137,
-                              usaAddOnsGerenciador: true,
-                            };
-                            abrirPreviewImpressaoCard({
-                              bloco: editorCardModal.bloco,
-                              card: cardPreview,
-                              imagem: imagemPreviewEditorCard,
-                              addOns: addOnsEfetivosEditorCard,
-                              rota: montarRotaCardDoBloco(editorCardModal.bloco, editorCardModal.card),
-                            });
-                          }}
-                        >
-                          Historico de card rastreavel
-                        </button>
-                      </div>
-                      {editorCardModal?.ehNovo ? (
-                        <span className="card-editor-muted">
-                          Salve o card antes de criar QR ou gerar impressao.
-                        </span>
-                      ) : null}
-                    </div>
-                  </section>
-                ) : null}
-
-                {!!erroAcaoBloco && (
-                  <p className="card-editor-error">{erroAcaoBloco}</p>
-                )}
-              </div>
-
-              <aside className="card-editor-preview" aria-label="Previa fixa do card">
-                <span className="card-editor-preview__label">Previa fixa</span>
-                <div className="card-editor-preview__frame">
-                  <Card
-                    id={editorCardModal.card?.id || "card-editor-preview"}
-                    ownerUserId={ownerUserId}
-                    espacoId={espacoId}
-                    blocoId={editorCardModal.bloco?.id || ""}
-                    addOnIds={addOnIdsEfetivosEditorCard}
-                    addOnSubthemes={addOnSubthemesEfetivosEditorCard}
-                    usaAddOnsGerenciador={true}
-                    addOns={addOnsEfetivosEditorCard}
-                    aly137={aly137Habilitado ? resumoAly137EditorCard : editorCardModal.card?.aly137}
-                    onAddOnClick={abrirFichaAddOn}
-                    onCardFragmentClick={abrirFichaCardFragmento}
-                    cyberpinkSubtheme={normalizeCyberpinkSubtheme(espacoAtualEfetivo?.subtema)}
-                    nome={editorCardModal.nome || "Card"}
-                    descricaoExtra={editorCardModal.descricaoExtra || ""}
-                    nomeDescricao={editorCardModal.nome || ""}
-                    descricao={editorCardModal.descricao || ""}
-                    linkExterno={editorCardModal.linkExterno || ""}
-                    imagem={imagemPreviewEditorCard}
-                    idNome={`card-editor-preview-${editorCardModal.card?.id || "novo"}`}
-                    cardDescricaoDiv="cardDescricaoDiv"
-                    cardNome="cardNome"
-                    cardContainerDesktop="cardContainerDesktop card-editor-preview__card"
-                    cardCabecalho="cardCabecalho"
-                    cardImagem="cardImagem"
-                    cardDescricao="cardDescricao"
-                    imgCard="imgCard"
-                  />
-                </div>
-              </aside>
-            </div>
-
-            <div className="card-editor-modal__footer">
-              <button
-                type="button"
-                onClick={() => {
-                  void excluirCardDoBloco();
-                }}
-                disabled={
-                  cardEmAtualizacaoId ===
-                  `${editorCardModal?.bloco?.id || ""}:${editorCardModal?.card?.id || ""}`
-                }
-                className="card-editor-danger"
-              >
-                {editorCardModal?.ehNovo ? "Descartar card" : "Excluir card"}
-              </button>
-
-              <span className="card-editor-modal__footer-actions">
-                <button type="button" onClick={fecharEditorCard}>
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    void salvarEdicaoCardDoBloco();
-                  }}
-                  disabled={
-                    cardEmAtualizacaoId ===
-                    `${editorCardModal?.bloco?.id || ""}:${editorCardModal?.card?.id || ""}`
-                  }
-                >
-                  {cardEmAtualizacaoId ===
-                  `${editorCardModal?.bloco?.id || ""}:${editorCardModal?.card?.id || ""}`
-                    ? "Salvando card..."
-                    : "Salvar card"}
-                </button>
-              </span>
-            </div>
-          </div>
-        </div>
-      ) : null}
-      {addOnFichaModal.aberto && addOnFichaModal.addOn ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="aly137-addon-modal"
-          onClick={fecharFichaAddOn}
-        >
-          <div
-            className="aly137-addon-modal__content"
-            onClick={(event) => event.stopPropagation()}
-          >
-            {(() => {
-              const addOn = addOnFichaModal.addOn || {};
-              const resumo = addOn?.aly137Resumo || {};
-              const atributos = resumo?.atributos || {};
-              const ehCardFragmento = addOn?.tipoFicha === "cardFragmento";
-              const cardPreview = addOn?.cardPreview || {};
-              const origemCard = [addOn?.espacoNome, addOn?.blocoTitulo]
-                .map((item) => String(item || "").trim())
-                .filter(Boolean)
-                .join(" / ");
-              const subtemaCardFragmento = normalizeCyberpinkSubtheme(addOn?.subtema);
-              const corCardFragmento = getCyberpinkSubthemeIconColor(subtemaCardFragmento);
-              return (
-                <>
-                  <div className="card-editor-modal__header">
-                    <div>
-                      <strong>{addOn.nome || "Add-on"}</strong>
-                      <p>{ehCardFragmento ? "Card fragmento de forja" : formatarTipoAddOn(resolverTipoAddOn(addOn))}</p>
-                    </div>
-                    <button
-                      type="button"
-                      className="card-editor-modal__close"
-                      onClick={fecharFichaAddOn}
-                      aria-label="Fechar ficha do add-on"
-                      title="Fechar"
-                    >
-                      <span className="card-editor-modal__close-icon" aria-hidden="true" />
-                    </button>
-                  </div>
-
-                  <div className="aly137-addon-modal__hero">
-                    <span className="aly137-addon-modal__icon">
-                      {addOn.url_img ? <img src={addOn.url_img} alt="" /> : null}
-                      {!addOn.url_img && ehCardFragmento ? (
-                        <svg
-                          className="aly137-addon-modal__card-icon"
-                          viewBox="0 0 32 32"
-                          aria-hidden="true"
-                          focusable="false"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          style={{
-                            color: corCardFragmento,
-                            filter: `drop-shadow(0 0 2px ${corCardFragmento}) drop-shadow(0 0 6px ${corCardFragmento})`,
-                          }}
-                        >
-                          <path d="M7 5.5h13l5 5V26.5H7V5.5Z" />
-                          <path d="M20 5.5V11h5" />
-                          <path d="M11 15h10M11 19h8M11 23h6" />
-                        </svg>
-                      ) : null}
-                    </span>
-                    <div className="aly137-editor-summary">
-                      <div className="aly137-editor-summary__main">
-                        <strong>{`${resumo?.xpTotal || 0} XP`}</strong>
-                        <span>
-                          {ehCardFragmento
-                            ? `${resumo?.nivelLabel || "Card"} / ${Math.min(100, resumo?.percentual || 0)}%`
-                            : `Nivel unico / ${Math.min(100, resumo?.percentual || 0)}%`}
-                        </span>
-                      </div>
-                      <span className="aly137-editor-bar" aria-hidden="true">
-                        <span style={{ width: `${Math.min(100, resumo?.percentual || 0)}%` }} />
-                      </span>
-                    </div>
-                  </div>
-
-                  {addOn.descricao ? <p className="aly137-addon-modal__description">{addOn.descricao}</p> : null}
-                  {ehCardFragmento && origemCard ? (
-                    <p className="aly137-addon-modal__description">{`Origem: ${origemCard}`}</p>
-                  ) : null}
-
-                  {ehCardFragmento ? (
-                    <aside className="aly137-addon-modal__card-preview">
-                      <div className="aly137-addon-modal__card-preview-image">
-                        {cardPreview.imagem ? (
-                          <img src={cardPreview.imagem} alt="" />
-                        ) : (
-                          <span>{String(cardPreview.nome || addOn.nome || "Card").slice(0, 2)}</span>
-                        )}
-                      </div>
-                      <div>
-                        <strong>{cardPreview.nome || addOn.nome || "Card relacionado"}</strong>
-                        {cardPreview.descricao ? <p>{cardPreview.descricao}</p> : null}
-                        <button
-                          type="button"
-                          className="aly137-addon-modal__card-preview-button"
-                          disabled={!cardPreview.rota}
-                          onClick={() => {
-                            if (cardPreview.rota) navigate(cardPreview.rota);
-                          }}
-                        >
-                          Ver card completo
-                        </button>
-                      </div>
-                    </aside>
-                  ) : null}
-
-                  <div className="aly137-editor-attributes">
-                    {ALY137_ATRIBUTOS.map((atributo) => {
-                      const valor = Number(atributos?.[atributo.key] || 0);
-                      return (
-                        <div className="aly137-editor-attribute" key={atributo.key}>
-                          <span>{atributo.label}</span>
-                          <strong>{`${valor} XP`}</strong>
-                          <em aria-hidden="true">
-                            <span style={{ width: `${Math.min(100, valor)}%` }} />
-                          </em>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <div className="aly137-addon-modal__columns">
-                    {ehCardFragmento ? (
-                      <>
-                        <section>
-                          <strong>Origem</strong>
-                          <span className="aly137-forge-token">
-                            <span>{addOn.nome || "Card relacionado"}</span>
-                            <small>{origemCard || "Espaco / Bloco"}</small>
-                            <strong>{`${resumo?.xpTotal || 0} XP`}</strong>
-                          </span>
-                        </section>
-
-                        <section>
-                          <strong>Add-ons relacionados</strong>
-                          {Array.isArray(resumo?.addOnsHerdados) && resumo.addOnsHerdados.length ? (
-                            resumo.addOnsHerdados.map((item) => (
-                              <span className="aly137-forge-token" key={item.id}>
-                                {item.url_img ? <img src={item.url_img} alt="" /> : null}
-                                <span>{item.nome || "Add-on"}</span>
-                              </span>
-                            ))
-                          ) : (
-                            <p>Nenhum add-on deste card foi relacionado a este card.</p>
-                          )}
-                        </section>
-                      </>
-                    ) : (
-                      <>
-                        <section>
-                          <strong>Cards relacionados</strong>
-                          {Array.isArray(resumo?.cardsRelacionados) && resumo.cardsRelacionados.length ? (
-                            resumo.cardsRelacionados.map((cardItem) => (
-                              <span className="aly137-forge-token" key={`${cardItem.blocoId}-${cardItem.cardId}`}>
-                                <span>{cardItem.nome}</span>
-                                <small>{cardItem.blocoTitulo || "Bloco"}</small>
-                                <strong>{`${cardItem.xpTotal || 0} XP`}</strong>
-                              </span>
-                            ))
-                          ) : (
-                            <p>Nenhum card relacionado ainda.</p>
-                          )}
-                        </section>
-
-                        <section>
-                          <strong>Evidencias relacionadas</strong>
-                          {Array.isArray(resumo?.evidenciasRelacionadas) && resumo.evidenciasRelacionadas.length ? (
-                            resumo.evidenciasRelacionadas.slice(0, 12).map((evidencia) => (
-                              <span className="aly137-forge-token" key={`${evidencia.cardId}-${evidencia.evidenciaId}`}>
-                                <span>{evidencia.titulo}</span>
-                                <small>{evidencia.cardNome}</small>
-                                <strong>{`${evidencia.xpTotal || 0} XP`}</strong>
-                              </span>
-                            ))
-                          ) : (
-                            <p>Nenhuma evidencia vinculada ainda.</p>
-                          )}
-                        </section>
-                      </>
-                    )}
-                  </div>
-                </>
-              );
-            })()}
-          </div>
-        </div>
-      ) : null}
-      {forjaPreviewModal.aberto ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="aly137-forge-modal"
-          onClick={fecharForjaPreviewEditor}
-        >
-          <div
-            className="aly137-forge-modal__content"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="card-editor-modal__header">
-              <div>
-                <strong>Forja</strong>
-                <p>Revise os materiais antes de preparar o novo card derivado.</p>
-              </div>
-              <button
-                type="button"
-                className="card-editor-modal__close"
-                onClick={fecharForjaPreviewEditor}
-                aria-label="Fechar forja"
-                title="Fechar"
-              >
-                <span className="card-editor-modal__close-icon" aria-hidden="true" />
-              </button>
-            </div>
-
-            <div className="aly137-forge-modal__grid">
-              <section className="aly137-forge-modal__panel">
-                <strong>Resultado previsto</strong>
-                <div className="aly137-editor-summary">
-                  <div className="aly137-editor-summary__main">
-                    <strong>{`${resumoAly137EditorCard.xpTotal} XP`}</strong>
-                    <span>{resumoAly137EditorCard.nivelLabel}</span>
-                  </div>
-                  <span className="aly137-editor-bar" aria-hidden="true">
-                    <span style={{ width: `${resumoAly137EditorCard.progressoNivel.percentual}%` }} />
-                  </span>
-                </div>
-                <div className="aly137-editor-attributes">
-                  {ALY137_ATRIBUTOS.map((atributo) => {
-                    const valor = Number(resumoAly137EditorCard.atributos?.[atributo.key] || 0);
-                    return (
-                      <div className="aly137-editor-attribute" key={atributo.key}>
-                        <span>{atributo.label}</span>
-                        <strong>{`${valor} XP`}</strong>
-                        <em aria-hidden="true">
-                          <span style={{ width: `${Math.min(100, valor)}%` }} />
-                        </em>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-
-              <section className="aly137-forge-modal__panel">
-                <strong>Cards de origem</strong>
-                <div className="aly137-editor-forge-list">
-                  {cardsOrigemSelecionadosEditor.length ? (
-                    cardsOrigemSelecionadosEditor.map((cardOrigem) => (
-                      <span className="aly137-forge-token" key={cardOrigem.key}>
-                        <span>{cardOrigem.nome}</span>
-                        <small>{`${cardOrigem.espacoNome || "Espaco"} / ${cardOrigem.blocoTitulo}`}</small>
-                        <strong>{`${cardOrigem.xpTotal || 0} XP`}</strong>
-                      </span>
-                    ))
-                  ) : (
-                    <p>Nenhum card de origem selecionado.</p>
-                  )}
-                </div>
-              </section>
-
-              <section className="aly137-forge-modal__panel">
-                <strong>Add-ons do card forjado</strong>
-                <div className="aly137-editor-chip-list">
-                  {addOnsEfetivosEditorCard.length ? (
-                    addOnsEfetivosEditorCard.map((addOn) => {
-                      const addOnId = String(addOn?.id || "").trim();
-                      const resumo = resumoAly137EditorCard.addOnsXp?.[addOnId] || null;
-                      const herdado = addOnIdsHerdadosForjaEditor.includes(addOnId);
-                      return (
-                        <span className="aly137-forge-token" key={addOnId}>
-                          {addOn?.url_img ? <img src={addOn.url_img} alt="" /> : null}
-                          <span>{`${addOn?.nome || "Add-on"}${herdado ? " / herdado" : ""}`}</span>
-                          <strong>{`${resumo?.xpTotal || 0} XP`}</strong>
-                        </span>
-                      );
-                    })
-                  ) : (
-                    <p>Nenhum add-on selecionado.</p>
-                  )}
-                </div>
-              </section>
-            </div>
-
-            <div className="card-editor-modal__footer">
-              <span className="card-editor-muted">
-                Confirmar prepara um novo card. O card original so e preservado se voce salvar este novo card.
-              </span>
-              <span className="card-editor-modal__footer-actions">
-                <button type="button" onClick={fecharForjaPreviewEditor}>
-                  Cancelar
-                </button>
-                <button type="button" onClick={confirmarForjaNovoCardEditor}>
-                  Confirmar forja
-                </button>
-              </span>
-            </div>
-          </div>
-        </div>
-      ) : null}
-      {previewImpressaoCard.aberto && previewImpressaoCard.card ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="card-print-preview-modal"
-          onClick={fecharPreviewImpressaoCard}
-        >
-          <div
-            className="card-print-preview-modal__content card-print-preview-modal__content--history"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="card-print-preview-modal__header">
-              <div>
-                <strong>Historico de Card Rastreaveis</strong>
-                <p>
-                  Crie, acompanhe e selecione um card rastreavel para abrir a visualizacao de impressao.
-                </p>
-              </div>
-              <button
-                type="button"
-                className="card-print-preview-modal__close"
-                onClick={fecharPreviewImpressaoCard}
-                aria-label="Fechar historico de cards rastreaveis"
-                title="Fechar"
-              >
-                <span className="card-print-preview-modal__close-icon" aria-hidden="true" />
-              </button>
-            </div>
-
-            {podeGerenciar ? (
-              <section className="card-print-history" aria-live="polite">
-                <div className="card-print-history__toolbar">
-                  <span className="card-print-history__toolbar-label">
-                    {`${qrPrintsHistorico.itens.length} registro(s) rastreavel(is)`}
-                  </span>
-                  <button
-                    type="button"
-                    className="card-print-history__button"
-                    onClick={() =>
-                      carregarHistoricoQrPrintsCard({
-                        bloco: previewImpressaoCard.bloco,
-                        card: previewImpressaoCard.card,
-                      })
-                    }
-                    disabled={qrPrintsHistorico.loading}
-                  >
-                    Atualizar
-                  </button>
-                </div>
-
-                <div className="card-print-history__creator">
-                  <label className="card-print-history__creator-field">
-                    <span>Descricao do registro</span>
-                    <textarea
-                      value={previewImpressaoCard.descricaoRegistro || ""}
-                      onChange={(event) =>
-                        setPreviewImpressaoCard((prev) => ({
-                          ...prev,
-                          descricaoRegistro: event.target.value,
-                        }))
-                      }
-                      rows={3}
-                      maxLength={240}
-                      placeholder="Ex.: impressao para processo seletivo front-end, feira de projetos, envio para cliente..."
-                    />
-                  </label>
-
-                  <div className="card-print-history__creator-actions">
-                    <button
-                      type="button"
-                      className="card-print-history__button"
-                      onClick={() => {
-                        void criarQrRastreavelPreviewImpressao();
-                      }}
-                      disabled={previewImpressaoCard.criandoQr}
-                    >
-                      {previewImpressaoCard.criandoQr
-                        ? "Criando QR..."
-                        : "Criar card QR"}
-                    </button>
-                    <span className="card-print-history__creator-current">
-                      {previewImpressaoCard.printId
-                        ? `QR atual: ${previewImpressaoCard.printId}`
-                        : "Ainda nao existe QR rastreavel criado nesta visualizacao."}
-                    </span>
-                  </div>
-
-                  {previewImpressaoCard.urlQr ? (
-                    <div className="card-print-history__creator-meta">
-                      <span>{`URL do QR: ${previewImpressaoCard.urlQr}`}</span>
-                    </div>
-                  ) : null}
-                </div>
-
-                {previewImpressaoCard.qrErro ? (
-                  <p className="card-print-history__error">{previewImpressaoCard.qrErro}</p>
-                ) : null}
-
-                {qrPrintsHistorico.loading ? (
-                  <p className="card-print-history__status">Carregando historico...</p>
-                ) : qrPrintsHistorico.erro ? (
-                  <p className="card-print-history__error">{qrPrintsHistorico.erro}</p>
-                ) : qrPrintsHistorico.itens.length ? (
-                  <div className="card-print-history__list">
-                    {qrPrintsHistorico.itens.map((print) => {
-                      const leituraState = qrPrintLeituras[print.id] || {};
-                      const leituras = Array.isArray(leituraState.itens)
-                        ? leituraState.itens
-                        : [];
-                      const totalLeituras = leituras.length || Number(print.totalLeituras || 0);
-
-                      return (
-                        <article className="card-print-history__item" key={print.id}>
-                          <div className="card-print-history__item-main">
-                            <strong>{print.cardNome || "Card impresso"}</strong>
-                            <span>{`Print: ${print.printId || print.id}`}</span>
-                            <span>{`Criado: ${formatarDataCurta(print.criadoEm)}`}</span>
-                            <span>{`Descricao: ${String(print.descricaoRegistro || "").trim() || "--"}`}</span>
-                            <span>{`URL QR: ${String(print.urlQr || "").trim() || "--"}`}</span>
-                            <span>{`Leituras: ${totalLeituras || "--"}`}</span>
-                          </div>
-                          <div className="card-print-history__item-actions">
-                            <button
-                              type="button"
-                              className="card-print-history__button"
-                              onClick={() => abrirVisualizacaoImpressaoQr(print.id)}
-                            >
-                              Imprimir card
-                            </button>
-                            <button
-                              type="button"
-                              className="card-print-history__button"
-                              onClick={() => alternarLeiturasQrPrint(print.id)}
-                              disabled={leituraState.loading}
-                            >
-                              {leituraState.aberto ? "Ocultar" : "Ver leituras"}
-                            </button>
-                          </div>
-
-                          <div className="card-print-history__delete-row">
-                            <button
-                              type="button"
-                              className="card-print-history__button card-print-history__button--danger"
-                              onClick={() => {
-                                void excluirQrRastreavelPreviewImpressao(print.id);
-                              }}
-                              disabled={qrPrintExcluindoId === print.id}
-                            >
-                              {qrPrintExcluindoId === print.id
-                                ? "Excluindo card rastreavel..."
-                                : "Excluir card rastreavel"}
-                            </button>
-                          </div>
-
-                          {leituraState.aberto ? (
-                            <div className="card-print-history__readings">
-                              {leituraState.loading ? (
-                                <p className="card-print-history__status">
-                                  Carregando leituras...
-                                </p>
-                              ) : leituraState.erro ? (
-                                <p className="card-print-history__error">
-                                  {leituraState.erro}
-                                </p>
-                              ) : leituras.length ? (
-                                leituras.map((leitura) => {
-                                  const localizacao = [
-                                    leitura.city || leitura.cidade,
-                                    leitura.uf || leitura.regionCode,
-                                    leitura.country,
-                                  ]
-                                    .map((item) => String(item || "").trim())
-                                    .filter(Boolean)
-                                    .join(" / ");
-                                  const identidade =
-                                    leitura.navigationId ||
-                                    leitura.hash ||
-                                    leitura.visitorHash ||
-                                    leitura.email ||
-                                    leitura.uid ||
-                                    "--";
-                                  const contaAutenticada =
-                                    leitura.email ||
-                                    leitura.uid ||
-                                    "--";
-
-                                  return (
-                                    <div
-                                      className="card-print-history__reading"
-                                      key={leitura.id}
-                                    >
-                                      <span>{`Data/Hora: ${formatarDataCurta(
-                                        leitura.data || leitura.criadoEm
-                                      )}`}</span>
-                                      <span>{`IP: ${leitura.ip || "--"}`}</span>
-                                      <span>{`Local: ${localizacao || "--"}`}</span>
-                                      <span>{`Identificador de navegacao: ${identidade}`}</span>
-                                      {Boolean(leitura.email || leitura.uid) ? (
-                                        <span>{`Conta: ${contaAutenticada}`}</span>
-                                      ) : null}
-                                      <span>{`Rota: ${leitura.fullPath || leitura.path || "--"}`}</span>
-                                    </div>
-                                  );
-                                })
-                              ) : (
-                                <p className="card-print-history__status">
-                                  Nenhuma leitura registrada para este QR ainda.
-                                </p>
-                              )}
-                            </div>
-                          ) : null}
-                        </article>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="card-print-history__status">
-                    Nenhum QR rastreavel encontrado para este card ainda.
-                  </p>
-                )}
-              </section>
-            ) : null}
-
-          </div>
-        </div>
-      ) : null}
-
-      {previewImpressaoPopup.aberto && qrPrintSelecionadoParaImpressao ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="card-print-preview-modal"
-          onClick={fecharVisualizacaoImpressaoQr}
-        >
-          <div
-            className="card-print-preview-modal__content"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="card-print-preview-modal__header">
-              <div>
-                <strong>Imprimir card</strong>
-                <p>
-                  {`Visualizacao do rastreavel ${qrPrintSelecionadoParaImpressao.printId || qrPrintSelecionadoParaImpressao.id}.`}
-                </p>
-              </div>
-              <div className="card-print-preview-modal__header-actions">
-                <button
-                  type="button"
-                  className="card-print-history__button"
-                  onClick={() => window.print()}
-                >
-                  Imprimir / PDF
-                </button>
-                <button
-                  type="button"
-                  className="card-print-preview-modal__close"
-                  onClick={fecharVisualizacaoImpressaoQr}
-                  aria-label="Fechar visualizacao de impressao do card"
-                  title="Fechar"
-                >
-                  <span className="card-print-preview-modal__close-icon" aria-hidden="true" />
-                </button>
-              </div>
-            </div>
-
-            <div className="card-print-preview-modal__grid">
-              <section className="card-print-preview-modal__section">
-                <h3>Frente</h3>
-                <div className="card-print-preview-front">
-                  <Card
-                    id={previewImpressaoCard.card.id}
-                    ownerUserId={ownerUserId}
-                    espacoId={espacoId}
-                    blocoId={previewImpressaoCard.bloco?.id || ""}
-                    addOnIds={normalizarAddOnIds(previewImpressaoCard.card.addOnIds)}
-                    addOnSubthemes={normalizarAddOnSubthemes(
-                      previewImpressaoCard.card.addOnSubthemes,
-                      previewImpressaoCard.card.addOnIds
-                    )}
-                    usaAddOnsGerenciador={
-                      previewImpressaoCard.card?.usaAddOnsGerenciador === true
-                    }
-                    addOns={previewImpressaoCard.addOns}
-                    aly137={previewImpressaoCard.card.aly137}
-                    onAddOnClick={abrirFichaAddOn}
-                    onCardFragmentClick={abrirFichaCardFragmento}
-                    cyberpinkSubtheme={normalizeCyberpinkSubtheme(espacoAtualEfetivo?.subtema)}
-                    nome={previewImpressaoCard.card.nome || "Card"}
-                    descricaoExtra=""
-                    nomeDescricao={previewImpressaoCard.card.nome || ""}
-                    descricao={previewImpressaoCard.card.descricao || ""}
-                    linkExterno={previewImpressaoCard.card.linkExterno || ""}
-                    imagem={previewImpressaoCard.imagem || "/logoNeon.png"}
-                    idNome={`card-print-front-${previewImpressaoCard.card.id}`}
-                    cardDescricaoDiv="cardDescricaoDiv"
-                    cardNome="cardNome"
-                    cardContainerDesktop="cardContainerDesktop"
-                    cardCabecalho="cardCabecalho"
-                    cardImagem="cardImagem"
-                    cardDescricao="cardDescricao"
-                    imgCard="imgCard"
-                  />
-                </div>
-              </section>
-
-              <section className="card-print-preview-modal__section">
-                <h3>Verso</h3>
-                <div className="card-print-preview-back">
-                  <span className="card-print-preview-back__circuit-map" aria-hidden="true" />
-                  <div className="card-print-preview-back__qr">
-                    <QRCodeImage
-                      value={
-                        qrPrintSelecionadoParaImpressao.urlQr ||
-                        qrPrintSelecionadoParaImpressao.urlCard ||
-                        previewImpressaoCard.urlQr ||
-                        previewImpressaoCard.urlCard ||
-                        previewImpressaoCard.url
-                      }
-                      size={116}
-                      alt="QR code rastreavel da rota unica do card"
-                      className="card-print-preview-back__qr-image"
-                      color="var(--cyberpink-subtheme-card-surface-shadow)"
-                      bgColor="var(--cyberpink-subtheme-text)"
-                    />
-                  </div>
-                  <span className="card-print-preview-back__track-label">
-                    {`QR rastreavel ${qrPrintSelecionadoParaImpressao.printId || qrPrintSelecionadoParaImpressao.id}`}
-                  </span>
-                </div>
-              </section>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <EditorBlocoCardsModal
+        editorBlocoCardsModal={editorBlocoCardsModal}
+        blocoEditorCardsAtual={blocoEditorCardsAtual}
+        fecharEditorBlocoCards={fecharEditorBlocoCards}
+        cardsEditorBlocoAtual={cardsEditorBlocoAtual}
+        abrirEditorCardDoBloco={abrirEditorCardDoBloco}
+        gerarIdCardTemporario={gerarIdCardTemporario}
+        subObjetosAddOnsEditorBlocoAtual={subObjetosAddOnsEditorBlocoAtual}
+        setEditorBlocoCardsModal={setEditorBlocoCardsModal}
+        blocoEmAtualizacaoId={blocoEmAtualizacaoId}
+        projetoPossuiColecoesIcones={projetoPossuiColecoesIcones}
+        parseIconSelectionValue={parseIconSelectionValue}
+        iconCollectionsFiltradas={iconCollectionsFiltradas}
+        atualizarMetadadosBloco={atualizarMetadadosBloco}
+        imagensCardsPorBloco={imagensCardsPorBloco}
+        isRenderableUrl={isRenderableUrl}
+        setDragCardInfo={setDragCardInfo}
+        dragCardInfo={dragCardInfo}
+        reordenarCardsDoBloco={reordenarCardsDoBloco}
+        cardEmAtualizacaoId={cardEmAtualizacaoId}
+        buscaAddOnEditor={buscaAddOnEditor}
+        setBuscaAddOnEditor={setBuscaAddOnEditor}
+        subBlocosAddOnsEditorBlocoAtual={subBlocosAddOnsEditorBlocoAtual}
+        normalizarSubObjetosAddOns={normalizarSubObjetosAddOns}
+        persistirSubBlocosAddOnsDoBloco={persistirSubBlocosAddOnsDoBloco}
+        addOnsProjetoHabilitados={addOnsProjetoHabilitados}
+        blocoAddOnsProjetoHabilitado={blocoAddOnsProjetoHabilitado}
+        erroAddOnsGerenciador={erroAddOnsGerenciador}
+        addOnsDisponiveisProjeto={addOnsDisponiveisProjeto}
+        addOnsEditorFiltrados={addOnsEditorFiltrados}
+        normalizarSubtemaAddOnOpcional={normalizarSubtemaAddOnOpcional}
+        isSvgAssetUrl={isSvgAssetUrl}
+        criarSubObjetoAddOnRef={criarSubObjetoAddOnRef}
+        criarSubBlocoAddOns={criarSubBlocoAddOns}
+        addOnIdsEditorBlocoAtual={addOnIdsEditorBlocoAtual}
+        excluirBloco={excluirBloco}
+        blocoEmExclusaoId={blocoEmExclusaoId}
+        nomeBlocoSingularCapitalizado={nomeBlocoSingularCapitalizado}
+      />
+        <EditorCardModal
+          editorCardModal={editorCardModal}
+          editorCardAba={editorCardAba}
+        setEditorCardAba={setEditorCardAba}
+        setEditorCardModal={setEditorCardModal}
+        fecharEditorCard={fecharEditorCard}
+        aly137Habilitado={aly137Habilitado}
+        selecionarArquivoImagem={selecionarArquivoImagem}
+        imagemPreviewEditorCard={imagemPreviewEditorCard}
+        addOnIdsEfetivosEditorCard={addOnIdsEfetivosEditorCard}
+        cardsOrigemSelecionadosEditor={cardsOrigemSelecionadosEditor}
+        isSvgAssetUrl={isSvgAssetUrl}
+        normalizarAddOnSubthemes={normalizarAddOnSubthemes}
+          addOnSubthemesEfetivosEditorCard={addOnSubthemesEfetivosEditorCard}
+          addOnIdsHerdadosForjaEditor={addOnIdsHerdadosForjaEditor}
+        formatarTipoAddOn={formatarTipoAddOn}
+        resolverTipoAddOn={resolverTipoAddOn}
+        moverAddOnEditorCard={moverAddOnEditorCard}
+        normalizarAddOnIds={normalizarAddOnIds}
+        obterAddOnIdsDisponiveisCardOrigemAly137={obterAddOnIdsDisponiveisCardOrigemAly137}
+        addOnsDisponiveisProjetoPorId={addOnsDisponiveisProjetoPorId}
+        alternarCardOrigemForjaEditor={alternarCardOrigemForjaEditor}
+        alternarAddOnCardOrigemForjaEditor={alternarAddOnCardOrigemForjaEditor}
+        buscaAddOnEditor={buscaAddOnEditor}
+        setBuscaAddOnEditor={setBuscaAddOnEditor}
+        filtroTipoAddOnEditor={filtroTipoAddOnEditor}
+        setFiltroTipoAddOnEditor={setFiltroTipoAddOnEditor}
+        tiposAddOnsEditor={tiposAddOnsEditor}
+        addOnsProjetoHabilitados={addOnsProjetoHabilitados}
+        erroAddOnsGerenciador={erroAddOnsGerenciador}
+        addOnsDisponiveisProjeto={addOnsDisponiveisProjeto}
+        addOnsEditorFiltrados={addOnsEditorFiltrados}
+        cardsFragmentosSkinLoading={cardsFragmentosSkinLoading}
+        erroCardsFragmentosSkin={erroCardsFragmentosSkin}
+        cardsDisponiveisForjaEditor={cardsDisponiveisForjaEditor}
+        cardsRelacionaveisEditorFiltrados={cardsRelacionaveisEditorFiltrados}
+        resumoAly137EditorCard={resumoAly137EditorCard}
+        adicionarEvidenciaAly137Editor={adicionarEvidenciaAly137Editor}
+        adicionarConclusaoNivelAly137Editor={adicionarConclusaoNivelAly137Editor}
+        conclusaoNivelAly137EditorCard={conclusaoNivelAly137EditorCard}
+        removerEvidenciaAly137Editor={removerEvidenciaAly137Editor}
+        atualizarEvidenciaAly137Editor={atualizarEvidenciaAly137Editor}
+        alternarAtributoEvidenciaAly137Editor={alternarAtributoEvidenciaAly137Editor}
+        atualizarPesoAtributoEvidenciaAly137Editor={atualizarPesoAtributoEvidenciaAly137Editor}
+        addOnsEfetivosEditorCard={addOnsEfetivosEditorCard}
+        alternarAddOnEvidenciaAly137Editor={alternarAddOnEvidenciaAly137Editor}
+        abrirForjaPreviewEditor={abrirForjaPreviewEditor}
+        montarRotaCardDoBloco={montarRotaCardDoBloco}
+        montarUrlAbsolutaCard={montarUrlAbsolutaCard}
+        navigate={navigate}
+        podeVerAuditoriaConteudo={podeVerAuditoriaConteudo}
+        abrirAuditoriaEntidade={abrirAuditoriaEntidade}
+        podeVerAuditoriaRastreaveis={podeVerAuditoriaRastreaveis}
+        abrirPreviewImpressaoCard={abrirPreviewImpressaoCard}
+        erroAcaoBloco={erroAcaoBloco}
+        ownerUserId={ownerUserId}
+        espacoId={espacoId}
+        abrirFichaAddOn={abrirFichaAddOn}
+        abrirFichaCardFragmento={abrirFichaCardFragmento}
+        espacoAtualEfetivo={espacoAtualEfetivo}
+        excluirCardDoBloco={excluirCardDoBloco}
+        cardEmAtualizacaoId={cardEmAtualizacaoId}
+        salvarEdicaoCardDoBloco={salvarEdicaoCardDoBloco}
+      />
+      <AddOnFichaModal
+        modal={addOnFichaModal}
+        onClose={fecharFichaAddOn}
+        resolverTipoAddOn={resolverTipoAddOn}
+        formatarTipoAddOn={formatarTipoAddOn}
+        onNavigateCard={(rota) => navigate(rota)}
+      />
+      <ForjaPreviewModal
+        aberto={forjaPreviewModal.aberto}
+        resumo={resumoAly137EditorCard}
+        cardsOrigem={cardsOrigemSelecionadosEditor}
+        addOnsEfetivos={addOnsEfetivosEditorCard}
+        addOnIdsHerdados={addOnIdsHerdadosForjaEditor}
+        onClose={fecharForjaPreviewEditor}
+        onConfirm={confirmarForjaNovoCardEditor}
+      />
+      <CardPrintPreviewModal
+        previewImpressaoCard={previewImpressaoCard}
+        previewImpressaoPopup={previewImpressaoPopup}
+        qrPrintsHistorico={qrPrintsHistorico}
+        qrPrintLeituras={qrPrintLeituras}
+        qrPrintExcluindoId={qrPrintExcluindoId}
+        qrPrintSelecionadoParaImpressao={qrPrintSelecionadoParaImpressao}
+        podeGerenciar={podeGerenciar}
+        ownerUserId={ownerUserId}
+        espacoId={espacoId}
+        cyberpinkSubtheme={normalizeCyberpinkSubtheme(espacoAtualEfetivo?.subtema)}
+        onCloseHistory={fecharPreviewImpressaoCard}
+        onRefreshHistory={carregarHistoricoQrPrintsCard}
+        onDescricaoRegistroChange={(descricaoRegistro) =>
+          setPreviewImpressaoCard((prev) => ({ ...prev, descricaoRegistro }))
+        }
+        onCreateQr={() => {
+          void criarQrRastreavelPreviewImpressao();
+        }}
+        onOpenPrint={abrirVisualizacaoImpressaoQr}
+        onToggleReadings={alternarLeiturasQrPrint}
+        onDeleteQr={excluirQrRastreavelPreviewImpressao}
+        onClosePrint={fecharVisualizacaoImpressaoQr}
+        onAddOnClick={abrirFichaAddOn}
+        onCardFragmentClick={abrirFichaCardFragmento}
+        formatarDataCurta={formatarDataCurta}
+        normalizarAddOnIds={normalizarAddOnIds}
+        normalizarAddOnSubthemes={normalizarAddOnSubthemes}
+      />
 
       {imagemModal.aberto && imagemModal.url ? (
         <div

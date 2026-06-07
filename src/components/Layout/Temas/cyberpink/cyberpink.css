@@ -193,14 +193,16 @@ body.theme-cyberpink #navbar-menu .imgLoginButton {
 body.theme-cyberpink #navbar-menu .navbar-menu__login-arrow {
   display: none;
   width: 18px;
+  height: 30px;
   flex: 0 0 18px;
-  align-self: center;
+  align-self: stretch;
+  align-items: center;
+  justify-content: center;
   color: var(--cyberpink-subtheme-text);
   font-family: "DotGothic16", sans-serif;
   font-size: 1.65em;
   font-weight: bold;
-  line-height: 30px;
-  height: 30px;
+  line-height: 1;
   text-align: center;
   text-shadow:
     0 0 1px var(--cyberpink-subtheme-primary),
@@ -215,7 +217,7 @@ body.theme-cyberpink #navbar-menu .navbar-menu__login-arrow {
 }
 
 body.theme-cyberpink.cyberpink-restriction-message-visible #navbar-menu .navbar-menu__login-arrow {
-  display: inline-block;
+  display: inline-flex;
 }
 
 body.theme-cyberpink #navbar-menu .navbar-menu__login-arrow--left::before {
@@ -237,24 +239,24 @@ body.theme-cyberpink #navbar-menu .navbar-menu__login-arrow--right {
 @keyframes cyberpink-navbar-login-arrow-left {
   from {
     opacity: 0.42;
-    transform: translate(-4px, -1px);
+    transform: translateX(-4px);
   }
 
   to {
     opacity: 1;
-    transform: translate(5px, -1px);
+    transform: translateX(5px);
   }
 }
 
 @keyframes cyberpink-navbar-login-arrow-right {
   from {
     opacity: 0.42;
-    transform: translate(4px, -1px);
+    transform: translateX(4px);
   }
 
   to {
     opacity: 1;
-    transform: translate(-5px, -1px);
+    transform: translateX(-5px);
   }
 }
 
@@ -1118,6 +1120,83 @@ body.theme-cyberpink .espaco-manager__editor {
     0 calc(100% - var(--cyberpink-manager-item-cut)),
     0 var(--cyberpink-manager-item-cut)
   );
+}
+
+body.theme-cyberpink .espaco-manager__block-order {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--cyberpink-subtheme-frame-stroke) 72%, transparent);
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--cyberpink-subtheme-surface-b) 88%, transparent),
+      color-mix(in srgb, var(--cyberpink-subtheme-surface-a) 72%, transparent)
+    );
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 4%, transparent),
+    0 0 10px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 36%, transparent);
+}
+
+body.theme-cyberpink .espaco-manager__block-order-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--cyberpink-subtheme-text);
+  font-family: "DotGothic16", monospace;
+  letter-spacing: 0.04em;
+}
+
+body.theme-cyberpink .espaco-manager__block-order-head span {
+  color: var(--cyberpink-subtheme-text-soft);
+  font-size: 12px;
+  text-align: right;
+}
+
+body.theme-cyberpink .espaco-manager__block-order-list {
+  display: grid;
+  gap: 8px;
+}
+
+body.theme-cyberpink .espaco-manager__block-order-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--cyberpink-subtheme-frame-inner) 60%, transparent);
+  background: color-mix(in srgb, var(--cyberpink-subtheme-surface-a) 70%, transparent);
+}
+
+body.theme-cyberpink .espaco-manager__block-order-rank {
+  min-width: 30px;
+  color: var(--cyberpink-subtheme-accent);
+  font-family: "DotGothic16", monospace;
+  text-shadow: 0 0 8px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 70%, transparent);
+}
+
+body.theme-cyberpink .espaco-manager__block-order-info {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+body.theme-cyberpink .espaco-manager__block-order-info strong,
+body.theme-cyberpink .espaco-manager__block-order-info small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.theme-cyberpink .espaco-manager__block-order-info small {
+  color: var(--cyberpink-subtheme-text-soft);
+}
+
+body.theme-cyberpink .espaco-manager__block-order-actions {
+  display: flex;
+  gap: 6px;
 }
 
 body.theme-cyberpink .espaco-manager__danger {
@@ -4615,6 +4694,28 @@ body.theme-cyberpink .card-editor-selected-addon select {
   grid-column: 1 / -1;
 }
 
+body.theme-cyberpink .card-editor-addon-svg-custom {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  color: color-mix(in srgb, var(--cyberpink-subtheme-text) 72%, transparent);
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+}
+
+body.theme-cyberpink .card-editor-addon-svg-custom input {
+  max-width: 190px;
+  font-size: 11px;
+}
+
+body.theme-cyberpink .card-editor-addon-svg-custom button {
+  min-height: 26px !important;
+  padding: 3px 7px !important;
+  font-size: 11px !important;
+}
+
 body.theme-cyberpink .card-editor-card-fragment-addons {
   grid-column: 1 / -1;
   display: flex;
@@ -5272,6 +5373,58 @@ body.theme-cyberpink .card-editor-preview__frame .cardContainerDesktop {
   transform-origin: center top;
 }
 
+body.theme-cyberpink .card-editor-preview .iconeAddOnWrap {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  outline: 0;
+}
+
+body.theme-cyberpink .card-editor-preview .iconeAddOnWrap::before,
+body.theme-cyberpink .card-editor-preview .iconeAddOnWrap::after {
+  display: none;
+}
+
+body.theme-cyberpink .card-editor-preview .iconeAddOnWrap .iconeAddOn,
+body.theme-cyberpink .card-editor-preview .iconeAddOnWrap .iconeAddOn--tinted,
+body.theme-cyberpink .card-editor-preview .iconeAddOnWrap .iconeAddOn--card-fragment {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+body.theme-cyberpink .card-editor-preview .iconeAddOnWrap {
+  clip-path: none;
+}
+
+body.theme-cyberpink .card-editor-preview .iconeAddOnWrap:hover {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+body.theme-cyberpink .card-editor-preview .iconeAddOnWrap.iconeAddOnWrap--preview-sem-fundo {
+  width: auto !important;
+  height: auto !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  clip-path: none !important;
+  outline: 0 !important;
+}
+
+body.theme-cyberpink .card-editor-preview .iconeAddOnWrap.iconeAddOnWrap--preview-sem-fundo:hover,
+body.theme-cyberpink .card-editor-preview .iconeAddOnWrap.iconeAddOnWrap--preview-sem-fundo:focus,
+body.theme-cyberpink .card-editor-preview .iconeAddOnWrap.iconeAddOnWrap--preview-sem-fundo:focus-visible,
+body.theme-cyberpink .card-editor-preview .iconeAddOnWrap.iconeAddOnWrap--preview-sem-fundo:hover .iconeAddOn,
+body.theme-cyberpink .card-editor-preview .iconeAddOnWrap.iconeAddOnWrap--preview-sem-fundo:focus .iconeAddOn,
+body.theme-cyberpink .card-editor-preview .iconeAddOnWrap.iconeAddOnWrap--preview-sem-fundo:focus-visible .iconeAddOn {
+  background: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
 body.theme-cyberpink .card-editor-danger {
   border-color: rgba(255, 120, 176, 0.42) !important;
   color: #ff9bc9 !important;
@@ -5389,10 +5542,24 @@ body.theme-cyberpink .aly137-addon-modal__icon {
   box-shadow: 0 0 14px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 42%, transparent);
 }
 
+body.theme-cyberpink .aly137-addon-modal__icon.is-subtheme-tinted {
+  border-color: color-mix(in srgb, var(--aly137-addon-modal-icon-color, var(--cyberpink-subtheme-primary)) 72%, transparent);
+  box-shadow:
+    0 0 10px color-mix(in srgb, var(--aly137-addon-modal-icon-color, var(--cyberpink-subtheme-primary)) 52%, transparent),
+    0 0 18px color-mix(in srgb, var(--aly137-addon-modal-icon-color, var(--cyberpink-subtheme-primary)) 34%, transparent);
+}
+
 body.theme-cyberpink .aly137-addon-modal__icon img {
   width: 58px;
   height: 58px;
   object-fit: contain;
+}
+
+body.theme-cyberpink .aly137-addon-modal__icon img.is-subtheme-tinted {
+  filter:
+    var(--aly137-addon-modal-icon-filter)
+    drop-shadow(0 0 2px var(--aly137-addon-modal-icon-color, var(--cyberpink-subtheme-primary)))
+    drop-shadow(0 0 7px var(--aly137-addon-modal-icon-color, var(--cyberpink-subtheme-primary)));
 }
 
 body.theme-cyberpink .aly137-addon-modal__card-icon {
@@ -7255,9 +7422,19 @@ body.theme-cyberpink .addons-bloco-item {
   appearance: none;
   -webkit-appearance: none;
   cursor: pointer;
-  overflow: visible;
+  overflow: hidden;
   isolation: isolate;
   scroll-snap-align: start;
+  clip-path: polygon(
+    var(--cyberpink-addon-chip-cut) 0,
+    calc(100% - var(--cyberpink-addon-chip-cut)) 0,
+    100% var(--cyberpink-addon-chip-cut),
+    100% calc(100% - var(--cyberpink-addon-chip-cut)),
+    calc(100% - var(--cyberpink-addon-chip-cut)) 100%,
+    var(--cyberpink-addon-chip-cut) 100%,
+    0 calc(100% - var(--cyberpink-addon-chip-cut)),
+    0 var(--cyberpink-addon-chip-cut)
+  );
 }
 
 body.theme-cyberpink .addons-bloco-item::before {
@@ -7343,8 +7520,8 @@ body.theme-cyberpink .addons-bloco-chip-pins--bottom {
 body.theme-cyberpink .addons-bloco-chip-corner {
   position: absolute;
   z-index: 2;
-  width: calc(var(--cyberpink-addon-chip-cut) + 1px);
-  height: calc(var(--cyberpink-addon-chip-cut) + 1px);
+  width: var(--cyberpink-addon-chip-cut);
+  height: var(--cyberpink-addon-chip-cut);
   color: color-mix(in srgb, var(--cyberpink-subtheme-frame-stroke) 84%, white 16%);
   pointer-events: none;
   overflow: visible;
@@ -7360,23 +7537,23 @@ body.theme-cyberpink .addons-bloco-chip-corner path {
 }
 
 body.theme-cyberpink .addons-bloco-chip-corner--tl {
-  top: -0.5px;
-  left: -0.5px;
+  top: 0;
+  left: 0;
 }
 
 body.theme-cyberpink .addons-bloco-chip-corner--tr {
-  top: -0.5px;
-  right: -0.5px;
+  top: 0;
+  right: 0;
 }
 
 body.theme-cyberpink .addons-bloco-chip-corner--bl {
-  bottom: -0.5px;
-  left: -0.5px;
+  bottom: 0;
+  left: 0;
 }
 
 body.theme-cyberpink .addons-bloco-chip-corner--br {
-  right: -0.5px;
-  bottom: -0.5px;
+  right: 0;
+  bottom: 0;
 }
 
 body.theme-cyberpink .addons-bloco-item:hover {
@@ -7733,7 +7910,7 @@ body.theme-cyberpink .menuContentArea .gerenciador-acessos__pagination button:ho
   border-color: var(--cyberpink-subtheme-focus-border) !important;
 }
 
-body.theme-cyberpink .menuContentArea button:not(.gavetaOption):not(.image-zoom-trigger):not(.cards-bloco-action-button):not(.cards-bloco-thumb-edit):not(.cards-bloco-nav):not(.card-editor-modal__close),
+body.theme-cyberpink .menuContentArea button:not(.gavetaOption):not(.image-zoom-trigger):not(.cards-bloco-action-button):not(.cards-bloco-thumb-edit):not(.cards-bloco-nav):not(.card-editor-modal__close):not(.iconeAddOnWrap--preview-sem-fundo),
 body.theme-cyberpink .loginCadastroButton {
   position: relative;
   isolation: isolate;
@@ -7765,7 +7942,7 @@ body.theme-cyberpink .loginCadastroButton {
     box-shadow 160ms ease;
 }
 
-body.theme-cyberpink .menuContentArea button:not(.gavetaOption):not(.image-zoom-trigger):not(.cards-bloco-action-button):not(.cards-bloco-thumb-edit):not(.cards-bloco-nav):not(.card-editor-modal__close)::after,
+body.theme-cyberpink .menuContentArea button:not(.gavetaOption):not(.image-zoom-trigger):not(.cards-bloco-action-button):not(.cards-bloco-thumb-edit):not(.cards-bloco-nav):not(.card-editor-modal__close):not(.iconeAddOnWrap--preview-sem-fundo)::after,
 body.theme-cyberpink .loginCadastroButton::after {
   content: "";
   position: absolute;
@@ -7801,8 +7978,8 @@ body.theme-cyberpink .loginCadastroButton::after {
     drop-shadow(0 0 2px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 42%, transparent));
 }
 
-body.theme-cyberpink .menuContentArea button:not(.gavetaOption):not(.image-zoom-trigger):not(.cards-bloco-action-button):not(.cards-bloco-thumb-edit):not(.cards-bloco-nav):not(.card-editor-modal__close):hover:not(:disabled),
-body.theme-cyberpink .menuContentArea button:not(.gavetaOption):not(.image-zoom-trigger):not(.cards-bloco-action-button):not(.cards-bloco-thumb-edit):not(.cards-bloco-nav):not(.card-editor-modal__close):focus-visible,
+body.theme-cyberpink .menuContentArea button:not(.gavetaOption):not(.image-zoom-trigger):not(.cards-bloco-action-button):not(.cards-bloco-thumb-edit):not(.cards-bloco-nav):not(.card-editor-modal__close):not(.iconeAddOnWrap--preview-sem-fundo):hover:not(:disabled),
+body.theme-cyberpink .menuContentArea button:not(.gavetaOption):not(.image-zoom-trigger):not(.cards-bloco-action-button):not(.cards-bloco-thumb-edit):not(.cards-bloco-nav):not(.card-editor-modal__close):not(.iconeAddOnWrap--preview-sem-fundo):focus-visible,
 body.theme-cyberpink .loginCadastroButton:hover:not(:disabled),
 body.theme-cyberpink .loginCadastroButton:focus-visible {
   transform: translateY(-1px);
@@ -7825,6 +8002,55 @@ body.theme-cyberpink .loginCadastroButton {
 body.theme-cyberpink .loginCadastroButton:hover,
 body.theme-cyberpink .loginCadastroButton:focus-visible {
   border-color: var(--cyberpink-border-strong);
+}
+
+body.theme-cyberpink .menuContentArea .iconeAddOnWrap.iconeAddOnWrap--preview-sem-fundo,
+body.theme-cyberpink .menuContentArea .iconeAddOnWrap.iconeAddOnWrap--preview-sem-fundo:hover,
+body.theme-cyberpink .menuContentArea .iconeAddOnWrap.iconeAddOnWrap--preview-sem-fundo:focus,
+body.theme-cyberpink .menuContentArea .iconeAddOnWrap.iconeAddOnWrap--preview-sem-fundo:focus-visible {
+  position: relative;
+  isolation: auto;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  clip-path: none !important;
+  outline: 0 !important;
+  transform: none !important;
+  text-shadow: none !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+}
+
+body.theme-cyberpink .menuContentArea .iconeAddOnWrap.iconeAddOnWrap--preview-sem-fundo::before,
+body.theme-cyberpink .menuContentArea .iconeAddOnWrap.iconeAddOnWrap--preview-sem-fundo::after {
+  content: none !important;
+  display: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
+}
+
+body.theme-cyberpink .menuContentArea .iconeAddOnWrap.iconeAddOnWrap--preview-sem-fundo .iconeAddOn,
+body.theme-cyberpink .menuContentArea .iconeAddOnWrap.iconeAddOnWrap--preview-sem-fundo .iconeAddOn--card-fragment-custom {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: 0 !important;
+}
+
+body.theme-cyberpink .menuContentArea .iconeAddOnWrap.iconeAddOnWrap--preview-sem-fundo .iconeAddOn--card-fragment {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: 0 !important;
 }
 
 body.theme-cyberpink .loginButton {

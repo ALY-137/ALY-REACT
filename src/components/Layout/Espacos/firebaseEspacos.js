@@ -123,6 +123,8 @@ export function construirEstruturaPublicaEspaco(espaco = {}, userId = "") {
     ownerUserId,
     skinOwner: String(espaco?.skinOwner || "").trim() || null,
     visibilidade: String(espaco?.visibilidade || "publico").trim() || "publico",
+    ordenacaoBlocos:
+      String(espaco?.ordenacaoBlocos || "").trim() === "livre" ? "livre" : "postagem",
     iconCollectionId: String(espaco?.iconCollectionId || "").trim(),
     iconId: String(espaco?.iconId || "").trim(),
     iconUrl: String(espaco?.iconUrl || "").trim(),

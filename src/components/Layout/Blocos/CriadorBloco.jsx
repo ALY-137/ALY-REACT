@@ -27,6 +27,11 @@ import {
   listarAddOnsDoUsuarioProjeto,
   listarIconCollectionsNoGerenciador,
 } from "../Sistema/gerenciadorProjetosApi";
+import {
+  criarSnapshotProdutoVenda,
+  formatarPrecoVenda,
+  listarProdutosVenda,
+} from "../Vendas/vendasApi";
 import { registrarAuditLog } from "../Sistema/auditLogsApi";
 import {
   filtrarColecoesIconesPermitidas,
@@ -284,6 +289,11 @@ export default function CriadorBloco({
   const [subBlocosAddOns, setSubBlocosAddOns] = useState(() => [
     criarSubBlocoAddOnsVazio(0),
   ]);
+  const [produtosVendaDisponiveis, setProdutosVendaDisponiveis] = useState([]);
+  const [produtoIdsVenda, setProdutoIdsVenda] = useState([]);
+  const [buscaProdutoVenda, setBuscaProdutoVenda] = useState("");
+  const [erroProdutosVenda, setErroProdutosVenda] = useState("");
+  const [duvidasVendaBlocoHabilitadas, setDuvidasVendaBlocoHabilitadas] = useState(true);
   const [nomeEspacoSingular, setNomeEspacoSingular] = useState(
     DEFAULT_SISTEMA_CONFIG.nomeEspacoSingular
   );
@@ -494,6 +504,40 @@ export default function CriadorBloco({
     };
   }, [addOnsHabilitados, ownerUserId]);
 
+  useEffect(() => {
+    let cancelado = false;
+
+    async function carregarProdutosVenda() {
+      if (!ownerUserId) {
+        setProdutosVendaDisponiveis([]);
+        setProdutoIdsVenda([]);
+        setErroProdutosVenda("");
+        return;
+      }
+
+      try {
+        const lista = await listarProdutosVenda({
+          ownerUserId,
+          onlyActive: true,
+        });
+        if (!cancelado) {
+          setProdutosVendaDisponiveis(Array.isArray(lista) ? lista : []);
+          setErroProdutosVenda("");
+        }
+      } catch (error) {
+        if (!cancelado) {
+          setProdutosVendaDisponiveis([]);
+          setErroProdutosVenda(error?.message || "Falha ao carregar produtos.");
+        }
+      }
+    }
+
+    carregarProdutosVenda();
+    return () => {
+      cancelado = true;
+    };
+  }, [ownerUserId]);
+
   const metodoPagamentoCompradorDisponivel =
     mpConectado ||
     (pixManualSistemaHabilitado && pixManualConectado);
@@ -575,6 +619,7 @@ export default function CriadorBloco({
   const blocoEhLive = tipoConteudo === "live" && livesHabilitadas;
   const blocoEhAddOns =
     tipoConteudo === "addons" && addOnsHabilitados && blocoAddOnsHabilitado;
+  const blocoEhVenda = tipoConteudo === "venda";
   const nomeEspacoSingularCapitalizado = capitalizar(nomeEspacoSingular);
   const nomeBlocoSingularCapitalizado = capitalizar(nomeBlocoSingular);
   const iconCollectionsFiltradas = useMemo(
@@ -604,6 +649,21 @@ export default function CriadorBloco({
       );
     });
   }, [addOnsDisponiveisProjeto, buscaAddOnBloco]);
+  const produtosVendaFiltrados = useMemo(() => {
+    const buscaNormalizada = String(buscaProdutoVenda || "").trim().toLowerCase();
+    return produtosVendaDisponiveis.filter((produto) => {
+      if (!buscaNormalizada) return true;
+      return (
+        String(produto?.nome || "").toLowerCase().includes(buscaNormalizada) ||
+        String(produto?.descricao || "").toLowerCase().includes(buscaNormalizada) ||
+        String(produto?.categoria || "").toLowerCase().includes(buscaNormalizada)
+      );
+    });
+  }, [produtosVendaDisponiveis, buscaProdutoVenda]);
+  const produtosVendaSelecionados = useMemo(() => {
+    const ids = new Set(produtoIdsVenda.map((item) => String(item || "").trim()));
+    return produtosVendaDisponiveis.filter((produto) => ids.has(String(produto.id)));
+  }, [produtoIdsVenda, produtosVendaDisponiveis]);
 
   const parseValorCompraEmCentavos = (valorTexto) => {
     const normalizado = String(valorTexto || "").replace(",", ".").trim();
@@ -655,6 +715,30 @@ export default function CriadorBloco({
     imagemPath: card.imagemPath || "",
     linkExterno: card.linkExterno,
   });
+
+  const ehObjetoPlano = (value) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+    const prototype = Object.getPrototypeOf(value);
+    return prototype === Object.prototype || prototype === null;
+  };
+
+  const limparUndefinedFirestore = (value) => {
+    if (typeof value === "undefined") return undefined;
+    if (Array.isArray(value)) {
+      return value
+        .map((item) => limparUndefinedFirestore(item))
+        .filter((item) => typeof item !== "undefined");
+    }
+    if (!ehObjetoPlano(value)) return value;
+
+    return Object.entries(value).reduce((acc, [key, item]) => {
+      const itemLimpo = limparUndefinedFirestore(item);
+      if (typeof itemLimpo !== "undefined") {
+        acc[key] = itemLimpo;
+      }
+      return acc;
+    }, {});
+  };
 
   const registrarAuditoriaCriacaoBloco = async (
     blocoPayload = {},
@@ -808,11 +892,14 @@ export default function CriadorBloco({
     if (tipoConteudo === "addons" && !blocoEhAddOns) {
       return alert("Habilite a base de add-ons e os blocos de add-ons no projeto.");
     }
-    if (!blocoEhCards && !blocoEhLive && !blocoEhAddOns && !files.length) {
+    if (!blocoEhCards && !blocoEhLive && !blocoEhAddOns && !blocoEhVenda && !files.length) {
       return alert("Selecione ao menos uma imagem");
     }
     if (blocoEhAddOns && !contarAddOnsEmSubBlocos(subBlocosAddOns)) {
       return alert("Selecione ao menos um add-on para o bloco.");
+    }
+    if (blocoEhVenda && !produtosVendaSelecionados.length) {
+      return alert("Selecione ao menos um produto para o bloco de venda.");
     }
 
     const liveInicioMs = blocoEhLive ? parseDateTimeLocalToMs(liveInicioEm) : null;
@@ -925,13 +1012,14 @@ export default function CriadorBloco({
                 },
         };
 
-        await setDoc(blocoRef, blocoPayload);
-        await registrarAuditoriaCriacaoBloco(blocoPayload);
+        const blocoPayloadFirestore = limparUndefinedFirestore(blocoPayload);
+        await setDoc(blocoRef, blocoPayloadFirestore);
+        await registrarAuditoriaCriacaoBloco(blocoPayloadFirestore);
 
         if (onCreate) {
           onCreate({
+            ...blocoPayloadFirestore,
             criadoEm: new Date().toISOString(),
-            ...blocoPayload,
           });
         }
 
@@ -1022,18 +1110,71 @@ export default function CriadorBloco({
           moeda: precoCentavos ? "BRL" : null,
         };
 
-        await setDoc(blocoRef, blocoPayload);
-        await registrarAuditoriaCriacaoBloco(blocoPayload);
+        const blocoPayloadFirestore = limparUndefinedFirestore(blocoPayload);
+        await setDoc(blocoRef, blocoPayloadFirestore);
+        await registrarAuditoriaCriacaoBloco(blocoPayloadFirestore);
 
         if (onCreate) {
           onCreate({
+            ...blocoPayloadFirestore,
             criadoEm: new Date().toISOString(),
-            ...blocoPayload,
           });
         }
 
         setSubBlocosAddOns([criarSubBlocoAddOnsVazio(0)]);
         setBuscaAddOnBloco("");
+        setTituloBloco("");
+        setIconeBloco("");
+        setValorCompra("");
+        alert(`${nomeBlocoSingularCapitalizado} criado com sucesso!`);
+        return;
+      }
+
+      if (blocoEhVenda) {
+        const produtosVenda = produtosVendaSelecionados.map(criarSnapshotProdutoVenda);
+        const blocoPayload = {
+          id: blocoId,
+          tipo: "venda",
+          titulo: tituloBlocoFinal,
+          icone: iconeBlocoFinal,
+          iconUrl: iconeBlocoFinal,
+          iconCollectionId: iconPayload.iconCollectionId,
+          iconId: iconPayload.iconId,
+          iconLabel: iconPayload.iconLabel,
+          produtoIds: produtosVenda.map((produto) => produto.id).filter(Boolean),
+          produtosVenda,
+          duvidasChatHabilitado: duvidasVendaBlocoHabilitadas,
+          duvidasChatVisibilidade: duvidasVendaBlocoHabilitadas ? "usuarios_logados" : "desativado",
+          imagensPreview: [],
+          imagensPreviewPaths: [],
+          imagensOriginaisPaths: [],
+          imagensOriginaisPublicas: [],
+          imagens: [],
+          criadoPor: user.uid,
+          criadoEm: serverTimestamp(),
+          ordem: Date.now(),
+          espacoId,
+          ownerUserId,
+          skinOwner: espacoAtual.skinOwner || activeSkinId || null,
+          visibilidade,
+          precoCentavos: null,
+          moeda: null,
+        };
+
+        const blocoPayloadFirestore = limparUndefinedFirestore(blocoPayload);
+        await setDoc(blocoRef, blocoPayloadFirestore);
+        await registrarAuditoriaCriacaoBloco(blocoPayloadFirestore);
+
+        if (onCreate) {
+          onCreate({
+            ...blocoPayloadFirestore,
+            criadoEm: new Date().toISOString(),
+          });
+        }
+
+        setProdutoIdsVenda([]);
+        setBuscaProdutoVenda("");
+        setDuvidasVendaBlocoHabilitadas(true);
         setTituloBloco("");
         setIconeBloco("");
         setValorCompra("");
@@ -1099,33 +1240,37 @@ export default function CriadorBloco({
           moeda: precoCentavos ? "BRL" : null,
         };
 
-        await setDoc(blocoRef, blocoPayload);
+        const blocoPayloadFirestore = limparUndefinedFirestore(blocoPayload);
+        await setDoc(blocoRef, blocoPayloadFirestore);
         await Promise.all(
           cardsPersistidos.map((card) =>
-            setDoc(doc(collection(blocoRef, "cards"), card.id), {
-              id: card.id,
-              ordem: card.ordem,
-              nome: card.nome,
-              descricaoExtra: card.descricaoExtra,
-              descricao: card.descricao,
-              imagem: card.imagem,
-              imagemPath: card.imagemPath || "",
-              linkExterno: card.linkExterno,
-              blocoId,
-              espacoId,
-              ownerUserId,
-              criadoEm: serverTimestamp(),
-            })
+            setDoc(
+              doc(collection(blocoRef, "cards"), card.id),
+              limparUndefinedFirestore({
+                id: card.id,
+                ordem: card.ordem,
+                nome: card.nome,
+                descricaoExtra: card.descricaoExtra,
+                descricao: card.descricao,
+                imagem: card.imagem,
+                imagemPath: card.imagemPath || "",
+                linkExterno: card.linkExterno,
+                blocoId,
+                espacoId,
+                ownerUserId,
+                criadoEm: serverTimestamp(),
+              })
+            )
           )
         );
-        await registrarAuditoriaCriacaoBloco(blocoPayload, {
+        await registrarAuditoriaCriacaoBloco(blocoPayloadFirestore, {
           cardsCriados: cardsPersistidos,
         });
 
         if (onCreate) {
           onCreate({
+            ...blocoPayloadFirestore,
             criadoEm: new Date().toISOString(),
-            ...blocoPayload,
           });
         }
 
@@ -1248,13 +1393,14 @@ export default function CriadorBloco({
         moeda: precoCentavos ? "BRL" : null,
       };
 
-      await setDoc(blocoRef, blocoPayload);
-      await registrarAuditoriaCriacaoBloco(blocoPayload);
+      const blocoPayloadFirestore = limparUndefinedFirestore(blocoPayload);
+      await setDoc(blocoRef, blocoPayloadFirestore);
+      await registrarAuditoriaCriacaoBloco(blocoPayloadFirestore);
 
       if (onCreate) {
         onCreate({
+          ...blocoPayloadFirestore,
           criadoEm: new Date().toISOString(),
-          ...blocoPayload,
           imagensPreview: previewUrlsParaUI,
           imagensOriginaisPublicas: originaisPublicasParaUI,
           imagens:
@@ -1283,7 +1429,15 @@ export default function CriadorBloco({
     <div className="bloco-creator">
       <h3>
         {`Criar ${nomeBlocoSingular} de ${
-          blocoEhCards ? "cards" : blocoEhLive ? "live" : blocoEhAddOns ? "add-ons" : "imagens"
+          blocoEhCards
+            ? "cards"
+            : blocoEhLive
+              ? "live"
+              : blocoEhAddOns
+                ? "add-ons"
+                : blocoEhVenda
+                  ? "venda"
+                  : "imagens"
         }`}
       </h3>
 
@@ -1317,6 +1471,7 @@ export default function CriadorBloco({
         <option value="imagem">Imagens</option>
         {blocoCardsHabilitado && <option value="cards">Cards</option>}
         {addOnsHabilitados && blocoAddOnsHabilitado && <option value="addons">Add-ons</option>}
+        <option value="venda">Venda</option>
         {livesHabilitadas && <option value="live">Live</option>}
       </select>
 
@@ -1692,6 +1847,104 @@ export default function CriadorBloco({
           <span className="bloco-addons-editor__summary" style={{ fontSize: 12 }}>
             {`${contarAddOnsEmSubBlocos(subBlocosAddOns)} subobjeto(s) de add-on selecionado(s).`}
           </span>
+        </div>
+      ) : blocoEhVenda ? (
+        <div className="bloco-venda-editor" style={{ width: "100%", display: "grid", gap: 10 }}>
+          <input
+            type="search"
+            placeholder="Pesquisar produto cadastrado"
+            value={buscaProdutoVenda}
+            onChange={(event) => setBuscaProdutoVenda(event.target.value)}
+          />
+
+          {erroProdutosVenda ? (
+            <p style={{ margin: 0, color: "#ff9db0" }}>{erroProdutosVenda}</p>
+          ) : !produtosVendaDisponiveis.length ? (
+            <p style={{ margin: 0, opacity: 0.76 }}>
+              Cadastre produtos na gaveta VENDAS antes de criar este bloco.
+            </p>
+          ) : !produtosVendaFiltrados.length ? (
+            <p style={{ margin: 0, opacity: 0.76 }}>Nenhum produto encontrado.</p>
+          ) : (
+            <div style={{ display: "grid", gap: 8, maxHeight: 320, overflowY: "auto" }}>
+              {produtosVendaFiltrados.map((produto) => {
+                const produtoId = String(produto.id || "").trim();
+                const marcado = produtoIdsVenda.includes(produtoId);
+                return (
+                  <label
+                    key={produtoId}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "20px 58px minmax(0, 1fr)",
+                      gap: 10,
+                      alignItems: "center",
+                      padding: 8,
+                      border: "1px solid rgba(255,255,255,0.12)",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={marcado}
+                      onChange={() =>
+                        setProdutoIdsVenda((prev) =>
+                          prev.includes(produtoId)
+                            ? prev.filter((item) => item !== produtoId)
+                            : [...prev, produtoId]
+                        )
+                      }
+                    />
+                    <span
+                      style={{
+                        width: 58,
+                        height: 58,
+                        overflow: "hidden",
+                        background: "rgba(255,255,255,0.04)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      {produto.imagemUrl ? (
+                        <img
+                          src={produto.imagemUrl}
+                          alt=""
+                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                        />
+                      ) : null}
+                    </span>
+                    <span style={{ minWidth: 0 }}>
+                      <strong>{produto.nome}</strong>
+                      <span style={{ display: "block", fontSize: 12, opacity: 0.74 }}>
+                        {[
+                          produto.tipoProduto === "roupa" ? "Roupa" : "Produto",
+                          produto.sobMedida ? "sob medida" : "",
+                          produto.porEncomenda ? "por encomenda" : "",
+                          produto.precoCentavos
+                            ? formatarPrecoVenda(produto.precoCentavos, produto.moeda)
+                            : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" / ")}
+                      </span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+
+          <span style={{ fontSize: 12 }}>
+            {`${produtosVendaSelecionados.length} produto(s) selecionado(s).`}
+          </span>
+
+          <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input
+              type="checkbox"
+              checked={duvidasVendaBlocoHabilitadas}
+              onChange={(event) => setDuvidasVendaBlocoHabilitadas(event.target.checked)}
+            />
+            Permitir duvidas por chat neste bloco
+          </label>
         </div>
       ) : blocoEhLive ? (
         <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10 }}>

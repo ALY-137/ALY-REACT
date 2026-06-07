@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo } from "react";
 
 function isSvgIconUrl(iconUrl = "") {
   return (
@@ -14,43 +14,9 @@ function buildMaskImageValue(rawUrl = "") {
 function BlockHeaderIcon({ iconUrl }) {
   const iconIsSvg = isSvgIconUrl(iconUrl);
   const iconIsRemote = /^https?:\/\//i.test(String(iconUrl || "").trim());
-  const directMaskUrl = useMemo(() => {
+  const maskUrl = useMemo(() => {
     if (!iconIsSvg || !iconUrl || iconIsRemote) return null;
     return buildMaskImageValue(iconUrl);
-  }, [iconIsRemote, iconIsSvg, iconUrl]);
-  const [resolvedMaskUrl, setResolvedMaskUrl] = useState(directMaskUrl);
-
-  useEffect(() => {
-    setResolvedMaskUrl(directMaskUrl);
-  }, [directMaskUrl]);
-
-  useEffect(() => {
-    if (!iconIsSvg || !iconIsRemote || !iconUrl) return undefined;
-
-    const controller = new AbortController();
-    let ativo = true;
-
-    fetch(iconUrl, { signal: controller.signal })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`Falha ao carregar SVG do bloco (${response.status})`);
-        }
-        return response.text();
-      })
-      .then((svgContent) => {
-        if (!ativo) return;
-        const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgContent)}`;
-        setResolvedMaskUrl(buildMaskImageValue(dataUrl));
-      })
-      .catch(() => {
-        if (!ativo) return;
-        setResolvedMaskUrl(null);
-      });
-
-    return () => {
-      ativo = false;
-      controller.abort();
-    };
   }, [iconIsRemote, iconIsSvg, iconUrl]);
 
   if (!iconUrl) return null;
@@ -59,7 +25,18 @@ function BlockHeaderIcon({ iconUrl }) {
     return <img className="bloco-container__icon" src={iconUrl} alt="" aria-hidden="true" />;
   }
 
-  if (!resolvedMaskUrl) {
+  if (iconIsRemote) {
+    return (
+      <img
+        className="bloco-container__icon bloco-container__icon--svg-fallback"
+        src={iconUrl}
+        alt=""
+        aria-hidden="true"
+      />
+    );
+  }
+
+  if (!maskUrl) {
     return (
       <img
         className="bloco-container__icon bloco-container__icon--svg-fallback"
@@ -74,8 +51,8 @@ function BlockHeaderIcon({ iconUrl }) {
     <span
       className="bloco-container__icon bloco-container__icon--svg"
       style={{
-        WebkitMaskImage: resolvedMaskUrl,
-        maskImage: resolvedMaskUrl,
+        WebkitMaskImage: maskUrl,
+        maskImage: maskUrl,
       }}
       aria-hidden="true"
     />

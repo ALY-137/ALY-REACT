@@ -67,6 +67,12 @@ const normalizarAddOnSubthemes = (value, validIds = []) => {
   }, {});
 };
 
+const obterDescricaoPreviaCard = (card = {}) =>
+  String(card?.descricaoPrevia || card?.descricao || "").trim();
+
+const obterDescricaoCompletaCard = (card = {}) =>
+  String(card?.descricaoCompleta || obterDescricaoPreviaCard(card)).trim();
+
 const normalizarCard = (card = {}, index = 0) => {
   const addOnIds = normalizarAddOnIds(card?.addOnIds || card?.addOnsIds || card?.addons);
   const possuiCampoAddOns =
@@ -80,7 +86,9 @@ const normalizarCard = (card = {}, index = 0) => {
     ordem: Number.isFinite(Number(card?.ordem)) ? Number(card.ordem) : index,
     nome: String(card?.nome || "").trim(),
     descricaoExtra: String(card?.descricaoExtra || "").trim(),
-    descricao: String(card?.descricao || "").trim(),
+    descricaoPrevia: obterDescricaoPreviaCard(card),
+    descricaoCompleta: obterDescricaoCompletaCard(card),
+    descricao: obterDescricaoPreviaCard(card),
     imagem: String(card?.imagem || "").trim(),
     imagemPath: String(card?.imagemPath || "").trim(),
     linkExterno: String(card?.linkExterno || "").trim(),
@@ -102,6 +110,8 @@ const normalizarCardsDoBloco = (valor) =>
           (card) =>
             card.nome ||
             card.descricaoExtra ||
+            card.descricaoPrevia ||
+            card.descricaoCompleta ||
             card.descricao ||
             card.imagem ||
             card.imagemPath ||
@@ -334,6 +344,17 @@ export default function CardRoutePage() {
     );
   }
 
+  const descricaoCompletaCard = String(
+    estado.card.descricaoCompleta ||
+      estado.card.descricaoPrevia ||
+      estado.card.descricao ||
+      ""
+  ).trim();
+  const descricaoCompletaParagrafos = descricaoCompletaCard
+    .split(/\n{2,}/)
+    .map((texto) => texto.trim())
+    .filter(Boolean);
+
   return (
     <main
       className="card-route-page"
@@ -372,7 +393,7 @@ export default function CardRoutePage() {
             nome={estado.card.nome || "Card"}
             descricaoExtra={estado.card.descricaoExtra || ""}
             nomeDescricao={estado.card.nome || ""}
-            descricao={estado.card.descricao || ""}
+            descricao={descricaoCompletaCard}
             linkExterno={estado.card.linkExterno || ""}
             imagem={estado.imagem}
             idNome={`card-route-${blocoId}-${estado.card.id}`}
@@ -389,6 +410,15 @@ export default function CardRoutePage() {
           <span className="card-route-page__details-kicker">Card ampliado</span>
           <h1>{estado.card.nome || "Card"}</h1>
           {estado.card.descricaoExtra ? <p>{estado.card.descricaoExtra}</p> : null}
+          {descricaoCompletaParagrafos.length ? (
+            <section className="card-route-page__full-description">
+              {descricaoCompletaParagrafos.map((paragrafo, index) => (
+                <p key={`${estado.card.id || "card"}-descricao-${index}`}>
+                  {paragrafo}
+                </p>
+              ))}
+            </section>
+          ) : null}
           <dl>
             <div>
               <dt>Bloco</dt>
