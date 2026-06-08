@@ -8,6 +8,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  getDocsFromServer,
   onSnapshot,
   orderBy,
   query,
@@ -59,6 +60,7 @@ import {
   getLiveRtcSessionDocRefs,
 } from "./live/liveRefs";
 import {
+  activeFirebaseProjectId,
   activeFirebaseProjectKey,
   auth,
   db,
@@ -69,7 +71,10 @@ import {
   getProjectCollectionCandidates,
   getProjectDocCandidates,
 } from "../../Banco/projectDataRefs";
-import { isProjectDataNamespaced } from "../../Banco/projectDataNamespace";
+import {
+  isProjectDataNamespaced,
+  resolveProjectDataNamespaceKey,
+} from "../../Banco/projectDataNamespace";
 import {
   excluirArquivoNoBucketCompartilhado,
   obterUrlArquivoNoBucketCompartilhado,
@@ -214,15 +219,41 @@ const obterVisibilidadesConsultaBlocos = ({ podeGerenciar = false, autenticado =
   return autenticado ? VISIBILIDADES_BLOCOS_AUTENTICADO : VISIBILIDADES_BLOCOS_PUBLICAS;
 };
 
-async function adicionarDocsBlocosPorVisibilidade(docs, blocosRef, visibilidades = []) {
-  const consultas = (Array.isArray(visibilidades) ? visibilidades : []).map((visibilidade) =>
-    query(blocosRef, where("visibilidade", "==", visibilidade))
-  );
+async function getDocsServidor(refOrQuery) {
+  try {
+    return await getDocsFromServer(refOrQuery);
+  } catch (err) {
+    if (err?.code === "unavailable" || err?.code === "deadline-exceeded") {
+      return getDocs(refOrQuery);
+    }
+    throw err;
+  }
+}
 
-  const results = await Promise.allSettled(consultas.map((qRef) => getDocs(qRef)));
+async function adicionarDocsBlocosPorVisibilidade(
+  docs,
+  blocosRef,
+  visibilidades = [],
+  debugConsultas = []
+) {
+  const consultas = (Array.isArray(visibilidades) ? visibilidades : []).map((visibilidade) => ({
+    visibilidade,
+    qRef: query(blocosRef, where("visibilidade", "==", visibilidade)),
+  }));
 
-  for (const result of results) {
+  const results = await Promise.allSettled(consultas.map(({ qRef }) => getDocsServidor(qRef)));
+
+  for (let index = 0; index < results.length; index += 1) {
+    const result = results[index];
+    const consulta = consultas[index];
     if (result.status === "fulfilled") {
+      debugConsultas.push({
+        origem: "namespace",
+        path: blocosRef.path,
+        visibilidade: consulta?.visibilidade ?? null,
+        count: result.value.docs.length,
+        ids: result.value.docs.map((d) => d.id),
+      });
       docs.push(...result.value.docs.map((d) => ({ __legacy: false, docSnap: d })));
     } else if (
       result.reason?.code &&
@@ -230,24 +261,110 @@ async function adicionarDocsBlocosPorVisibilidade(docs, blocosRef, visibilidades
       result.reason.code !== "failed-precondition"
     ) {
       throw result.reason;
+    } else {
+      debugConsultas.push({
+        origem: "namespace",
+        path: blocosRef.path,
+        visibilidade: consulta?.visibilidade ?? null,
+        errorCode: result.reason?.code || "erro",
+        errorMessage: result.reason?.message || "",
+      });
     }
   }
 }
 
-async function adicionarDocsLegadosPorVisibilidade(docs, blocosRef, visibilidades = []) {
+async function adicionarDocsLegadosPorVisibilidade(
+  docs,
+  blocosRef,
+  visibilidades = [],
+  debugConsultas = []
+) {
   const consultas = (Array.isArray(visibilidades) ? visibilidades : []).map((visibilidade) =>
-    query(blocosRef, where("visibilidade", "==", visibilidade))
+    ({
+      visibilidade,
+      qRef: query(blocosRef, where("visibilidade", "==", visibilidade)),
+    })
   );
 
   for (const consulta of consultas) {
     try {
-      const snap = await getDocs(consulta);
+      const snap = await getDocsServidor(consulta.qRef);
+      debugConsultas.push({
+        origem: "legacy-root",
+        path: blocosRef.path,
+        visibilidade: consulta.visibilidade ?? null,
+        count: snap.docs.length,
+        ids: snap.docs.map((d) => d.id),
+      });
       docs.push(...snap.docs.map((d) => ({ __legacy: false, docSnap: d })));
     } catch (err) {
       if (err?.code !== "permission-denied" && err?.code !== "failed-precondition") {
         throw err;
       }
+      debugConsultas.push({
+        origem: "legacy-root",
+        path: blocosRef.path,
+        visibilidade: consulta.visibilidade ?? null,
+        errorCode: err?.code || "erro",
+        errorMessage: err?.message || "",
+      });
     }
+  }
+}
+
+async function adicionarDocsBlocosPorContexto(
+  docs,
+  blocosRef,
+  visibilidades = [],
+  debugConsultas = []
+) {
+  const lista = Array.isArray(visibilidades) ? visibilidades : [];
+  const incluiPublicas = VISIBILIDADES_BLOCOS_PUBLICAS.some((visibilidade) =>
+    lista.includes(visibilidade)
+  );
+
+  if (incluiPublicas) {
+    await adicionarDocsBlocosPorVisibilidade(
+      docs,
+      blocosRef,
+      VISIBILIDADES_BLOCOS_PUBLICAS,
+      debugConsultas
+    );
+  }
+
+  const restantes = lista.filter(
+    (visibilidade) => !VISIBILIDADES_BLOCOS_PUBLICAS.includes(visibilidade)
+  );
+  if (restantes.length) {
+    await adicionarDocsBlocosPorVisibilidade(docs, blocosRef, restantes, debugConsultas);
+  }
+}
+
+async function adicionarDocsLegadosPorContexto(
+  docs,
+  blocosRef,
+  visibilidades = [],
+  debugConsultas = []
+) {
+  const lista = Array.isArray(visibilidades) ? visibilidades : [];
+  const incluiPublicas = VISIBILIDADES_BLOCOS_PUBLICAS.some((visibilidade) =>
+    lista.includes(visibilidade)
+  );
+
+  if (incluiPublicas) {
+    await adicionarDocsLegadosPorVisibilidade(
+      docs,
+      blocosRef,
+      VISIBILIDADES_BLOCOS_PUBLICAS,
+      debugConsultas
+    );
+  }
+
+  const restantes = lista.filter(
+    (visibilidade) => !VISIBILIDADES_BLOCOS_PUBLICAS.includes(visibilidade)
+  );
+  if (restantes.length) {
+    await adicionarDocsLegadosPorVisibilidade(docs, blocosRef, restantes, debugConsultas);
   }
 }
 
@@ -528,6 +645,29 @@ const filtrarAddOnsXpCardOrigemAly137 = (addOnsXp = {}, addOnIds = []) => {
 };
 
 const BLOCOS_PAGE_SIZE = 6;
+const DEBUG_DADOS_PUBLICOS_KEY = "debugDadosPublicos";
+
+const debugDadosPublicosAtivo = () => {
+  if (typeof window === "undefined") return false;
+  try {
+    const params = new URLSearchParams(window.location.search || "");
+    return (
+      params.get("debugDados") === "1" ||
+      window.localStorage.getItem(DEBUG_DADOS_PUBLICOS_KEY) === "1"
+    );
+  } catch {
+    return false;
+  }
+};
+
+const lerLocalStorageSeguro = (key = "") => {
+  if (typeof window === "undefined") return "";
+  try {
+    return String(window.localStorage.getItem(key) || "").trim();
+  } catch {
+    return "";
+  }
+};
 const ORDENACAO_BLOCOS_POSTAGEM = "postagem";
 const ORDENACAO_BLOCOS_LIVRE = "livre";
 
@@ -804,7 +944,7 @@ const namespaceAtivoProjeto = () => isProjectDataNamespaced(activeFirebaseProjec
 
 async function carregarCardsLegadosRaiz(ownerUserId, espacoId, blocoId) {
   try {
-    const cardsSnap = await getDocs(getLegacyBlocoCardsCollectionRef(ownerUserId, espacoId, blocoId));
+    const cardsSnap = await getDocsServidor(getLegacyBlocoCardsCollectionRef(ownerUserId, espacoId, blocoId));
     return cardsSnap.docs;
   } catch (err) {
     if (err?.code === "permission-denied" || err?.code === "failed-precondition") {
@@ -4829,7 +4969,7 @@ export default function EspacoPage() {
           const blocosRefs = getBlocosCollectionRefs(ownerUserId, espacoRelacionadoId);
           for (const blocosRef of blocosRefs) {
             try {
-              const snap = await getDocs(blocosRef);
+              const snap = await getDocsServidor(blocosRef);
               if (!blocosSnapshot || !snap.empty) {
                 blocosSnapshot = snap;
               }
@@ -4855,7 +4995,7 @@ export default function EspacoPage() {
                 const cardsRefs = getBlocoCardsCollectionRefs(ownerUserId, espacoRelacionadoId, blocoId);
                 for (const cardsRef of cardsRefs) {
                   try {
-                    const snap = await getDocs(cardsRef);
+                    const snap = await getDocsServidor(cardsRef);
                     if (!cardsSnapshot || !snap.empty) {
                       cardsSnapshot = snap;
                     }
@@ -5134,6 +5274,7 @@ export default function EspacoPage() {
         const blocosRefs = getBlocosCollectionRefs(ownerUserId, espacoId);
 
         const docs = [];
+        const debugConsultas = [];
         const visibilidadesConsulta = obterVisibilidadesConsultaBlocos({
           podeGerenciar,
           autenticado: Boolean(currentUidAutenticado),
@@ -5143,24 +5284,58 @@ export default function EspacoPage() {
         for (const blocosRef of blocosRefs) {
           if (consultaColecaoCompletaPermitida) {
             try {
-              const snap = await getDocs(blocosRef);
+              const snap = await getDocsServidor(blocosRef);
+              debugConsultas.push({
+                origem: "namespace",
+                path: blocosRef.path,
+                visibilidade: "*",
+                count: snap.docs.length,
+                ids: snap.docs.map((d) => d.id),
+              });
               docs.push(...snap.docs.map((d) => ({ __legacy: false, docSnap: d })));
             } catch (allErr) {
+              debugConsultas.push({
+                origem: "namespace",
+                path: blocosRef.path,
+                visibilidade: "*",
+                errorCode: allErr?.code || "erro",
+                errorMessage: allErr?.message || "",
+              });
               if (allErr?.code !== "permission-denied") throw allErr;
               await adicionarDocsBlocosPorVisibilidade(
                 docs,
                 blocosRef,
-                VISIBILIDADES_BLOCOS_AUTENTICADO
+                VISIBILIDADES_BLOCOS_AUTENTICADO,
+                debugConsultas
               );
             }
           } else {
-            await adicionarDocsBlocosPorVisibilidade(docs, blocosRef, visibilidadesConsulta);
+            await adicionarDocsBlocosPorContexto(
+              docs,
+              blocosRef,
+              visibilidadesConsulta,
+              debugConsultas
+            );
 
             if (!docs.length) {
               try {
-                const snap = await getDocs(blocosRef);
+                const snap = await getDocsServidor(blocosRef);
+                debugConsultas.push({
+                  origem: "namespace",
+                  path: blocosRef.path,
+                  visibilidade: "*",
+                  count: snap.docs.length,
+                  ids: snap.docs.map((d) => d.id),
+                });
                 docs.push(...snap.docs.map((d) => ({ __legacy: false, docSnap: d })));
               } catch (allErr) {
+                debugConsultas.push({
+                  origem: "namespace",
+                  path: blocosRef.path,
+                  visibilidade: "*",
+                  errorCode: allErr?.code || "erro",
+                  errorMessage: allErr?.message || "",
+                });
                 if (
                   allErr?.code !== "permission-denied" &&
                   allErr?.code !== "failed-precondition"
@@ -5180,7 +5355,14 @@ export default function EspacoPage() {
 
             if (consultaColecaoCompletaPermitida) {
               try {
-                const legacyRootSnap = await getDocs(legacyRootRef);
+                const legacyRootSnap = await getDocsServidor(legacyRootRef);
+                debugConsultas.push({
+                  origem: "legacy-root",
+                  path: legacyRootRef.path,
+                  visibilidade: "*",
+                  count: legacyRootSnap.docs.length,
+                  ids: legacyRootSnap.docs.map((d) => d.id),
+                });
                 if (legacyRootSnap.docs.length) {
                   await migrarBlocosLegadosRaizParaNamespace(
                     ownerUserId,
@@ -5192,20 +5374,29 @@ export default function EspacoPage() {
                   );
                 }
               } catch (legacyRootErr) {
+                debugConsultas.push({
+                  origem: "legacy-root",
+                  path: legacyRootRef.path,
+                  visibilidade: "*",
+                  errorCode: legacyRootErr?.code || "erro",
+                  errorMessage: legacyRootErr?.message || "",
+                });
                 if (legacyRootErr?.code !== "permission-denied") {
                   throw legacyRootErr;
                 }
                 await adicionarDocsLegadosPorVisibilidade(
                   docs,
                   legacyRootRef,
-                  VISIBILIDADES_BLOCOS_AUTENTICADO
+                  VISIBILIDADES_BLOCOS_AUTENTICADO,
+                  debugConsultas
                 );
               }
             } else {
-              await adicionarDocsLegadosPorVisibilidade(
+              await adicionarDocsLegadosPorContexto(
                 docs,
                 legacyRootRef,
-                visibilidadesConsulta
+                visibilidadesConsulta,
+                debugConsultas
               );
             }
 
@@ -5228,17 +5419,52 @@ export default function EspacoPage() {
           }
         }
 
-        if (!docs.length) {
+        if (docs.length && namespaceAtivoProjeto() && debugDadosPublicosAtivo()) {
+          const legacyRootRefDebug = getLegacyBlocosCollectionRef(ownerUserId, espacoId);
+          const docsLegadosDebug = [];
+          try {
+            await adicionarDocsLegadosPorContexto(
+              docsLegadosDebug,
+              legacyRootRefDebug,
+              visibilidadesConsulta || VISIBILIDADES_BLOCOS_AUTENTICADO,
+              debugConsultas
+            );
+          } catch (debugLegacyErr) {
+            debugConsultas.push({
+              origem: "legacy-root-debug",
+              path: legacyRootRefDebug.path,
+              visibilidade: "debug",
+              errorCode: debugLegacyErr?.code || "erro",
+              errorMessage: debugLegacyErr?.message || "",
+            });
+          }
+        }
+
+        if (!docs.length && !namespaceAtivoProjeto()) {
           const legacyQuery = query(
             collection(db, "blocos"),
             where("espacoId", "==", espacoId)
           );
           try {
-            const legacySnap = await getDocs(legacyQuery);
+            const legacySnap = await getDocsServidor(legacyQuery);
+            debugConsultas.push({
+              origem: "global-legacy",
+              path: "blocos",
+              visibilidade: "espacoId",
+              count: legacySnap.docs.length,
+              ids: legacySnap.docs.map((d) => d.id),
+            });
             docs.push(
               ...legacySnap.docs.map((d) => ({ __legacy: true, docSnap: d }))
             );
           } catch (legacyErr) {
+            debugConsultas.push({
+              origem: "global-legacy",
+              path: "blocos",
+              visibilidade: "espacoId",
+              errorCode: legacyErr?.code || "erro",
+              errorMessage: legacyErr?.message || "",
+            });
             if (legacyErr?.code !== "permission-denied") throw legacyErr;
           }
         }
@@ -5259,6 +5485,72 @@ export default function EspacoPage() {
         }
 
         const lista = ordenarBlocosPorModo([...dedupe.values()], modoOrdenacaoBlocosEspaco);
+        if (debugDadosPublicosAtivo()) {
+          const consultasResumo = debugConsultas.map((item, index) => ({
+            n: index + 1,
+            origem: item.origem,
+            path: item.path,
+            visibilidade: item.visibilidade === null ? "null" : String(item.visibilidade),
+            count: Number(item.count || 0),
+            ids: Array.isArray(item.ids) ? item.ids.join(", ") : "",
+            erro: item.errorCode || "",
+          }));
+          const blocosResumo = lista.map((item, index) => ({
+            n: index + 1,
+            id: item.id,
+            tipo: item.tipo,
+            titulo: item.titulo || item.nome || "",
+            visibilidade: item.visibilidade || "publico",
+            legacy: Boolean(item.__legacy),
+            produtosVenda: Array.isArray(item.produtosVenda)
+              ? item.produtosVenda.length
+              : Array.isArray(item.produtos)
+                ? item.produtos.length
+                : 0,
+          }));
+          console.info("[debugDados] blocos carregados", {
+            activeFirebaseProjectKey,
+            activeFirebaseProjectId,
+            namespaceKey: resolveProjectDataNamespaceKey(activeFirebaseProjectKey),
+            namespaceAtivo: namespaceAtivoProjeto(),
+            systemProjectContextKey: lerLocalStorageSeguro("systemProjectContextKey"),
+            firebaseProjectTarget: lerLocalStorageSeguro("firebaseProjectTarget"),
+            targetUsername: lerLocalStorageSeguro("targetUsername"),
+            skinLogadoUser: lerLocalStorageSeguro("skinLogadoUser"),
+            ownerUserId,
+            espacoId,
+            currentUidAutenticado,
+            podeGerenciar,
+            totalDocs: docs.length,
+            totalDedupe: lista.length,
+            consultas: debugConsultas,
+            consultasResumo,
+            blocos: lista.map((item) => ({
+              id: item.id,
+              tipo: item.tipo,
+              titulo: item.titulo || item.nome || "",
+              visibilidade: item.visibilidade || "publico",
+              legacy: Boolean(item.__legacy),
+              produtosVenda: Array.isArray(item.produtosVenda)
+                ? item.produtosVenda.length
+                : Array.isArray(item.produtos)
+                  ? item.produtos.length
+                  : 0,
+            })),
+            blocosResumo,
+          });
+          console.table(consultasResumo);
+          console.table(blocosResumo);
+          console.info(
+            "[debugDados] consultas resumo\n" +
+              consultasResumo
+                .map(
+                  (item) =>
+                    `${item.n}. ${item.origem} | ${item.path} | vis=${item.visibilidade} | count=${item.count} | ids=${item.ids || "-"} | erro=${item.erro || "-"}`
+                )
+                .join("\n")
+          );
+        }
         setBlocos(lista);
       } catch (err) {
         console.error("Erro ao carregar blocos:", err);
@@ -5302,7 +5594,7 @@ export default function EspacoPage() {
             ? [collection(db, "blocos", bloco.id, "cards")]
             : getBlocoCardsCollectionRefs(ownerUserId, espacoId, bloco.id);
           for (const cardsRef of cardsRefs) {
-            const cardsSnap = await getDocs(cardsRef);
+            const cardsSnap = await getDocsServidor(cardsRef);
             cardsDocs.push(...cardsSnap.docs);
             if (cardsSnap.docs.length) break;
           }

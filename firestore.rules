@@ -441,26 +441,44 @@ service cloud.firestore {
         isProjetoOneOwnerPublicMode(projectKey);
     }
 
+    function canReadProjetoEspacoEstruturaByPath(projectKey, userId, espacoId) {
+      return (
+        exists(
+          /databases/$(database)/documents/projetos/$(projectKey)/users/$(userId)/espacos/$(espacoId)
+        ) &&
+        canReadProjetoEspacoEstruturaData(
+          projectKey,
+          get(
+            /databases/$(database)/documents/projetos/$(projectKey)/users/$(userId)/espacos/$(espacoId)
+          ).data,
+          userId,
+          espacoId
+        )
+      ) ||
+      (
+        exists(
+          /databases/$(database)/documents/projetos/$(projectKey)/users/$(userId)/espacos_publicos/$(espacoId)
+        ) &&
+        (
+          isProjetoOneOwnerPublicMode(projectKey) ||
+          canReadPublic(
+            get(
+              /databases/$(database)/documents/projetos/$(projectKey)/users/$(userId)/espacos_publicos/$(espacoId)
+            ).data.visibilidade
+          )
+        )
+      );
+    }
+
     function canReadProjetoBlocoData(projectKey, data, userId, espacoId, blocoId) {
       return canManageProjetoEspacoByPath(projectKey, userId, espacoId) ||
         canManageBlocoData(data) ||
+        data.visibilidade == null ||
+        data.visibilidade == "publico" ||
+        ((data.visibilidade == "publico_restritivo" || data.visibilidade == "privado") && signedIn()) ||
         (
-          exists(
-            /databases/$(database)/documents/projetos/$(projectKey)/users/$(userId)/espacos/$(espacoId)
-          ) &&
-          canReadProjetoEspacoData(
-            projectKey,
-            get(
-              /databases/$(database)/documents/projetos/$(projectKey)/users/$(userId)/espacos/$(espacoId)
-            ).data,
-            userId,
-            espacoId
-          ) &&
+          canReadProjetoEspacoEstruturaByPath(projectKey, userId, espacoId) &&
           (
-            data.visibilidade == null ||
-            data.visibilidade == "publico" ||
-            data.visibilidade == "publico_restritivo" ||
-            data.visibilidade == "privado" ||
             data.visibilidade == "exclusivo_assinante" ||
             data.visibilidade == "exclusivo_comprador" ||
             data.visibilidade == "comprado"

@@ -436,22 +436,25 @@ export async function getEspacosDoOwner({
 }) {
   const espacosRefs = getEspacosRefs(userId);
   const isOwner = viewerUserId && viewerUserId === userId;
+  const podeListarTudo = isOwner || ignorarVisibilidade;
 
   let snapshot = null;
   for (const espacosRef of espacosRefs) {
-    try {
-      const snapAtual = await getDocs(query(espacosRef));
-      if (!snapshot || !snapAtual.empty) {
-        snapshot = snapAtual;
-      }
-      if (!snapAtual.empty) break;
-      continue;
-    } catch (err) {
-      if (err?.code !== "permission-denied") {
-        throw err;
-      }
-      if (ignorarVisibilidade) {
-        throw err;
+    if (podeListarTudo) {
+      try {
+        const snapAtual = await getDocs(query(espacosRef));
+        if (!snapshot || !snapAtual.empty) {
+          snapshot = snapAtual;
+        }
+        if (!snapAtual.empty) break;
+        continue;
+      } catch (err) {
+        if (err?.code !== "permission-denied") {
+          throw err;
+        }
+        if (ignorarVisibilidade) {
+          throw err;
+        }
       }
     }
 
@@ -464,7 +467,7 @@ export async function getEspacosDoOwner({
       );
     }
 
-    if (isOwner) {
+    if (podeListarTudo) {
       compatQuery = query(espacosRef);
     }
 

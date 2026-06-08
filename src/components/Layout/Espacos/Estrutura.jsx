@@ -39,7 +39,10 @@ import {
   normalizeCyberpinkSubtheme,
 } from "../Temas/cyberpink/subthemes";
 import { obterTemaSkinPadrao, resolverTemaSkinEfetivo } from "../Temas/themesRegistry";
-import { findSkinByUsernameAcrossProject } from "../Skins/skinLookup";
+import {
+  findSkinByUsernameAcrossProject,
+  getOwnerUidFromSkinDoc,
+} from "../Skins/skinLookup";
 import {
   getEspacosDaSkin,
   getEspacosDoOwner,
@@ -508,7 +511,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
         const espacosOwner = await getEspacosDoOwner({
           userId: ownerUid,
           viewerUserId: authUserAtual?.uid || null,
-          ignorarVisibilidade: oneOwnerPublicaAtiva,
+          ignorarVisibilidade: Boolean(usuarioEhOwnerOneOwner),
         });
         if (espacosOwner.length) {
           espacosFallback = espacosOwner;
@@ -584,6 +587,13 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
             }) ||
               (!ownerProjetoConfigurado && seforAdm(authUserAtual)))
         );
+        const visitanteAutenticadoOneOwner =
+          oneOwnerPublicaProjeto && !usuarioEhOwnerOneOwner;
+        if (visitanteAutenticadoOneOwner) {
+          targetUsername = String(
+            localStorage.getItem(ONEOWNER_OWNER_USERNAME_KEY) || ""
+          ).trim();
+        }
         const ownerUidCandidates = construirOwnerCandidates(
           configSistemaProjeto,
           authUserAtual,
@@ -720,7 +730,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
         let skinsSnap = { empty: true, docs: [] };
         if (skinDocResolvido) {
           skinsSnap = { empty: false, docs: [skinDocResolvido] };
-        } else if (authUserAtual?.uid) {
+        } else if (authUserAtual?.uid && !visitanteAutenticadoOneOwner) {
           const ownerQuery = query(
             getPrimaryProjectCollection(db, "users", authUserAtual.uid, "skins"),
             where("username", "==", targetUsername),
@@ -736,7 +746,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
         if (skinsSnap.empty) {
           try {
             const ownerCandidatesBusca = construirOwnerCandidates(configSistemaProjeto, authUserAtual, {
-              includeAuthUser: true,
+              includeAuthUser: !visitanteAutenticadoOneOwner,
             });
             const skinByUsername = await findSkinByUsernameAcrossProject(db, targetUsername, {
               authenticated: Boolean(authUserAtual?.uid),
@@ -744,7 +754,12 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
               includeLegacy: true,
               ownerUidCandidates: ownerCandidatesBusca,
             });
-            if (skinByUsername) {
+            const ownerSkinEncontrada = getOwnerUidFromSkinDoc(skinByUsername);
+            const skinPertenceAoOwnerProjeto =
+              !visitanteAutenticadoOneOwner ||
+              !ownerUidProjeto ||
+              ownerSkinEncontrada === ownerUidProjeto;
+            if (skinByUsername && skinPertenceAoOwnerProjeto) {
               skinsSnap = { empty: false, docs: [skinByUsername] };
             }
           } catch (err) {
@@ -854,7 +869,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
             pagesList = await getEspacosDoOwner({
               userId: skinData.ownerUserId,
               viewerUserId: authUserAtual?.uid || null,
-              ignorarVisibilidade: true,
+              ignorarVisibilidade: Boolean(usuarioEhOwnerOneOwner),
             });
             if (usuarioEhOwnerOneOwner && pagesList.length) {
               await Promise.all(
