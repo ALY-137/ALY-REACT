@@ -13,11 +13,12 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
-import { auth, db } from "../../Banco/init-firebase";
+import { activeFirebaseProjectKey, auth, db } from "../../Banco/init-firebase";
 import {
   getPrimaryProjectCollection,
   getPrimaryProjectDoc,
 } from "../../Banco/projectDataRefs";
+import { getProjectDataNamespaceStamp } from "../../Banco/projectDataNamespace";
 import ProjectLoadingFallback from "../Geral/ProjectLoadingFallback";
 import { obterStatusMercadoPago, obterStatusPixManual } from "../Pagamentos/mercadoPagoApi";
 import {
@@ -570,6 +571,7 @@ export default function EspacoManager() {
     const ref = doc(getPrimaryProjectCollection(db, "users", userId, "espacos"));
 
     const novoEspaco = {
+      ...getProjectDataNamespaceStamp(activeFirebaseProjectKey),
       id_espaco: ref.id,
       nome: novoNome.trim(),
       ordem: proxOrdem,

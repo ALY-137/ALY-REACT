@@ -1,5 +1,7 @@
 import { collectionGroup, getDocs, limit, query, where } from "firebase/firestore";
+import { activeFirebaseProjectKey } from "../../Banco/init-firebase";
 import { getProjectCollectionCandidates } from "../../Banco/projectDataRefs";
+import { resolveProjectDataNamespaceKey } from "../../Banco/projectDataNamespace";
 
 const VISIBILIDADES_AUTH = ["publico", "publico_restritivo", "privado"];
 const VISIBILIDADES_SEMI_PUBLICAS = ["publico", "publico_restritivo"];
@@ -51,11 +53,27 @@ function buildSkinQueriesForUsername(
   return queries;
 }
 
-async function firstSkinDocFromQueries(queries = []) {
+function docPertenceAoNamespaceAtivo(docSnap = null) {
+  const namespaceKey = resolveProjectDataNamespaceKey(activeFirebaseProjectKey);
+  if (!namespaceKey) return true;
+
+  const path = String(docSnap?.ref?.path || "").trim();
+  if (!path) return false;
+
+  const segments = path.split("/");
+  return segments[0] === "projetos" && segments[1] === namespaceKey;
+}
+
+async function firstSkinDocFromQueries(queries = [], { filtrarNamespaceAtivo = false } = {}) {
   for (const skinQuery of queries) {
     try {
       const snap = await getDocs(skinQuery);
-      if (!snap.empty) return snap.docs[0];
+      if (!snap.empty) {
+        const docValido = filtrarNamespaceAtivo
+          ? snap.docs.find((docSnap) => docPertenceAoNamespaceAtivo(docSnap))
+          : snap.docs[0];
+        if (docValido) return docValido;
+      }
     } catch (error) {
       if (!isRecoverableSkinQueryError(error)) {
         throw error;
@@ -82,7 +100,7 @@ function buildCollectionGroupQueriesForUsername(
         skinsGroupRef,
         where("username", "==", normalized),
         where("visibilidade", "in", VISIBILIDADES_AUTH),
-        limit(1)
+        limit(25)
       )
     );
     queries.push(
@@ -90,7 +108,7 @@ function buildCollectionGroupQueriesForUsername(
         skinsGroupRef,
         where("username", "==", normalized),
         where("visibilidade", "in", VISIBILIDADES_SEMI_PUBLICAS),
-        limit(1)
+        limit(25)
       )
     );
   }
@@ -100,7 +118,7 @@ function buildCollectionGroupQueriesForUsername(
       skinsGroupRef,
       where("username", "==", normalized),
       where("visibilidade", "==", "publico"),
-      limit(1)
+      limit(25)
     )
   );
 
@@ -110,7 +128,7 @@ function buildCollectionGroupQueriesForUsername(
         skinsGroupRef,
         where("username", "==", normalized),
         where("visibilidade", "==", null),
-        limit(1)
+        limit(25)
       )
     );
   }
@@ -163,7 +181,9 @@ export async function findSkinByUsernameAcrossProject(db, username, options = {}
   // Lookup global por username em todas as skins publicas/permitidas.
   // Evita depender de listagem da colecao /users, que pode ser bloqueada por regras.
   const groupQueries = buildCollectionGroupQueriesForUsername(db, usernameNorm, options);
-  const foundByGroup = await firstSkinDocFromQueries(groupQueries);
+  const foundByGroup = await firstSkinDocFromQueries(groupQueries, {
+    filtrarNamespaceAtivo: true,
+  });
   if (foundByGroup) return foundByGroup;
 
   const usersRefs = getProjectCollectionCandidates(db, "users");

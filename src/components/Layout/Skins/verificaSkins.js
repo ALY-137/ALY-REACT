@@ -9,9 +9,10 @@ import {
   where,
 } from "firebase/firestore";
 
-import { db } from "../../Banco/init-firebase";
+import { activeFirebaseProjectKey, db } from "../../Banco/init-firebase";
 import { sincronizarEstruturaPublicaEspaco } from "../Espacos/firebaseEspacos";
 import { normalizeCyberpinkSubtheme } from "../Temas/cyberpink/subthemes";
+import { getProjectDataNamespaceStamp } from "../../Banco/projectDataNamespace";
 import {
   getProjectCollectionCandidates,
   getProjectDocCandidates,
@@ -38,6 +39,7 @@ export const verificarESalvarskins = async (
     const userRefs = getProjectDocCandidates(db, "users", userId);
     const skinsRefs = getProjectCollectionCandidates(db, "users", userId, "skins");
     const skinsRefPrincipal = skinsRefs[0];
+    const namespaceStamp = getProjectDataNamespaceStamp(activeFirebaseProjectKey);
 
     // Garante documento pai do usuario para evitar "not-found" em updates futuros.
     for (const userRef of userRefs) {
@@ -104,6 +106,7 @@ export const verificarESalvarskins = async (
 
     for (const skinsRef of skinsRefs) {
       await setDoc(doc(skinsRef, id_skin), {
+        ...namespaceStamp,
         ownerUserId: userId,
         id_skin,
         username,
@@ -122,6 +125,7 @@ export const verificarESalvarskins = async (
     const espacosRefPrincipal = espacosRefs[0];
     const id_espaco = doc(espacosRefPrincipal).id;
     const homeData = {
+      ...namespaceStamp,
       id_espaco,
       nome: "Home",
       conteudo: "",

@@ -67,11 +67,11 @@ import {
   storage,
 } from "../../Banco/init-firebase";
 import {
-  getLegacyProjectCollection,
   getProjectCollectionCandidates,
   getProjectDocCandidates,
 } from "../../Banco/projectDataRefs";
 import {
+  getProjectDataNamespaceStamp,
   isProjectDataNamespaced,
   resolveProjectDataNamespaceKey,
 } from "../../Banco/projectDataNamespace";
@@ -140,23 +140,10 @@ import {
 
 const getBlocosCollectionRefs = (ownerUserId, espacoId) =>
   getProjectCollectionCandidates(db, "users", ownerUserId, "espacos", espacoId, "blocos");
-const getLegacyBlocosCollectionRef = (ownerUserId, espacoId) =>
-  getLegacyProjectCollection(db, "users", ownerUserId, "espacos", espacoId, "blocos");
 const getBlocoDocRefs = (ownerUserId, espacoId, blocoId) =>
   getProjectDocCandidates(db, "users", ownerUserId, "espacos", espacoId, "blocos", blocoId);
 const getBlocoCardsCollectionRefs = (ownerUserId, espacoId, blocoId) =>
   getProjectCollectionCandidates(
-    db,
-    "users",
-    ownerUserId,
-    "espacos",
-    espacoId,
-    "blocos",
-    blocoId,
-    "cards"
-  );
-const getLegacyBlocoCardsCollectionRef = (ownerUserId, espacoId, blocoId) =>
-  getLegacyProjectCollection(
     db,
     "users",
     ownerUserId,
@@ -273,45 +260,6 @@ async function adicionarDocsBlocosPorVisibilidade(
   }
 }
 
-async function adicionarDocsLegadosPorVisibilidade(
-  docs,
-  blocosRef,
-  visibilidades = [],
-  debugConsultas = []
-) {
-  const consultas = (Array.isArray(visibilidades) ? visibilidades : []).map((visibilidade) =>
-    ({
-      visibilidade,
-      qRef: query(blocosRef, where("visibilidade", "==", visibilidade)),
-    })
-  );
-
-  for (const consulta of consultas) {
-    try {
-      const snap = await getDocsServidor(consulta.qRef);
-      debugConsultas.push({
-        origem: "legacy-root",
-        path: blocosRef.path,
-        visibilidade: consulta.visibilidade ?? null,
-        count: snap.docs.length,
-        ids: snap.docs.map((d) => d.id),
-      });
-      docs.push(...snap.docs.map((d) => ({ __legacy: false, docSnap: d })));
-    } catch (err) {
-      if (err?.code !== "permission-denied" && err?.code !== "failed-precondition") {
-        throw err;
-      }
-      debugConsultas.push({
-        origem: "legacy-root",
-        path: blocosRef.path,
-        visibilidade: consulta.visibilidade ?? null,
-        errorCode: err?.code || "erro",
-        errorMessage: err?.message || "",
-      });
-    }
-  }
-}
-
 async function adicionarDocsBlocosPorContexto(
   docs,
   blocosRef,
@@ -337,34 +285,6 @@ async function adicionarDocsBlocosPorContexto(
   );
   if (restantes.length) {
     await adicionarDocsBlocosPorVisibilidade(docs, blocosRef, restantes, debugConsultas);
-  }
-}
-
-async function adicionarDocsLegadosPorContexto(
-  docs,
-  blocosRef,
-  visibilidades = [],
-  debugConsultas = []
-) {
-  const lista = Array.isArray(visibilidades) ? visibilidades : [];
-  const incluiPublicas = VISIBILIDADES_BLOCOS_PUBLICAS.some((visibilidade) =>
-    lista.includes(visibilidade)
-  );
-
-  if (incluiPublicas) {
-    await adicionarDocsLegadosPorVisibilidade(
-      docs,
-      blocosRef,
-      VISIBILIDADES_BLOCOS_PUBLICAS,
-      debugConsultas
-    );
-  }
-
-  const restantes = lista.filter(
-    (visibilidade) => !VISIBILIDADES_BLOCOS_PUBLICAS.includes(visibilidade)
-  );
-  if (restantes.length) {
-    await adicionarDocsLegadosPorVisibilidade(docs, blocosRef, restantes, debugConsultas);
   }
 }
 
@@ -941,86 +861,6 @@ const gerarIdCardTemporario = () =>
   `card_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
 const namespaceAtivoProjeto = () => isProjectDataNamespaced(activeFirebaseProjectKey);
-
-async function carregarCardsLegadosRaiz(ownerUserId, espacoId, blocoId) {
-  try {
-    const cardsSnap = await getDocsServidor(getLegacyBlocoCardsCollectionRef(ownerUserId, espacoId, blocoId));
-    return cardsSnap.docs;
-  } catch (err) {
-    if (err?.code === "permission-denied" || err?.code === "failed-precondition") {
-      return [];
-    }
-    throw err;
-  }
-}
-
-async function migrarBlocosLegadosRaizParaNamespace(ownerUserId, espacoId, blocoDocs = []) {
-  if (!namespaceAtivoProjeto() || !Array.isArray(blocoDocs) || !blocoDocs.length) {
-    return false;
-  }
-
-  let migrou = false;
-
-  for (const blocoDoc of blocoDocs) {
-    const blocoId = String(blocoDoc?.id || "").trim();
-    const blocoData = blocoDoc?.data?.() || {};
-    if (!blocoId) continue;
-
-    const cardsLegadosDocs = await carregarCardsLegadosRaiz(ownerUserId, espacoId, blocoId);
-    const cardsLegados = normalizarCardsDoBloco(
-      cardsLegadosDocs.map((cardDoc) => ({
-        id: cardDoc.id,
-        ...cardDoc.data(),
-      }))
-    );
-    const cardsFinal = normalizarCardsDoBloco(
-      Array.isArray(blocoData?.cards) && blocoData.cards.length ? blocoData.cards : cardsLegados
-    );
-
-    const blocoRef = getBlocoDocRefs(ownerUserId, espacoId, blocoId)[0];
-    await setDoc(
-      blocoRef,
-      limparUndefinedFirestore({
-        ...blocoData,
-        id: blocoId,
-        ownerUserId: String(blocoData?.ownerUserId || ownerUserId).trim() || ownerUserId,
-        espacoId: String(blocoData?.espacoId || espacoId).trim() || espacoId,
-        cards: cardsFinal,
-        updatedAt: serverTimestamp(),
-      }),
-      { merge: true }
-    );
-
-    await Promise.all(
-      cardsFinal.map((card) =>
-        setDoc(
-          getBlocoCardDocRefs(ownerUserId, espacoId, blocoId, card.id)[0],
-          limparUndefinedFirestore({
-            id: card.id,
-            ordem: card.ordem,
-            nome: card.nome || "",
-            descricaoExtra: card.descricaoExtra || "",
-            descricaoPrevia: card.descricaoPrevia || "",
-            descricaoCompleta: card.descricaoCompleta || "",
-            descricao: card.descricaoPrevia || card.descricao || "",
-            imagem: card.imagem || "",
-            imagemPath: card.imagemPath || "",
-            linkExterno: card.linkExterno || "",
-            blocoId,
-            espacoId,
-            ownerUserId,
-            updatedAt: serverTimestamp(),
-          }),
-          { merge: true }
-        )
-      )
-    );
-
-    migrou = true;
-  }
-
-  return migrou;
-}
 
 const extrairPrimeiraUrl = (texto = "") => {
   const bruto = String(texto || "").trim();
@@ -5349,97 +5189,6 @@ export default function EspacoPage() {
           if (docs.length) break;
         }
 
-        if (!docs.length) {
-          if (namespaceAtivoProjeto()) {
-            const legacyRootRef = getLegacyBlocosCollectionRef(ownerUserId, espacoId);
-
-            if (consultaColecaoCompletaPermitida) {
-              try {
-                const legacyRootSnap = await getDocsServidor(legacyRootRef);
-                debugConsultas.push({
-                  origem: "legacy-root",
-                  path: legacyRootRef.path,
-                  visibilidade: "*",
-                  count: legacyRootSnap.docs.length,
-                  ids: legacyRootSnap.docs.map((d) => d.id),
-                });
-                if (legacyRootSnap.docs.length) {
-                  await migrarBlocosLegadosRaizParaNamespace(
-                    ownerUserId,
-                    espacoId,
-                    legacyRootSnap.docs
-                  );
-                  docs.push(
-                    ...legacyRootSnap.docs.map((d) => ({ __legacy: false, docSnap: d }))
-                  );
-                }
-              } catch (legacyRootErr) {
-                debugConsultas.push({
-                  origem: "legacy-root",
-                  path: legacyRootRef.path,
-                  visibilidade: "*",
-                  errorCode: legacyRootErr?.code || "erro",
-                  errorMessage: legacyRootErr?.message || "",
-                });
-                if (legacyRootErr?.code !== "permission-denied") {
-                  throw legacyRootErr;
-                }
-                await adicionarDocsLegadosPorVisibilidade(
-                  docs,
-                  legacyRootRef,
-                  VISIBILIDADES_BLOCOS_AUTENTICADO,
-                  debugConsultas
-                );
-              }
-            } else {
-              await adicionarDocsLegadosPorContexto(
-                docs,
-                legacyRootRef,
-                visibilidadesConsulta,
-                debugConsultas
-              );
-            }
-
-            if (docs.length) {
-              try {
-                await migrarBlocosLegadosRaizParaNamespace(
-                  ownerUserId,
-                  espacoId,
-                  docs.map((item) => item.docSnap)
-                );
-              } catch (migracaoErr) {
-                if (
-                  migracaoErr?.code !== "permission-denied" &&
-                  migracaoErr?.code !== "failed-precondition"
-                ) {
-                  throw migracaoErr;
-                }
-              }
-            }
-          }
-        }
-
-        if (docs.length && namespaceAtivoProjeto() && debugDadosPublicosAtivo()) {
-          const legacyRootRefDebug = getLegacyBlocosCollectionRef(ownerUserId, espacoId);
-          const docsLegadosDebug = [];
-          try {
-            await adicionarDocsLegadosPorContexto(
-              docsLegadosDebug,
-              legacyRootRefDebug,
-              visibilidadesConsulta || VISIBILIDADES_BLOCOS_AUTENTICADO,
-              debugConsultas
-            );
-          } catch (debugLegacyErr) {
-            debugConsultas.push({
-              origem: "legacy-root-debug",
-              path: legacyRootRefDebug.path,
-              visibilidade: "debug",
-              errorCode: debugLegacyErr?.code || "erro",
-              errorMessage: debugLegacyErr?.message || "",
-            });
-          }
-        }
-
         if (!docs.length && !namespaceAtivoProjeto()) {
           const legacyQuery = query(
             collection(db, "blocos"),
@@ -5597,25 +5346,6 @@ export default function EspacoPage() {
             const cardsSnap = await getDocsServidor(cardsRef);
             cardsDocs.push(...cardsSnap.docs);
             if (cardsSnap.docs.length) break;
-          }
-          if (!cardsDocs.length && !bloco?.__legacy && namespaceAtivoProjeto()) {
-            const legacyRootCards = await carregarCardsLegadosRaiz(
-              ownerUserId,
-              espacoId,
-              bloco.id
-            );
-            if (legacyRootCards.length) {
-              await migrarBlocosLegadosRaizParaNamespace(ownerUserId, espacoId, [
-                {
-                  id: bloco.id,
-                  data: () => ({
-                    ...bloco,
-                    id: bloco.id,
-                  }),
-                },
-              ]);
-              cardsDocs.push(...legacyRootCards);
-            }
           }
           const cards = normalizarCardsDoBloco(
             cardsDocs.map((cardDoc) => ({
@@ -6426,6 +6156,7 @@ export default function EspacoPage() {
           return setDoc(
             cardRef,
             limparUndefinedFirestore({
+              ...getProjectDataNamespaceStamp(activeFirebaseProjectKey),
               id: card.id,
               ordem: card.ordem,
               nome: card.nome || "",
@@ -7018,6 +6749,7 @@ export default function EspacoPage() {
 
       if (ehNovoCard) {
         await setDoc(cardRef, limparUndefinedFirestore({
+          ...getProjectDataNamespaceStamp(activeFirebaseProjectKey),
           ...payloadFirestore,
           blocoId: bloco.id,
           espacoId,

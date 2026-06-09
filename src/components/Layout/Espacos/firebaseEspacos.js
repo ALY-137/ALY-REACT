@@ -1,6 +1,5 @@
 import {
   doc,
-  getDoc,
   getDocs,
   query,
   setDoc,
@@ -16,13 +15,14 @@ import {
 import { activeFirebaseProjectKey, db } from "../../Banco/init-firebase";
 import {
   getFirstExistingProjectDocSnapshot,
-  getLegacyProjectCollection,
-  getLegacyProjectDoc,
   getPrimaryProjectCollection,
   getProjectCollectionCandidates,
   getProjectDocCandidates,
 } from "../../Banco/projectDataRefs";
-import { isProjectDataNamespaced } from "../../Banco/projectDataNamespace";
+import {
+  getProjectDataNamespaceStamp,
+  isProjectDataNamespaced,
+} from "../../Banco/projectDataNamespace";
 import { normalizeCyberpinkSubtheme } from "../Temas/cyberpink/subthemes";
 
 const VISIBILIDADES_ESPACO_AUTENTICADO = [
@@ -35,16 +35,10 @@ const getEstruturaPublicaEspacosRefs = (userId) =>
   getProjectCollectionCandidates(db, "users", userId, "espacos_publicos");
 const getEstruturaPublicaEspacosRef = (userId) =>
   getPrimaryProjectCollection(db, "users", userId, "espacos_publicos");
-const getLegacyEstruturaPublicaEspacosRef = (userId) =>
-  getLegacyProjectCollection(db, "users", userId, "espacos_publicos");
 const getEspacosRefs = (userId) =>
   getProjectCollectionCandidates(db, "users", userId, "espacos");
-const getLegacyEspacosRef = (userId) =>
-  getLegacyProjectCollection(db, "users", userId, "espacos");
 const getEspacoDocRefs = (userId, espacoId) =>
   getProjectDocCandidates(db, "users", userId, "espacos", espacoId);
-const getLegacyEspacoDocRef = (userId, espacoId) =>
-  getLegacyProjectDoc(db, "users", userId, "espacos", espacoId);
 const getSkinsRefs = (userId) =>
   getProjectCollectionCandidates(db, "users", userId, "skins");
 const getSkinDocRefs = (userId, skinId) =>
@@ -52,71 +46,12 @@ const getSkinDocRefs = (userId, skinId) =>
 
 const namespaceAtivo = () => isProjectDataNamespaced(activeFirebaseProjectKey);
 
-async function migrarEstruturaPublicaLegadaParaNamespace(userId, docs = []) {
-  const userIdNormalizado = String(userId || "").trim();
-  if (!userIdNormalizado || !namespaceAtivo() || !Array.isArray(docs) || !docs.length) {
-    return false;
-  }
-
-  const destino = getEstruturaPublicaEspacosRef(userIdNormalizado);
-  let migrou = false;
-
-  for (const docSnap of docs) {
-    const data = docSnap?.data?.() || {};
-    const idEspaco = String(docSnap?.id || data?.id || data?.id_espaco || "").trim();
-    if (!idEspaco) continue;
-
-    await setDoc(
-      doc(destino, idEspaco),
-      {
-        ...data,
-        id_espaco: idEspaco,
-        ownerUserId: String(data?.ownerUserId || userIdNormalizado).trim() || userIdNormalizado,
-        atualizadoEm: serverTimestamp(),
-      },
-      { merge: true }
-    );
-    migrou = true;
-  }
-
-  return migrou;
-}
-
-async function migrarEspacosLegadosParaNamespace(userId, docs = []) {
-  const userIdNormalizado = String(userId || "").trim();
-  if (!userIdNormalizado || !namespaceAtivo() || !Array.isArray(docs) || !docs.length) {
-    return false;
-  }
-
-  const destino = getPrimaryProjectCollection(db, "users", userIdNormalizado, "espacos");
-  let migrou = false;
-
-  for (const docSnap of docs) {
-    const data = docSnap?.data?.() || {};
-    const idEspaco = String(docSnap?.id || data?.id || data?.id_espaco || "").trim();
-    if (!idEspaco) continue;
-
-    const payload = {
-      ...data,
-      id: idEspaco,
-      id_espaco: idEspaco,
-      ownerUserId: String(data?.ownerUserId || userIdNormalizado).trim() || userIdNormalizado,
-      atualizadoEm: serverTimestamp(),
-    };
-
-    await setDoc(doc(destino, idEspaco), payload, { merge: true });
-    await sincronizarEstruturaPublicaEspaco(userIdNormalizado, payload);
-    migrou = true;
-  }
-
-  return migrou;
-}
-
 export function construirEstruturaPublicaEspaco(espaco = {}, userId = "") {
   const ownerUserId = String(espaco?.ownerUserId || userId || "").trim();
   const idEspaco = String(espaco?.id || espaco?.id_espaco || "").trim();
 
   return {
+    ...getProjectDataNamespaceStamp(activeFirebaseProjectKey),
     id_espaco: idEspaco,
     nome: String(espaco?.nome || "").trim(),
     ordem: Number.isFinite(espaco?.ordem) ? Number(espaco.ordem) : 0,
@@ -199,13 +134,7 @@ export async function getEspacosEstruturaPublica(userId) {
     }
     if (snapAtual.docs.length) break;
   }
-  if ((!snapshot || snapshot.empty) && namespaceAtivo()) {
-    const legacySnap = await getDocs(query(getLegacyEstruturaPublicaEspacosRef(userIdNormalizado)));
-    if (legacySnap.docs.length) {
-      snapshot = legacySnap;
-      await migrarEstruturaPublicaLegadaParaNamespace(userIdNormalizado, legacySnap.docs);
-    }
-  }
+  if ((!snapshot || snapshot.empty) && namespaceAtivo()) return [];
   if (!snapshot && !namespaceAtivo()) return [];
   if (!snapshot) {
     snapshot = { empty: true, docs: [] };
@@ -235,20 +164,7 @@ export async function getEspacoCompleto(userId, espacoId) {
     "espacos",
     espacoIdNormalizado
   );
-  if (!snap?.exists?.()) {
-    if (!namespaceAtivo()) return null;
-
-    const legacySnap = await getDoc(getLegacyEspacoDocRef(userIdNormalizado, espacoIdNormalizado));
-    if (!legacySnap.exists()) return null;
-
-    await migrarEspacosLegadosParaNamespace(userIdNormalizado, [legacySnap]);
-
-    return {
-      id: legacySnap.id,
-      ownerUserId: legacySnap.data()?.ownerUserId || userIdNormalizado,
-      ...legacySnap.data(),
-    };
-  }
+  if (!snap?.exists?.()) return null;
 
   return {
     id: snap.id,
@@ -352,29 +268,6 @@ export async function getEspacosDaSkin({ userId, skinId, viewerUserId = null }) 
         snapshot = compatLegacySnap;
       }
       if (!compatLegacySnap.empty) break;
-    }
-  }
-
-  if (snapshot.empty && namespaceAtivo()) {
-    const legacyEspacosRef = getLegacyEspacosRef(userId);
-    const consultasLegadas = [];
-
-    consultasLegadas.push(query(legacyEspacosRef, where("skins_relacionadas", "array-contains", skinId)));
-    consultasLegadas.push(query(legacyEspacosRef, where("skinOwner", "==", skinId)));
-
-    for (const consulta of consultasLegadas) {
-      try {
-        const legacySnap = await getDocs(consulta);
-        if (!legacySnap.empty) {
-          snapshot = legacySnap;
-          await migrarEspacosLegadosParaNamespace(userId, legacySnap.docs);
-          break;
-        }
-      } catch (err) {
-        if (err?.code !== "permission-denied" && err?.code !== "failed-precondition") {
-          throw err;
-        }
-      }
     }
   }
 
@@ -497,20 +390,6 @@ export async function getEspacosDoOwner({
     }
   }
 
-  if (snapshot.empty && namespaceAtivo()) {
-    try {
-      const legacySnap = await getDocs(query(getLegacyEspacosRef(userId)));
-      if (!legacySnap.empty) {
-        snapshot = legacySnap;
-        await migrarEspacosLegadosParaNamespace(userId, legacySnap.docs);
-      }
-    } catch (err) {
-      if (err?.code !== "permission-denied" && err?.code !== "failed-precondition") {
-        throw err;
-      }
-    }
-  }
-
   return snapshot.docs
     .map((docSnap) => {
       const data = docSnap.data();
@@ -538,6 +417,7 @@ export const createEspaco = async (userId, nome, skins = []) => {
   const novaEspacoRef = doc(espacosRef);
 
   const novoEspaco = {
+    ...getProjectDataNamespaceStamp(activeFirebaseProjectKey),
     id_espaco: novaEspacoRef.id,
     nome,
     conteudo: "",

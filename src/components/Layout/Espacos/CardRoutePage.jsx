@@ -4,11 +4,12 @@ import { collection, doc, getDoc, getDocs } from "firebase/firestore";
 import { getDownloadURL, ref } from "firebase/storage";
 
 import Card from "../Objects/Objetos/Card";
-import { auth, db, storage } from "../../Banco/init-firebase";
+import { activeFirebaseProjectKey, auth, db, storage } from "../../Banco/init-firebase";
 import {
   getLegacyProjectCollection,
   getProjectDocCandidates,
 } from "../../Banco/projectDataRefs";
+import { isProjectDataNamespaced } from "../../Banco/projectDataNamespace";
 import {
   DEFAULT_SISTEMA_CONFIG,
   obterConfigSistemaCacheLocal,
@@ -31,6 +32,8 @@ const isRenderableUrl = (valor) =>
     valor.startsWith("blob:") ||
     valor.startsWith("data:image/")
   );
+
+const namespaceAtivoProjeto = () => isProjectDataNamespaced(activeFirebaseProjectKey);
 
 const normalizarAddOnIds = (value) => {
   if (!Array.isArray(value)) return [];
@@ -235,9 +238,10 @@ export default function CardRoutePage() {
       }
 
       try {
+        const usarFallbackGlobal = !namespaceAtivoProjeto();
         const blocoSnapshot = await getFirstExistingDoc([
           ...getBlocoDocRefs(ownerUserId, espacoId, blocoId),
-          doc(db, "blocos", blocoId),
+          ...(usarFallbackGlobal ? [doc(db, "blocos", blocoId)] : []),
         ]);
         const blocoData = blocoSnapshot?.exists?.()
           ? { id: blocoSnapshot.id, ...blocoSnapshot.data() }
@@ -245,7 +249,7 @@ export default function CardRoutePage() {
 
         const cardSnapshot = await getFirstExistingDoc([
           ...getBlocoCardDocRefs(ownerUserId, espacoId, blocoId, cardId),
-          doc(collection(db, "blocos", blocoId, "cards"), cardId),
+          ...(usarFallbackGlobal ? [doc(collection(db, "blocos", blocoId, "cards"), cardId)] : []),
         ]);
 
         let cardData = cardSnapshot?.exists?.()
@@ -260,7 +264,7 @@ export default function CardRoutePage() {
             null;
         }
 
-        if (!cardData) {
+        if (!cardData && usarFallbackGlobal) {
           const legacyCardsSnap = await getDocs(
             getLegacyProjectCollection(db, "users", ownerUserId, "espacos", espacoId, "blocos", blocoId, "cards")
           ).catch(() => null);

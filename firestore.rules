@@ -486,6 +486,11 @@ service cloud.firestore {
         );
     }
 
+    function hasProjetoNamespaceStamp(projectKey, data) {
+      return (data.projectSystemKey is string) &&
+        data.projectSystemKey == projectKey;
+    }
+
     function canWriteProjetoBlocos(projectKey) {
       return !isProjetoOneOwnerPublicMode(projectKey) || isAdmin() || isProjetoAdmin(projectKey);
     }
@@ -1451,9 +1456,11 @@ service cloud.firestore {
             isOwner(userId) ||
             (signedIn() && resource.data.ownerUserId == request.auth.uid) ||
             canReadPublic(resource.data.visibilidade);
-          allow create: if isAdmin() ||
+          allow create: if hasProjetoNamespaceStamp(projectKey, request.resource.data) && (
+            isAdmin() ||
             isProjetoAdmin(projectKey) ||
-            (isOwner(userId) && request.resource.data.ownerUserId == userId);
+            (isOwner(userId) && request.resource.data.ownerUserId == userId)
+          );
           allow update, delete: if isAdmin() || isProjetoAdmin(projectKey) || isOwner(userId);
 
           match /{subPath=**} {
@@ -1476,15 +1483,18 @@ service cloud.firestore {
 
         match /espacos/{espacoId} {
           allow get, list: if canReadProjetoEspacoEstruturaData(projectKey, resource.data, userId, espacoId);
-          allow create: if isAdmin() ||
+          allow create: if hasProjetoNamespaceStamp(projectKey, request.resource.data) && (
+            isAdmin() ||
             isProjetoAdmin(projectKey) ||
             (isOwner(userId) &&
-              (!('ownerUserId' in request.resource.data) || request.resource.data.ownerUserId == userId));
+              (!('ownerUserId' in request.resource.data) || request.resource.data.ownerUserId == userId))
+          );
           allow update, delete: if canManageProjetoEspacoData(projectKey, resource.data, userId);
 
           match /blocos/{blocoId} {
             allow get, list: if canReadProjetoBlocoData(projectKey, resource.data, userId, espacoId, blocoId);
-            allow create: if isAdmin() || canCreateProjetoEspacoBloco(projectKey, userId, espacoId, request.resource.data);
+            allow create: if hasProjetoNamespaceStamp(projectKey, request.resource.data) &&
+              (isAdmin() || canCreateProjetoEspacoBloco(projectKey, userId, espacoId, request.resource.data));
             allow update, delete: if isAdmin() ||
               (canWriteProjetoBlocos(projectKey) && (
                 canManageProjetoEspacoByPath(projectKey, userId, espacoId) ||
@@ -1504,7 +1514,22 @@ service cloud.firestore {
                   espacoId,
                   blocoId
                 );
-              allow create, update, delete: if isAdmin() ||
+              allow create: if hasProjetoNamespaceStamp(projectKey, request.resource.data) &&
+                (isAdmin() ||
+                (canWriteProjetoBlocos(projectKey) && (
+                  canManageProjetoEspacoByPath(projectKey, userId, espacoId) ||
+                  (
+                    exists(
+                      /databases/$(database)/documents/projetos/$(projectKey)/users/$(userId)/espacos/$(espacoId)/blocos/$(blocoId)
+                    ) &&
+                    canManageBlocoData(
+                      get(
+                        /databases/$(database)/documents/projetos/$(projectKey)/users/$(userId)/espacos/$(espacoId)/blocos/$(blocoId)
+                      ).data
+                    )
+                  )
+                )));
+              allow update, delete: if isAdmin() ||
                 (canWriteProjetoBlocos(projectKey) && (
                   canManageProjetoEspacoByPath(projectKey, userId, espacoId) ||
                   (
@@ -1532,7 +1557,22 @@ service cloud.firestore {
                     espacoId,
                     blocoId
                   );
-                allow create, update, delete: if isAdmin() ||
+                allow create: if hasProjetoNamespaceStamp(projectKey, request.resource.data) &&
+                  (isAdmin() ||
+                  (canWriteProjetoBlocos(projectKey) && (
+                    canManageProjetoEspacoByPath(projectKey, userId, espacoId) ||
+                    (
+                      exists(
+                        /databases/$(database)/documents/projetos/$(projectKey)/users/$(userId)/espacos/$(espacoId)/blocos/$(blocoId)
+                      ) &&
+                      canManageBlocoData(
+                        get(
+                          /databases/$(database)/documents/projetos/$(projectKey)/users/$(userId)/espacos/$(espacoId)/blocos/$(blocoId)
+                        ).data
+                      )
+                    )
+                  )));
+                allow update, delete: if isAdmin() ||
                   (canWriteProjetoBlocos(projectKey) && (
                     canManageProjetoEspacoByPath(projectKey, userId, espacoId) ||
                     (
@@ -1569,7 +1609,9 @@ service cloud.firestore {
 
         match /espacos_publicos/{espacoId} {
           allow get, list: if true;
-          allow create, update, delete: if isAdmin() || isProjetoAdmin(projectKey) || isOwner(userId);
+          allow create: if hasProjetoNamespaceStamp(projectKey, request.resource.data) &&
+            (isAdmin() || isProjetoAdmin(projectKey) || isOwner(userId));
+          allow update, delete: if isAdmin() || isProjetoAdmin(projectKey) || isOwner(userId);
         }
       }
 

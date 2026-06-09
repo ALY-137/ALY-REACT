@@ -82,6 +82,15 @@ export function resolveProjectDataNamespaceKey(activeProjectKey = "") {
   return contextKey;
 }
 
+export function getProjectDataNamespaceStamp(activeProjectKey = "") {
+  const namespaceKey = resolveProjectDataNamespaceKey(activeProjectKey);
+  return namespaceKey
+    ? {
+        projectSystemKey: namespaceKey,
+      }
+    : {};
+}
+
 export function isProjectDataNamespaced(activeProjectKey = "") {
   return Boolean(resolveProjectDataNamespaceKey(activeProjectKey));
 }

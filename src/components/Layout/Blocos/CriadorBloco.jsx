@@ -6,11 +6,12 @@ import {
   uploadBytes,
   getDownloadURL,
 } from "firebase/storage";
-import { db, storage } from "../../Banco/init-firebase";
+import { activeFirebaseProjectKey, db, storage } from "../../Banco/init-firebase";
 import {
   getPrimaryProjectCollection,
   getPrimaryProjectDoc,
 } from "../../Banco/projectDataRefs";
+import { getProjectDataNamespaceStamp } from "../../Banco/projectDataNamespace";
 import {
   uploadArquivoNoBucketCompartilhado,
   usandoBucketCompartilhadoCrossProject,
@@ -828,6 +829,7 @@ export default function CriadorBloco({
     }
 
     const userRef = getPrimaryProjectDoc(db, "users", ownerUserId);
+    const namespaceStamp = getProjectDataNamespaceStamp(activeFirebaseProjectKey);
     await setDoc(
       userRef,
       {
@@ -847,6 +849,7 @@ export default function CriadorBloco({
       await setDoc(
         getPrimaryProjectDoc(db, "users", ownerUserId, "skins", skinDocId),
         {
+          ...namespaceStamp,
           id_skin: skinDocId,
           ownerUserId,
           username:
@@ -866,6 +869,7 @@ export default function CriadorBloco({
     await setDoc(
       getPrimaryProjectDoc(db, "users", ownerUserId, "espacos", espacoId),
       {
+        ...namespaceStamp,
         id_espaco: espacoId,
         nome: espacoAtual?.nome || "home",
         ownerUserId,
@@ -953,6 +957,7 @@ export default function CriadorBloco({
         getPrimaryProjectCollection(db, "users", ownerUserId, "espacos", espacoId, "blocos")
       );
       const blocoId = blocoRef.id;
+      const namespaceStamp = getProjectDataNamespaceStamp(activeFirebaseProjectKey);
 
       if (blocoEhLive) {
         let liveBannerUrlFinal = String(liveBannerUrl || "").trim();
@@ -971,6 +976,7 @@ export default function CriadorBloco({
         }
 
         const blocoPayload = {
+          ...namespaceStamp,
           id: blocoId,
           tipo: "live",
           titulo: tituloBlocoFinal,
@@ -1077,6 +1083,7 @@ export default function CriadorBloco({
         }
 
         const blocoPayload = {
+          ...namespaceStamp,
           id: blocoId,
           tipo: "addons",
           titulo: tituloBlocoFinal,
@@ -1133,6 +1140,7 @@ export default function CriadorBloco({
       if (blocoEhVenda) {
         const produtosVenda = produtosVendaSelecionados.map(criarSnapshotProdutoVenda);
         const blocoPayload = {
+          ...namespaceStamp,
           id: blocoId,
           tipo: "venda",
           titulo: tituloBlocoFinal,
@@ -1215,6 +1223,7 @@ export default function CriadorBloco({
         }
 
         const blocoPayload = {
+          ...namespaceStamp,
           id: blocoId,
           tipo: "cards",
           titulo: tituloBlocoFinal,
@@ -1247,6 +1256,7 @@ export default function CriadorBloco({
             setDoc(
               doc(collection(blocoRef, "cards"), card.id),
               limparUndefinedFirestore({
+                ...namespaceStamp,
                 id: card.id,
                 ordem: card.ordem,
                 nome: card.nome,
@@ -1366,6 +1376,7 @@ export default function CriadorBloco({
 
       // 2) Criar bloco no Firestore
       const blocoPayload = {
+        ...namespaceStamp,
         id: blocoId,
         tipo: "imagem",
         titulo: tituloBlocoFinal,

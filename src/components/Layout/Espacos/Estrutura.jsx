@@ -12,11 +12,12 @@ import {
 } from "firebase/firestore";
 
 import { useAuth } from "../../../hooks/auth/useAuth";
-import { auth, db } from "../../Banco/init-firebase";
+import { activeFirebaseProjectKey, auth, db } from "../../Banco/init-firebase";
 import {
   getPrimaryProjectCollection,
   getPrimaryProjectDoc,
 } from "../../Banco/projectDataRefs";
+import { getProjectDataNamespaceStamp } from "../../Banco/projectDataNamespace";
 import Navegacoes from "../../Scripts/navegacoes/Navegacoes";
 import { seforAdm } from "../../Scripts/verificacoes/verificaAdm";
 import FirebaseProjectBadge from "../Geral/FirebaseProjectBadge";
@@ -211,6 +212,7 @@ const criarSkinUnicaOneOwner = async ({
     const userRef = getPrimaryProjectDoc(db, "users", uid);
     const skinRef = getPrimaryProjectDoc(db, "users", uid, "skins", skinId);
     const espacoRef = getPrimaryProjectDoc(db, "users", uid, "espacos", espacoId);
+    const namespaceStamp = getProjectDataNamespaceStamp(activeFirebaseProjectKey);
 
     await setDoc(
       userRef,
@@ -229,6 +231,7 @@ const criarSkinUnicaOneOwner = async ({
     await setDoc(
       skinRef,
       {
+        ...namespaceStamp,
         ownerUserId: uid,
         id_skin: skinId,
         username: usernameOneOwner,
@@ -246,6 +249,7 @@ const criarSkinUnicaOneOwner = async ({
     await setDoc(
       espacoRef,
       {
+        ...namespaceStamp,
         id_espaco: espacoId,
         nome: "home",
         conteudo: "",
@@ -262,6 +266,7 @@ const criarSkinUnicaOneOwner = async ({
       { merge: true }
     );
     await sincronizarEstruturaPublicaEspaco(uid, {
+      ...namespaceStamp,
       id: espacoId,
       id_espaco: espacoId,
       nome: "home",
