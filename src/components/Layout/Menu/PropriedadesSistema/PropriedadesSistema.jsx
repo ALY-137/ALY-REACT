@@ -227,6 +227,7 @@ function PropriedadesSistema({
   const exibirDestinoPosLogin =
     modoAcessoProjetoAtual === "privado_com_login" ||
     modoAcessoProjetoAtual === "publico_com_area_restrita";
+  const seoBuscaGoogleLiberada = config?.seoBuscaGoogleLiberada === true;
 
   const erroPermissao = (error) => {
     const code = String(error?.code || "").toLowerCase();
@@ -574,6 +575,97 @@ function PropriedadesSistema({
           placeholder="Ex: NovoSistema"
           style={{ width: "100%", marginTop: 8 }}
         />
+
+        <h4 style={{ marginTop: 16, marginBottom: 8 }}>Busca publica</h4>
+        <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <input
+            type="checkbox"
+            checked={seoBuscaGoogleLiberada && config.seoIndexacaoPublica === true}
+            disabled={!seoBuscaGoogleLiberada}
+            onChange={(event) =>
+              setConfig((prev) => ({
+                ...prev,
+                seoIndexacaoPublica: event.target.checked,
+              }))
+            }
+          />
+          Permitir indexacao das paginas publicas do projeto
+        </label>
+        <p style={{ marginTop: 6, opacity: 0.8 }}>
+          Quando desativado, robots, sitemap e meta tags pedem para buscadores nao indexarem o
+          dominio.
+        </p>
+        {!seoBuscaGoogleLiberada ? (
+          <p style={{ marginTop: 6, opacity: 0.8 }}>
+            Funcionalidade bloqueada no Gerenciador de Projetos. Libere este projeto antes de
+            ativar indexacao no Google.
+          </p>
+        ) : null}
+
+        <label htmlFor="seoDescricaoPublica" style={{ display: "block", marginTop: 12 }}>
+          Descricao publica para buscadores
+        </label>
+        <textarea
+          id="seoDescricaoPublica"
+          value={config.seoDescricaoPublica || ""}
+          onChange={(event) =>
+            setConfig((prev) => ({
+              ...prev,
+              seoDescricaoPublica: event.target.value,
+            }))
+          }
+          placeholder="Resumo publico do projeto, produto ou portfolio."
+          rows={3}
+          disabled={!seoBuscaGoogleLiberada}
+          style={{ width: "100%", marginTop: 8 }}
+        />
+
+        <label htmlFor="seoImagemUrl" style={{ display: "block", marginTop: 12 }}>
+          Imagem publica de compartilhamento
+        </label>
+        <input
+          id="seoImagemUrl"
+          type="text"
+          value={config.seoImagemUrl || ""}
+          onChange={(event) =>
+            setConfig((prev) => ({
+              ...prev,
+              seoImagemUrl: event.target.value,
+            }))
+          }
+          placeholder="https://... ou use o upload abaixo"
+          disabled={!seoBuscaGoogleLiberada}
+          style={{ width: "100%", marginTop: 8 }}
+        />
+        <label htmlFor="seoImagemUpload" style={{ display: "block", marginTop: 8 }}>
+          Carregar imagem de compartilhamento
+        </label>
+        <input
+          id="seoImagemUpload"
+          type="file"
+          accept="image/*"
+          onChange={(event) => uploadImagem(event, "seoImagemUrl")}
+          disabled={!seoBuscaGoogleLiberada || salvando || uploadCampoAtivo === "seoImagemUrl"}
+        />
+        {arquivosBrandingSelecionados.seoImagemUrl ? (
+          <p style={{ marginTop: 6, opacity: 0.8 }}>
+            {uploadCampoAtivo === "seoImagemUrl" ? "Enviando arquivo:" : "Arquivo selecionado:"}{" "}
+            {arquivosBrandingSelecionados.seoImagemUrl}
+          </p>
+        ) : null}
+        <div style={{ marginTop: 10, display: "flex", justifyContent: "center" }}>
+          {String(config.seoImagemUrl || "").trim() ? (
+            <img
+              src={config.seoImagemUrl}
+              alt="Preview da imagem publica de compartilhamento"
+              style={{ maxWidth: 220, maxHeight: 120, objectFit: "cover" }}
+            />
+          ) : (
+            <p style={{ margin: 0, opacity: 0.7 }}>
+              Nenhuma imagem publica de compartilhamento configurada.
+            </p>
+          )}
+        </div>
 
         <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
           <input
@@ -1969,6 +2061,22 @@ function PropriedadesSistema({
             />
             Habilitar sistema de chat
           </label>
+
+          {config.chatHabilitado ? (
+            <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, marginLeft: 24 }}>
+              <input
+                type="checkbox"
+                checked={!!config.chatMensagensCriptografadas}
+                onChange={(event) =>
+                  setConfig((prev) => ({
+                    ...prev,
+                    chatMensagensCriptografadas: event.target.checked,
+                  }))
+                }
+              />
+              Criptografar mensagens novas do chat
+            </label>
+          ) : null}
 
           <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <input

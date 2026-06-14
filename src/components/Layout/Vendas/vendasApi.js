@@ -19,7 +19,9 @@ import {
   getProjectCollectionCandidates,
   getProjectDocCandidates,
 } from "../../Banco/projectDataRefs";
+import { encryptChatMessageText } from "../../Banco/chatMessageCrypto";
 import { registrarAuditLog } from "../Sistema/auditLogsApi";
+import { DEFAULT_SISTEMA_CONFIG, obterConfigSistema } from "../Sistema/configSistema";
 
 const PRODUTOS_COLLECTION = "produtos_venda";
 const PEDIDOS_COLLECTION = "pedidos_venda";
@@ -507,6 +509,21 @@ export async function garantirConversaProdutoVenda({
   const assunto = `Duvida sobre ${productSnapshot.nome || "produto"}`;
   const participantUids = uniqueTextList([ownerUid, buyerUid]);
   const textoInicial = normalizeText(mensagemInicial);
+  let chatMensagensCriptografadas = DEFAULT_SISTEMA_CONFIG.chatMensagensCriptografadas;
+  try {
+    const config = await obterConfigSistema();
+    chatMensagensCriptografadas = config?.chatMensagensCriptografadas === true;
+  } catch {
+    chatMensagensCriptografadas = DEFAULT_SISTEMA_CONFIG.chatMensagensCriptografadas;
+  }
+  const criptografarMensagemInicial = Boolean(chatMensagensCriptografadas && textoInicial);
+  const mensagemCriptografia =
+    criptografarMensagemInicial
+      ? await encryptChatMessageText(textoInicial, {
+          contactId: contatoId,
+          conversationId: conversaId,
+        })
+      : null;
 
   const payloadContato = {
     idContato: contatoId,
@@ -542,7 +559,10 @@ export async function garantirConversaProdutoVenda({
     produtoSnapshot: productSnapshot,
     data: serverTimestamp(),
     dataUltimaMensagem: serverTimestamp(),
-    ultimaMensagem: textoInicial || "Conversa iniciada.",
+    ultimaMensagem: criptografarMensagemInicial ? "" : textoInicial || "Conversa iniciada.",
+    ultimaMensagemCriptografada: criptografarMensagemInicial,
+    ultimaMensagemCriptografia: mensagemCriptografia,
+    ultimaMensagemPreview: criptografarMensagemInicial ? "Mensagem criptografada" : "",
   };
 
   for (const contatoRef of getContatoVendaRefs(contatoId)) {
@@ -557,7 +577,10 @@ export async function garantirConversaProdutoVenda({
     const chatRef = getChatVendaRefs(contatoId, conversaId)[0];
     if (chatRef) {
       await addDoc(chatRef, {
-        mensagem: textoInicial,
+        mensagem: criptografarMensagemInicial ? "" : textoInicial,
+        mensagemCriptografada: criptografarMensagemInicial,
+        mensagemCriptografia,
+        mensagemPreview: criptografarMensagemInicial ? "Mensagem criptografada" : "",
         data: serverTimestamp(),
         userRemetente: clienteLabel,
         userUid: buyerUid,

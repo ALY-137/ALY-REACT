@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Card from "../../Objects/Objetos/Card";
 import Container from "../../Objects/Containers/Container";
 import EditorBloco from "../../Blocos/EditorBloco";
@@ -13,6 +13,10 @@ import {
   getCyberpinkSubthemeIconFilter,
   normalizeCyberpinkSubtheme,
 } from "../../Temas/cyberpink/subthemes";
+import {
+  decryptTextBlockContent,
+  isEncryptedTextBlockPayload,
+} from "../../../Banco/textBlockCrypto";
 
 const POST_LOGIN_REDIRECT_KEY = "postLoginRedirectPath";
 
@@ -127,6 +131,7 @@ export default function BlocoPublicoRenderer({
   precoCompradorFormatado,
   blocoEhAddOns,
   blocoEhVenda,
+  blocoEhTexto,
   produtosVenda,
   ownerUserId,
   currentUidAutenticado,
@@ -150,6 +155,62 @@ export default function BlocoPublicoRenderer({
   const [draftsPedidoVenda, setDraftsPedidoVenda] = useState({});
   const [statusPedidoVenda, setStatusPedidoVenda] = useState({});
   const [statusChatProdutoVenda, setStatusChatProdutoVenda] = useState({});
+  const [textoChaveLeitura, setTextoChaveLeitura] = useState("");
+  const [textoDescriptografado, setTextoDescriptografado] = useState("");
+  const [textoStatusCripto, setTextoStatusCripto] = useState("");
+  const textoCriptografado = Boolean(bloco?.textoConteudoCriptografado);
+  const textoCriptografiaValida = isEncryptedTextBlockPayload(bloco?.textoCriptografia);
+  const textoCorpoVisivel = textoCriptografado
+    ? textoDescriptografado
+    : String(bloco?.textoCorpo || bloco?.conteudo || bloco?.descricao || "").trim();
+  const textoParagrafos = useMemo(
+    () =>
+      String(textoCorpoVisivel || "")
+        .split(/\n{2,}/)
+        .map((trecho) => trecho.trim())
+        .filter(Boolean),
+    [textoCorpoVisivel]
+  );
+  const textoImagens = useMemo(
+    () =>
+      (Array.isArray(bloco?.textoImagens) ? bloco.textoImagens : [])
+        .map((item) => ({
+          url: String(item?.url || "").trim(),
+          nome: String(item?.nome || "").trim(),
+        }))
+        .filter((item) => item.url),
+    [bloco?.textoImagens]
+  );
+
+  useEffect(() => {
+    setTextoChaveLeitura("");
+    setTextoDescriptografado("");
+    setTextoStatusCripto("");
+  }, [bloco?.id, bloco?.textoCriptografia?.data]);
+
+  const descriptografarTexto = async () => {
+    if (!textoCriptografiaValida) {
+      setTextoStatusCripto("Conteudo criptografado invalido.");
+      return;
+    }
+    if (!String(textoChaveLeitura || "").trim()) {
+      setTextoStatusCripto("Informe a chave para ler este texto.");
+      return;
+    }
+
+    setTextoStatusCripto("Descriptografando...");
+    try {
+      const textoAberto = await decryptTextBlockContent(
+        bloco.textoCriptografia,
+        textoChaveLeitura
+      );
+      setTextoDescriptografado(textoAberto);
+      setTextoStatusCripto("Conteudo descriptografado nesta sessao.");
+    } catch {
+      setTextoDescriptografado("");
+      setTextoStatusCripto("Chave incorreta ou conteudo indisponivel.");
+    }
+  };
 
   const irParaLoginComRetorno = () => {
     if (typeof window !== "undefined") {
@@ -968,6 +1029,135 @@ export default function BlocoPublicoRenderer({
         </div>
       )}
 
+      {blocoEhTexto && !bloqueado && (
+        <article
+          className={`bloco-texto bloco-texto--${String(bloco?.textoModo || "simples").trim() || "simples"}`}
+          style={{ display: "grid", gap: 14, width: "100%", textAlign: "left" }}
+        >
+          {isRenderableUrl(String(bloco?.imagemCapaUrl || "").trim()) ? (
+            <button
+              type="button"
+              className="image-zoom-trigger bloco-texto__capa-trigger"
+              onClick={() =>
+                abrirModalImagem({
+                  url: String(bloco.imagemCapaUrl).trim(),
+                  titulo: tituloBloco || "Imagem de capa",
+                  alt: "Imagem de capa ampliada",
+                })
+              }
+              style={{ border: "none", background: "transparent", padding: 0, cursor: "zoom-in" }}
+              title="Clique para ampliar"
+            >
+              <img
+                src={String(bloco.imagemCapaUrl).trim()}
+                alt=""
+                className="bloco-texto__capa"
+                style={{
+                  width: "100%",
+                  maxHeight: 320,
+                  objectFit: "cover",
+                  borderRadius: 8,
+                  display: "block",
+                }}
+              />
+            </button>
+          ) : null}
+
+          {bloco?.textoSubtitulo ? (
+            <p className="bloco-texto__subtitulo" style={{ margin: 0, opacity: 0.82 }}>
+              {bloco.textoSubtitulo}
+            </p>
+          ) : null}
+
+          {textoCriptografado && !textoDescriptografado ? (
+            <div
+              className="bloco-texto__crypto"
+              style={{
+                display: "grid",
+                gap: 8,
+                padding: 12,
+                border: "1px solid rgba(255,255,255,0.16)",
+                borderRadius: 8,
+                background: "rgba(0,0,0,0.16)",
+              }}
+            >
+              {bloco?.textoResumoPublico ? (
+                <p style={{ margin: 0 }}>{bloco.textoResumoPublico}</p>
+              ) : null}
+              <strong>Conteudo criptografado</strong>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <input
+                  type="password"
+                  value={textoChaveLeitura}
+                  onChange={(event) => setTextoChaveLeitura(event.target.value)}
+                  placeholder="Chave de leitura"
+                  autoComplete="current-password"
+                />
+                <button type="button" onClick={descriptografarTexto}>
+                  Descriptografar
+                </button>
+              </div>
+              {textoStatusCripto ? (
+                <span style={{ fontSize: 13, opacity: 0.82 }}>{textoStatusCripto}</span>
+              ) : null}
+            </div>
+          ) : textoParagrafos.length ? (
+            <div className="bloco-texto__corpo" style={{ display: "grid", gap: 10 }}>
+              {textoParagrafos.map((paragrafo, index) => (
+                <p key={`${bloco.id}-texto-${index}`} style={{ margin: 0, lineHeight: 1.65 }}>
+                  {paragrafo.split(/\n/).map((linha, linhaIndex) => (
+                    <span key={`${bloco.id}-texto-${index}-${linhaIndex}`}>
+                      {linhaIndex > 0 ? <br /> : null}
+                      {linha}
+                    </span>
+                  ))}
+                </p>
+              ))}
+            </div>
+          ) : null}
+
+          {!!textoImagens.length && (
+            <div
+              className="bloco-texto__imagens"
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
+                gap: 10,
+              }}
+            >
+              {textoImagens.map((imagem, index) => (
+                <button
+                  key={`${bloco.id}-texto-imagem-${index}`}
+                  type="button"
+                  className="image-zoom-trigger"
+                  onClick={() =>
+                    abrirModalImagem({
+                      url: imagem.url,
+                      titulo: imagem.nome || tituloBloco || "Imagem do texto",
+                      alt: "Imagem do texto ampliada",
+                    })
+                  }
+                  style={{ border: "none", background: "transparent", padding: 0, cursor: "zoom-in" }}
+                  title="Clique para ampliar"
+                >
+                  <img
+                    src={imagem.url}
+                    alt={imagem.nome || ""}
+                    style={{
+                      width: "100%",
+                      aspectRatio: "4 / 3",
+                      objectFit: "cover",
+                      borderRadius: 6,
+                      display: "block",
+                    }}
+                  />
+                </button>
+              ))}
+            </div>
+          )}
+        </article>
+      )}
+
       {blocoEhLive && (
         <div style={{ marginBottom: 10 }}>
           {!!liveBannerUrl &&
@@ -1142,7 +1332,7 @@ export default function BlocoPublicoRenderer({
         </div>
       ) : null}
 
-      {podeGerenciar && !blocoEhCards && !blocoEhLive && !blocoEhAddOns && !blocoEhVenda && (
+      {podeGerenciar && !blocoEhCards && !blocoEhLive && !blocoEhAddOns && !blocoEhVenda && !blocoEhTexto && (
         <EditorBloco
           bloco={bloco}
           imagensEditor={imagensEditor}
@@ -1153,7 +1343,7 @@ export default function BlocoPublicoRenderer({
         />
       )}
 
-      {podeGerenciar && (blocoEhCards || blocoEhLive || blocoEhAddOns || blocoEhVenda) && (
+      {podeGerenciar && (blocoEhCards || blocoEhLive || blocoEhAddOns || blocoEhVenda || blocoEhTexto) && (
         <div className="bloco-acoes">
           <button type="button" onClick={() => abrirEditorBlocoCards(bloco)}>
             Editar bloco

@@ -86,6 +86,7 @@ const FORM_INICIAL = {
   preconfigKey: "",
   tipoProjeto: "multiowner",
   domains: "",
+  seoBuscaGoogleLiberada: false,
   ownerUid: "",
   apiKey: "",
   authDomain: "",
@@ -267,6 +268,7 @@ function aplicarPreconfigAoFormulario(formAnterior, preconfig) {
       nomeProjeto: formAnterior?.nomeProjeto || "",
       systemKey: formAnterior?.systemKey || "",
       domains: formAnterior?.domains || "",
+      seoBuscaGoogleLiberada: formAnterior?.seoBuscaGoogleLiberada === true,
       ownerUid: formAnterior?.ownerUid || "",
     };
   }
@@ -283,6 +285,7 @@ function aplicarPreconfigAoFormulario(formAnterior, preconfig) {
     nomeProjeto: formAnterior?.nomeProjeto || "",
     systemKey: formAnterior?.systemKey || "",
     domains: formAnterior?.domains || "",
+    seoBuscaGoogleLiberada: formAnterior?.seoBuscaGoogleLiberada === true,
     ownerUid:
       tipoProjeto === "oneowner"
         ? formAnterior?.ownerUid || normalizeText(preconfig?.configSistemaTemplate?.ownerUid)
@@ -465,6 +468,7 @@ function GerenciadorProjetos() {
   const [domainsProjetoEdicao, setDomainsProjetoEdicao] = useState("");
   const [statusProjetoEdicao, setStatusProjetoEdicao] = useState("ativo");
   const [addOnIdsProjetoEdicao, setAddOnIdsProjetoEdicao] = useState([]);
+  const [seoBuscaGoogleLiberadaEdicao, setSeoBuscaGoogleLiberadaEdicao] = useState(false);
   const [salvandoDomainsProjeto, setSalvandoDomainsProjeto] = useState(false);
   const [limpandoEnvSystemKey, setLimpandoEnvSystemKey] = useState("");
   const [removendoProjetoSystemKey, setRemovendoProjetoSystemKey] = useState("");
@@ -572,6 +576,7 @@ function GerenciadorProjetos() {
       setDomainsProjetoEdicao("");
       setStatusProjetoEdicao("ativo");
       setAddOnIdsProjetoEdicao([]);
+      setSeoBuscaGoogleLiberadaEdicao(false);
       return;
     }
 
@@ -601,6 +606,9 @@ function GerenciadorProjetos() {
             )
           )
         : []
+    );
+    setSeoBuscaGoogleLiberadaEdicao(
+      projetoEmGerenciamento?.configSistema?.seoBuscaGoogleLiberada === true
     );
   }, [projetoEmGerenciamento]);
 
@@ -644,6 +652,7 @@ function GerenciadorProjetos() {
         systemKey: form.systemKey,
         tipoProjeto: normalizeTipoProjeto(form.tipoProjeto),
         domains: form.domains,
+        seoBuscaGoogleLiberada: form.seoBuscaGoogleLiberada === true,
         ownerUid: form.ownerUid,
         preconfigInicial: preconfigSelecionada,
         firebaseConfig:
@@ -929,6 +938,10 @@ function GerenciadorProjetos() {
           ...(projeto.configSistema || {}),
           statusProjeto: statusProjetoEdicao,
           addOnIdsDisponiveis: addOnIdsProjetoEdicao,
+          seoBuscaGoogleLiberada: seoBuscaGoogleLiberadaEdicao,
+          seoIndexacaoPublica: seoBuscaGoogleLiberadaEdicao
+            ? projeto.configSistema?.seoIndexacaoPublica === true
+            : false,
         },
         atualizadoPorUid: user?.uid || null,
       });
@@ -941,6 +954,10 @@ function GerenciadorProjetos() {
           ...(projeto.configSistema || {}),
           statusProjeto: statusProjetoEdicao,
           addOnIdsDisponiveis: addOnIdsProjetoEdicao,
+          seoBuscaGoogleLiberada: seoBuscaGoogleLiberadaEdicao,
+          seoIndexacaoPublica: seoBuscaGoogleLiberadaEdicao
+            ? projeto.configSistema?.seoIndexacaoPublica === true
+            : false,
         },
       };
 
@@ -956,6 +973,10 @@ function GerenciadorProjetos() {
                   ...(item.configSistema || {}),
                   statusProjeto: statusProjetoEdicao,
                   addOnIdsDisponiveis: addOnIdsProjetoEdicao,
+                  seoBuscaGoogleLiberada: seoBuscaGoogleLiberadaEdicao,
+                  seoIndexacaoPublica: seoBuscaGoogleLiberadaEdicao
+                    ? item.configSistema?.seoIndexacaoPublica === true
+                    : false,
                 },
               }
             : item
@@ -1117,6 +1138,19 @@ function GerenciadorProjetos() {
             placeholder="ex: meusite.com , meusite.com.br"
             style={{ width: "100%", marginTop: 6 }}
           />
+
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
+            <input
+              type="checkbox"
+              checked={form.seoBuscaGoogleLiberada === true}
+              onChange={(event) => atualizarCampo("seoBuscaGoogleLiberada", event.target.checked)}
+            />
+            Liberar funcionalidade de busca no Google para este projeto
+          </label>
+          <p style={{ marginTop: 6, opacity: 0.8 }}>
+            Quando desmarcado, o projeto nao gera sitemap indexavel e o robots bloqueia busca,
+            mesmo que existam paginas publicas.
+          </p>
 
           {normalizeTipoProjeto(form.tipoProjeto) !== "oneowner" ? (
             <>
@@ -1312,6 +1346,12 @@ function GerenciadorProjetos() {
                     <p style={{ margin: "2px 0 0 0" }}>
                       Dominios: {(projeto.domains || []).join(", ") || "-"}
                     </p>
+                    <p style={{ margin: "2px 0 0 0" }}>
+                      Google:{" "}
+                      {projeto.configSistema?.seoBuscaGoogleLiberada === true
+                        ? "busca liberada"
+                        : "busca bloqueada"}
+                    </p>
                     <p style={{ margin: "2px 0 10px 0", opacity: 0.75 }}>
                       Origem: {projeto.sourceCollection || "systems"}
                     </p>
@@ -1425,11 +1465,23 @@ function GerenciadorProjetos() {
                 </option>
               ))}
             </select>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <input
+                type="checkbox"
+                checked={seoBuscaGoogleLiberadaEdicao === true}
+                onChange={(event) => setSeoBuscaGoogleLiberadaEdicao(event.target.checked)}
+              />
+              Liberar funcionalidade de busca no Google para este projeto
+            </label>
+            <p style={{ marginTop: -4, marginBottom: 10, opacity: 0.75 }}>
+              Esta permissao libera o uso de sitemap, robots indexavel e metadados SEO. A
+              indexacao final ainda precisa estar ativa nas propriedades do projeto.
+            </p>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button type="button" onClick={salvarDomainsProjeto} disabled={salvandoDomainsProjeto}>
                 {salvandoDomainsProjeto
                   ? "Salvando projeto..."
-                  : "Salvar dominios e status"}
+                  : "Salvar dominios, status e Google"}
               </button>
               <button
                 type="button"

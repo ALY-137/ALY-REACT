@@ -26,6 +26,12 @@ import {
 } from "../../Sistema/configSistema";
 import ProjectLoadingFallback from "../../Geral/ProjectLoadingFallback";
 import { findSkinByUsernameAcrossProject } from "../../Skins/skinLookup";
+import {
+  decryptChatMessageText,
+  encryptChatMessageText,
+  getEncryptedChatPreview,
+  shouldDecryptChatMessage,
+} from "../../../Banco/chatMessageCrypto";
 
 const getFirstRef = (refs = []) => (Array.isArray(refs) && refs.length ? refs[0] : null);
 const getContatoRefs = (contactId) => getProjectDocCandidates(db, "contatos", String(contactId || "").trim());
@@ -78,6 +84,9 @@ function Chat() {
   const [chatMensagens, setChatMensagens] = useState([]);
   const [conversaAtual, setConversaAtual] = useState(null);
   const [chatHabilitado, setChatHabilitado] = useState(DEFAULT_SISTEMA_CONFIG.chatHabilitado);
+  const [chatMensagensCriptografadas, setChatMensagensCriptografadas] = useState(
+    DEFAULT_SISTEMA_CONFIG.chatMensagensCriptografadas
+  );
   const [iconSkinPadraoUrl, setIconSkinPadraoUrl] = useState(
     DEFAULT_SISTEMA_CONFIG.iconSkinPadraoUrl || ""
   );
@@ -96,6 +105,7 @@ function Chat() {
         const config = await obterConfigSistema();
         if (!ativo) return;
         setChatHabilitado(config?.chatHabilitado !== false);
+        setChatMensagensCriptografadas(config?.chatMensagensCriptografadas === true);
         setIconSkinPadraoUrl(
           String(config?.iconSkinPadraoUrl || DEFAULT_SISTEMA_CONFIG.iconSkinPadraoUrl || "")
             .trim()
@@ -103,6 +113,7 @@ function Chat() {
       } catch {
         if (!ativo) return;
         setChatHabilitado(DEFAULT_SISTEMA_CONFIG.chatHabilitado);
+        setChatMensagensCriptografadas(DEFAULT_SISTEMA_CONFIG.chatMensagensCriptografadas);
         setIconSkinPadraoUrl(
           String(DEFAULT_SISTEMA_CONFIG.iconSkinPadraoUrl || "").trim()
         );
@@ -349,6 +360,17 @@ function Chat() {
             const mensagens = await Promise.all(
               snapshot.docs.map(async (docSnap) => {
                 const chatData = docSnap.data();
+                let mensagemFinal = String(chatData?.mensagem || "").trim();
+                if (shouldDecryptChatMessage(chatData)) {
+                  try {
+                    mensagemFinal = await decryptChatMessageText(chatData.mensagemCriptografia, {
+                      contactId,
+                      conversationId,
+                    });
+                  } catch {
+                    mensagemFinal = getEncryptedChatPreview(chatData);
+                  }
+                }
                 const usernameRemetente = String(chatData.userRemetente || "").trim();
                 const userUidRemetente = String(chatData.userUid || "").trim();
                 const senderSkinId = String(chatData.senderSkinId || "").trim();
@@ -368,6 +390,7 @@ function Chat() {
 
                 return {
                   ...chatData,
+                  mensagem: mensagemFinal,
                   data: chatData.data ? chatData.data.toDate() : null,
                   iconSkin: String(iconSkin || iconSkinPadraoUrl || "").trim() || null,
                 };
@@ -416,8 +439,18 @@ function Chat() {
       }
 
       const idChat = doc(collection(db, "_dummy")).id;
+      const textoMensagem = String(mensagem || "").trim();
+      const mensagemCriptografia = chatMensagensCriptografadas
+        ? await encryptChatMessageText(textoMensagem, {
+            contactId: idContato,
+            conversationId: idConversa,
+          })
+        : null;
       const payloadChat = {
-        mensagem,
+        mensagem: chatMensagensCriptografadas ? "" : textoMensagem,
+        mensagemCriptografada: Boolean(chatMensagensCriptografadas),
+        mensagemCriptografia,
+        mensagemPreview: chatMensagensCriptografadas ? "Mensagem criptografada" : "",
         data: serverTimestamp(),
         userRemetente: skinLogadoUser,
         userUid,
@@ -434,7 +467,10 @@ function Chat() {
         await setDoc(
           conversaRef,
           {
-            ultimaMensagem: mensagem,
+            ultimaMensagem: chatMensagensCriptografadas ? "" : textoMensagem,
+            ultimaMensagemCriptografada: Boolean(chatMensagensCriptografadas),
+            ultimaMensagemCriptografia: mensagemCriptografia,
+            ultimaMensagemPreview: chatMensagensCriptografadas ? "Mensagem criptografada" : "",
             dataUltimaMensagem: serverTimestamp(),
           },
           { merge: true }

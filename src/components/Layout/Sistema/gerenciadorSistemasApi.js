@@ -2032,6 +2032,7 @@ export async function criarSistemaNoGerenciador({
   firebaseConfig = {},
   criadoPorUid = null,
   ownerUid = "",
+  seoBuscaGoogleLiberada = false,
   preconfigInicial = null,
 } = {}) {
   const managerDb = getManagerDb();
@@ -2080,6 +2081,7 @@ export async function criarSistemaNoGerenciador({
         preconfigNormalizada?.configSistema?.temaPadraoSistema
     ) || "CYBERPINK";
   const ownerUidNormalizado = normalizeText(ownerUid || configTemplate?.ownerUid);
+  const seoBuscaGoogleLiberadaNormalizada = seoBuscaGoogleLiberada === true;
 
   const configSistemaInicial = {
     ...configTemplate,
@@ -2101,6 +2103,9 @@ export async function criarSistemaNoGerenciador({
         ? configTemplate.exibirTituloSistemaNoLogin
         : true,
     textoLogin: normalizeText(configTemplate?.textoLogin || "EMBARQUE COM O GOOGLE"),
+    seoBuscaGoogleLiberada: seoBuscaGoogleLiberadaNormalizada,
+    seoIndexacaoPublica:
+      seoBuscaGoogleLiberadaNormalizada && configTemplate?.seoIndexacaoPublica === true,
     ownerUid: ownerUidNormalizado,
     adminUid: ownerUidNormalizado,
     projectSystemKey: keyNormalizada,

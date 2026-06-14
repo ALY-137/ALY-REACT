@@ -5,6 +5,7 @@ import {
   getConversaDocRefs,
   getFirstRef,
 } from "./liveRefs";
+import { encryptChatMessageText } from "../../../Banco/chatMessageCrypto";
 
 export async function garantirContatoConversaLive({
   db,
@@ -67,6 +68,7 @@ export async function enviarMensagemContatoLive({
   userUid = "",
   userRemetente = "",
   ownerUserId = "",
+  criptografarMensagens = false,
 }) {
   const idContato = String(contactId || "").trim();
   const idConversa = String(conversationId || "principal").trim() || "principal";
@@ -78,8 +80,18 @@ export async function enviarMensagemContatoLive({
     throw new Error("Chat da live indisponivel.");
   }
 
+  const mensagemCriptografia = criptografarMensagens
+    ? await encryptChatMessageText(texto, {
+        contactId: idContato,
+        conversationId: idConversa,
+      })
+    : null;
+
   await addDoc(chatCollectionRef, {
-    mensagem: texto,
+    mensagem: criptografarMensagens ? "" : texto,
+    mensagemCriptografada: Boolean(criptografarMensagens),
+    mensagemCriptografia,
+    mensagemPreview: criptografarMensagens ? "Mensagem criptografada" : "",
     data: serverTimestamp(),
     userRemetente: userRemetente || userUid,
     userUid,
@@ -94,7 +106,10 @@ export async function enviarMensagemContatoLive({
         idConversa,
         assunto: String(tituloLive || "Live").trim() || "Live",
         dataUltimaMensagem: serverTimestamp(),
-        ultimaMensagem: texto,
+        ultimaMensagem: criptografarMensagens ? "" : texto,
+        ultimaMensagemCriptografada: Boolean(criptografarMensagens),
+        ultimaMensagemCriptografia: mensagemCriptografia,
+        ultimaMensagemPreview: criptografarMensagens ? "Mensagem criptografada" : "",
       },
       { merge: true }
     );
@@ -112,4 +127,3 @@ export async function enviarMensagemContatoLive({
     await setDoc(contatoRef, payloadContato, { merge: true });
   }
 }
-

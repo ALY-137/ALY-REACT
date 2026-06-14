@@ -107,6 +107,10 @@ export const DEFAULT_SISTEMA_CONFIG = {
   cardProfileUrl: "",
   cardProfilePath: "",
   tituloSistema: "ALY-137",
+  seoBuscaGoogleLiberada: false,
+  seoIndexacaoPublica: false,
+  seoDescricaoPublica: "",
+  seoImagemUrl: "",
   exibirTituloSistemaNoLogin: true,
   textoLogin: "EMBARQUE COM O GOOGLE",
   loginLoadingMode: "auto",
@@ -144,6 +148,7 @@ export const DEFAULT_SISTEMA_CONFIG = {
   permitirTemasSkinSecundarios: true,
   metodosLoginHabilitados: { ...METODOS_LOGIN_PADRAO },
   chatHabilitado: true,
+  chatMensagensCriptografadas: false,
   rastreabilidadeAcessosHabilitada: false,
   modoRastreabilidadeAcessos: "preferencial",
   rastreabilidadeCriarLinksPermissao: "dono_espaco",
@@ -968,6 +973,20 @@ export function normalizarConfigSistema(data = {}) {
     DEFAULT_SISTEMA_CONFIG.tituloSistema,
     80
   );
+  const seoDescricaoPublicaNormalizada = normalizarTexto(
+    data.seoDescricaoPublica || data.metaDescricaoPublica || data.descricaoPublica,
+    DEFAULT_SISTEMA_CONFIG.seoDescricaoPublica,
+    300
+  );
+  const seoImagemUrlNormalizada = normalizarTexto(
+    data.seoImagemUrl || data.ogImageUrl || data.imagemCompartilhamentoUrl,
+    DEFAULT_SISTEMA_CONFIG.seoImagemUrl,
+    120000
+  );
+  const seoBuscaGoogleLiberadaNormalizada = normalizarBoolean(
+    data.seoBuscaGoogleLiberada,
+    DEFAULT_SISTEMA_CONFIG.seoBuscaGoogleLiberada
+  );
   const textoLoginNormalizado = normalizarTexto(
     data.textoLogin,
     DEFAULT_SISTEMA_CONFIG.textoLogin,
@@ -1139,6 +1158,13 @@ export function normalizarConfigSistema(data = {}) {
     cardProfileUrl: cardProfileUrlNormalizado,
     cardProfilePath: cardProfilePathNormalizado,
     tituloSistema: tituloSistemaNormalizado,
+    seoBuscaGoogleLiberada: seoBuscaGoogleLiberadaNormalizada,
+    seoIndexacaoPublica: normalizarBoolean(
+      data.seoIndexacaoPublica,
+      DEFAULT_SISTEMA_CONFIG.seoIndexacaoPublica
+    ) && seoBuscaGoogleLiberadaNormalizada,
+    seoDescricaoPublica: seoDescricaoPublicaNormalizada,
+    seoImagemUrl: seoImagemUrlNormalizada,
     exibirTituloSistemaNoLogin: normalizarBoolean(
       data.exibirTituloSistemaNoLogin,
       DEFAULT_SISTEMA_CONFIG.exibirTituloSistemaNoLogin
@@ -1218,6 +1244,10 @@ export function normalizarConfigSistema(data = {}) {
     chatHabilitado: normalizarBoolean(
       data.chatHabilitado,
       DEFAULT_SISTEMA_CONFIG.chatHabilitado
+    ),
+    chatMensagensCriptografadas: normalizarBoolean(
+      data.chatMensagensCriptografadas,
+      DEFAULT_SISTEMA_CONFIG.chatMensagensCriptografadas
     ),
     rastreabilidadeAcessosHabilitada: normalizarBoolean(
       data.rastreabilidadeAcessosHabilitada,

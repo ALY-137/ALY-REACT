@@ -108,7 +108,9 @@ function ListaConversas() {
         const listaConversas = snapshot.docs.map((docSnap) => ({
           conversaId: docSnap.id,
           assunto: docSnap.data().assunto || "Sem assunto",
-          ultimaMensagem: docSnap.data().ultimaMensagem || "Nenhuma mensagem",
+          ultimaMensagem: docSnap.data().ultimaMensagemCriptografada
+            ? docSnap.data().ultimaMensagemPreview || "Mensagem criptografada"
+            : docSnap.data().ultimaMensagem || "Nenhuma mensagem",
           data: docSnap.data().dataUltimaMensagem?.toDate(),
         }));
 

@@ -8,6 +8,10 @@ import {
 } from "firebase/storage";
 import { activeFirebaseProjectKey, db, storage } from "../../Banco/init-firebase";
 import {
+  encryptTextBlockContent,
+  shouldEncryptTextBlockForVisibility,
+} from "../../Banco/textBlockCrypto";
+import {
   getPrimaryProjectCollection,
   getPrimaryProjectDoc,
 } from "../../Banco/projectDataRefs";
@@ -178,6 +182,13 @@ const normalizarSubtemaAddOnOpcional = (value = "") => {
   return bruto ? normalizeCyberpinkSubtheme(bruto) : "";
 };
 
+const TEXTO_MODOS_BLOCO = [
+  { value: "simples", label: "Texto simples" },
+  { value: "artigo", label: "Artigo" },
+  { value: "post", label: "Blog/Post" },
+  { value: "aviso", label: "Aviso" },
+];
+
 const criarSubObjetoAddOn = (addOn = {}, ordem = 0, subtema = "") => {
   const addOnId = String(addOn?.id || "").trim();
   return {
@@ -247,6 +258,15 @@ export default function CriadorBloco({
   const [tipoConteudo, setTipoConteudo] = useState("imagem");
   const [tituloBloco, setTituloBloco] = useState("");
   const [iconeBloco, setIconeBloco] = useState("");
+  const [textoModo, setTextoModo] = useState("simples");
+  const [textoSubtitulo, setTextoSubtitulo] = useState("");
+  const [textoCorpo, setTextoCorpo] = useState("");
+  const [textoResumoPublico, setTextoResumoPublico] = useState("");
+  const [textoChaveCripto, setTextoChaveCripto] = useState("");
+  const [textoImagemCapaUrl, setTextoImagemCapaUrl] = useState("");
+  const [textoImagemCapaArquivo, setTextoImagemCapaArquivo] = useState(null);
+  const [textoImagemCapaPreviewUrl, setTextoImagemCapaPreviewUrl] = useState("");
+  const [textoImagensArquivos, setTextoImagensArquivos] = useState([]);
   const [cards, setCards] = useState([criarCardVazio()]);
   const [liveUrl, setLiveUrl] = useState("");
   const [liveInicioEm, setLiveInicioEm] = useState("");
@@ -621,6 +641,8 @@ export default function CriadorBloco({
   const blocoEhAddOns =
     tipoConteudo === "addons" && addOnsHabilitados && blocoAddOnsHabilitado;
   const blocoEhVenda = tipoConteudo === "venda";
+  const blocoEhTexto = tipoConteudo === "texto";
+  const textoDeveCriptografar = blocoEhTexto && shouldEncryptTextBlockForVisibility(visibilidade);
   const nomeEspacoSingularCapitalizado = capitalizar(nomeEspacoSingular);
   const nomeBlocoSingularCapitalizado = capitalizar(nomeBlocoSingular);
   const iconCollectionsFiltradas = useMemo(
@@ -896,7 +918,14 @@ export default function CriadorBloco({
     if (tipoConteudo === "addons" && !blocoEhAddOns) {
       return alert("Habilite a base de add-ons e os blocos de add-ons no projeto.");
     }
-    if (!blocoEhCards && !blocoEhLive && !blocoEhAddOns && !blocoEhVenda && !files.length) {
+    if (
+      !blocoEhCards &&
+      !blocoEhLive &&
+      !blocoEhAddOns &&
+      !blocoEhVenda &&
+      !blocoEhTexto &&
+      !files.length
+    ) {
       return alert("Selecione ao menos uma imagem");
     }
     if (blocoEhAddOns && !contarAddOnsEmSubBlocos(subBlocosAddOns)) {
@@ -904,6 +933,12 @@ export default function CriadorBloco({
     }
     if (blocoEhVenda && !produtosVendaSelecionados.length) {
       return alert("Selecione ao menos um produto para o bloco de venda.");
+    }
+    if (blocoEhTexto && !String(textoCorpo || "").trim()) {
+      return alert("Escreva o conteudo do bloco de texto.");
+    }
+    if (textoDeveCriptografar && !String(textoChaveCripto || "").trim()) {
+      return alert("Informe uma chave para salvar este texto privado com criptografia.");
     }
 
     const liveInicioMs = blocoEhLive ? parseDateTimeLocalToMs(liveInicioEm) : null;
@@ -1190,6 +1225,103 @@ export default function CriadorBloco({
         return;
       }
 
+      if (blocoEhTexto) {
+        let imagemCapaUrlFinal = String(textoImagemCapaUrl || "").trim();
+        let imagemCapaPathFinal = "";
+
+        if (textoImagemCapaArquivo) {
+          const nomeArquivo = criarNomeArquivoSeguro(
+            textoImagemCapaArquivo.name || "texto-capa.jpg"
+          );
+          const capaPath = `users/${ownerUserId}/espacos/${espacoId}/blocos/${blocoId}/texto/capa/${nomeArquivo}`;
+          const uploadCapa = await subirArquivoStorage(capaPath, textoImagemCapaArquivo);
+          imagemCapaPathFinal = capaPath;
+          if (uploadCapa?.url) {
+            imagemCapaUrlFinal = uploadCapa.url;
+          }
+        }
+
+        const textoImagens = [];
+        for (const arquivo of textoImagensArquivos) {
+          const nomeArquivo = criarNomeArquivoSeguro(arquivo?.name || "texto-imagem.jpg");
+          const imagemPath = `users/${ownerUserId}/espacos/${espacoId}/blocos/${blocoId}/texto/imagens/${nomeArquivo}`;
+          const uploadImagem = await subirArquivoStorage(imagemPath, arquivo);
+          textoImagens.push({
+            url: String(uploadImagem?.url || "").trim(),
+            path: imagemPath,
+            nome: String(arquivo?.name || "").trim(),
+          });
+        }
+
+        const corpoTextoFinal = String(textoCorpo || "").trim();
+        const textoCriptografia = textoDeveCriptografar
+          ? await encryptTextBlockContent(corpoTextoFinal, textoChaveCripto)
+          : null;
+        const textoResumoFinal = String(textoResumoPublico || "").trim();
+
+        const blocoPayload = {
+          ...namespaceStamp,
+          id: blocoId,
+          tipo: "texto",
+          titulo: tituloBlocoFinal,
+          icone: iconeBlocoFinal,
+          iconUrl: iconeBlocoFinal,
+          iconCollectionId: iconPayload.iconCollectionId,
+          iconId: iconPayload.iconId,
+          iconLabel: iconPayload.iconLabel,
+          textoModo,
+          textoSubtitulo: String(textoSubtitulo || "").trim(),
+          textoResumoPublico: textoResumoFinal,
+          textoConteudoCriptografado: Boolean(textoDeveCriptografar),
+          textoCriptografia,
+          textoCorpo: textoDeveCriptografar ? "" : corpoTextoFinal,
+          conteudo: textoDeveCriptografar ? textoResumoFinal : corpoTextoFinal,
+          imagemCapaUrl: imagemCapaUrlFinal,
+          imagemCapaPath: imagemCapaPathFinal,
+          textoImagens: textoImagens.filter((item) => item.url || item.path),
+          imagensPreview: [],
+          imagensPreviewPaths: [],
+          imagensOriginaisPaths: [],
+          imagensOriginaisPublicas: [],
+          imagens: imagemCapaUrlFinal ? [imagemCapaUrlFinal] : [],
+          criadoPor: user.uid,
+          criadoEm: serverTimestamp(),
+          ordem: Date.now(),
+          espacoId,
+          ownerUserId,
+          skinOwner: espacoAtual.skinOwner || activeSkinId || null,
+          visibilidade,
+          precoCentavos: precoCentavos || null,
+          moeda: precoCentavos ? "BRL" : null,
+        };
+
+        const blocoPayloadFirestore = limparUndefinedFirestore(blocoPayload);
+        await setDoc(blocoRef, blocoPayloadFirestore);
+        await registrarAuditoriaCriacaoBloco(blocoPayloadFirestore);
+
+        if (onCreate) {
+          onCreate({
+            ...blocoPayloadFirestore,
+            criadoEm: new Date().toISOString(),
+          });
+        }
+
+        setTextoModo("simples");
+        setTextoSubtitulo("");
+        setTextoCorpo("");
+        setTextoResumoPublico("");
+        setTextoChaveCripto("");
+        setTextoImagemCapaUrl("");
+        setTextoImagemCapaArquivo(null);
+        setTextoImagemCapaPreviewUrl("");
+        setTextoImagensArquivos([]);
+        setTituloBloco("");
+        setIconeBloco("");
+        setValorCompra("");
+        alert(`${nomeBlocoSingularCapitalizado} criado com sucesso!`);
+        return;
+      }
+
       if (blocoEhCards) {
         const cardsNormalizados = normalizarCardsDoBloco(cards);
 
@@ -1448,7 +1580,9 @@ export default function CriadorBloco({
                 ? "add-ons"
                 : blocoEhVenda
                   ? "venda"
-                  : "imagens"
+                  : blocoEhTexto
+                    ? "texto"
+                    : "imagens"
         }`}
       </h3>
 
@@ -1480,13 +1614,147 @@ export default function CriadorBloco({
 
       <select value={tipoConteudo} onChange={(e) => setTipoConteudo(e.target.value)}>
         <option value="imagem">Imagens</option>
+        <option value="texto">Texto</option>
         {blocoCardsHabilitado && <option value="cards">Cards</option>}
         {addOnsHabilitados && blocoAddOnsHabilitado && <option value="addons">Add-ons</option>}
         <option value="venda">Venda</option>
         {livesHabilitadas && <option value="live">Live</option>}
       </select>
 
-      {blocoEhCards ? (
+      {blocoEhTexto ? (
+        <div className="bloco-texto-editor" style={{ width: "100%", display: "grid", gap: 10 }}>
+          <label style={{ display: "grid", gap: 6 }}>
+            <span>Formato do texto</span>
+            <select value={textoModo} onChange={(event) => setTextoModo(event.target.value)}>
+              {TEXTO_MODOS_BLOCO.map((modo) => (
+                <option key={modo.value} value={modo.value}>
+                  {modo.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <input
+            type="text"
+            placeholder="Subtitulo ou chamada (opcional)"
+            value={textoSubtitulo}
+            onChange={(event) => setTextoSubtitulo(event.target.value)}
+          />
+
+          <textarea
+            rows={8}
+            placeholder="Escreva o texto, artigo, aviso ou post..."
+            value={textoCorpo}
+            onChange={(event) => setTextoCorpo(event.target.value)}
+            style={{ resize: "vertical" }}
+          />
+
+          {textoDeveCriptografar ? (
+            <>
+              <strong style={{ fontSize: 13 }}>Criptografia automatica para texto privado</strong>
+              <input
+                type="password"
+                placeholder="Chave local de leitura"
+                value={textoChaveCripto}
+                onChange={(event) => setTextoChaveCripto(event.target.value)}
+                autoComplete="new-password"
+              />
+              <textarea
+                rows={2}
+                placeholder="Resumo publico opcional para aparecer antes da descriptografia"
+                value={textoResumoPublico}
+                onChange={(event) => setTextoResumoPublico(event.target.value)}
+                style={{ resize: "vertical" }}
+              />
+              <p style={{ margin: 0, fontSize: 12, opacity: 0.74 }}>
+                Este texto sera criptografado porque a visibilidade selecionada nao e publica. A chave nao sera salva.
+              </p>
+            </>
+          ) : null}
+
+          <input
+            type="text"
+            placeholder="URL da imagem de capa (opcional)"
+            value={textoImagemCapaUrl}
+            onChange={(event) => {
+              setTextoImagemCapaUrl(event.target.value);
+              setTextoImagemCapaArquivo(null);
+              setTextoImagemCapaPreviewUrl("");
+            }}
+          />
+
+          <label style={{ display: "grid", gap: 6 }}>
+            <span>Imagem de capa do dispositivo</span>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(event) => {
+                const arquivo = event.target.files?.[0] || null;
+                setTextoImagemCapaArquivo(arquivo);
+                setTextoImagemCapaPreviewUrl(arquivo ? URL.createObjectURL(arquivo) : "");
+                if (arquivo) setTextoImagemCapaUrl("");
+                event.target.value = "";
+              }}
+            />
+          </label>
+
+          {(textoImagemCapaPreviewUrl || textoImagemCapaUrl) && (
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <img
+                src={textoImagemCapaPreviewUrl || textoImagemCapaUrl}
+                alt=""
+                style={{ width: 128, height: 80, objectFit: "cover", borderRadius: 4 }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setTextoImagemCapaUrl("");
+                  setTextoImagemCapaArquivo(null);
+                  setTextoImagemCapaPreviewUrl("");
+                }}
+                style={{ color: "red" }}
+              >
+                Remover capa
+              </button>
+            </div>
+          )}
+
+          <label style={{ display: "grid", gap: 6 }}>
+            <span>Imagens complementares</span>
+            <input
+              type="file"
+              multiple
+              accept="image/*"
+              onChange={(event) => {
+                const arquivos = Array.from(event.target.files || []);
+                if (arquivos.length) {
+                  setTextoImagensArquivos((prev) => [...prev, ...arquivos]);
+                }
+                event.target.value = "";
+              }}
+            />
+          </label>
+
+          {!!textoImagensArquivos.length && (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {textoImagensArquivos.map((arquivo, index) => (
+                <button
+                  key={`${arquivo.name}-${arquivo.lastModified}-${index}`}
+                  type="button"
+                  onClick={() =>
+                    setTextoImagensArquivos((prev) =>
+                      prev.filter((_, itemIndex) => itemIndex !== index)
+                    )
+                  }
+                  style={{ color: "red" }}
+                >
+                  Remover: {arquivo.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : blocoEhCards ? (
         <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10 }}>
           {cards.map((card, index) => (
             <div

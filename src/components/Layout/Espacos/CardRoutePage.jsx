@@ -15,6 +15,11 @@ import {
   obterConfigSistemaCacheLocal,
   obterOwnerUidConfigurado,
 } from "../Sistema/configSistema";
+import {
+  aplicarSeoPublico,
+  limparTextoSeo,
+  obterUrlAbsoluta,
+} from "../Sistema/seoUtils";
 import { listarAddOnsDoUsuarioProjeto } from "../Sistema/gerenciadorProjetosApi";
 import {
   obterUrlArquivoNoBucketCompartilhado,
@@ -325,6 +330,84 @@ export default function CardRoutePage() {
       cancelado = true;
     };
   }, [blocoId, cardId, espacoId, ownerUserId, user]);
+
+  useEffect(() => {
+    if (estado.loading) return;
+
+    const tituloSistema = limparTextoSeo(
+      configSistema?.tituloSistema || DEFAULT_SISTEMA_CONFIG.tituloSistema,
+      80
+    );
+    const cardNome = limparTextoSeo(estado.card?.nome || "Card", 90);
+    const blocoNome = limparTextoSeo(
+      estado.bloco?.titulo || estado.bloco?.nome || "",
+      80
+    );
+    const tituloSeo = estado.card
+      ? `${cardNome} | ${tituloSistema}`
+      : `Card indisponivel | ${tituloSistema}`;
+    const descricaoSeo = limparTextoSeo(
+      [
+        estado.card?.descricaoExtra,
+        estado.card?.descricaoCompleta,
+        estado.card?.descricaoPrevia,
+        estado.card?.descricao,
+        blocoNome,
+        configSistema?.seoDescricaoPublica,
+      ].join(" "),
+      300
+    );
+    const canonicalUrl =
+      typeof window !== "undefined"
+        ? new URL(location.pathname || "/", window.location.origin).href
+        : location.pathname || "/";
+    const visibilidadeEspaco = String(espacoAtual?.visibilidade || "publico").toLowerCase();
+    const visibilidadeBloco = String(estado.bloco?.visibilidade || "publico").toLowerCase();
+    const indexable =
+      Boolean(estado.card) &&
+      configSistema?.seoBuscaGoogleLiberada === true &&
+      configSistema?.seoIndexacaoPublica === true &&
+      (!visibilidadeEspaco || visibilidadeEspaco === "publico") &&
+      (!visibilidadeBloco || visibilidadeBloco === "publico");
+
+    aplicarSeoPublico({
+      title: tituloSeo,
+      description: descricaoSeo || configSistema?.seoDescricaoPublica || tituloSistema,
+      image: estado.imagem || configSistema?.seoImagemUrl || configSistema?.logoLoginUrl,
+      url: canonicalUrl,
+      siteName: tituloSistema,
+      type: "article",
+      indexable,
+      jsonLd: estado.card
+        ? {
+            "@context": "https://schema.org",
+            "@type": "CreativeWork",
+            name: cardNome,
+            description: descricaoSeo || tituloSistema,
+            image: estado.imagem ? obterUrlAbsoluta(estado.imagem) : undefined,
+            url: obterUrlAbsoluta(canonicalUrl),
+            inLanguage: "pt-BR",
+            isPartOf: {
+              "@type": "WebSite",
+              name: tituloSistema,
+              url:
+                typeof window !== "undefined"
+                  ? window.location.origin
+                  : "",
+            },
+          }
+        : null,
+    });
+  }, [
+    configSistema,
+    espacoAtual?.visibilidade,
+    estado.bloco,
+    estado.card,
+    estado.erro,
+    estado.imagem,
+    estado.loading,
+    location.pathname,
+  ]);
 
   if (estado.loading) {
     return (

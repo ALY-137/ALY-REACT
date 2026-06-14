@@ -299,9 +299,10 @@ function ListaContatos() {
                     contatoId: contatoIdAtual,
                     conversaId: conversaIdAtual,
                     assunto: String(conversaData?.assunto || "Sem assunto").trim() || "Sem assunto",
-                    ultimaMensagem:
-                      String(conversaData?.ultimaMensagem || "Nenhuma mensagem").trim() ||
-                      "Nenhuma mensagem",
+                    ultimaMensagem: conversaData?.ultimaMensagemCriptografada
+                      ? String(conversaData?.ultimaMensagemPreview || "Mensagem criptografada").trim()
+                      : String(conversaData?.ultimaMensagem || "Nenhuma mensagem").trim() ||
+                        "Nenhuma mensagem",
                     dataUltimaMensagem,
                     nomeContato: contato.nomeUsuarioComum || contato.nomeDestinatario || "Contato",
                     fotoContato: contato.fotoDestinatario || contato.fotoRemetente || "default-user.jpg",

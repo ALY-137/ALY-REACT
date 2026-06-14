@@ -67,6 +67,11 @@ import {
   storage,
 } from "../../Banco/init-firebase";
 import {
+  decryptChatMessageText,
+  getEncryptedChatPreview,
+  shouldDecryptChatMessage,
+} from "../../Banco/chatMessageCrypto";
+import {
   getProjectCollectionCandidates,
   getProjectDocCandidates,
 } from "../../Banco/projectDataRefs";
@@ -94,6 +99,11 @@ import {
   resolverBloqueioCompraAssinaturaPorLocalizacao,
   usuarioCorrespondeOwnerConfigurado,
 } from "../Sistema/configSistema";
+import {
+  aplicarSeoPublico,
+  limparTextoSeo,
+  obterUrlAbsoluta,
+} from "../Sistema/seoUtils";
 import { obterGeoAcessoAtual } from "../Sistema/acessoGeo";
 import { registrarAuditLog } from "../Sistema/auditLogsApi";
 import { usuarioPodeVerAuditoriaCategoriaProjeto } from "../Sistema/modulosPermissoes";
@@ -587,6 +597,79 @@ const lerLocalStorageSeguro = (key = "") => {
   } catch {
     return "";
   }
+};
+
+const isSeoImageUrl = (value = "") => {
+  const url = String(value || "").trim();
+  return (
+    /^https?:\/\//i.test(url) ||
+    url.startsWith("/")
+  );
+};
+
+const obterPrimeiroValorSeo = (values = []) =>
+  (Array.isArray(values) ? values : [])
+    .map((value) => String(value || "").trim())
+    .find(Boolean) || "";
+
+const obterImagemSeoBloco = (bloco = {}) => {
+  const imagens = [
+    bloco?.imagemCapaUrl,
+    bloco?.imagemCapa,
+    ...(Array.isArray(bloco?.imagensPreview) ? bloco.imagensPreview : []),
+    ...(Array.isArray(bloco?.imagens) ? bloco.imagens : []),
+  ];
+
+  normalizarCardsDoBloco(bloco?.cards).forEach((card) => {
+    imagens.push(card.imagem);
+  });
+
+  const produtos = Array.isArray(bloco?.produtosVenda)
+    ? bloco.produtosVenda
+    : (Array.isArray(bloco?.produtos) ? bloco.produtos : []);
+  produtos.forEach((produto) => {
+    imagens.push(
+      produto?.imagemUrl,
+      produto?.imagem,
+      produto?.fotoUrl,
+      produto?.foto
+    );
+  });
+
+  return imagens.map((url) => String(url || "").trim()).find(isSeoImageUrl) || "";
+};
+
+const obterTextoSeoBloco = (bloco = {}) => {
+  const cardsTexto = normalizarCardsDoBloco(bloco?.cards).flatMap((card) => [
+    card.nome,
+    card.descricaoExtra,
+    card.descricaoPrevia,
+    card.descricaoCompleta,
+  ]);
+  const produtos = Array.isArray(bloco?.produtosVenda)
+    ? bloco.produtosVenda
+    : (Array.isArray(bloco?.produtos) ? bloco.produtos : []);
+  const produtosTexto = produtos.flatMap((produto) => [
+    produto?.nome,
+    produto?.titulo,
+    produto?.descricao,
+    produto?.resumo,
+  ]);
+
+  return limparTextoSeo(
+    [
+      bloco?.titulo,
+      bloco?.nome,
+      bloco?.descricao,
+      bloco?.textoSubtitulo,
+      bloco?.textoResumoPublico,
+      bloco?.textoConteudoCriptografado ? "" : bloco?.textoCorpo,
+      bloco?.textoConteudoCriptografado ? "" : bloco?.conteudo,
+      ...cardsTexto,
+      ...produtosTexto,
+    ].join(" "),
+    360
+  );
 };
 const ORDENACAO_BLOCOS_POSTAGEM = "postagem";
 const ORDENACAO_BLOCOS_LIVRE = "livre";
@@ -3339,6 +3422,13 @@ export default function EspacoPage() {
         titulo: String(bloco?.titulo || bloco?.nome || "").trim(),
         icone: String(bloco?.icone || bloco?.iconUrl || "").trim(),
         iconeSelecao: buildIconSelectionValue(bloco),
+        textoModo: String(bloco?.textoModo || "simples").trim() || "simples",
+        textoSubtitulo: String(bloco?.textoSubtitulo || "").trim(),
+        textoCorpo: bloco?.textoConteudoCriptografado
+          ? ""
+          : String(bloco?.textoCorpo || bloco?.conteudo || "").trim(),
+        textoResumoPublico: String(bloco?.textoResumoPublico || "").trim(),
+        textoChaveCripto: "",
       })
     );
   }, []);
@@ -4372,18 +4462,33 @@ export default function EspacoPage() {
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        setLiveChatErro("");
-        const mensagens = snapshot.docs.map((docSnap) => {
-          const data = docSnap.data() || {};
-          return {
-            id: docSnap.id,
-            mensagem: String(data?.mensagem || "").trim(),
-            userRemetente: String(data?.userRemetente || "").trim(),
-            userUid: String(data?.userUid || "").trim(),
-            data: data?.data?.toDate ? data.data.toDate() : null,
-          };
-        });
-        setLiveChatMensagens(mensagens);
+        void (async () => {
+          setLiveChatErro("");
+          const mensagens = await Promise.all(
+            snapshot.docs.map(async (docSnap) => {
+              const data = docSnap.data() || {};
+              let mensagemTexto = String(data?.mensagem || "").trim();
+              if (shouldDecryptChatMessage(data)) {
+                try {
+                  mensagemTexto = await decryptChatMessageText(data.mensagemCriptografia, {
+                    contactId: liveModal.contactId,
+                    conversationId: liveModal.conversationId,
+                  });
+                } catch {
+                  mensagemTexto = getEncryptedChatPreview(data);
+                }
+              }
+              return {
+                id: docSnap.id,
+                mensagem: mensagemTexto,
+                userRemetente: String(data?.userRemetente || "").trim(),
+                userUid: String(data?.userUid || "").trim(),
+                data: data?.data?.toDate ? data.data.toDate() : null,
+              };
+            })
+          );
+          setLiveChatMensagens(mensagens);
+        })();
       },
       (erroSnapshot) => {
         if (erroSnapshot?.code === "permission-denied") {
@@ -4945,6 +5050,10 @@ export default function EspacoPage() {
             bloco?.tipo,
             bloco?.descricao,
             bloco?.conteudo,
+            bloco?.textoModo,
+            bloco?.textoSubtitulo,
+            bloco?.textoResumoPublico,
+            bloco?.textoConteudoCriptografado ? "" : bloco?.textoCorpo,
             bloco?.visibilidade,
             ...cardsTexto,
             ...subBlocosTexto,
@@ -5023,6 +5132,112 @@ export default function EspacoPage() {
   useEffect(() => {
     setVisibleBlocosCount(BLOCOS_PAGE_SIZE);
   }, [espacoId, ownerUserId, blocos.length]);
+
+  const blocosPublicosSeo = useMemo(
+    () =>
+      (Array.isArray(blocos) ? blocos : []).filter((bloco) => {
+        const visibilidade = String(bloco?.visibilidade || "publico").trim().toLowerCase();
+        return !visibilidade || visibilidade === "publico";
+      }),
+    [blocos]
+  );
+  const descricaoSeoEspaco = useMemo(() => {
+    const textosBlocos = blocosPublicosSeo
+      .map((bloco) => obterTextoSeoBloco(bloco))
+      .filter(Boolean);
+    return limparTextoSeo(
+      obterPrimeiroValorSeo([
+        configSistemaAtual?.seoDescricaoPublica,
+        espacoAtualEfetivo?.descricao,
+        espacoAtualEfetivo?.conteudo,
+        ...textosBlocos,
+        configSistemaAtual?.textoLogin,
+        configSistemaAtual?.tituloSistema,
+      ]),
+      300
+    );
+  }, [
+    blocosPublicosSeo,
+    configSistemaAtual?.seoDescricaoPublica,
+    configSistemaAtual?.textoLogin,
+    configSistemaAtual?.tituloSistema,
+    espacoAtualEfetivo?.conteudo,
+    espacoAtualEfetivo?.descricao,
+  ]);
+  const imagemSeoEspaco = useMemo(
+    () =>
+      obterPrimeiroValorSeo([
+        ...blocosPublicosSeo.map((bloco) => obterImagemSeoBloco(bloco)),
+        configSistemaAtual?.seoImagemUrl,
+        configSistemaAtual?.logoLoginUrl,
+        configSistemaAtual?.cardProfileUrl,
+      ]),
+    [
+      blocosPublicosSeo,
+      configSistemaAtual?.cardProfileUrl,
+      configSistemaAtual?.logoLoginUrl,
+      configSistemaAtual?.seoImagemUrl,
+    ]
+  );
+
+  useEffect(() => {
+    const tituloSistema = limparTextoSeo(
+      configSistemaAtual?.tituloSistema || DEFAULT_SISTEMA_CONFIG.tituloSistema,
+      80
+    );
+    const nomeEspacoSeo = limparTextoSeo(
+      espacoAtualEfetivo?.nome || espacoNome || "",
+      80
+    );
+    const tituloSeo =
+      nomeEspacoSeo && nomeEspacoSeo.toLowerCase() !== "home"
+        ? `${nomeEspacoSeo} | ${tituloSistema}`
+        : tituloSistema;
+    const canonicalUrl =
+      typeof window !== "undefined"
+        ? new URL(location.pathname || "/", window.location.origin).href
+        : location.pathname || "/";
+    const indexable =
+      configSistemaAtual?.seoBuscaGoogleLiberada === true &&
+      configSistemaAtual?.seoIndexacaoPublica === true &&
+      (!visibilidadeEspaco || String(visibilidadeEspaco).toLowerCase() === "publico");
+
+    aplicarSeoPublico({
+      title: tituloSeo,
+      description: descricaoSeoEspaco || tituloSistema,
+      image: imagemSeoEspaco,
+      url: canonicalUrl,
+      siteName: tituloSistema,
+      type: "website",
+      indexable,
+      jsonLd: {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        name: tituloSeo,
+        description: descricaoSeoEspaco || tituloSistema,
+        url: obterUrlAbsoluta(canonicalUrl),
+        inLanguage: "pt-BR",
+        isPartOf: {
+          "@type": "WebSite",
+          name: tituloSistema,
+          url:
+            typeof window !== "undefined"
+              ? window.location.origin
+              : "",
+        },
+      },
+    });
+  }, [
+    configSistemaAtual?.seoBuscaGoogleLiberada,
+    configSistemaAtual?.seoIndexacaoPublica,
+    configSistemaAtual?.tituloSistema,
+    descricaoSeoEspaco,
+    espacoAtualEfetivo?.nome,
+    espacoNome,
+    imagemSeoEspaco,
+    location.pathname,
+    visibilidadeEspaco,
+  ]);
 
   useEffect(() => {
     if (termoBuscaConteudo) return undefined;
@@ -6092,6 +6307,7 @@ export default function EspacoPage() {
         userUid: currentUidAutenticado,
         userRemetente: nomeRemetenteLive || currentUid,
         ownerUserId: String(liveModal?.ownerUserId || ownerUserIdLiveFallback || "").trim(),
+        criptografarMensagens: configSistemaAtual?.chatMensagensCriptografadas === true,
       });
 
       setLiveChatMensagem("");
@@ -6350,6 +6566,23 @@ export default function EspacoPage() {
         iconLabel,
         updatedAt: serverTimestamp(),
       };
+
+      if (bloco?.tipo === "texto") {
+        const textoFields = [
+          "textoModo",
+          "textoSubtitulo",
+          "textoResumoPublico",
+          "textoConteudoCriptografado",
+          "textoCriptografia",
+          "textoCorpo",
+          "conteudo",
+        ];
+        textoFields.forEach((field) => {
+          if (Object.prototype.hasOwnProperty.call(updates, field)) {
+            payload[field] = updates[field];
+          }
+        });
+      }
 
       setErroAcaoBloco("");
       setBlocoEmAtualizacaoId(blocoId);
@@ -7193,6 +7426,7 @@ export default function EspacoPage() {
           const blocoEhLive = bloco?.tipo === "live";
           const blocoEhAddOns = bloco?.tipo === "addons";
           const blocoEhVenda = bloco?.tipo === "venda";
+          const blocoEhTexto = bloco?.tipo === "texto";
           const cardsDoBloco = normalizarCardsDoBloco(bloco?.cards);
           const produtosVenda = Array.isArray(bloco?.produtosVenda)
             ? bloco.produtosVenda
@@ -7295,7 +7529,7 @@ export default function EspacoPage() {
               null,
           })).filter((item) => item.originalPath || item.previewPath || item.displayUrl);
 
-          const imagensParaExibir = blocoEhCards || blocoEhLive || blocoEhAddOns || blocoEhVenda
+          const imagensParaExibir = blocoEhCards || blocoEhLive || blocoEhAddOns || blocoEhVenda || blocoEhTexto
             ? []
             : bloqueado
             ? imagensBloqueadas
@@ -7360,6 +7594,7 @@ export default function EspacoPage() {
               precoCompradorFormatado={precoCompradorFormatado}
               blocoEhAddOns={blocoEhAddOns}
               blocoEhVenda={blocoEhVenda}
+              blocoEhTexto={blocoEhTexto}
               produtosVenda={produtosVenda}
               ownerUserId={ownerUserId}
               currentUidAutenticado={currentUidAutenticado}
