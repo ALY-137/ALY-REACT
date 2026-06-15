@@ -54,6 +54,7 @@ const UNIQUE_SHARED_BUCKET_AUTH_PROJECTS = [...new Set(SHARED_BUCKET_ALLOWED_AUT
 const SHARED_ONEOWNER_RUNTIME_KEYS = new Set(["aly-onepages-runtime"]);
 const ACCESS_SETTINGS_COLLECTION = "access_settings";
 const ACCESS_REGISTRATION_SETTINGS_DOC = "registro";
+const MANAGER_SECURITY_SETTINGS_DOC = "gerenciador";
 const sharedVerifierApps = new Map();
 const sharedProjectRuntimeApps = new Map();
 const ADMIN_ONLY_AUTH_PROJECTS = [
@@ -789,10 +790,152 @@ function normalizeAccessUserBlockList(value = []) {
     .slice(0, 500);
 }
 
+function normalizeManagerSecurityIpEntry(value = "") {
+  return sanitizeString(value)
+    .replace(/^::ffff:/, "")
+    .replace(/\s+/g, "")
+    .toLowerCase();
+}
+
+function normalizeManagerSecurityIpList(value = []) {
+  const rawList = Array.isArray(value)
+    ? value
+    : sanitizeString(value).split(/[\n,;]+/g);
+
+  return [...new Set(
+    rawList
+      .map((item) => normalizeManagerSecurityIpEntry(item))
+      .filter(Boolean)
+  )].slice(0, 500);
+}
+
+function ipv4ToNumber(ip = "") {
+  const parts = sanitizeString(ip).split(".");
+  if (parts.length !== 4) return null;
+
+  let result = 0;
+  for (const part of parts) {
+    if (!/^\d{1,3}$/.test(part)) return null;
+    const value = Number(part);
+    if (!Number.isInteger(value) || value < 0 || value > 255) return null;
+    result = ((result << 8) + value) >>> 0;
+  }
+  return result >>> 0;
+}
+
+function ipv4MatchesCidr(ip = "", cidr = "") {
+  const [baseIp, prefixRaw] = sanitizeString(cidr).split("/");
+  const ipNumber = ipv4ToNumber(ip);
+  const baseNumber = ipv4ToNumber(baseIp);
+  const prefix = Number(prefixRaw);
+  if (ipNumber === null || baseNumber === null) return false;
+  if (!Number.isInteger(prefix) || prefix < 0 || prefix > 32) return false;
+  if (prefix === 0) return true;
+
+  const mask = (0xffffffff << (32 - prefix)) >>> 0;
+  return (ipNumber & mask) === (baseNumber & mask);
+}
+
+function ipMatchesManagerSecurityEntry(ip = "", entry = "") {
+  const normalizedIp = normalizeManagerSecurityIpEntry(ip);
+  const normalizedEntry = normalizeManagerSecurityIpEntry(entry);
+  if (!normalizedIp || !normalizedEntry) return false;
+  if (normalizedIp === normalizedEntry) return true;
+
+  if (normalizedEntry.includes("/")) {
+    return ipv4MatchesCidr(normalizedIp, normalizedEntry);
+  }
+
+  if (normalizedEntry.endsWith(".*")) {
+    const prefix = normalizedEntry.slice(0, -1);
+    return normalizedIp.startsWith(prefix);
+  }
+
+  return false;
+}
+
+function normalizeManagerSecuritySettings(data = {}) {
+  const bloqueioIpAtivo =
+    data.bloqueioIpAtivo === true ||
+    data.filtroIpHabilitado === true ||
+    data.ipAllowlistEnabled === true;
+  const modoObservacao =
+    data.modoObservacao === true ||
+    data.observacao === true ||
+    data.enforcementMode === "observe";
+
+  return {
+    bloqueioIpAtivo,
+    modoObservacao,
+    ipsPermitidos: normalizeManagerSecurityIpList(
+      data.ipsPermitidos || data.allowedIps || data.ipAllowlist
+    ),
+    bloquearSemIp: data.bloquearSemIp !== false,
+    registrarTentativas: data.registrarTentativas !== false,
+  };
+}
+
+function evaluateManagerSecurityAccess(settings = {}, ip = "") {
+  const normalizedSettings = normalizeManagerSecuritySettings(settings);
+  const ipNormalizado = normalizeManagerSecurityIpEntry(ip);
+  const enforcementActive =
+    normalizedSettings.bloqueioIpAtivo === true &&
+    normalizedSettings.modoObservacao !== true;
+
+  if (!normalizedSettings.bloqueioIpAtivo) {
+    return {
+      allowed: true,
+      wouldBlock: false,
+      reason: "disabled",
+      ip: ipNormalizado,
+      enforcementActive,
+    };
+  }
+
+  if (!ipNormalizado) {
+    const wouldBlock = normalizedSettings.bloquearSemIp === true;
+    return {
+      allowed: !enforcementActive || !wouldBlock,
+      wouldBlock,
+      reason: wouldBlock ? "missing_ip" : "missing_ip_allowed",
+      ip: ipNormalizado,
+      enforcementActive,
+    };
+  }
+
+  const matched = normalizedSettings.ipsPermitidos.some((entry) =>
+    ipMatchesManagerSecurityEntry(ipNormalizado, entry)
+  );
+
+  if (matched) {
+    return {
+      allowed: true,
+      wouldBlock: false,
+      reason: "ip_allowed",
+      ip: ipNormalizado,
+      enforcementActive,
+    };
+  }
+
+  return {
+    allowed: !enforcementActive,
+    wouldBlock: true,
+    reason: "ip_not_allowed",
+    ip: ipNormalizado,
+    enforcementActive,
+  };
+}
+
 function getAccessRegistrationSettingsRef(managerDb) {
   return managerDb
     .collection(ACCESS_SETTINGS_COLLECTION)
     .doc(ACCESS_REGISTRATION_SETTINGS_DOC);
+}
+
+function getManagerSecuritySettingsRef(managerDb) {
+  return managerDb
+    .collection(ACCESS_SETTINGS_COLLECTION)
+    .doc(MANAGER_SECURITY_SETTINGS_DOC);
 }
 
 async function getAccessRegistrationSettings(managerDb) {
@@ -818,6 +961,16 @@ async function getAccessRegistrationSettings(managerDb) {
       ipsBloqueadosRegistro: [],
       usuariosBloqueadosRegistro: [],
     };
+  }
+}
+
+async function getManagerSecuritySettings(managerDb) {
+  try {
+    const snap = await getManagerSecuritySettingsRef(managerDb).get();
+    const data = snap.exists ? snap.data() || {} : {};
+    return normalizeManagerSecuritySettings(data);
+  } catch {
+    return normalizeManagerSecuritySettings({});
   }
 }
 
@@ -5637,6 +5790,175 @@ exports.obterConfigAcessosGerenciadorHttp = onRequest(
       res.json({
         ok: true,
         ...settings,
+      });
+    } catch (error) {
+      sendHttpError(res, error);
+    }
+  }
+);
+
+exports.verificarAcessoGerenciadorHttp = onRequest(
+  HTTP_OPTIONS,
+  async (req, res) => {
+    if (handleHttpCorsPreflight(req, res)) return;
+
+    try {
+      if (req.method !== "POST") {
+        res.status(405).json({ ok: false, error: "Metodo nao permitido." });
+        return;
+      }
+
+      const body = normalizeRequestBody(req);
+      const middlewareSecret = sanitizeString(process.env.MANAGER_ACCESS_GATE_SECRET);
+      const requestSecret = sanitizeString(
+        req.headers?.["x-aly137-manager-gate-secret"] ||
+          req.headers?.["X-Aly137-Manager-Gate-Secret"]
+      );
+      const ipInformadoPorMiddleware =
+        middlewareSecret && requestSecret === middlewareSecret
+          ? sanitizeString(body?.clientIp || body?.ip || body?.requestIp)
+          : "";
+      const clientIp = ipInformadoPorMiddleware || extractClientIp(req);
+      const hostname = normalizeHostValue(body?.hostname || body?.host);
+      const path = sanitizeString(body?.path || body?.pathname || "/").slice(0, 300);
+      const managerDb = getSystemManagerDb();
+      const settings = await getManagerSecuritySettings(managerDb);
+      const evaluation = evaluateManagerSecurityAccess(settings, clientIp);
+
+      if (settings.registrarTentativas) {
+        await managerDb.collection("acessos").add({
+          uid: null,
+          email: null,
+          displayName: null,
+          autenticado: false,
+          perfilAcesso: "admin_gate",
+          projectSystemKey: SYSTEM_MANAGER_PROJECT_ID,
+          runtimeProjectId: SYSTEM_MANAGER_PROJECT_ID,
+          tipoExperiencia: "manager",
+          hostname: hostname || null,
+          path,
+          fullPath: path,
+          userAgent: sanitizeString(req.headers?.["user-agent"]) || null,
+          eventoTipo: "admin_access_gate",
+          eventoAcao: evaluation.allowed ? "allowed" : "denied",
+          bloqueado: !evaluation.allowed,
+          bloqueadoPor: evaluation.allowed ? null : "manager_ip_allowlist",
+          motivoBloqueio: evaluation.reason,
+          modoObservacao: settings.modoObservacao === true,
+          filtroIpHabilitado: settings.bloqueioIpAtivo === true,
+          enforcementActive: evaluation.enforcementActive === true,
+          wouldBlock: evaluation.wouldBlock === true,
+          ip: evaluation.ip || null,
+          origem: sanitizeString(body?.source) || "manager_access_gate",
+          visto: false,
+          data: serverTimestamp(),
+          criadoEm: serverTimestamp(),
+        });
+      }
+
+      res.json({
+        ok: true,
+        allowed: evaluation.allowed === true,
+        blocked: evaluation.allowed !== true,
+        wouldBlock: evaluation.wouldBlock === true,
+        reason: evaluation.reason,
+        ip: evaluation.ip || "",
+        filtroIpHabilitado: settings.bloqueioIpAtivo === true,
+        modoObservacao: settings.modoObservacao === true,
+        enforcementActive: evaluation.enforcementActive === true,
+      });
+    } catch (error) {
+      sendHttpError(res, error);
+    }
+  }
+);
+
+exports.obterConfigSegurancaGerenciadorHttp = onRequest(
+  HTTP_OPTIONS,
+  async (req, res) => {
+    if (handleHttpCorsPreflight(req, res)) return;
+
+    try {
+      if (req.method !== "POST") {
+        res.status(405).json({ ok: false, error: "Metodo nao permitido." });
+        return;
+      }
+
+      const token = getBearerToken(req);
+      const { decoded } = await verifySharedBucketIdToken(token);
+      await assertSystemManagerAdminIdentity({
+        uid: decoded?.uid,
+        email: decoded?.email,
+      });
+
+      const managerDb = getSystemManagerDb();
+      const settings = await getManagerSecuritySettings(managerDb);
+
+      res.json({
+        ok: true,
+        ...settings,
+        ipAtual: normalizeManagerSecurityIpEntry(extractClientIp(req)),
+      });
+    } catch (error) {
+      sendHttpError(res, error);
+    }
+  }
+);
+
+exports.salvarConfigSegurancaGerenciadorHttp = onRequest(
+  HTTP_OPTIONS,
+  async (req, res) => {
+    if (handleHttpCorsPreflight(req, res)) return;
+
+    try {
+      if (req.method !== "POST") {
+        res.status(405).json({ ok: false, error: "Metodo nao permitido." });
+        return;
+      }
+
+      const body = normalizeRequestBody(req);
+      const token = getBearerToken(req);
+      const { decoded } = await verifySharedBucketIdToken(token);
+      await assertSystemManagerAdminIdentity({
+        uid: decoded?.uid,
+        email: decoded?.email,
+      });
+
+      const settings = normalizeManagerSecuritySettings(body || {});
+      const managerDb = getSystemManagerDb();
+      await getManagerSecuritySettingsRef(managerDb).set(
+        {
+          ...settings,
+          updatedAt: serverTimestamp(),
+          updatedByUid: sanitizeString(decoded?.uid) || null,
+          updatedByEmail: sanitizeString(decoded?.email) || null,
+        },
+        { merge: true }
+      );
+
+      await writeAuditLog(managerDb, {
+        action: "salvou_seguranca_gerenciador",
+        entityType: "accessSettings",
+        entityId: MANAGER_SECURITY_SETTINGS_DOC,
+        actorUid: decoded?.uid,
+        actorEmail: decoded?.email,
+        source: "gerenciador_function",
+        snapshotDepois: {
+          bloqueioIpAtivo: settings.bloqueioIpAtivo,
+          modoObservacao: settings.modoObservacao,
+          totalIpsPermitidos: settings.ipsPermitidos.length,
+          bloquearSemIp: settings.bloquearSemIp,
+          registrarTentativas: settings.registrarTentativas,
+        },
+        metadata: {
+          totalIpsPermitidos: settings.ipsPermitidos.length,
+        },
+      });
+
+      res.json({
+        ok: true,
+        ...settings,
+        ipAtual: normalizeManagerSecurityIpEntry(extractClientIp(req)),
       });
     } catch (error) {
       sendHttpError(res, error);

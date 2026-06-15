@@ -51,6 +51,7 @@ import {
   temaSistemaUsaLoginRitual,
 } from "./components/Layout/Temas/themesRegistry";
 import { isProjectInMaintenance } from "./components/Layout/Sistema/projectStatus";
+import { verificarAcessoGerenciador } from "./components/Layout/Sistema/gerenciadorSistemasApi";
 
 import "./App.css";
 import "./components/Layout/Temas/system-base-login.css";
@@ -90,6 +91,12 @@ const App = () => {
   const [setupAdminBootstrap, setSetupAdminBootstrap] = useState(false);
   const [encerrandoSessaoGerenciador, setEncerrandoSessaoGerenciador] = useState(false);
   const [erroAcessoGerenciador, setErroAcessoGerenciador] = useState("");
+  const [gateSegurancaGerenciador, setGateSegurancaGerenciador] = useState({
+    carregando: false,
+    bloqueado: false,
+    mensagem: "",
+    ip: "",
+  });
   const [erroResolucaoProjeto, setErroResolucaoProjeto] = useState("");
   const [splashEntradaPublicaConcluida, setSplashEntradaPublicaConcluida] = useState(false);
   const snapshotSolicitacoesInicializadoRef = useRef(false);
@@ -268,6 +275,80 @@ const App = () => {
     configSistemaPronta,
     user,
   ]);
+
+  useEffect(() => {
+    let ativo = true;
+
+    const verificarGateGerenciador = async () => {
+      if (!isManagerProject || !configSistemaPronta) {
+        if (ativo) {
+          setGateSegurancaGerenciador({
+            carregando: false,
+            bloqueado: false,
+            mensagem: "",
+            ip: "",
+          });
+        }
+        return;
+      }
+
+      const hostname =
+        typeof window !== "undefined" ? String(window.location.hostname || "") : "";
+      if (isLocalHostRuntime(hostname)) {
+        if (ativo) {
+          setGateSegurancaGerenciador({
+            carregando: false,
+            bloqueado: false,
+            mensagem: "",
+            ip: "",
+          });
+        }
+        return;
+      }
+
+      setGateSegurancaGerenciador((prev) => ({
+        ...prev,
+        carregando: true,
+        mensagem: "",
+      }));
+
+      try {
+        const resultado = await verificarAcessoGerenciador({
+          hostname,
+          path:
+            typeof window !== "undefined"
+              ? `${window.location.pathname || "/"}${window.location.search || ""}`
+              : location.pathname || "/",
+        });
+        if (!ativo) return;
+
+        setGateSegurancaGerenciador({
+          carregando: false,
+          bloqueado: resultado?.allowed === false,
+          mensagem:
+            resultado?.allowed === false
+              ? "Acesso administrativo indisponivel para esta rede."
+              : "",
+          ip: resultado?.ip || "",
+        });
+      } catch (error) {
+        if (!ativo) return;
+        console.warn("Falha ao verificar seguranca do gerenciador:", error);
+        setGateSegurancaGerenciador({
+          carregando: false,
+          bloqueado: false,
+          mensagem: "",
+          ip: "",
+        });
+      }
+    };
+
+    void verificarGateGerenciador();
+
+    return () => {
+      ativo = false;
+    };
+  }, [isManagerProject, configSistemaPronta, location.pathname, location.search]);
 
   useEffect(() => {
     let ativo = true;
@@ -778,6 +859,33 @@ const App = () => {
 
   if (encerrandoSessaoGerenciador) {
     return renderTelaCarregamento();
+  }
+
+  if (isManagerProject && gateSegurancaGerenciador.carregando) {
+    return renderTelaCarregamento();
+  }
+
+  if (isManagerProject && gateSegurancaGerenciador.bloqueado) {
+    return (
+      <div id="login" className={`containerLogin ${mostrarLogin ? "fadeIn" : ""}`}>
+        <div id="iconsLogin">
+          <div id="loginMain">
+            <p id="logoTxt">ACESSO INDISPONIVEL</p>
+          </div>
+          <div id="divLogin" style={{ justifyContent: "center", gap: 10 }}>
+            <p id="textoLogin">
+              {gateSegurancaGerenciador.mensagem ||
+                "Acesso administrativo indisponivel para esta rede."}
+            </p>
+            {gateSegurancaGerenciador.ip ? (
+              <p id="rodapeLogin" style={{ marginTop: 12 }}>
+                IP detectado: {gateSegurancaGerenciador.ip}
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (erroResolucaoProjeto) {

@@ -696,6 +696,48 @@ Tambem foram adicionadas meta tags dinamicas no frontend para paginas publicas d
 
 A camada de SEO nao altera permissoes de Firestore ou Storage. Ela apenas publica referencias indexaveis para conteudo que ja esta classificado como publico pela politica de visibilidade do projeto.
 
+## Seguranca do Gerenciador
+
+Foi criada uma camada propria para controlar o acesso ao projeto gerenciador, separada dos registros comuns de acesso.
+
+Modelo adotado:
+
+```txt
+Seguranca do Gerenciador = configuracao/regra administrativa
+Registro de Acessos = evidencia/log do que aconteceu
+```
+
+A configuracao fica em:
+
+```txt
+access_settings/gerenciador
+```
+
+Campos principais:
+
+```js
+{
+  bloqueioIpAtivo: true,
+  modoObservacao: true,
+  ipsPermitidos: ["203.0.113.10", "203.0.113.0/24"],
+  bloquearSemIp: true,
+  registrarTentativas: true
+}
+```
+
+Regras de uso:
+
+1. Quando `bloqueioIpAtivo` esta falso, o gerenciador segue o fluxo normal de login e permissao de owner.
+2. Quando `modoObservacao` esta verdadeiro, o sistema registra o que seria bloqueado, mas nao impede o acesso.
+3. Quando `bloqueioIpAtivo` esta verdadeiro e `modoObservacao` esta falso, apenas IPs permitidos podem abrir o gerenciador.
+4. A tela de login do gerenciador so deve aparecer depois da verificacao do IP.
+5. As tentativas permitidas e bloqueadas podem ser registradas em `acessos` como `eventoTipo: "admin_access_gate"`.
+6. A lista de IPs permitidos nao deve ficar em colecoes publicas como `systems`, porque essa informacao e sensivel.
+
+A configuracao e editada pela gaveta `SEGURANCA DO GERENCIADOR`. Ela aceita IP exato, wildcard IPv4 simples e CIDR IPv4.
+
+Tambem foi incluido um middleware opcional para Vercel. Ele so bloqueia na borda quando a env `MANAGER_ACCESS_GATE_SECRET` estiver configurada, evitando bloqueio acidental durante deploys ou ambientes incompletos. Sem essa env, a barreira aplicada e a checagem do app com o backend compartilhado.
+
 Eventos cobertos nesta etapa:
 
 1. Criacao, edicao e exclusao de blocos.

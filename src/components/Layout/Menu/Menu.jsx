@@ -63,6 +63,7 @@ const SEGMENTOS_RESERVADOS_MENU = new Set([
   "gerenciador-icones",
   "gerenciador-addons",
   "gerenciador-projetos",
+  "seguranca-gerenciador",
 ]);
 
 function ehSegmentoReservadoMenu(valor) {
@@ -365,6 +366,10 @@ function Menu({ menuOpen }) {
     navigateIfChanged(`/menu/${menuTargetUser}/gerenciador-projetos`);
   }
 
+  function abrirSegurancaGerenciador() {
+    navigateIfChanged(`/menu/${menuTargetUser}/seguranca-gerenciador`);
+  }
+
   async function logoff() {
     const hostAtual = String(window.location.hostname || "").toLowerCase();
     const executandoNoLocalhost =
@@ -568,6 +573,10 @@ function Menu({ menuOpen }) {
           setBackAction(() => returnMenu);
         } else if (path.endsWith("/gerenciador-projetos")) {
           setAtualTxt("GERENCIADO DE PROJETOS");
+          setBackText("MENU");
+          setBackAction(() => returnMenu);
+        } else if (path.endsWith("/seguranca-gerenciador")) {
+          setAtualTxt("SEGURANCA DO GERENCIADOR");
           setBackText("MENU");
           setBackAction(() => returnMenu);
         }
@@ -922,6 +931,9 @@ function Menu({ menuOpen }) {
             </div>
             <div onClick={abrirGerenciadoProjetos} className="gavetaOption">
               GERENCIADO DE PROJETOS
+            </div>
+            <div onClick={abrirSegurancaGerenciador} className="gavetaOption">
+              SEGURANCA DO GERENCIADOR
             </div>
           </>
         ) : null}

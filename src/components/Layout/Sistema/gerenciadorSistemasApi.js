@@ -154,6 +154,44 @@ function normalizarUsuariosBloqueadosRegistro(value = []) {
   ).slice(0, 500);
 }
 
+export function normalizarIpsPermitidosGerenciador(value = []) {
+  const lista = Array.isArray(value)
+    ? value
+    : normalizeText(value).split(/[\n,;]+/g);
+
+  return Array.from(
+    new Set(
+      lista
+        .map((item) =>
+          normalizeText(item)
+            .replace(/^::ffff:/, "")
+            .replace(/\s+/g, "")
+            .toLowerCase()
+        )
+        .filter(Boolean)
+    )
+  ).slice(0, 500);
+}
+
+function normalizarConfigSegurancaGerenciador(data = {}) {
+  return {
+    bloqueioIpAtivo:
+      data?.bloqueioIpAtivo === true ||
+      data?.filtroIpHabilitado === true ||
+      data?.ipAllowlistEnabled === true,
+    modoObservacao:
+      data?.modoObservacao === true ||
+      data?.observacao === true ||
+      data?.enforcementMode === "observe",
+    ipsPermitidos: normalizarIpsPermitidosGerenciador(
+      data?.ipsPermitidos || data?.allowedIps || data?.ipAllowlist
+    ),
+    bloquearSemIp: data?.bloquearSemIp !== false,
+    registrarTentativas: data?.registrarTentativas !== false,
+    ipAtual: normalizeText(data?.ipAtual || data?.ip || data?.clientIp),
+  };
+}
+
 function buildAccessRangeStart(startDate = "") {
   const normalized = normalizeText(startDate);
   if (!normalized) return null;
@@ -1092,6 +1130,104 @@ export async function salvarConfigAcessosNoGerenciador({
     ipsBloqueadosRegistro: ipsNormalizados,
     usuariosBloqueadosRegistro: usuariosNormalizados,
   };
+}
+
+export async function verificarAcessoGerenciador({
+  hostname = "",
+  path = "",
+} = {}) {
+  const response = await postSharedFunctionJson("verificarAcessoGerenciadorHttp", {
+    payload: {
+      hostname: normalizeHost(hostname),
+      path: normalizeText(path) || "/",
+      source: "client_gate",
+    },
+  });
+
+  return {
+    ok: response?.ok !== false,
+    allowed: response?.allowed !== false,
+    blocked: response?.blocked === true || response?.allowed === false,
+    wouldBlock: response?.wouldBlock === true,
+    reason: normalizeText(response?.reason),
+    ip: normalizeText(response?.ip),
+    filtroIpHabilitado: response?.filtroIpHabilitado === true,
+    modoObservacao: response?.modoObservacao === true,
+    enforcementActive: response?.enforcementActive === true,
+  };
+}
+
+export async function obterConfigSegurancaGerenciador() {
+  const managerDb = getManagerDb();
+
+  try {
+    const response = await callSharedManagerRead("obterConfigSegurancaGerenciadorHttp", {});
+    return normalizarConfigSegurancaGerenciador(response || {});
+  } catch (error) {
+    if (!managerDb || !shouldFallbackToDirectManagerRead(error)) {
+      throw error;
+    }
+  }
+
+  const snap = await getDoc(doc(managerDb, "access_settings", "gerenciador"));
+  return normalizarConfigSegurancaGerenciador(snap.exists() ? snap.data() || {} : {});
+}
+
+export async function salvarConfigSegurancaGerenciador({
+  bloqueioIpAtivo = false,
+  modoObservacao = true,
+  ipsPermitidos = [],
+  bloquearSemIp = true,
+  registrarTentativas = true,
+} = {}) {
+  const payload = normalizarConfigSegurancaGerenciador({
+    bloqueioIpAtivo,
+    modoObservacao,
+    ipsPermitidos,
+    bloquearSemIp,
+    registrarTentativas,
+  });
+  const managerDb = getManagerDb();
+
+  try {
+    const response = await callSharedManagerAction(
+      "salvarConfigSegurancaGerenciadorHttp",
+      payload
+    );
+    return normalizarConfigSegurancaGerenciador(response || payload);
+  } catch (error) {
+    if (!managerDb || !shouldFallbackToDirectManagerRead(error)) {
+      throw error;
+    }
+  }
+
+  await setDoc(
+    doc(managerDb, "access_settings", "gerenciador"),
+    {
+      ...payload,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
+
+  await auditarEventoGerenciador({
+    action: "salvou_seguranca_gerenciador",
+    entityType: "accessSettings",
+    entityId: "gerenciador",
+    snapshotDepois: {
+      bloqueioIpAtivo: payload.bloqueioIpAtivo,
+      modoObservacao: payload.modoObservacao,
+      totalIpsPermitidos: payload.ipsPermitidos.length,
+      bloquearSemIp: payload.bloquearSemIp,
+      registrarTentativas: payload.registrarTentativas,
+    },
+    metadata: {
+      fallbackDireto: true,
+      totalIpsPermitidos: payload.ipsPermitidos.length,
+    },
+  });
+
+  return payload;
 }
 
 function extrairConfigSistemaDoDocumento(data = {}) {

@@ -35,6 +35,7 @@ import PropriedadesSistema from "./components/Layout/Menu/Gerenciador/Propriedad
 import GerenciadorProjetos from "./components/Layout/Menu/Gerenciador/GerenciadorProjetos";
 import GerenciadorIcones from "./components/Layout/Menu/Gerenciador/GerenciadorIcones";
 import GerenciadorAddOns from "./components/Layout/Menu/Gerenciador/GerenciadorAddOns";
+import SegurancaGerenciador from "./components/Layout/Menu/Gerenciador/SegurancaGerenciador";
 import Auditoria from "./components/Layout/Menu/Gerenciador/Auditoria/Auditoria";
 import SolicitacoesPixManual from "./components/Layout/Pagamentos/SolicitacoesPixManual";
 import GerenciadorVendas from "./components/Layout/Vendas/GerenciadorVendas";
@@ -147,6 +148,7 @@ export default function RouterComponent() {
         { path: "gerenciador-icones", element: <GerenciadorIcones /> },
         { path: "gerenciador-addons", element: <Navigate to="../gerenciador-projetos" replace /> },
         { path: "gerenciador-projetos", element: <GerenciadorProjetos /> },
+        { path: "seguranca-gerenciador", element: <SegurancaGerenciador /> },
       ]
     : [
         { path: "contatos", element: <ListaContatos /> },

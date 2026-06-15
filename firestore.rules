@@ -1184,6 +1184,10 @@ service cloud.firestore {
       allow read, update, delete: if isAdmin();
     }
 
+    match /access_settings/{settingId} {
+      allow read, write: if isAdmin();
+    }
+
     match /auditLogs/{auditId} {
       allow create: if isValidAuditLogCreate();
       allow read: if canViewAuditLogData(resource.data);
