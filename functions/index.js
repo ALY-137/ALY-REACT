@@ -310,6 +310,55 @@ async function assertAdminOnlyAuthAllowed(event) {
   );
 }
 
+async function assertManagerSecurityIpAllowedForAuthEvent(event) {
+  if (!shouldEnforceAdminOnlyAuth()) {
+    return;
+  }
+
+  const managerDb = getSystemManagerDb();
+  const settings = await getManagerSecuritySettings(managerDb);
+  const evaluation = evaluateManagerSecurityAccess(settings, event?.ipAddress || "");
+
+  if (settings.registrarTentativas) {
+    try {
+      await managerDb.collection("acessos").add({
+        uid: sanitizeString(event?.data?.uid) || null,
+        email: sanitizeString(event?.data?.email).toLowerCase() || null,
+        displayName: sanitizeString(event?.data?.displayName) || null,
+        autenticado: false,
+        perfilAcesso: "admin_auth_gate",
+        projectSystemKey: SYSTEM_MANAGER_PROJECT_ID,
+        runtimeProjectId: SYSTEM_MANAGER_PROJECT_ID,
+        tipoExperiencia: "manager",
+        userAgent: sanitizeString(event?.userAgent) || null,
+        eventoTipo: "admin_auth_gate",
+        eventoAcao: evaluation.allowed ? "allowed" : "denied",
+        bloqueado: !evaluation.allowed,
+        bloqueadoPor: evaluation.allowed ? null : "manager_ip_allowlist",
+        motivoBloqueio: evaluation.reason,
+        modoObservacao: settings.modoObservacao === true,
+        filtroIpHabilitado: settings.bloqueioIpAtivo === true,
+        enforcementActive: evaluation.enforcementActive === true,
+        wouldBlock: evaluation.wouldBlock === true,
+        ip: evaluation.ip || null,
+        origem: "auth_blocking_before_sign_in",
+        visto: false,
+        data: serverTimestamp(),
+        criadoEm: serverTimestamp(),
+      });
+    } catch (error) {
+      console.warn("Falha ao registrar gate de Auth do gerenciador:", error?.message || error);
+    }
+  }
+
+  if (evaluation.allowed !== true) {
+    throw new IdentityHttpsError(
+      "permission-denied",
+      "Acesso administrativo indisponivel para esta rede."
+    );
+  }
+}
+
 function buildTokenizedStorageUrl(bucket, path, token) {
   return `https://firebasestorage.googleapis.com/v0/b/${encodeURIComponent(
     bucket
@@ -3747,6 +3796,7 @@ exports.bloquearCriacaoUsuarioNaoAdmin = beforeUserCreated(
   IDENTITY_OPTIONS,
   async (event) => {
     await assertAdminOnlyAuthAllowed(event);
+    await assertManagerSecurityIpAllowedForAuthEvent(event);
   }
 );
 
@@ -3754,6 +3804,7 @@ exports.bloquearLoginUsuarioNaoAdmin = beforeUserSignedIn(
   IDENTITY_OPTIONS,
   async (event) => {
     await assertAdminOnlyAuthAllowed(event);
+    await assertManagerSecurityIpAllowedForAuthEvent(event);
   }
 );
 
@@ -6014,13 +6065,16 @@ exports.verificarAcessoGerenciadorHttp = onRequest(
       }
 
       const body = normalizeRequestBody(req);
+      const source = sanitizeString(body?.source);
       const middlewareSecret = sanitizeString(process.env.MANAGER_ACCESS_GATE_SECRET);
       const requestSecret = sanitizeString(
         req.headers?.["x-aly137-manager-gate-secret"] ||
           req.headers?.["X-Aly137-Manager-Gate-Secret"]
       );
+      const trustedVercelMiddleware =
+        source === "vercel_middleware" && !sanitizeString(req.headers?.origin);
       const ipInformadoPorMiddleware =
-        middlewareSecret && requestSecret === middlewareSecret
+        (middlewareSecret && requestSecret === middlewareSecret) || trustedVercelMiddleware
           ? sanitizeString(body?.clientIp || body?.ip || body?.requestIp)
           : "";
       const clientIp = ipInformadoPorMiddleware || extractClientIp(req);
@@ -6054,7 +6108,7 @@ exports.verificarAcessoGerenciadorHttp = onRequest(
           enforcementActive: evaluation.enforcementActive === true,
           wouldBlock: evaluation.wouldBlock === true,
           ip: evaluation.ip || null,
-          origem: sanitizeString(body?.source) || "manager_access_gate",
+          origem: source || "manager_access_gate",
           visto: false,
           data: serverTimestamp(),
           criadoEm: serverTimestamp(),

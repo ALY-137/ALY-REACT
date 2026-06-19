@@ -62,20 +62,35 @@ function getClientIp(request) {
   return candidates[0] || "";
 }
 
+function denyManagerAccess(message, status = 403) {
+  return new Response(message || "Acesso administrativo indisponivel para esta rede.", {
+    status,
+    headers: {
+      "content-type": "text/plain; charset=utf-8",
+      "cache-control": "no-store",
+    },
+  });
+}
+
 export default async function middleware(request) {
   const url = new URL(request.url);
   if (!shouldProtectHost(url.hostname)) return undefined;
 
   const secret = normalizeText(process.env.MANAGER_ACCESS_GATE_SECRET);
   const gateUrl = getSharedFunctionsBaseUrl();
-  if (!secret || !gateUrl) return undefined;
+  if (!gateUrl) {
+    return denyManagerAccess(
+      "Acesso administrativo temporariamente indisponivel: gate de rede nao configurado.",
+      503
+    );
+  }
 
   try {
     const response = await fetch(gateUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-aly137-manager-gate-secret": secret,
+        ...(secret ? { "x-aly137-manager-gate-secret": secret } : {}),
       },
       body: JSON.stringify({
         hostname: url.hostname,
@@ -86,17 +101,21 @@ export default async function middleware(request) {
     });
 
     const payload = await response.json().catch(() => ({}));
-    if (response.ok && payload?.allowed === false) {
-      return new Response("Acesso administrativo indisponivel para esta rede.", {
-        status: 403,
-        headers: {
-          "content-type": "text/plain; charset=utf-8",
-          "cache-control": "no-store",
-        },
-      });
+    if (!response.ok || payload?.ok === false) {
+      return denyManagerAccess(
+        "Nao foi possivel validar a rede de acesso ao gerenciador.",
+        503
+      );
+    }
+
+    if (payload?.allowed !== true) {
+      return denyManagerAccess("Acesso administrativo indisponivel para esta rede.");
     }
   } catch {
-    return undefined;
+    return denyManagerAccess(
+      "Nao foi possivel validar a rede de acesso ao gerenciador.",
+      503
+    );
   }
 
   return undefined;

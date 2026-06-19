@@ -152,7 +152,7 @@ export default function SegurancaGerenciador() {
       <div>
         <h2>Seguranca do Gerenciador</h2>
         <p>
-          Configure a primeira barreira antes da tela de login do projeto gerenciador.
+          Configure a primeira barreira antes da tela de login e no login do Auth administrativo.
         </p>
       </div>
 
@@ -166,7 +166,7 @@ export default function SegurancaGerenciador() {
             checked={config.bloqueioIpAtivo === true}
             onChange={(event) => atualizarCampo("bloqueioIpAtivo", event.target.checked)}
           />
-          Ativar filtro por IP antes do login
+          Ativar filtro por IP antes do login e no Auth
         </label>
 
         <label style={{ display: "flex", alignItems: "center", gap: 8 }}>

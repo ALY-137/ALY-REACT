@@ -336,8 +336,9 @@ const App = () => {
         console.warn("Falha ao verificar seguranca do gerenciador:", error);
         setGateSegurancaGerenciador({
           carregando: false,
-          bloqueado: false,
-          mensagem: "",
+          bloqueado: true,
+          mensagem:
+            "Nao foi possivel validar a rede de acesso. Por seguranca, o gerenciador foi bloqueado.",
           ip: "",
         });
       }
