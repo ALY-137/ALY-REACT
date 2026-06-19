@@ -1585,6 +1585,7 @@ function auditLogPassesFilters(data = {}, {
   entityId = "",
   auditCategory = "",
   severity = "",
+  onlyUnreadSignals = false,
   startMs = NaN,
   endMs = NaN,
 } = {}) {
@@ -1606,6 +1607,14 @@ function auditLogPassesFilters(data = {}, {
   if (entityId && itemEntityId !== entityId) return false;
   if (auditCategory && itemAuditCategory !== auditCategory) return false;
   if (severity && itemSeverity !== severity) return false;
+  if (
+    onlyUnreadSignals &&
+    (data?.sinalizacaoMenuLida === true ||
+      data?.sinalizacaoLida === true ||
+      data?.alertaLido === true)
+  ) {
+    return false;
+  }
   if (Number.isFinite(startMs) && (!Number.isFinite(timestampMs) || timestampMs < startMs)) {
     return false;
   }
@@ -1625,6 +1634,7 @@ async function listAuditLogDocsForManager(
     entityId = "",
     auditCategory = "",
     severity = "",
+    onlyUnreadSignals = false,
     startDate = "",
     endDate = "",
     maxItems = 300,
@@ -1667,6 +1677,7 @@ async function listAuditLogDocsForManager(
             entityId: normalizedEntityId,
             auditCategory: normalizedAuditCategory,
             severity: normalizedSeverity,
+            onlyUnreadSignals,
             startMs,
             endMs,
           })
@@ -1733,6 +1744,86 @@ function resolveDocProjectSystemKey(docItem, data = {}, fallback = "") {
     sanitizeString(data?.runtimeProjectKey).toLowerCase() ||
     sanitizeString(fallback).toLowerCase()
   );
+}
+
+function isValidAuditLogDocPath(path = "") {
+  const parts = sanitizeString(path).split("/").filter(Boolean);
+  return (
+    parts.length >= 2 &&
+    parts.length % 2 === 0 &&
+    parts.includes("auditLogs") &&
+    !parts.some((part) => part === "." || part === ".." || part.includes("\0"))
+  );
+}
+
+function normalizeAuditLogReadItems(items = [], maxItems = 500) {
+  return (Array.isArray(items) ? items : [])
+    .map((item) => ({
+      id: sanitizeString(item?.id || item?.auditId),
+      auditPath: sanitizeString(item?.auditPath || item?.path),
+      runtimeProjectId: sanitizeString(item?.runtimeProjectId || item?.projectId),
+      projectSystemKey: sanitizeString(item?.projectSystemKey || item?.runtimeProjectKey).toLowerCase(),
+    }))
+    .filter((item) => item.auditPath && isValidAuditLogDocPath(item.auditPath))
+    .slice(0, Math.min(Math.max(Number(maxItems) || 500, 1), 1000));
+}
+
+async function listAuditLogDocsByReadItemsForManager(
+  managerDb,
+  items = [],
+  { projectSystemKey = "", maxItems = 500 } = {}
+) {
+  const normalizedItems = normalizeAuditLogReadItems(items, maxItems);
+  const normalizedProjectKey = sanitizeString(projectSystemKey).toLowerCase();
+  const docs = [];
+  const seen = new Set();
+
+  for (const item of normalizedItems) {
+    let entries = [];
+    if (item.runtimeProjectId) {
+      try {
+        const runtimeProjectId = ensureAllowedTargetProjectId(item.runtimeProjectId, CURRENT_PROJECT_ID);
+        entries = [{ projectId: runtimeProjectId, db: getProjectDb(runtimeProjectId, CURRENT_PROJECT_ID) }];
+      } catch {
+        entries = [];
+      }
+    }
+
+    if (!entries.length) {
+      entries = await resolveRuntimeDbEntriesForSystem(
+        managerDb,
+        item.projectSystemKey || normalizedProjectKey
+      );
+    }
+
+    for (const entry of entries) {
+      const key = `${entry.projectId}:${item.auditPath}`;
+      if (seen.has(key)) break;
+
+      const docItem = await entry.db.doc(item.auditPath).get().catch(() => null);
+      if (!docItem?.exists) continue;
+
+      const data = docItem.data() || {};
+      const resolvedProjectKey = resolveAuditLogProjectKey(
+        docItem,
+        data,
+        item.projectSystemKey || normalizedProjectKey
+      );
+      docs.push({
+        docItem,
+        data: {
+          ...data,
+          projectSystemKey: sanitizeString(data?.projectSystemKey).toLowerCase() || resolvedProjectKey || null,
+          runtimeProjectId: sanitizeString(data?.runtimeProjectId || entry.projectId) || null,
+        },
+        runtimeProjectId: entry.projectId,
+      });
+      seen.add(key);
+      break;
+    }
+  }
+
+  return docs;
 }
 
 function cleanFirestorePayload(payload = {}) {
@@ -5599,6 +5690,7 @@ exports.listarAuditLogsGerenciadorHttp = onRequest(
         entityId: body?.entityId,
         auditCategory: body?.auditCategory,
         severity: body?.severity,
+        onlyUnreadSignals: body?.onlyUnreadSignals === true,
         startDate: body?.startDate,
         endDate: body?.endDate,
         maxItems: body?.limit,
@@ -5617,6 +5709,119 @@ exports.listarAuditLogsGerenciadorHttp = onRequest(
           runtimeProjectId: sanitizeString(data?.runtimeProjectId || runtimeProjectId) || null,
           ...data,
         })),
+      });
+    } catch (error) {
+      sendHttpError(res, error);
+    }
+  }
+);
+
+exports.marcarSinalizacoesAuditoriaAcessosLidasGerenciadorHttp = onRequest(
+  HTTP_OPTIONS,
+  async (req, res) => {
+    if (handleHttpCorsPreflight(req, res)) return;
+
+    try {
+      if (req.method !== "POST") {
+        res.status(405).json({ ok: false, error: "Metodo nao permitido." });
+        return;
+      }
+
+      const body = normalizeRequestBody(req);
+      const token = getBearerToken(req);
+      const { decoded } = await verifySharedBucketIdToken(token);
+      await assertSystemManagerAdminIdentity({
+        uid: decoded?.uid,
+        email: decoded?.email,
+      });
+
+      const managerDb = getSystemManagerDb();
+      const maxItems = Math.min(Math.max(Number(body?.limit) || 500, 1), 1000);
+      const normalizedProjectKey = sanitizeString(body?.projectSystemKey).toLowerCase();
+      const normalizedAuditCategory = sanitizeString(body?.auditCategory).toLowerCase();
+      const normalizedSeverity = sanitizeString(body?.severity).toLowerCase();
+      const requestedAuditItems = Array.isArray(body?.auditItems) ? body.auditItems : [];
+      const docs = requestedAuditItems.length
+        ? await listAuditLogDocsByReadItemsForManager(managerDb, requestedAuditItems, {
+            projectSystemKey: normalizedProjectKey,
+            maxItems,
+          })
+        : await listAuditLogDocsForManager(managerDb, {
+            projectSystemKey: normalizedProjectKey,
+            auditCategory: normalizedAuditCategory,
+            severity: normalizedSeverity,
+            onlyUnreadSignals: true,
+            maxItems,
+          });
+      const filteredDocs = await filterAuditDocsByPermissions(managerDb, docs, {
+        decoded,
+        purpose: "mark_signal_read",
+        projectSystemKey: normalizedProjectKey,
+      });
+      const docsPendentes = filteredDocs.filter(({ data }) => {
+        const category = sanitizeString(data?.auditCategory || resolveAuditCategory(data)).toLowerCase();
+        const severity = sanitizeString(data?.severity || resolveAuditSeverity(data)).toLowerCase();
+        return (
+          (!normalizedAuditCategory || category === normalizedAuditCategory) &&
+          (!normalizedSeverity || severity === normalizedSeverity) &&
+          data?.sinalizacaoMenuLida !== true &&
+          data?.sinalizacaoLida !== true &&
+          data?.alertaLido !== true
+        );
+      });
+
+      let total = 0;
+      for (let index = 0; index < docsPendentes.length; index += 450) {
+        const chunk = docsPendentes.slice(index, index + 450);
+        await Promise.all(
+          chunk.map(({ docItem }) =>
+            docItem.ref.update({
+              sinalizacaoMenuLida: true,
+              sinalizacaoMenuLidaEm: serverTimestamp(),
+              sinalizacaoMenuLidaPorUid: sanitizeString(decoded?.uid) || null,
+              sinalizacaoMenuLidaPorEmail: sanitizeString(decoded?.email).toLowerCase() || null,
+            })
+          )
+        );
+        total += chunk.length;
+      }
+
+      if (total > 0) {
+        await managerDb.collection("auditLogs").add(cleanFirestorePayload({
+          action: requestedAuditItems.length
+            ? "visualizou_descricao_auditoria"
+            : "marcou_sinalizacoes_auditoria_lidas",
+          entityType: "auditLog",
+          entityId: requestedAuditItems.length === 1
+            ? sanitizeString(docsPendentes[0]?.docItem?.id || "item")
+            : "bulk",
+          actorUid: sanitizeString(decoded?.uid) || null,
+          actorEmail: sanitizeString(decoded?.email).toLowerCase() || null,
+          source: "gerenciador_function",
+          auditCategory: normalizedAuditCategory || "configuracoes",
+          severity: "baixo",
+          sinalizacaoMenuLida: true,
+          sinalizacaoMenuLidaEm: serverTimestamp(),
+          sinalizacaoMenuLidaPorUid: sanitizeString(decoded?.uid) || null,
+          sinalizacaoMenuLidaPorEmail: sanitizeString(decoded?.email).toLowerCase() || null,
+          metadata: {
+            auditSeverity: "baixo",
+            filtroAuditCategory: normalizedAuditCategory || null,
+            filtroSeverity: normalizedSeverity || null,
+            filtroProjectSystemKey: normalizedProjectKey || null,
+            modo: requestedAuditItems.length ? "itens" : "filtro",
+            total,
+            limit: maxItems,
+          },
+          criadoEm: serverTimestamp(),
+        }));
+      }
+
+      res.json({
+        ok: true,
+        total,
+        ids: docsPendentes.map(({ docItem }) => docItem.id),
+        limitReached: docsPendentes.length >= maxItems,
       });
     } catch (error) {
       sendHttpError(res, error);

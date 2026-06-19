@@ -5,6 +5,7 @@ import { useLocation } from "react-router-dom";
 import {
   listarAuditLogsNoGerenciador,
   listarProjetosNoGerenciador,
+  marcarSinalizacoesAuditoriaLidasNoGerenciador,
 } from "../../../Sistema/gerenciadorSistemasApi";
 import {
   AUDITORIA_CATEGORIAS,
@@ -89,6 +90,19 @@ function resolveLogSeverity(log = {}) {
   return normalizeText(log?.severity) || resolveAuditSeverity(log);
 }
 
+function isAuditLogRead(log = {}) {
+  return log?.sinalizacaoMenuLida === true || log?.sinalizacaoLida === true || log?.alertaLido === true;
+}
+
+function markAuditLogAsRead(log = {}) {
+  if (!log || typeof log !== "object") return log;
+  return {
+    ...log,
+    sinalizacaoMenuLida: true,
+    sinalizacaoLida: true,
+  };
+}
+
 function resolveProjetoConfigSistema(projeto = {}) {
   const configSistema =
     projeto?.configSistema && typeof projeto.configSistema === "object"
@@ -136,6 +150,21 @@ function sanitizeFilePart(value = "") {
   return normalized || "todos";
 }
 
+function buildAuditLogKey(log = {}) {
+  const runtimeProjectId = normalizeText(log?.runtimeProjectId);
+  const path = normalizeText(log?.auditPath || log?.id);
+  return path ? `${runtimeProjectId}:${path}` : "";
+}
+
+function buildAuditReadItem(log = {}) {
+  return {
+    id: normalizeText(log?.id),
+    auditPath: normalizeText(log?.auditPath),
+    runtimeProjectId: normalizeText(log?.runtimeProjectId),
+    projectSystemKey: normalizeText(log?.projectSystemKey || log?.runtimeProjectKey).toLowerCase(),
+  };
+}
+
 function csvEscape(value = "") {
   const normalized = value === undefined || value === null ? "" : String(value);
   return `"${normalized.replace(/"/g, '""')}"`;
@@ -168,7 +197,9 @@ export default function Auditoria() {
   const [logs, setLogs] = useState([]);
   const [projetos, setProjetos] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [acaoSinalizacao, setAcaoSinalizacao] = useState("");
   const [erro, setErro] = useState("");
+  const [mensagemSinalizacao, setMensagemSinalizacao] = useState("");
   const [filtroProjeto, setFiltroProjeto] = useState("");
   const [filtroAcao, setFiltroAcao] = useState("");
   const [filtroEntidade, setFiltroEntidade] = useState("");
@@ -273,6 +304,92 @@ export default function Auditoria() {
     filtroSeveridade,
     somenteCriticos,
   ]);
+
+  const marcarSinalizacoesAuditoria = useCallback(async ({ severity = "" } = {}) => {
+    const acao = severity === "alto" ? "alto" : "todos";
+    setAcaoSinalizacao(acao);
+    setErro("");
+    setMensagemSinalizacao("");
+
+    try {
+      const resultado = await marcarSinalizacoesAuditoriaLidasNoGerenciador({
+        limit: 1000,
+        projectSystemKey: filtroProjeto,
+        severity,
+      });
+      const total = Number(resultado?.total) || 0;
+      const escopoProjeto = filtroProjeto ? " deste projeto" : "";
+      const complementoLimite = resultado?.limitReached
+        ? " Execute novamente se ainda restarem sinalizacoes antigas."
+        : "";
+
+      setMensagemSinalizacao(
+        acao === "alto"
+          ? total
+            ? `${total} item(ns) de severidade alta marcado(s) como lido(s) na Auditoria${escopoProjeto}.${complementoLimite}`
+            : `Nenhum item de severidade alta estava sinalizado na Auditoria${escopoProjeto}.`
+          : total
+            ? `${total} item(ns) sinalizado(s) marcado(s) como lido(s) na Auditoria${escopoProjeto}.${complementoLimite}`
+            : `Nenhum item sinalizado estava pendente na Auditoria${escopoProjeto}.`
+      );
+      window.dispatchEvent(new CustomEvent("auditoria-resumo-atualizado"));
+      await carregarAuditoria();
+    } catch (error) {
+      console.error("Erro ao marcar sinalizacoes de auditoria como lidas:", error);
+      setErro(error?.message || "Nao foi possivel marcar os itens da Auditoria como lidos.");
+    } finally {
+      setAcaoSinalizacao("");
+    }
+  }, [carregarAuditoria, filtroProjeto]);
+
+  const marcarLogComoLidoLocalmente = useCallback((log = {}) => {
+    const key = buildAuditLogKey(log);
+    if (!key) return;
+
+    setLogs((prev) =>
+      prev.map((item) => (buildAuditLogKey(item) === key ? markAuditLogAsRead(item) : item))
+    );
+    setDetalhe((prev) => (prev && buildAuditLogKey(prev) === key ? markAuditLogAsRead(prev) : prev));
+    setLinhaDoTempo((prev) =>
+      prev
+        ? {
+            ...prev,
+            baseLog:
+              prev.baseLog && buildAuditLogKey(prev.baseLog) === key
+                ? markAuditLogAsRead(prev.baseLog)
+                : prev.baseLog,
+            items: Array.isArray(prev.items)
+              ? prev.items.map((item) =>
+                  buildAuditLogKey(item) === key ? markAuditLogAsRead(item) : item
+                )
+              : prev.items,
+          }
+        : prev
+    );
+  }, []);
+
+  const abrirDetalhe = useCallback(async (log = {}) => {
+    const readItem = buildAuditReadItem(log);
+    setDetalhe(markAuditLogAsRead(log));
+
+    if (isAuditLogRead(log) || !readItem.auditPath) return;
+
+    marcarLogComoLidoLocalmente(log);
+
+    try {
+      const resultado = await marcarSinalizacoesAuditoriaLidasNoGerenciador({
+        limit: 1,
+        auditItems: [readItem],
+      });
+
+      if (Number(resultado?.total) > 0) {
+        window.dispatchEvent(new CustomEvent("auditoria-resumo-atualizado"));
+      }
+    } catch (error) {
+      console.error("Erro ao marcar item de auditoria como lido:", error);
+      setErro(error?.message || "Nao foi possivel marcar este item da Auditoria como lido.");
+    }
+  }, [marcarLogComoLidoLocalmente]);
 
   const abrirLinhaDoTempo = useCallback(async (log = {}) => {
     const entityType = normalizeText(log?.entityType);
@@ -587,6 +704,16 @@ export default function Auditoria() {
         <div className="auditoria-panel__hero-actions">
           <button
             type="button"
+            className="auditoria-panel__signal-action"
+            onClick={() => {
+              void marcarSinalizacoesAuditoria({ severity: "alto" });
+            }}
+            disabled={Boolean(acaoSinalizacao)}
+          >
+            {acaoSinalizacao === "alto" ? "Marcando..." : "Marcar alta como lida"}
+          </button>
+          <button
+            type="button"
             onClick={() => {
               void exportarCsvAuditoria();
             }}
@@ -685,7 +812,7 @@ export default function Auditoria() {
                 type="button"
                 onClick={() => {
                   setAbaAtiva("eventos");
-                  setDetalhe(politicaAuditoria.ultimoEvento);
+                  void abrirDetalhe(politicaAuditoria.ultimoEvento);
                 }}
               >
                 Ver ultimo evento: {humanizeAction(politicaAuditoria.ultimoEvento?.action)}
@@ -834,6 +961,9 @@ export default function Auditoria() {
         </button>
       </div>
 
+      {mensagemSinalizacao ? (
+        <p className="auditoria-panel__success">{mensagemSinalizacao}</p>
+      ) : null}
       {erro ? <p className="auditoria-panel__error">{erro}</p> : null}
       {!permissaoAuditoriaProjetoSelecionado.podeVer ? (
         <p className="auditoria-panel__error">
@@ -867,14 +997,23 @@ export default function Auditoria() {
                   </span>
                   <span>{resolveProjectLabel(log)}</span>
                   <span>{normalizeText(log?.actorEmail || log?.actorUid) || "ator nao identificado"}</span>
+                  <span
+                    className={`auditoria-event__read-status ${
+                      isAuditLogRead(log)
+                        ? "auditoria-event__read-status--read"
+                        : "auditoria-event__read-status--unread"
+                    }`}
+                  >
+                    {isAuditLogRead(log) ? "Lido" : "Nao lido"}
+                  </span>
                 </div>
               </div>
               <div className="auditoria-event__actions">
                 <button type="button" onClick={() => abrirLinhaDoTempo(log)}>
                   Linha do tempo
                 </button>
-                <button type="button" onClick={() => setDetalhe(log)}>
-                  Ver detalhes
+                <button type="button" onClick={() => void abrirDetalhe(log)}>
+                  Ver descricao
                 </button>
               </div>
             </article>
@@ -932,6 +1071,10 @@ export default function Auditoria() {
                     <span>{humanizeAuditSeverity(resolveLogSeverity(detalhe))}</span>
                   </div>
                   <div>
+                    <strong>Status</strong>
+                    <span>{isAuditLogRead(detalhe) ? "Lido" : "Nao lido"}</span>
+                  </div>
+                  <div>
                     <strong>Espaco</strong>
                     <span>{normalizeText(detalhe?.espacoNome || detalhe?.espacoId) || "--"}</span>
                   </div>
@@ -970,7 +1113,7 @@ export default function Auditoria() {
                   onClick={() => setLinhaDoTempo(null)}
                   aria-label="Fechar linha do tempo"
                 >
-                  Ã—
+                  X
                 </button>
                 <header>
                   <p>Linha do tempo da entidade</p>
@@ -1043,10 +1186,19 @@ export default function Auditoria() {
                             <span className={`auditoria-event__severity auditoria-event__severity--${resolveLogSeverity(item)}`}>
                               {humanizeAuditSeverity(resolveLogSeverity(item))}
                             </span>
+                            <span
+                              className={`auditoria-event__read-status ${
+                                isAuditLogRead(item)
+                                  ? "auditoria-event__read-status--read"
+                                  : "auditoria-event__read-status--unread"
+                              }`}
+                            >
+                              {isAuditLogRead(item) ? "Lido" : "Nao lido"}
+                            </span>
                           </div>
                         </div>
-                        <button type="button" onClick={() => setDetalhe(item)}>
-                          Detalhes
+                        <button type="button" onClick={() => void abrirDetalhe(item)}>
+                          Descricao
                         </button>
                       </article>
                     ))

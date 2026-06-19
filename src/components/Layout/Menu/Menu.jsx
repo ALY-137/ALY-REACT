@@ -806,8 +806,9 @@ function Menu({ menuOpen }) {
     const atualizarBadgeAuditoria = async () => {
       try {
         const itens = await listarAuditLogsNoGerenciador({
-          limit: 120,
+          limit: 500,
           severity: "alto",
+          onlyUnreadSignals: true,
         });
         if (!ativo) return;
         const criticos = Array.isArray(itens)
@@ -815,7 +816,7 @@ function Menu({ menuOpen }) {
           : 0;
         setBadgeAuditoria({
           criticos,
-          limiteAtingido: Array.isArray(itens) && itens.length >= 120,
+          limiteAtingido: Array.isArray(itens) && itens.length >= 500,
         });
       } catch (error) {
         if (!ativo) return;

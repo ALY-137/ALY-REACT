@@ -918,6 +918,7 @@ export async function listarAuditLogsNoGerenciador({
   entityId = "",
   auditCategory = "",
   severity = "",
+  onlyUnreadSignals = false,
   startDate = "",
   endDate = "",
   purpose = "",
@@ -932,12 +933,56 @@ export async function listarAuditLogsNoGerenciador({
     entityId,
     auditCategory,
     severity,
+    onlyUnreadSignals: onlyUnreadSignals === true,
     startDate,
     endDate,
     purpose,
   });
 
   return Array.isArray(response?.items) ? response.items : [];
+}
+
+export async function marcarSinalizacoesAuditoriaLidasNoGerenciador({
+  limit: maxItems = 500,
+  projectSystemKey = "",
+  auditCategory = "",
+  auditItems = [],
+  severity = "",
+} = {}) {
+  const itensAuditoria = (Array.isArray(auditItems) ? auditItems : [])
+    .map((item) => ({
+      id: normalizeText(item?.id || item?.auditId),
+      auditPath: normalizeText(item?.auditPath || item?.path),
+      runtimeProjectId: normalizeText(item?.runtimeProjectId || item?.projectId),
+      projectSystemKey: normalizeText(item?.projectSystemKey || item?.runtimeProjectKey).toLowerCase(),
+    }))
+    .filter((item) => item.auditPath || item.id)
+    .slice(0, 500);
+
+  const response = await callSharedManagerAction(
+    "marcarSinalizacoesAuditoriaAcessosLidasGerenciadorHttp",
+    {
+      limit: Math.max(1, Math.min(Number(maxItems) || 500, 1000)),
+      projectSystemKey: normalizeText(projectSystemKey).toLowerCase() || null,
+      auditCategory: normalizeText(auditCategory).toLowerCase() || null,
+      auditItems: itensAuditoria,
+      severity: normalizeText(severity).toLowerCase() || null,
+    }
+  );
+
+  return {
+    total: Number(response?.total) || 0,
+    ids: Array.isArray(response?.ids) ? response.ids : [],
+    limitReached: response?.limitReached === true,
+  };
+}
+
+export async function marcarSinalizacoesAuditoriaAcessosLidasNoGerenciador(args = {}) {
+  return marcarSinalizacoesAuditoriaLidasNoGerenciador({
+    ...args,
+    auditCategory: "acessos",
+    severity: "alto",
+  });
 }
 
 export async function marcarAcessosComoLidosNoGerenciador({ ids = [] } = {}) {
