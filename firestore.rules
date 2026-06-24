@@ -977,6 +977,27 @@ service cloud.firestore {
         allow read, write: if isAdmin() || isOwner(userId);
       }
 
+      match /lgpd_consents/{consentId} {
+        allow read: if isAdmin() || isOwner(userId);
+        allow create, update: if (isAdmin() || isOwner(userId)) &&
+          request.resource.data.uid == userId;
+        allow delete: if isAdmin();
+      }
+
+      match /lgpd_consent_events/{eventId} {
+        allow read: if isAdmin() || isOwner(userId);
+        allow create: if (isAdmin() || isOwner(userId)) &&
+          request.resource.data.uid == userId;
+        allow update, delete: if false;
+      }
+
+      match /lgpd_requests/{requestId} {
+        allow read: if isAdmin() || isOwner(userId);
+        allow create: if isOwner(userId) &&
+          request.resource.data.uid == userId;
+        allow update, delete: if isAdmin();
+      }
+
       match /add_ons/{addonId} {
         allow read: if true;
         allow write: if isAdmin() || isOwner(userId);
@@ -1408,6 +1429,27 @@ service cloud.firestore {
 
         match /navegacoes_users/{sessaoId} {
           allow read, write: if isAdmin() || isProjetoAdmin(projectKey) || isOwner(userId);
+        }
+
+        match /lgpd_consents/{consentId} {
+          allow read: if isAdmin() || isProjetoAdmin(projectKey) || isOwner(userId);
+          allow create, update: if (isAdmin() || isProjetoAdmin(projectKey) || isOwner(userId)) &&
+            request.resource.data.uid == userId;
+          allow delete: if isAdmin() || isProjetoAdmin(projectKey);
+        }
+
+        match /lgpd_consent_events/{eventId} {
+          allow read: if isAdmin() || isProjetoAdmin(projectKey) || isOwner(userId);
+          allow create: if (isAdmin() || isProjetoAdmin(projectKey) || isOwner(userId)) &&
+            request.resource.data.uid == userId;
+          allow update, delete: if false;
+        }
+
+        match /lgpd_requests/{requestId} {
+          allow read: if isAdmin() || isProjetoAdmin(projectKey) || isOwner(userId);
+          allow create: if isOwner(userId) &&
+            request.resource.data.uid == userId;
+          allow update, delete: if isAdmin() || isProjetoAdmin(projectKey);
         }
 
         match /add_ons/{addonId} {

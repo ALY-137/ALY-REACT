@@ -113,6 +113,7 @@ function Card({
   criador,
   nomeDescricao,
   descricaoExtra,
+  atributoPersonalizado,
   data,
   descricao,
   imagem,
@@ -157,6 +158,39 @@ function Card({
     aly137,
     addOnIdsNormalizados,
   ]);
+  const atributoPersonalizadoNormalizado = useMemo(() => {
+    const fonte =
+      atributoPersonalizado && typeof atributoPersonalizado === "object"
+        ? atributoPersonalizado
+        : {};
+    const rotulo = String(
+      fonte?.rotulo ||
+        fonte?.textoExibido ||
+        fonte?.textoMostrado ||
+        fonte?.label ||
+        fonte?.titulo ||
+        ""
+    ).trim();
+    const nome = String(
+      fonte?.nome ||
+        fonte?.nomeAtributo ||
+        fonte?.atributo ||
+        fonte?.chave ||
+        fonte?.key ||
+        fonte?.name ||
+        ""
+    ).trim();
+    const valor = String(
+      fonte?.valor ||
+        fonte?.value ||
+        fonte?.texto ||
+        fonte?.conteudo ||
+        ""
+    ).trim();
+
+    if (!rotulo && !nome && !valor) return null;
+    return { rotulo, nome, valor };
+  }, [atributoPersonalizado]);
   const cardsOrigemAly137 = useMemo(
     () => (Array.isArray(aly137Normalizado?.cardsOrigem) ? aly137Normalizado.cardsOrigem : []),
     [aly137Normalizado]
@@ -510,6 +544,21 @@ function Card({
 
               {nomeDescricao && <p className="txtTituloPri"> [ {nomeDescricao} ] </p>}
               {descricao && <p className="txtDescricao"> {descricao}</p>}
+              {atributoPersonalizadoNormalizado ? (
+                <p className="txtTitulo cardAtributoPersonalizado">
+                  {atributoPersonalizadoNormalizado.rotulo || atributoPersonalizadoNormalizado.nome ? (
+                    <span className="cardAtributoPersonalizado__label">
+                      {atributoPersonalizadoNormalizado.rotulo || atributoPersonalizadoNormalizado.nome}
+                    </span>
+                  ) : null}
+                  {atributoPersonalizadoNormalizado.valor ? (
+                    <span className="cardAtributoPersonalizado__value">
+                      {atributoPersonalizadoNormalizado.rotulo || atributoPersonalizadoNormalizado.nome ? " " : ""}
+                      {atributoPersonalizadoNormalizado.valor}
+                    </span>
+                  ) : null}
+                </p>
+              ) : null}
               {aly137Stats.length ? (
                 <div className="cardAly137Stats" aria-label="XP e atributos do card">
                   <div className="cardAly137Stats__header">

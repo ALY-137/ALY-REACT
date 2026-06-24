@@ -1,5 +1,6 @@
 ﻿import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
+import { useCallback } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { collection, doc, getDocs, onSnapshot, query, where } from "firebase/firestore";
 
@@ -38,6 +39,7 @@ import LoginGoogle from "./components/Layout/Geral/LoginGoogle.jsx";
 import LoginTwitter from "./components/Layout/Geral/LoginTwitter.jsx";
 import LoginCadastroEmail from "./components/Layout/Geral/LoginCadastroEmail.jsx";
 import FirebaseProjectBadge from "./components/Layout/Geral/FirebaseProjectBadge.jsx";
+import LgpdConsentGate from "./components/Layout/Geral/LgpdConsentGate.jsx";
 import ProjectMaintenanceScreen from "./components/Layout/Geral/ProjectMaintenanceScreen.jsx";
 import Acesso from "./components/Layout/Menu/Gerenciador/Acessos/Acesso";
 import RitualLoaderSymbol from "./components/Projects/LoginTransitions/RitualLoaderSymbol";
@@ -52,6 +54,7 @@ import {
 } from "./components/Layout/Temas/themesRegistry";
 import { isProjectInMaintenance } from "./components/Layout/Sistema/projectStatus";
 import { verificarAcessoGerenciador } from "./components/Layout/Sistema/gerenciadorSistemasApi";
+import { isLgpdConsentRequired } from "./components/Layout/Sistema/lgpdConsentApi";
 
 import "./App.css";
 import "./components/Layout/Temas/system-base-login.css";
@@ -99,6 +102,7 @@ const App = () => {
   });
   const [erroResolucaoProjeto, setErroResolucaoProjeto] = useState("");
   const [splashEntradaPublicaConcluida, setSplashEntradaPublicaConcluida] = useState(false);
+  const [lgpdConsentLiberado, setLgpdConsentLiberado] = useState(false);
   const snapshotSolicitacoesInicializadoRef = useRef(false);
   const solicitacoesVistasRef = useRef(new Set());
 
@@ -612,6 +616,23 @@ const App = () => {
     return path.split("/").length >= 2;
   }, [isManagerProject, location.pathname]);
 
+  useEffect(() => {
+    setLgpdConsentLiberado(false);
+  }, [
+    user?.uid,
+    configSistema?.projectSystemKey,
+    configSistema?.termosUsoUrl,
+    configSistema?.termosUsoVersao,
+    configSistema?.politicaPrivacidadeUrl,
+    configSistema?.politicaPrivacidadeVersao,
+    configSistema?.exigirAceiteLgpdNoLogin,
+    configSistema?.exigirAceiteTermosNoCadastro,
+  ]);
+
+  const handleLgpdConsentAccepted = useCallback(() => {
+    setLgpdConsentLiberado(true);
+  }, []);
+
   const exibindoFluxoSistema =
     !isPublicProfileRoute && (exibirHomePublica || !user || skins.length !== 1);
   const temaSistemaEfetivo =
@@ -712,7 +733,7 @@ const App = () => {
     configSistema.logoLoginUrl || DEFAULT_SISTEMA_CONFIG.logoLoginUrl || ""
   ).trim();
   const tituloSistema = isManagerProject
-    ? configSistema.tituloSistema || "GERENCIADO DE PROJETOS"
+    ? configSistema.tituloSistema || "GERENCIADOR DE PROJETOS"
     : configSistema.tituloSistema || DEFAULT_SISTEMA_CONFIG.tituloSistema;
   const exibirTituloSistemaNoLogin = configSistema.exibirTituloSistemaNoLogin !== false;
   const exibirBadgeProjetoFirebase = configSistema.exibirBadgeProjetoFirebase !== false;
@@ -930,6 +951,28 @@ const App = () => {
 
   if (precisaSplashEntradaPublica && !splashEntradaPublicaConcluida) {
     return renderTelaCarregamento();
+  }
+
+  const rotaPrivadaOuLoginLgpd =
+    isLoginUiRoute || rotaEntradaRaiz || String(location.pathname || "").startsWith("/menu");
+  if (
+    !authLoading &&
+    user?.uid &&
+    user?.isAnonymous !== true &&
+    !isManagerProject &&
+    configSistemaPronta &&
+    !isAuthHandlerRoute &&
+    rotaPrivadaOuLoginLgpd &&
+    isLgpdConsentRequired(configSistema) &&
+    !lgpdConsentLiberado
+  ) {
+    return (
+      <LgpdConsentGate
+        user={user}
+        configSistema={configSistema}
+        onAccepted={handleLgpdConsentAccepted}
+      />
+    );
   }
 
   if (!authLoading && user && oneOwnerPublicaAtiva && isUserLoginRoute) {

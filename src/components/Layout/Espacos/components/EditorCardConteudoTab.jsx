@@ -64,6 +64,53 @@
                       />
                     </label>
 
+                    <div className="card-editor-field-grid">
+                      <label>
+                        <span>Texto mostrado</span>
+                        <input
+                          type="text"
+                          value={editorCardModal.atributoPersonalizadoRotulo || ""}
+                          onChange={(event) =>
+                            setEditorCardModal((prev) => ({
+                              ...prev,
+                              atributoPersonalizadoRotulo: event.target.value,
+                            }))
+                          }
+                          placeholder="Ex.: Criado por:"
+                        />
+                      </label>
+
+                      <label>
+                        <span>Nome do atributo</span>
+                        <input
+                          type="text"
+                          value={editorCardModal.atributoPersonalizadoNome || ""}
+                          onChange={(event) =>
+                            setEditorCardModal((prev) => ({
+                              ...prev,
+                              atributoPersonalizadoNome: event.target.value,
+                            }))
+                          }
+                          placeholder="Ex.: criador"
+                        />
+                      </label>
+
+                      <label>
+                        <span>Valor do atributo</span>
+                        <input
+                          type="text"
+                          value={editorCardModal.atributoPersonalizadoValor || ""}
+                          onChange={(event) =>
+                            setEditorCardModal((prev) => ({
+                              ...prev,
+                              atributoPersonalizadoValor: event.target.value,
+                            }))
+                          }
+                          placeholder="Ex.: Isabelle"
+                        />
+                      </label>
+                    </div>
+
                     <label>
                       <span>Link externo</span>
                       <input

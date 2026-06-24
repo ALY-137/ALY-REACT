@@ -81,6 +81,41 @@ const obterDescricaoPreviaCard = (card = {}) =>
 const obterDescricaoCompletaCard = (card = {}) =>
   String(card?.descricaoCompleta || obterDescricaoPreviaCard(card)).trim();
 
+const normalizarAtributoPersonalizadoCard = (valor = {}) => {
+  const fonte = valor && typeof valor === "object" ? valor : {};
+  const rotulo = String(
+    fonte?.rotulo ||
+      fonte?.textoExibido ||
+      fonte?.textoMostrado ||
+      fonte?.label ||
+      fonte?.titulo ||
+      ""
+  ).trim();
+  const nome = String(
+    fonte?.nome ||
+      fonte?.nomeAtributo ||
+      fonte?.atributo ||
+      fonte?.chave ||
+      fonte?.key ||
+      fonte?.name ||
+      ""
+  ).trim();
+  const valorAtributo = String(
+    fonte?.valor ||
+      fonte?.value ||
+      fonte?.texto ||
+      fonte?.conteudo ||
+      ""
+  ).trim();
+
+  if (!rotulo && !nome && !valorAtributo) return null;
+  return {
+    rotulo,
+    nome,
+    valor: valorAtributo,
+  };
+};
+
 const normalizarCard = (card = {}, index = 0) => {
   const addOnIds = normalizarAddOnIds(card?.addOnIds || card?.addOnsIds || card?.addons);
   const possuiCampoAddOns =
@@ -100,6 +135,11 @@ const normalizarCard = (card = {}, index = 0) => {
     imagem: String(card?.imagem || "").trim(),
     imagemPath: String(card?.imagemPath || "").trim(),
     linkExterno: String(card?.linkExterno || "").trim(),
+    atributoPersonalizado: normalizarAtributoPersonalizadoCard(
+      card?.atributoPersonalizado ||
+        card?.atributoCustomizado ||
+        card?.customAttribute
+    ),
     addOnIds,
     addOnSubthemes: normalizarAddOnSubthemes(
       card?.addOnSubthemes || card?.addOnThemes,
@@ -124,6 +164,7 @@ const normalizarCardsDoBloco = (valor) =>
             card.imagem ||
             card.imagemPath ||
             card.linkExterno ||
+            card.atributoPersonalizado ||
             card.addOnIds.length
         )
         .sort((a, b) => (a.ordem || 0) - (b.ordem || 0))
@@ -219,6 +260,25 @@ export default function CardRoutePage() {
     }
     navigate(-1);
   };
+
+  useEffect(() => {
+    const bodyOverflowAnterior = document.body.style.overflow;
+    const htmlOverflowAnterior = document.documentElement.style.overflow;
+    const bodyOverscrollAnterior = document.body.style.overscrollBehavior;
+    const htmlOverscrollAnterior = document.documentElement.style.overscrollBehavior;
+
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "none";
+    document.documentElement.style.overscrollBehavior = "none";
+
+    return () => {
+      document.body.style.overflow = bodyOverflowAnterior;
+      document.documentElement.style.overflow = htmlOverflowAnterior;
+      document.body.style.overscrollBehavior = bodyOverscrollAnterior;
+      document.documentElement.style.overscrollBehavior = htmlOverscrollAnterior;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelado = false;
@@ -441,6 +501,9 @@ export default function CardRoutePage() {
     .split(/\n{2,}/)
     .map((texto) => texto.trim())
     .filter(Boolean);
+  const atributoPersonalizadoCard = normalizarAtributoPersonalizadoCard(
+    estado.card?.atributoPersonalizado
+  );
 
   return (
     <main
@@ -481,6 +544,7 @@ export default function CardRoutePage() {
             descricaoExtra={estado.card.descricaoExtra || ""}
             nomeDescricao={estado.card.nome || ""}
             descricao={descricaoCompletaCard}
+            atributoPersonalizado={atributoPersonalizadoCard}
             linkExterno={estado.card.linkExterno || ""}
             imagem={estado.imagem}
             idNome={`card-route-${blocoId}-${estado.card.id}`}
@@ -497,6 +561,16 @@ export default function CardRoutePage() {
           <span className="card-route-page__details-kicker">Card ampliado</span>
           <h1>{estado.card.nome || "Card"}</h1>
           {estado.card.descricaoExtra ? <p>{estado.card.descricaoExtra}</p> : null}
+          {atributoPersonalizadoCard ? (
+            <p className="card-route-page__custom-attribute">
+              {atributoPersonalizadoCard.rotulo || atributoPersonalizadoCard.nome ? (
+                <strong>{atributoPersonalizadoCard.rotulo || atributoPersonalizadoCard.nome}</strong>
+              ) : null}
+              {atributoPersonalizadoCard.valor ? (
+                <span>{atributoPersonalizadoCard.valor}</span>
+              ) : null}
+            </p>
+          ) : null}
           {descricaoCompletaParagrafos.length ? (
             <section className="card-route-page__full-description">
               {descricaoCompletaParagrafos.map((paragrafo, index) => (

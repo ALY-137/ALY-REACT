@@ -26,6 +26,10 @@ const HTTP_OPTIONS = {
   region: REGION,
   cors: true,
 };
+const MANAGER_HTTP_OPTIONS = {
+  ...HTTP_OPTIONS,
+  timeoutSeconds: 120,
+};
 const IDENTITY_OPTIONS = {
   region: REGION,
 };
@@ -33,6 +37,7 @@ const IDENTITY_OPTIONS = {
 if (runtimeServiceAccount) {
   CALLABLE_OPTIONS.serviceAccount = runtimeServiceAccount;
   HTTP_OPTIONS.serviceAccount = runtimeServiceAccount;
+  MANAGER_HTTP_OPTIONS.serviceAccount = runtimeServiceAccount;
   IDENTITY_OPTIONS.serviceAccount = runtimeServiceAccount;
 }
 
@@ -656,6 +661,30 @@ function decodeBase64Payload(base64Input) {
 }
 
 function sendHttpError(res, error) {
+  const errorCode = sanitizeString(error?.code).toLowerCase();
+  const errorMessage = sanitizeString(error?.message);
+
+  console.error("[http-function-error]", {
+    code: errorCode || "internal",
+    message: errorMessage || "Erro interno.",
+    name: sanitizeString(error?.name) || null,
+  });
+
+  const quotaExceeded =
+    errorCode === "8" ||
+    errorCode === "resource-exhausted" ||
+    /resource_exhausted|quota exceeded/i.test(errorMessage);
+
+  if (quotaExceeded) {
+    res.status(429).json({
+      ok: false,
+      error:
+        "A cota do Firestore foi temporariamente esgotada. Aguarde a renovacao da cota e tente novamente.",
+      code: "resource-exhausted",
+    });
+    return;
+  }
+
   if (error instanceof HttpsError) {
     const map = {
       unauthenticated: 401,
@@ -669,8 +698,6 @@ function sendHttpError(res, error) {
     return;
   }
 
-  const errorCode = sanitizeString(error?.code).toLowerCase();
-  const errorMessage = sanitizeString(error?.message);
   const permissionDenied =
     errorCode === "7" ||
     errorCode === "permission-denied" ||
@@ -904,14 +931,20 @@ function ipMatchesManagerSecurityEntry(ip = "", entry = "") {
 }
 
 function normalizeManagerSecuritySettings(data = {}) {
-  const bloqueioIpAtivo =
-    data.bloqueioIpAtivo === true ||
-    data.filtroIpHabilitado === true ||
-    data.ipAllowlistEnabled === true;
-  const modoObservacao =
-    data.modoObservacao === true ||
-    data.observacao === true ||
-    data.enforcementMode === "observe";
+  const possuiBloqueioIpAtual = Object.prototype.hasOwnProperty.call(
+    data || {},
+    "bloqueioIpAtivo"
+  );
+  const possuiModoObservacaoAtual = Object.prototype.hasOwnProperty.call(
+    data || {},
+    "modoObservacao"
+  );
+  const bloqueioIpAtivo = possuiBloqueioIpAtual
+    ? data.bloqueioIpAtivo === true
+    : data.filtroIpHabilitado === true || data.ipAllowlistEnabled === true;
+  const modoObservacao = possuiModoObservacaoAtual
+    ? data.modoObservacao === true
+    : data.observacao === true || data.enforcementMode === "observe";
 
   return {
     bloqueioIpAtivo,
@@ -1013,12 +1046,15 @@ async function getAccessRegistrationSettings(managerDb) {
   }
 }
 
-async function getManagerSecuritySettings(managerDb) {
+async function getManagerSecuritySettings(managerDb, { throwOnError = false } = {}) {
   try {
     const snap = await getManagerSecuritySettingsRef(managerDb).get();
     const data = snap.exists ? snap.data() || {} : {};
     return normalizeManagerSecuritySettings(data);
-  } catch {
+  } catch (error) {
+    if (throwOnError) {
+      throw error;
+    }
     return normalizeManagerSecuritySettings({});
   }
 }
@@ -1140,6 +1176,52 @@ async function markAccessRecordsBlockedByNavigationIds(
     navigationIdBloqueado: navigationIdList[0] || null,
     ...payload,
   });
+}
+
+async function markAccessRecordsBlockedByIps(managerDb, ips = [], payload = {}) {
+  const ipList = normalizeAccessIpBlockList(ips).slice(0, 50);
+  if (!ipList.length) {
+    return {
+      docs: 0,
+      hashes: 0,
+    };
+  }
+
+  const refs = [];
+  const navigationIds = new Set();
+
+  for (const ip of ipList) {
+    const [ipSnap, geoIpSnap] = await Promise.all([
+      managerDb.collection("acessos").where("ip", "==", ip).limit(300).get(),
+      managerDb.collection("acessos").where("geo.ip", "==", ip).limit(300).get(),
+    ]);
+
+    [...ipSnap.docs, ...geoIpSnap.docs].forEach((docItem) => {
+      const data = docItem.data() || {};
+      refs.push(docItem.ref);
+      resolveAccessNavigationIdCandidates(data).forEach((navigationId) =>
+        navigationIds.add(navigationId)
+      );
+    });
+  }
+
+  const directUpdates = await updateAccessDocsAsBlocked(managerDb, refs, {
+    ipBloqueado: ipList[0] || null,
+    ...payload,
+  });
+  const navigationIdUpdates = await markAccessRecordsBlockedByNavigationIds(
+    managerDb,
+    Array.from(navigationIds),
+    {
+      ipBloqueado: ipList[0] || null,
+      ...payload,
+    }
+  );
+
+  return {
+    docs: directUpdates,
+    hashes: navigationIdUpdates,
+  };
 }
 
 async function markAccessRecordsBlockedByUsers(
@@ -1277,6 +1359,75 @@ function isSourceRecordDeleted(data = {}) {
     data?.ativo === false ||
     isDeletedStatusValue(status)
   );
+}
+
+function isAccessRecordBlockedOrHidden(data = {}) {
+  const status = sanitizeString(data?.status || data?.estado).toLowerCase();
+  return (
+    data?.registroBloqueado === true ||
+    data?.bloqueado === true ||
+    data?.registroOculto === true ||
+    data?.oculto === true ||
+    data?.ocultado === true ||
+    data?.ocultadoNaVisualizacao === true ||
+    data?.arquivado === true ||
+    data?.removido === true ||
+    data?.excluido === true ||
+    data?.deletado === true ||
+    [
+      "bloqueado",
+      "blocked",
+      "oculto",
+      "ocultado",
+      "hidden",
+      "arquivado",
+      "archived",
+      "removido",
+      "excluido",
+      "deletado",
+      "deleted",
+    ].includes(status)
+  );
+}
+
+function isAccessRecordRead(data = {}) {
+  const statusLeitura = sanitizeString(data?.statusLeitura).toLowerCase();
+  return data?.visto === true || data?.lido === true || statusLeitura === "lido" || statusLeitura === "read";
+}
+
+function resolveAccessIpForBlock(data = {}) {
+  return normalizeIpForAccessBlock(data?.ip || data?.geo?.ip);
+}
+
+function resolveAccessUserBlockIdentifiers(data = {}) {
+  return normalizeAccessUserBlockList([data?.uid, data?.email]);
+}
+
+function isAccessRecordBlockedBySettings(data = {}, settings = {}) {
+  const blockedIps = new Set(
+    normalizeAccessIpBlockList(
+      settings?.ipsBloqueadosRegistro || settings?.ipsBloqueados || settings?.blockedIps
+    )
+  );
+  const blockedUsers = new Set(
+    normalizeAccessUserBlockList(
+      settings?.usuariosBloqueadosRegistro ||
+        settings?.usuariosBloqueados ||
+        settings?.blockedUsers ||
+        settings?.uidsBloqueadosRegistro
+    )
+  );
+  const ip = resolveAccessIpForBlock(data);
+  const users = resolveAccessUserBlockIdentifiers(data);
+
+  return (
+    Boolean(ip && blockedIps.has(ip)) ||
+    users.some((identifier) => blockedUsers.has(identifier))
+  );
+}
+
+function isAccessRecordHiddenFromMainView(data = {}, settings = {}) {
+  return isAccessRecordBlockedOrHidden(data) || isAccessRecordBlockedBySettings(data, settings);
 }
 
 function buildUniqueRefs(refs = []) {
@@ -1705,16 +1856,53 @@ async function listAuditLogDocsForManager(
   const entries = await resolveRuntimeDbEntriesForSystem(managerDb, normalizedProjectKey);
   const docs = [];
   const seen = new Set();
+  const sourceLimit = Math.min(safeLimit, 500);
+  const entryResults = await Promise.all(
+    entries.map(async (entry) => {
+      const [groupSnap, projectSnap, rootSnap] = await Promise.all([
+        getAuditLogsSnapshotWithFallback(
+          entry.db.collectionGroup("auditLogs"),
+          sourceLimit
+        ).catch(() => null),
+        normalizedProjectKey
+          ? getAuditLogsSnapshotWithFallback(
+              entry.db
+                .collection("projetos")
+                .doc(normalizedProjectKey)
+                .collection("auditLogs"),
+              sourceLimit
+            ).catch(() => null)
+          : Promise.resolve(null),
+        getAuditLogsSnapshotWithFallback(
+          entry.db.collection("auditLogs"),
+          sourceLimit
+        ).catch(() => null),
+      ]);
 
-  for (const entry of entries) {
-    const addDocs = (snap) => {
+      return {
+        entry,
+        snapshots: [groupSnap, projectSnap, rootSnap].filter(Boolean),
+      };
+    })
+  );
+
+  entryResults.forEach(({ entry, snapshots }) => {
+    snapshots.forEach((snap) => {
       snap.docs.forEach((docItem) => {
         const data = docItem.data() || {};
-        const resolvedProjectKey = resolveAuditLogProjectKey(docItem, data, normalizedProjectKey);
+        const resolvedProjectKey = resolveAuditLogProjectKey(
+          docItem,
+          data,
+          normalizedProjectKey
+        );
         const enrichedData = {
           ...data,
-          projectSystemKey: sanitizeString(data?.projectSystemKey).toLowerCase() || resolvedProjectKey || null,
-          runtimeProjectId: sanitizeString(data?.runtimeProjectId || entry.projectId) || null,
+          projectSystemKey:
+            sanitizeString(data?.projectSystemKey).toLowerCase() ||
+            resolvedProjectKey ||
+            null,
+          runtimeProjectId:
+            sanitizeString(data?.runtimeProjectId || entry.projectId) || null,
         };
         const key = `${entry.projectId}:${docItem.ref.path}`;
         if (!key || seen.has(key)) return;
@@ -1741,34 +1929,8 @@ async function listAuditLogDocsForManager(
           runtimeProjectId: entry.projectId,
         });
       });
-    };
-
-    try {
-      const groupSnap = await getAuditLogsSnapshotWithFallback(
-        entry.db.collectionGroup("auditLogs"),
-        safeLimit
-      );
-      addDocs(groupSnap);
-    } catch (error) {
-      if (!isFirestorePreconditionError(error)) {
-        // Mantem leitura das demais bases mesmo se uma delas falhar.
-      }
-    }
-
-    if (normalizedProjectKey) {
-      const projectSnap = await getAuditLogsSnapshotWithFallback(
-        entry.db.collection("projetos").doc(normalizedProjectKey).collection("auditLogs"),
-        safeLimit
-      ).catch(() => null);
-      if (projectSnap) addDocs(projectSnap);
-    }
-
-    const rootSnap = await getAuditLogsSnapshotWithFallback(
-      entry.db.collection("auditLogs"),
-      safeLimit
-    ).catch(() => null);
-    if (rootSnap) addDocs(rootSnap);
-  }
+    });
+  });
 
   return docs
     .sort((a, b) => {
@@ -4945,7 +5107,7 @@ exports.removerRegistrosUsuarioGerenciadorHttp = onRequest(
 );
 
 exports.listarAcessosGerenciadorHttp = onRequest(
-  HTTP_OPTIONS,
+  MANAGER_HTTP_OPTIONS,
   async (req, res) => {
     if (handleHttpCorsPreflight(req, res)) return;
 
@@ -4990,11 +5152,70 @@ exports.listarAcessosGerenciadorHttp = onRequest(
         ref = ref.where("data", "<=", endAt);
       }
 
-      const snap = await ref.orderBy("data", "desc").limit(maxItems).get();
+      let accessDocs = [];
+      try {
+        const snap = await ref.orderBy("data", "desc").limit(maxItems).get();
+        accessDocs = snap.docs;
+      } catch (primaryError) {
+        console.warn("[listarAcessosGerenciadorHttp] usando consulta de fallback", {
+          code: sanitizeString(primaryError?.code) || "unknown",
+          message: sanitizeString(primaryError?.message) || "Falha na consulta ordenada.",
+        });
+
+        const fallbackLimit = Math.min(Math.max(maxItems * 4, maxItems), 1000);
+        const fallbackSnap = await managerDb
+          .collection("acessos")
+          .limit(fallbackLimit)
+          .get();
+
+        accessDocs = fallbackSnap.docs
+          .filter((docItem) => {
+            const data = docItem.data() || {};
+            const itemProjectKey = sanitizeString(
+              data?.projectSystemKey || data?.runtimeProjectKey
+            ).toLowerCase();
+            const timestampMs = getFirestoreTimestampMs(data, [
+              "data",
+              "criadoEm",
+              "createdAt",
+            ]);
+
+            if (projectSystemKey && itemProjectKey !== projectSystemKey) return false;
+            if (
+              startAt &&
+              (!Number.isFinite(timestampMs) || timestampMs < startAt.toMillis())
+            ) {
+              return false;
+            }
+            if (
+              endAt &&
+              (!Number.isFinite(timestampMs) || timestampMs > endAt.toMillis())
+            ) {
+              return false;
+            }
+            return true;
+          })
+          .sort((docA, docB) => {
+            const timestampA =
+              getFirestoreTimestampMs(docA.data() || {}, [
+                "data",
+                "criadoEm",
+                "createdAt",
+              ]) || 0;
+            const timestampB =
+              getFirestoreTimestampMs(docB.data() || {}, [
+                "data",
+                "criadoEm",
+                "createdAt",
+              ]) || 0;
+            return timestampB - timestampA;
+          })
+          .slice(0, maxItems);
+      }
 
       res.json({
         ok: true,
-        items: snap.docs.map((docItem) => ({
+        items: accessDocs.map((docItem) => ({
           id: docItem.id,
           ...docItem.data(),
         })),
@@ -5674,18 +5895,20 @@ exports.obterResumoAcessosGerenciadorHttp = onRequest(
         email: decoded?.email,
       });
 
-      const maxItems = Math.min(Math.max(Number(body?.limit) || 500, 1), 500);
+      const maxItems = Math.min(Math.max(Number(body?.limit) || 100, 1), 100);
       const managerDb = getSystemManagerDb();
+      const settingsBloqueio = await getAccessRegistrationSettings(managerDb);
       const snap = await managerDb
         .collection("acessos")
-        .where("visto", "==", false)
+        .orderBy("data", "desc")
         .limit(maxItems)
         .get();
 
       let naoLidos = 0;
       snap.docs.forEach((docItem) => {
         const data = docItem.data() || {};
-        if (data.registroBloqueado === true || data.bloqueado === true) return;
+        if (isAccessRecordHiddenFromMainView(data, settingsBloqueio)) return;
+        if (isAccessRecordRead(data)) return;
         naoLidos += 1;
       });
 
@@ -5702,7 +5925,7 @@ exports.obterResumoAcessosGerenciadorHttp = onRequest(
 );
 
 exports.listarAuditLogsGerenciadorHttp = onRequest(
-  HTTP_OPTIONS,
+  MANAGER_HTTP_OPTIONS,
   async (req, res) => {
     if (handleHttpCorsPreflight(req, res)) return;
 
@@ -6133,7 +6356,7 @@ exports.verificarAcessoGerenciadorHttp = onRequest(
 );
 
 exports.obterConfigSegurancaGerenciadorHttp = onRequest(
-  HTTP_OPTIONS,
+  MANAGER_HTTP_OPTIONS,
   async (req, res) => {
     if (handleHttpCorsPreflight(req, res)) return;
 
@@ -6151,7 +6374,17 @@ exports.obterConfigSegurancaGerenciadorHttp = onRequest(
       });
 
       const managerDb = getSystemManagerDb();
-      const settings = await getManagerSecuritySettings(managerDb);
+      const settings = await getManagerSecuritySettings(managerDb, {
+        throwOnError: true,
+      });
+
+      console.log("[manager-security-config] carregada", {
+        bloqueioIpAtivo: settings.bloqueioIpAtivo,
+        modoObservacao: settings.modoObservacao,
+        totalIpsPermitidos: settings.ipsPermitidos.length,
+        bloquearSemIp: settings.bloquearSemIp,
+        registrarTentativas: settings.registrarTentativas,
+      });
 
       res.json({
         ok: true,
@@ -6165,7 +6398,7 @@ exports.obterConfigSegurancaGerenciadorHttp = onRequest(
 );
 
 exports.salvarConfigSegurancaGerenciadorHttp = onRequest(
-  HTTP_OPTIONS,
+  MANAGER_HTTP_OPTIONS,
   async (req, res) => {
     if (handleHttpCorsPreflight(req, res)) return;
 
@@ -6188,6 +6421,12 @@ exports.salvarConfigSegurancaGerenciadorHttp = onRequest(
       await getManagerSecuritySettingsRef(managerDb).set(
         {
           ...settings,
+          filtroIpHabilitado: admin.firestore.FieldValue.delete(),
+          ipAllowlistEnabled: admin.firestore.FieldValue.delete(),
+          observacao: admin.firestore.FieldValue.delete(),
+          enforcementMode: admin.firestore.FieldValue.delete(),
+          allowedIps: admin.firestore.FieldValue.delete(),
+          ipAllowlist: admin.firestore.FieldValue.delete(),
           updatedAt: serverTimestamp(),
           updatedByUid: sanitizeString(decoded?.uid) || null,
           updatedByEmail: sanitizeString(decoded?.email) || null,
@@ -6264,15 +6503,22 @@ exports.salvarConfigAcessosGerenciadorHttp = onRequest(
         },
         { merge: true }
       );
-      const registrosOcultados = await markAccessRecordsBlockedByUsers(
-        managerDb,
-        usuariosBloqueadosRegistro,
-        {
+      const [registrosOcultadosPorIp, registrosOcultadosPorUsuario] = await Promise.all([
+        markAccessRecordsBlockedByIps(managerDb, ipsBloqueadosRegistro, {
+          bloqueadoPor: "ip_blocked",
+          bloqueadoPorConfigUid: sanitizeString(decoded?.uid) || null,
+          bloqueadoPorConfigEmail: sanitizeString(decoded?.email) || null,
+        }),
+        markAccessRecordsBlockedByUsers(managerDb, usuariosBloqueadosRegistro, {
           bloqueadoPor: "user_blocked",
           bloqueadoPorConfigUid: sanitizeString(decoded?.uid) || null,
           bloqueadoPorConfigEmail: sanitizeString(decoded?.email) || null,
-        }
-      );
+        }),
+      ]);
+      const registrosOcultados = {
+        ips: registrosOcultadosPorIp,
+        usuarios: registrosOcultadosPorUsuario,
+      };
       await writeAuditLog(managerDb, {
         action: "salvou_config_acessos",
         entityType: "accessSettings",

@@ -999,7 +999,7 @@ function GerenciadorProjetos() {
   if (!user || !seforAdm(user)) {
     return (
       <div>
-        <h2>GERENCIADO DE PROJETOS</h2>
+        <h2>GERENCIADOR DE PROJETOS</h2>
         <p>Acesso restrito ao owner.</p>
       </div>
     );
@@ -1007,7 +1007,7 @@ function GerenciadorProjetos() {
 
   return (
     <div>
-      <h2>GERENCIADO DE PROJETOS</h2>
+      <h2>GERENCIADOR DE PROJETOS</h2>
       <p>Liste projetos ja criados, cadastre novos e gere as envs para deploy.</p>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>

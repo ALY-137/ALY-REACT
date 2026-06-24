@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../../../hooks/auth/useAuth";
 import { seforAdm } from "../../../Scripts/verificacoes/verificaAdm";
 import {
+  isManagerQuotaExceededError,
   normalizarIpsPermitidosGerenciador,
   obterConfigSegurancaGerenciador,
   salvarConfigSegurancaGerenciador,
@@ -27,6 +28,8 @@ export default function SegurancaGerenciador() {
   const [config, setConfig] = useState(CONFIG_INICIAL);
   const [ipsInput, setIpsInput] = useState("");
   const [carregando, setCarregando] = useState(true);
+  const [configCarregada, setConfigCarregada] = useState(false);
+  const [tentativaCarregamento, setTentativaCarregamento] = useState(0);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
   const [mensagem, setMensagem] = useState("");
@@ -60,10 +63,16 @@ export default function SegurancaGerenciador() {
         };
         setConfig(proximaConfig);
         setIpsInput(formatarListaIps(proximaConfig.ipsPermitidos));
+        setConfigCarregada(true);
       } catch (error) {
         if (!ativo) return;
         console.error("Erro ao carregar seguranca do gerenciador:", error);
-        setErro("Nao foi possivel carregar a seguranca do gerenciador.");
+        setConfigCarregada(false);
+        setErro(
+          isManagerQuotaExceededError(error)
+            ? "A cota do Firestore foi temporariamente esgotada. Aguarde a renovacao da cota e tente novamente."
+            : "Nao foi possivel carregar a seguranca do gerenciador."
+        );
       } finally {
         if (ativo) setCarregando(false);
       }
@@ -74,7 +83,7 @@ export default function SegurancaGerenciador() {
     return () => {
       ativo = false;
     };
-  }, [loading, usuarioAdmin]);
+  }, [loading, tentativaCarregamento, usuarioAdmin]);
 
   const atualizarCampo = (campo, valor) => {
     setConfig((prev) => ({
@@ -143,6 +152,28 @@ export default function SegurancaGerenciador() {
       <section className="menu-panel-stack">
         <h2>Seguranca do Gerenciador</h2>
         <p>Acesso permitido apenas para owner.</p>
+      </section>
+    );
+  }
+
+  if (!configCarregada) {
+    return (
+      <section className="menu-panel-stack">
+        <div>
+          <h2>Seguranca do Gerenciador</h2>
+          <p>
+            Nao foi possivel confirmar a configuracao salva. Nenhum valor padrao foi aplicado.
+          </p>
+        </div>
+        {erro ? <p style={{ color: "#ff6b6b", margin: 0 }}>{erro}</p> : null}
+        <div>
+          <button
+            type="button"
+            onClick={() => setTentativaCarregamento((valor) => valor + 1)}
+          >
+            Tentar novamente
+          </button>
+        </div>
       </section>
     );
   }

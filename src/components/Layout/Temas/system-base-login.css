@@ -356,15 +356,43 @@
   width: 100%;
   box-sizing: border-box;
   margin: 0;
+  display: grid;
+  gap: 8px;
   color: inherit;
   font-family: inherit;
+  font-size: 12px;
   letter-spacing: normal;
+  line-height: 1.5;
   text-transform: none;
   text-shadow: none;
 }
 
-.loginCadastroTerms a {
+.loginCadastroTerms__check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.loginCadastroTerms__check input {
+  margin-top: 3px;
+}
+
+.loginCadastroTerms__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.loginCadastroTerms__actions button {
+  min-height: 26px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  padding: 4px 7px;
+  background: transparent;
   color: inherit;
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
 }
 
 .loginCadastroErro {

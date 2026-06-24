@@ -37,6 +37,7 @@ import {
   normalizeCyberpinkSubtheme,
 } from "../Temas/cyberpink/subthemes";
 import {
+  isManagerQuotaExceededError,
   listarAuditLogsNoGerenciador,
   obterResumoAcessosNoGerenciador,
 } from "../Sistema/gerenciadorSistemasApi";
@@ -53,6 +54,7 @@ const SEGMENTOS_RESERVADOS_MENU = new Set([
   "rastreabilidade",
   "auditoria",
   "propriedades",
+  "privacidade",
   "solicitacoes",
   "pedidos",
   "addons",
@@ -65,6 +67,10 @@ const SEGMENTOS_RESERVADOS_MENU = new Set([
   "gerenciador-projetos",
   "seguranca-gerenciador",
 ]);
+const ACCESS_BADGE_QUERY_LIMIT = 100;
+const AUDIT_BADGE_QUERY_LIMIT = 100;
+const MANAGER_BADGE_REFRESH_MS = 5 * 60 * 1000;
+const MANAGER_QUOTA_RETRY_MS = 30 * 60 * 1000;
 
 function ehSegmentoReservadoMenu(valor) {
   return SEGMENTOS_RESERVADOS_MENU.has(String(valor || "").trim().toLowerCase());
@@ -309,6 +315,10 @@ function Menu({ menuOpen }) {
 
   function abrirPropriedades() {
     navigateIfChanged(`/menu/${menuTargetUser}/propriedades`);
+  }
+
+  function abrirPrivacidade() {
+    navigateIfChanged(`/menu/${menuTargetUser}/privacidade`);
   }
 
   function abrirSolicitacoes() {
@@ -572,7 +582,7 @@ function Menu({ menuOpen }) {
           setBackText("MENU");
           setBackAction(() => returnMenu);
         } else if (path.endsWith("/gerenciador-projetos")) {
-          setAtualTxt("GERENCIADO DE PROJETOS");
+          setAtualTxt("GERENCIADOR DE PROJETOS");
           setBackText("MENU");
           setBackAction(() => returnMenu);
         } else if (path.endsWith("/seguranca-gerenciador")) {
@@ -605,6 +615,10 @@ function Menu({ menuOpen }) {
         setBackAction(() => returnMenu);
       } else if (path.endsWith("/propriedades")) {
         setAtualTxt("PROPRIEDADES");
+        setBackText("MENU");
+        setBackAction(() => returnMenu);
+      } else if (path.endsWith("/privacidade")) {
+        setAtualTxt("PRIVACIDADE");
         setBackText("MENU");
         setBackAction(() => returnMenu);
       } else if (path.endsWith("/solicitacoes") || path.endsWith("/pedidos")) {
@@ -766,10 +780,14 @@ function Menu({ menuOpen }) {
     }
 
     let ativo = true;
-    const atualizarBadgeAcessos = async () => {
+    let quotaBloqueadaAte = 0;
+    const atualizarBadgeAcessos = async ({ ignorarCooldown = false } = {}) => {
+      if (!ignorarCooldown && Date.now() < quotaBloqueadaAte) return;
+
       try {
-        const resumo = await obterResumoAcessosNoGerenciador({ limit: 500 });
+        const resumo = await obterResumoAcessosNoGerenciador({ limit: ACCESS_BADGE_QUERY_LIMIT });
         if (!ativo) return;
+        quotaBloqueadaAte = 0;
         setBadgeAcessos({
           naoLidos: Number(resumo?.naoLidos) || 0,
           limiteAtingido: Boolean(resumo?.limiteAtingido),
@@ -777,22 +795,27 @@ function Menu({ menuOpen }) {
       } catch (error) {
         if (!ativo) return;
         setBadgeAcessos({ naoLidos: 0, limiteAtingido: false });
-        if (error?.code !== "permission-denied") {
+        if (isManagerQuotaExceededError(error)) {
+          quotaBloqueadaAte = Date.now() + MANAGER_QUOTA_RETRY_MS;
+          console.warn("Cota do Firestore esgotada; badge de acessos pausado temporariamente.");
+        } else if (error?.code !== "permission-denied") {
           console.error("Erro ao carregar notificacao de acessos:", error);
         }
       }
     };
+    const atualizarBadgeAcessosAposMudanca = () =>
+      atualizarBadgeAcessos({ ignorarCooldown: true });
 
     void atualizarBadgeAcessos();
-    const intervalId = window.setInterval(atualizarBadgeAcessos, 60000);
+    const intervalId = window.setInterval(atualizarBadgeAcessos, MANAGER_BADGE_REFRESH_MS);
     window.addEventListener("focus", atualizarBadgeAcessos);
-    window.addEventListener("acessos-resumo-atualizado", atualizarBadgeAcessos);
+    window.addEventListener("acessos-resumo-atualizado", atualizarBadgeAcessosAposMudanca);
 
     return () => {
       ativo = false;
       window.clearInterval(intervalId);
       window.removeEventListener("focus", atualizarBadgeAcessos);
-      window.removeEventListener("acessos-resumo-atualizado", atualizarBadgeAcessos);
+      window.removeEventListener("acessos-resumo-atualizado", atualizarBadgeAcessosAposMudanca);
     };
   }, [isManagerProject, temUsuarioAutenticado, usuarioEhOwnerGerenciador]);
 
@@ -803,40 +826,49 @@ function Menu({ menuOpen }) {
     }
 
     let ativo = true;
-    const atualizarBadgeAuditoria = async () => {
+    let quotaBloqueadaAte = 0;
+    const atualizarBadgeAuditoria = async ({ ignorarCooldown = false } = {}) => {
+      if (!ignorarCooldown && Date.now() < quotaBloqueadaAte) return;
+
       try {
         const itens = await listarAuditLogsNoGerenciador({
-          limit: 500,
+          limit: AUDIT_BADGE_QUERY_LIMIT,
           severity: "alto",
           onlyUnreadSignals: true,
         });
         if (!ativo) return;
+        quotaBloqueadaAte = 0;
         const criticos = Array.isArray(itens)
           ? itens.filter((item) => isAuditSeverityCritical(item?.severity || resolveAuditSeverity(item))).length
           : 0;
         setBadgeAuditoria({
           criticos,
-          limiteAtingido: Array.isArray(itens) && itens.length >= 500,
+          limiteAtingido: Array.isArray(itens) && itens.length >= AUDIT_BADGE_QUERY_LIMIT,
         });
       } catch (error) {
         if (!ativo) return;
         setBadgeAuditoria({ criticos: 0, limiteAtingido: false });
-        if (error?.code !== "permission-denied") {
+        if (isManagerQuotaExceededError(error)) {
+          quotaBloqueadaAte = Date.now() + MANAGER_QUOTA_RETRY_MS;
+          console.warn("Cota do Firestore esgotada; badge de auditoria pausado temporariamente.");
+        } else if (error?.code !== "permission-denied") {
           console.error("Erro ao carregar notificacao de auditoria:", error);
         }
       }
     };
+    const atualizarBadgeAuditoriaAposMudanca = () =>
+      atualizarBadgeAuditoria({ ignorarCooldown: true });
 
     void atualizarBadgeAuditoria();
-    const intervalId = window.setInterval(atualizarBadgeAuditoria, 60000);
+    const intervalId = window.setInterval(atualizarBadgeAuditoria, MANAGER_BADGE_REFRESH_MS);
     window.addEventListener("focus", atualizarBadgeAuditoria);
-    window.addEventListener("auditoria-resumo-atualizado", atualizarBadgeAuditoria);
+    window.addEventListener("auditoria-resumo-atualizado", atualizarBadgeAuditoriaAposMudanca);
 
     return () => {
       ativo = false;
       window.clearInterval(intervalId);
       window.removeEventListener("focus", atualizarBadgeAuditoria);
-      window.removeEventListener("auditoria-resumo-atualizado", atualizarBadgeAuditoria);
+      window.removeEventListener("auditoria-resumo-atualizado", atualizarBadgeAuditoriaAposMudanca);
     };
   }, [isManagerProject, temUsuarioAutenticado, usuarioEhOwnerGerenciador]);
 
@@ -931,7 +963,7 @@ function Menu({ menuOpen }) {
               GERENCIADOR DE ICONES
             </div>
             <div onClick={abrirGerenciadoProjetos} className="gavetaOption">
-              GERENCIADO DE PROJETOS
+              GERENCIADOR DE PROJETOS
             </div>
             <div onClick={abrirSegurancaGerenciador} className="gavetaOption">
               SEGURANCA DO GERENCIADOR
@@ -974,6 +1006,7 @@ function Menu({ menuOpen }) {
             {exibirPropriedades ? (
               <div onClick={abrirPropriedades} className="gavetaOption">PROPRIEDADES</div>
             ) : null}
+            <div onClick={abrirPrivacidade} className="gavetaOption">PRIVACIDADE</div>
             {exibirSolicitacoes ? (
               <div onClick={abrirSolicitacoes} className="gavetaOption">
                 SOLICITAÇÕES
@@ -1022,8 +1055,5 @@ function Menu({ menuOpen }) {
 }
 
 export default Menu;
-
-
-
 
 

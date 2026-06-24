@@ -1464,6 +1464,22 @@ function PropriedadesSistema({
           placeholder="https://seuprojeto.com/termos"
           style={{ width: "100%", marginTop: 8 }}
         />
+        <label htmlFor="termosUsoVersao" style={{ display: "block", marginTop: 10 }}>
+          Versao dos termos de uso
+        </label>
+        <input
+          id="termosUsoVersao"
+          type="text"
+          value={config.termosUsoVersao || "1.0"}
+          onChange={(event) =>
+            setConfig((prev) => ({
+              ...prev,
+              termosUsoVersao: event.target.value,
+            }))
+          }
+          placeholder="1.0"
+          style={{ width: "100%", marginTop: 8 }}
+        />
         <label htmlFor="politicaPrivacidadeUrl" style={{ display: "block", marginTop: 10 }}>
           URL da politica de privacidade
         </label>
@@ -1480,6 +1496,35 @@ function PropriedadesSistema({
           placeholder="https://seuprojeto.com/privacidade"
           style={{ width: "100%", marginTop: 8 }}
         />
+        <label htmlFor="politicaPrivacidadeVersao" style={{ display: "block", marginTop: 10 }}>
+          Versao da politica de privacidade
+        </label>
+        <input
+          id="politicaPrivacidadeVersao"
+          type="text"
+          value={config.politicaPrivacidadeVersao || "1.0"}
+          onChange={(event) =>
+            setConfig((prev) => ({
+              ...prev,
+              politicaPrivacidadeVersao: event.target.value,
+            }))
+          }
+          placeholder="1.0"
+          style={{ width: "100%", marginTop: 8 }}
+        />
+        <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
+          <input
+            type="checkbox"
+            checked={config.exigirAceiteLgpdNoLogin === true}
+            onChange={(event) =>
+              setConfig((prev) => ({
+                ...prev,
+                exigirAceiteLgpdNoLogin: event.target.checked,
+              }))
+            }
+          />
+          Exigir aceite versionado no primeiro login e quando houver nova versao
+        </label>
         <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
           <input
             type="checkbox"
@@ -1494,7 +1539,7 @@ function PropriedadesSistema({
           Exigir aceite de termos no cadastro por email e senha
         </label>
         <p style={{ marginTop: 6, opacity: 0.8 }}>
-          Recomendado quando o projeto permite cadastro por email e senha. O aceite vale para o fluxo de criacao de conta, nao para login em conta existente.
+          O aceite versionado cria uma evidencia por usuario/projeto. Ao alterar o conteudo juridico, atualize a versao para solicitar novo aceite.
         </p>
       </div>
 

@@ -767,6 +767,24 @@ Cada evento busca registrar:
 
 Essa camada e diferente da navegacao. Navegacao indica que algo foi acessado. Auditoria operacional indica que algo foi alterado no sistema. Essa separacao ajuda a investigar incidentes, restaurar contexto, identificar exclusoes e entender quem alterou configuracoes relevantes.
 
+## Protocolo Codex para operacoes sensiveis
+
+Foi criado um protocolo operacional para reduzir risco em caso de sessao, IDE ou computador comprometido:
+
+```txt
+docs/protocolo-seguranca-codex-operacoes-sensiveis.md
+```
+
+Esse protocolo define quais acoes o Codex pode executar diretamente, quais exigem confirmacao explicita e quais devem ser pausadas ou recusadas. A premissa adotada e que o Codex nao consegue provar identidade pela conversa: se o computador estiver invadido, a identidade da sessao tambem deve ser tratada como comprometida.
+
+Pontos cobertos:
+
+1. Classificacao de acoes por risco.
+2. Confirmacao para commit, push, deploy, regras Firebase, banco e permissoes.
+3. Protecao de `.env`, tokens, chaves privadas e dados pessoais.
+4. Pausa obrigatoria para pedidos que removam auditoria, reduzam seguranca ou exponham segredos.
+5. Procedimento de resposta quando houver suspeita de invasao.
+
 ## Politica de auditoria por projeto
 
 A auditoria passou a ser configuravel no gerenciador de projetos. Cada projeto pode manter a auditoria ativa ou desativada e definir quais categorias devem gerar eventos:
@@ -903,6 +921,162 @@ Os eventos de auditoria passaram a receber uma classificacao de severidade:
 O painel de auditoria permite filtrar por severidade e tambem possui um atalho para exibir somente eventos criticos. A gaveta de auditoria no menu do gerenciador exibe um badge quando existem eventos recentes de severidade alta.
 
 Essa camada ajuda a transformar a auditoria em uma ferramenta de triagem. Em vez de depender apenas da leitura manual de todos os logs, o sistema destaca rapidamente eventos que podem exigir revisao: exclusao de dados, alteracao de regras de acesso, remocao de registros operacionais e mudancas administrativas relevantes.
+
+## Atualizacao LGPD: aceite versionado e direitos do titular
+
+Foi implementado um modulo inicial de privacidade/LGPD para reforcar transparencia, prova de aceite e atendimento aos direitos do titular.
+
+### Configuracoes adicionadas por projeto
+
+O sistema passou a aceitar os seguintes campos em `configSistema`:
+
+```js
+termosUsoUrl: ""
+termosUsoVersao: "1.0"
+politicaPrivacidadeUrl: ""
+politicaPrivacidadeVersao: "1.0"
+exigirAceiteLgpdNoLogin: false
+exigirAceiteTermosNoCadastro: false
+```
+
+Quando o projeto nao informa URLs proprias, o sistema usa documentos internos padrao:
+
+```txt
+/termos-de-uso.html
+/politica-de-privacidade.html
+```
+
+Esses documentos funcionam como modelo inicial para permitir consulta antes do aceite. Eles devem ser revisados e adaptados juridicamente pela administracao do projeto antes de uso definitivo.
+
+`exigirAceiteTermosNoCadastro` continua ligado ao fluxo de cadastro por e-mail e senha.
+
+`exigirAceiteLgpdNoLogin` ativa o gate versionado apos login. Quando ligado, qualquer usuario autenticado precisa aceitar a versao atual dos termos e da politica antes de acessar areas logadas. Isso cobre login social e login por e-mail/senha.
+
+Ao alterar o conteudo juridico dos termos ou da politica, o administrador deve atualizar a respectiva versao. Essa mudanca faz o sistema solicitar novo aceite no proximo acesso logado.
+
+### Evidencia tecnica de aceite
+
+O aceite passa a ser registrado no Firestore no namespace do projeto e do usuario:
+
+```txt
+users/{uid}/lgpd_consents/current
+users/{uid}/lgpd_consent_events/{eventId}
+```
+
+Em projetos oneowner com runtime compartilhado, o caminho fica namespaceado:
+
+```txt
+projetos/{projectSystemKey}/users/{uid}/lgpd_consents/current
+projetos/{projectSystemKey}/users/{uid}/lgpd_consent_events/{eventId}
+```
+
+Campos principais:
+
+```js
+uid
+email
+accepted
+status
+origem
+projectSystemKey
+runtimeProjectKey
+termosUsoUrl
+termosUsoVersao
+politicaPrivacidadeUrl
+politicaPrivacidadeVersao
+policyKey
+userAgent
+path
+acceptedAt
+updatedAt
+```
+
+O documento `current` representa a versao vigente aceita pelo usuario. A colecao `lgpd_consent_events` funciona como historico imutavel de aceite, evitando que uma atualizacao sobrescreva completamente a evidencia anterior.
+
+### Central de privacidade do usuario
+
+Foi adicionada uma gaveta `PRIVACIDADE` no menu do projeto. Nela, o usuario pode:
+
+1. Ver o status do aceite atual.
+2. Abrir os termos de uso e a politica de privacidade configurados.
+3. Reafirmar ou registrar o aceite da versao atual.
+4. Abrir solicitacoes relacionadas a direitos LGPD.
+5. Consultar as proprias solicitacoes ja registradas.
+
+Tipos iniciais de solicitacao:
+
+1. Acesso aos dados.
+2. Correcao de dados.
+3. Exclusao ou anonimizacao.
+4. Portabilidade.
+5. Revogacao de consentimento.
+6. Oposicao ao tratamento.
+7. Revisao de decisao automatizada.
+8. Informacoes sobre privacidade.
+
+As solicitacoes sao gravadas em:
+
+```txt
+users/{uid}/lgpd_requests/{requestId}
+projetos/{projectSystemKey}/users/{uid}/lgpd_requests/{requestId}
+```
+
+### Atendimento administrativo de solicitacoes LGPD
+
+Foi adicionada uma area administrativa dentro da Central de Privacidade para o owner do projeto acompanhar e responder solicitacoes recebidas.
+
+Nessa area, o owner pode:
+
+1. Ver solicitacoes abertas pelos usuarios do projeto.
+2. Identificar tipo, status, usuario solicitante e datas principais.
+3. Registrar resposta ao titular.
+4. Atualizar o status da solicitacao.
+5. Concluir o pedido ou recusar com justificativa registrada.
+
+Status operacionais usados:
+
+1. Aberta.
+2. Em analise.
+3. Aguardando usuario.
+4. Concluida.
+5. Recusada com justificativa.
+
+Ao salvar uma resposta administrativa, o documento da solicitacao recebe:
+
+```js
+{
+  status: "concluida",
+  resposta: "Texto da resposta ao titular",
+  atendidaPorUid: "uid-do-owner",
+  atendidaPorEmail: "email-do-owner",
+  updatedAt: "...",
+  resolvidaEm: "..."
+}
+```
+
+Esse fluxo cria uma evidencia minima de atendimento: quem respondeu, quando respondeu, qual status foi definido e qual resposta ficou disponivel ao titular na propria Central de Privacidade.
+
+### Regras de seguranca
+
+As regras do Firestore foram atualizadas para permitir:
+
+1. O proprio titular ler seus consentimentos e solicitacoes.
+2. O proprio titular criar consentimentos, eventos de aceite e solicitacoes.
+3. Administradores do sistema/projeto lerem e atualizarem solicitacoes para atendimento.
+4. Eventos de aceite nao podem ser editados ou removidos pela interface comum.
+
+Essa regra ajuda a preservar a confiabilidade da trilha de aceite.
+
+### Limite da implementacao
+
+Este modulo melhora a postura de conformidade, mas nao transforma o sistema automaticamente em plenamente conforme. Ainda e necessario manter:
+
+1. Texto juridico adequado para termos e politica.
+2. Definicao de prazos, responsaveis e canal de atendimento.
+3. Inventario de dados pessoais tratados.
+4. Politica de retencao e descarte por tipo de dado.
+5. Procedimento de resposta a incidente.
+6. Revisao juridica periodica dos fluxos e textos apresentados ao usuario.
 
 ## Exemplo de relatorio
 

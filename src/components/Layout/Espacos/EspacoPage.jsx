@@ -504,6 +504,41 @@ const obterDescricaoPreviaCard = (card = {}) =>
 const obterDescricaoCompletaCard = (card = {}) =>
   String(card?.descricaoCompleta || obterDescricaoPreviaCard(card)).trim();
 
+const normalizarAtributoPersonalizadoCard = (valor = {}) => {
+  const fonte = valor && typeof valor === "object" ? valor : {};
+  const rotulo = String(
+    fonte?.rotulo ||
+      fonte?.textoExibido ||
+      fonte?.textoMostrado ||
+      fonte?.label ||
+      fonte?.titulo ||
+      ""
+  ).trim();
+  const nome = String(
+    fonte?.nome ||
+      fonte?.nomeAtributo ||
+      fonte?.atributo ||
+      fonte?.chave ||
+      fonte?.key ||
+      fonte?.name ||
+      ""
+  ).trim();
+  const valorAtributo = String(
+    fonte?.valor ||
+      fonte?.value ||
+      fonte?.texto ||
+      fonte?.conteudo ||
+      ""
+  ).trim();
+
+  if (!rotulo && !nome && !valorAtributo) return null;
+  return {
+    rotulo,
+    nome,
+    valor: valorAtributo,
+  };
+};
+
 const normalizarCardsDoBloco = (valor) => {
   if (!Array.isArray(valor)) return [];
 
@@ -519,6 +554,11 @@ const normalizarCardsDoBloco = (valor) => {
           (card?.addOnSubthemes && typeof card.addOnSubthemes === "object");
       const descricaoPrevia = obterDescricaoPreviaCard(card);
       const descricaoCompleta = obterDescricaoCompletaCard(card);
+      const atributoPersonalizado = normalizarAtributoPersonalizadoCard(
+        card?.atributoPersonalizado ||
+          card?.atributoCustomizado ||
+          card?.customAttribute
+      );
       return {
         id: String(card?.id || `card_${index}`),
         ordem: Number.isFinite(card?.ordem) ? Number(card.ordem) : index,
@@ -530,6 +570,7 @@ const normalizarCardsDoBloco = (valor) => {
         imagem: String(card?.imagem || "").trim(),
         imagemPath: String(card?.imagemPath || "").trim(),
         linkExterno: String(card?.linkExterno || "").trim(),
+        atributoPersonalizado,
         addOnIds: addOnIdsNormalizados,
         addOnSubthemes: normalizarAddOnSubthemes(
           card?.addOnSubthemes || card?.addOnThemes,
@@ -549,6 +590,7 @@ const normalizarCardsDoBloco = (valor) => {
         card.imagem ||
         card.imagemPath ||
         card.linkExterno ||
+        card.atributoPersonalizado ||
         card.addOnIds.length
     )
     .sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
@@ -645,6 +687,9 @@ const obterTextoSeoBloco = (bloco = {}) => {
     card.descricaoExtra,
     card.descricaoPrevia,
     card.descricaoCompleta,
+    card.atributoPersonalizado?.rotulo,
+    card.atributoPersonalizado?.nome,
+    card.atributoPersonalizado?.valor,
   ]);
   const produtos = Array.isArray(bloco?.produtosVenda)
     ? bloco.produtosVenda
@@ -896,6 +941,9 @@ const criarEstadoEditorCard = (overrides = {}) => ({
   descricaoPrevia: "",
   descricaoCompleta: "",
   descricao: "",
+  atributoPersonalizadoRotulo: "",
+  atributoPersonalizadoNome: "",
+  atributoPersonalizadoValor: "",
   imagem: "",
   imagemOriginal: "",
   imagemPathOriginal: "",
@@ -2404,6 +2452,11 @@ export default function EspacoPage() {
       }, {});
       const descricaoPrevia = obterDescricaoPreviaCard(card);
       const descricaoCompleta = obterDescricaoCompletaCard(card);
+      const atributoPersonalizado = normalizarAtributoPersonalizadoCard(
+        card?.atributoPersonalizado ||
+          card?.atributoCustomizado ||
+          card?.customAttribute
+      );
       return criarEstadoEditorCard({
         aberto: true,
         bloco,
@@ -2415,6 +2468,9 @@ export default function EspacoPage() {
         descricaoPrevia,
         descricaoCompleta,
         descricao: descricaoPrevia,
+        atributoPersonalizadoRotulo: atributoPersonalizado?.rotulo || "",
+        atributoPersonalizadoNome: atributoPersonalizado?.nome || "",
+        atributoPersonalizadoValor: atributoPersonalizado?.valor || "",
         imagem: String(card?.imagem || "").trim(),
         imagemOriginal: String(card?.imagem || "").trim(),
         imagemPathOriginal: String(card?.imagemPath || "").trim(),
@@ -5030,6 +5086,9 @@ export default function EspacoPage() {
             card.descricaoCompleta,
             card.descricao,
             card.linkExterno,
+            card.atributoPersonalizado?.rotulo,
+            card.atributoPersonalizado?.nome,
+            card.atributoPersonalizado?.valor,
           ]);
         const subBlocosTexto = normalizarSubBlocosAddOns(
           bloco?.subBlocos || bloco?.subblocos,
@@ -6877,6 +6936,23 @@ export default function EspacoPage() {
         ? descricaoCompletaInformada
         : [descricaoPreviaNova, descricaoCompletaInformada].filter(Boolean).join("\n\n")
       : descricaoPreviaNova;
+    const atributoPersonalizadoRotuloNovo = String(
+      editorCardModal?.atributoPersonalizadoRotulo || ""
+    ).trim();
+    const atributoPersonalizadoValorNovo = String(
+      editorCardModal?.atributoPersonalizadoValor || ""
+    ).trim();
+    const atributoPersonalizadoNomeNovo = String(
+      editorCardModal?.atributoPersonalizadoNome || ""
+    ).trim();
+    const atributoPersonalizadoNovo =
+      atributoPersonalizadoRotuloNovo || atributoPersonalizadoNomeNovo || atributoPersonalizadoValorNovo
+        ? {
+            rotulo: atributoPersonalizadoRotuloNovo,
+            nome: atributoPersonalizadoNomeNovo,
+            valor: atributoPersonalizadoValorNovo,
+          }
+        : null;
     const ordemNova = Number.isFinite(editorCardModal?.ordem)
       ? Number(editorCardModal.ordem)
       : normalizarCardsDoBloco(bloco?.cards).length;
@@ -6963,6 +7039,7 @@ export default function EspacoPage() {
         imagemPath: imagemPathFinal,
         iconeSvg: iconeSvgNovo,
         linkExterno: String(linkNovo || "").trim(),
+        atributoPersonalizado: atributoPersonalizadoNovo,
         addOnIds: addOnIdsNovos,
         addOnSubthemes: addOnSubthemesNovos,
         usaAddOnsGerenciador: true,

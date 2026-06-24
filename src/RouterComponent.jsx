@@ -39,6 +39,7 @@ import SegurancaGerenciador from "./components/Layout/Menu/Gerenciador/Seguranca
 import Auditoria from "./components/Layout/Menu/Gerenciador/Auditoria/Auditoria";
 import SolicitacoesPixManual from "./components/Layout/Pagamentos/SolicitacoesPixManual";
 import GerenciadorVendas from "./components/Layout/Vendas/GerenciadorVendas";
+import Privacidade from "./components/Layout/Menu/Privacidade/Privacidade";
 import CardRoutePage from "./components/Layout/Espacos/CardRoutePage";
 import CardPrintRedirectPage from "./components/Layout/Espacos/CardPrintRedirectPage";
 import TrackableLinkRedirectPage from "./components/Layout/Espacos/TrackableLinkRedirectPage";
@@ -162,6 +163,7 @@ export default function RouterComponent() {
         { path: "espacos", element: <EspacoManager /> },
         { path: "addons", element: <GerenciadorAddOns /> },
         { path: "vendas", element: <GerenciadorVendas /> },
+        { path: "privacidade", element: <Privacidade /> },
       ];
 
   const estruturaRoutes = !isManagerProject

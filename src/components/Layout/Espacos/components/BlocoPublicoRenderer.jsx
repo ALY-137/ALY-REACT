@@ -844,6 +844,7 @@ export default function BlocoPublicoRenderer({
                 descricaoExtra={cardAtivo.descricaoExtra || ""}
                 nomeDescricao={cardAtivo.nome || ""}
                 descricao={cardAtivo.descricaoPrevia || cardAtivo.descricao || ""}
+                atributoPersonalizado={cardAtivo.atributoPersonalizado}
                 linkExterno={cardAtivo.linkExterno || ""}
                 imagem={imagemCardFinal}
                 idNome={`${bloco.id}-card-${indiceCardAtivo}`}

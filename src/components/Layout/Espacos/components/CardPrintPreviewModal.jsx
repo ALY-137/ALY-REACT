@@ -322,6 +322,7 @@ const CardPrintPreviewModal = ({
                     previewImpressaoCard.card.descricao ||
                     ""
                   }
+                  atributoPersonalizado={previewImpressaoCard.card.atributoPersonalizado}
                   linkExterno={previewImpressaoCard.card.linkExterno || ""}
                   imagem={previewImpressaoCard.imagem || "/logoNeon.png"}
                   idNome={`card-print-front-${previewImpressaoCard.card.id}`}

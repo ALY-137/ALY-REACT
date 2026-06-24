@@ -12,6 +12,8 @@ import {
   obterConfigSistemaCacheLocal,
   resolverDestinoPosLoginPadrao as resolverDestinoPosLoginProjeto,
 } from "../Sistema/configSistema";
+import { registrarConsentimentoLgpd } from "../Sistema/lgpdConsentApi";
+import TermosPrivacidadeModal from "./TermosPrivacidadeModal";
 
 const POST_LOGIN_REDIRECT_KEY = "postLoginRedirectPath";
 
@@ -72,6 +74,10 @@ function LoginCadastroEmail({ onLogin, configSistema = null }) {
   const [enviandoReset, setEnviandoReset] = useState(false);
   const [erro, setErro] = useState("");
   const [mensagem, setMensagem] = useState("");
+  const [modalDocumentos, setModalDocumentos] = useState({
+    aberto: false,
+    aba: "termos",
+  });
 
   const termosUsoUrl = String(configSistema?.termosUsoUrl || "").trim();
   const politicaPrivacidadeUrl = String(configSistema?.politicaPrivacidadeUrl || "").trim();
@@ -116,6 +122,19 @@ function LoginCadastroEmail({ onLogin, configSistema = null }) {
     } catch (bootstrapError) {
       if (bootstrapError?.code !== "permission-denied") {
         console.warn("Falha no bootstrap do usuario apos login email:", bootstrapError);
+      }
+    }
+
+    if (loginContext.consentimentoLgpdAceito === true) {
+      try {
+        await registrarConsentimentoLgpd({
+          user: firebaseUser,
+          configSistema,
+          origem: "cadastro_email_senha",
+          accepted: true,
+        });
+      } catch (consentError) {
+        console.warn("Falha ao registrar aceite LGPD no cadastro:", consentError);
       }
     }
 
@@ -191,6 +210,7 @@ function LoginCadastroEmail({ onLogin, configSistema = null }) {
         await finalizarLogin(credenciais.user, {
           loginFlow: "cadastro",
           emailForHash: emailLimpo,
+          consentimentoLgpdAceito: aceitouTermos,
         });
       } else {
         const credenciais = await signInWithEmailAndPassword(auth, emailLimpo, senha);
@@ -269,35 +289,41 @@ function LoginCadastroEmail({ onLogin, configSistema = null }) {
       ) : null}
 
       {mostrarBlocoTermos ? (
-        <label
-          className="loginCadastroTerms"
-          style={{ display: "block", fontSize: 12, lineHeight: 1.5, marginBottom: 10 }}
-        >
-          <input
-            type="checkbox"
-            checked={aceitouTermos}
-            onChange={(event) => setAceitouTermos(event.target.checked)}
-            style={{ marginRight: 8 }}
-          />
-          Li e aceito os termos aplicaveis.
-          {termosUsoUrl ? (
-            <>
-              {" "}
-              <a href={termosUsoUrl} target="_blank" rel="noreferrer">
-                Termos de uso
-              </a>
-            </>
-          ) : null}
-          {politicaPrivacidadeUrl ? (
-            <>
-              {termosUsoUrl ? " e " : " "}
-              <a href={politicaPrivacidadeUrl} target="_blank" rel="noreferrer">
-                Politica de privacidade
-              </a>
-            </>
-          ) : null}
-        </label>
+        <div className="loginCadastroTerms">
+          <label className="loginCadastroTerms__check">
+            <input
+              type="checkbox"
+              checked={aceitouTermos}
+              onChange={(event) => setAceitouTermos(event.target.checked)}
+            />
+            <span>Li e aceito os termos aplicaveis.</span>
+          </label>
+          <span className="loginCadastroTerms__actions">
+            <button
+              type="button"
+              onClick={() => setModalDocumentos({ aberto: true, aba: "termos" })}
+            >
+              Ver termos
+            </button>
+            <button
+              type="button"
+              onClick={() => setModalDocumentos({ aberto: true, aba: "politica" })}
+            >
+              Ver politica
+            </button>
+          </span>
+        </div>
       ) : null}
+
+      <TermosPrivacidadeModal
+        aberto={modalDocumentos.aberto}
+        initialTab={modalDocumentos.aba}
+        termosUsoUrl={termosUsoUrl}
+        termosUsoVersao={configSistema?.termosUsoVersao || "1.0"}
+        politicaPrivacidadeUrl={politicaPrivacidadeUrl}
+        politicaPrivacidadeVersao={configSistema?.politicaPrivacidadeVersao || "1.0"}
+        onClose={() => setModalDocumentos((prev) => ({ ...prev, aberto: false }))}
+      />
 
       <button className="loginCadastroButton" type="submit" disabled={enviando}>
         {textoBotao}

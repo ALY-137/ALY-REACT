@@ -3,6 +3,7 @@ import {
   collection,
   collectionGroup,
   deleteDoc,
+  deleteField,
   doc,
   getDoc,
   getDocs,
@@ -77,17 +78,14 @@ function shouldFallbackToDirectManagerRead(error) {
   const code = normalizeText(error?.code).toLowerCase();
   const message = normalizeText(error?.message).toLowerCase();
 
+  if (isManagerQuotaExceededError(error)) return false;
   if (error instanceof TypeError) return true;
   if (code === "failed-precondition") return true;
   if (code === "unavailable") return true;
-  if (code === "resource-exhausted") return true;
-  if (code === "http-429") return true;
   if (code === "http-404") return true;
   if (code === "http-500") return true;
   if (message.includes("failed to fetch")) return true;
   if (message.includes("cors")) return true;
-  if (message.includes("quota exceeded")) return true;
-  if (message.includes("resource_exhausted")) return true;
   if (message.includes("backend compartilhado")) return true;
   if (message.includes("nao configurado")) return true;
 
@@ -96,6 +94,20 @@ function shouldFallbackToDirectManagerRead(error) {
 
 function normalizeText(value) {
   return String(value || "").trim();
+}
+
+export function isManagerQuotaExceededError(error) {
+  const code = normalizeText(error?.code).toLowerCase();
+  const message = normalizeText(error?.message).toLowerCase();
+
+  return (
+    code === "8" ||
+    code === "resource-exhausted" ||
+    code === "http-429" ||
+    message.includes("quota exceeded") ||
+    message.includes("resource_exhausted") ||
+    message.includes("cota do firestore")
+  );
 }
 
 async function auditarEventoGerenciador({
@@ -174,15 +186,22 @@ export function normalizarIpsPermitidosGerenciador(value = []) {
 }
 
 function normalizarConfigSegurancaGerenciador(data = {}) {
+  const possuiBloqueioIpAtual = Object.prototype.hasOwnProperty.call(
+    data || {},
+    "bloqueioIpAtivo"
+  );
+  const possuiModoObservacaoAtual = Object.prototype.hasOwnProperty.call(
+    data || {},
+    "modoObservacao"
+  );
+
   return {
-    bloqueioIpAtivo:
-      data?.bloqueioIpAtivo === true ||
-      data?.filtroIpHabilitado === true ||
-      data?.ipAllowlistEnabled === true,
-    modoObservacao:
-      data?.modoObservacao === true ||
-      data?.observacao === true ||
-      data?.enforcementMode === "observe",
+    bloqueioIpAtivo: possuiBloqueioIpAtual
+      ? data?.bloqueioIpAtivo === true
+      : data?.filtroIpHabilitado === true || data?.ipAllowlistEnabled === true,
+    modoObservacao: possuiModoObservacaoAtual
+      ? data?.modoObservacao === true
+      : data?.observacao === true || data?.enforcementMode === "observe",
     ipsPermitidos: normalizarIpsPermitidosGerenciador(
       data?.ipsPermitidos || data?.allowedIps || data?.ipAllowlist
     ),
@@ -223,6 +242,75 @@ function getAccessTimestampMs(item = {}) {
   }
   const timestamp = Number.isFinite(Number(value)) ? Number(value) : new Date(value).getTime();
   return Number.isFinite(timestamp) ? timestamp : NaN;
+}
+
+function isAccessRecordBlockedOrHidden(item = {}) {
+  const status = normalizeText(item?.status || item?.estado).toLowerCase();
+  return (
+    item?.registroBloqueado === true ||
+    item?.bloqueado === true ||
+    item?.registroOculto === true ||
+    item?.oculto === true ||
+    item?.ocultado === true ||
+    item?.ocultadoNaVisualizacao === true ||
+    item?.arquivado === true ||
+    item?.removido === true ||
+    item?.excluido === true ||
+    item?.deletado === true ||
+    [
+      "bloqueado",
+      "blocked",
+      "oculto",
+      "ocultado",
+      "hidden",
+      "arquivado",
+      "archived",
+      "removido",
+      "excluido",
+      "deletado",
+      "deleted",
+    ].includes(status)
+  );
+}
+
+function isAccessRecordRead(item = {}) {
+  const statusLeitura = normalizeText(item?.statusLeitura).toLowerCase();
+  return item?.visto === true || item?.lido === true || statusLeitura === "lido" || statusLeitura === "read";
+}
+
+function resolveAccessIpForBlock(item = {}) {
+  return normalizeText(item?.ip || item?.geo?.ip).replace(/^::ffff:/, "").toLowerCase();
+}
+
+function resolveAccessUserBlockIdentifiers(item = {}) {
+  return normalizarUsuariosBloqueadosRegistro([item?.uid, item?.email]);
+}
+
+function isAccessRecordBlockedBySettings(item = {}, settings = {}) {
+  const blockedIps = new Set(
+    normalizarIpsBloqueadosRegistro(
+      settings?.ipsBloqueadosRegistro || settings?.ipsBloqueados || settings?.blockedIps
+    )
+  );
+  const blockedUsers = new Set(
+    normalizarUsuariosBloqueadosRegistro(
+      settings?.usuariosBloqueadosRegistro ||
+        settings?.usuariosBloqueados ||
+        settings?.blockedUsers ||
+        settings?.uidsBloqueadosRegistro
+    )
+  );
+  const ip = resolveAccessIpForBlock(item);
+  const userIdentifiers = resolveAccessUserBlockIdentifiers(item);
+
+  return (
+    Boolean(ip && blockedIps.has(ip)) ||
+    userIdentifiers.some((identifier) => blockedUsers.has(identifier))
+  );
+}
+
+function isAccessRecordBlockedOrHiddenForView(item = {}, settings = {}) {
+  return isAccessRecordBlockedOrHidden(item) || isAccessRecordBlockedBySettings(item, settings);
 }
 
 function filterAccessItemsByQuery(items = [], { projectSystemKey = "", startDate = "", endDate = "" } = {}) {
@@ -877,15 +965,36 @@ export async function listarLeiturasQrPrintsNoGerenciador({
 
 export async function obterResumoAcessosNoGerenciador({ limit: maxItems = 500 } = {}) {
   const managerDb = getManagerDb();
+  const safeLimit = Math.min(Math.max(Number(maxItems) || 100, 1), 100);
+  let settingsBloqueio = {
+    ipsBloqueadosRegistro: [],
+    usuariosBloqueadosRegistro: [],
+  };
 
   try {
-    const response = await callSharedManagerRead("obterResumoAcessosGerenciadorHttp", {
-      limit: maxItems,
+    settingsBloqueio = await obterConfigAcessosNoGerenciador();
+  } catch {
+    settingsBloqueio = {
+      ipsBloqueadosRegistro: [],
+      usuariosBloqueadosRegistro: [],
+    };
+  }
+
+  try {
+    const response = await callSharedManagerRead("listarAcessosGerenciadorHttp", {
+      limit: safeLimit,
     });
+    const items = Array.isArray(response?.items) ? response.items : [];
+    const naoLidos = items.reduce((total, item) => {
+      if (isAccessRecordBlockedOrHiddenForView(item, settingsBloqueio)) return total;
+      if (isAccessRecordRead(item)) return total;
+      return total + 1;
+    }, 0);
+
     return {
-      naoLidos: Number(response?.naoLidos) || 0,
-      temNaoLidos: Boolean(response?.temNaoLidos || Number(response?.naoLidos) > 0),
-      limiteAtingido: Boolean(response?.limiteAtingido),
+      naoLidos,
+      temNaoLidos: naoLidos > 0,
+      limiteAtingido: items.length >= safeLimit,
     };
   } catch (error) {
     if (!managerDb || !shouldFallbackToDirectManagerRead(error)) {
@@ -894,12 +1003,13 @@ export async function obterResumoAcessosNoGerenciador({ limit: maxItems = 500 } 
   }
 
   const snap = await getDocs(
-    query(collection(managerDb, "acessos"), where("visto", "==", false), limit(maxItems))
+    query(collection(managerDb, "acessos"), orderBy("data", "desc"), limit(safeLimit))
   );
   let naoLidos = 0;
   snap.docs.forEach((docItem) => {
     const data = docItem.data() || {};
-    if (data.registroBloqueado === true || data.bloqueado === true) return;
+    if (isAccessRecordBlockedOrHiddenForView(data, settingsBloqueio)) return;
+    if (isAccessRecordRead(data)) return;
     naoLidos += 1;
   });
 
@@ -1250,6 +1360,12 @@ export async function salvarConfigSegurancaGerenciador({
     doc(managerDb, "access_settings", "gerenciador"),
     {
       ...payload,
+      filtroIpHabilitado: deleteField(),
+      ipAllowlistEnabled: deleteField(),
+      observacao: deleteField(),
+      enforcementMode: deleteField(),
+      allowedIps: deleteField(),
+      ipAllowlist: deleteField(),
       updatedAt: serverTimestamp(),
     },
     { merge: true }

@@ -127,9 +127,12 @@ export const DEFAULT_SISTEMA_CONFIG = {
   exibirBotaoLoginMensagemRestricao: true,
   mensagemRestricaoAvatarUrl: "",
   exibirBadgeProjetoFirebase: true,
-  termosUsoUrl: "",
-  politicaPrivacidadeUrl: "",
+  termosUsoUrl: "/termos-de-uso.html",
+  termosUsoVersao: "1.0",
+  politicaPrivacidadeUrl: "/politica-de-privacidade.html",
+  politicaPrivacidadeVersao: "1.0",
   exigirAceiteTermosNoCadastro: false,
+  exigirAceiteLgpdNoLogin: false,
   larguraIconsLoginPx: null,
   temaPadraoSistema: TEMA_SISTEMA_FALLBACK,
   layoutTema: { ...DEFAULT_LAYOUT_THEME_OVERRIDES },
@@ -324,7 +327,7 @@ function obterDefaultConfigSistemaProjeto() {
     return {
       ...DEFAULT_SISTEMA_CONFIG,
       temaPadraoSistema: "CYBERPINK",
-      tituloSistema: "GERENCIADO DE PROJETOS",
+      tituloSistema: "GERENCIADOR DE PROJETOS",
       tipoExperiencia: "manager",
       modoAcessoProjeto: "privado_com_login",
     };
@@ -352,7 +355,7 @@ function aplicarDefaultsPorProjeto(configSistema = DEFAULT_SISTEMA_CONFIG) {
       config.temaPadraoSistema = "CYBERPINK";
     }
     if (!config.tituloSistema) {
-      config.tituloSistema = "GERENCIADO DE PROJETOS";
+      config.tituloSistema = "GERENCIADOR DE PROJETOS";
     }
     if (!config.tipoExperiencia || config.tipoExperiencia === "multiowner") {
       config.tipoExperiencia = "manager";
@@ -1039,10 +1042,20 @@ export function normalizarConfigSistema(data = {}) {
     DEFAULT_SISTEMA_CONFIG.termosUsoUrl,
     2000
   );
+  const termosUsoVersaoNormalizada = normalizarTexto(
+    data.termosUsoVersao,
+    DEFAULT_SISTEMA_CONFIG.termosUsoVersao,
+    80
+  );
   const politicaPrivacidadeUrlNormalizado = normalizarTexto(
     data.politicaPrivacidadeUrl,
     DEFAULT_SISTEMA_CONFIG.politicaPrivacidadeUrl,
     2000
+  );
+  const politicaPrivacidadeVersaoNormalizada = normalizarTexto(
+    data.politicaPrivacidadeVersao,
+    DEFAULT_SISTEMA_CONFIG.politicaPrivacidadeVersao,
+    80
   );
   const ownerUidRaw = String(data.ownerUid || data.adminUid || "").trim();
   const ownerUidNormalizado = ownerUidRaw || null;
@@ -1193,10 +1206,16 @@ export function normalizarConfigSistema(data = {}) {
     ),
     mensagemRestricaoAvatarUrl: mensagemRestricaoAvatarUrlNormalizada,
     termosUsoUrl: termosUsoUrlNormalizado,
+    termosUsoVersao: termosUsoVersaoNormalizada,
     politicaPrivacidadeUrl: politicaPrivacidadeUrlNormalizado,
+    politicaPrivacidadeVersao: politicaPrivacidadeVersaoNormalizada,
     exigirAceiteTermosNoCadastro: normalizarBoolean(
       data.exigirAceiteTermosNoCadastro,
       DEFAULT_SISTEMA_CONFIG.exigirAceiteTermosNoCadastro
+    ),
+    exigirAceiteLgpdNoLogin: normalizarBoolean(
+      data.exigirAceiteLgpdNoLogin,
+      DEFAULT_SISTEMA_CONFIG.exigirAceiteLgpdNoLogin
     ),
     larguraIconsLoginPx: normalizarLarguraIconsLogin(data.larguraIconsLoginPx),
     temaPadraoSistema: normalizarTemaSistema(data.temaPadraoSistema),
@@ -1571,4 +1590,3 @@ export function aplicarTemaNoBody(themeId) {
   body.classList.add(`theme-${themeKey}`);
   THEME_CSS_LOADERS[themeKey]?.().catch(() => {});
 }
-

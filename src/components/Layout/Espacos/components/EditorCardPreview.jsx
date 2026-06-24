@@ -35,6 +35,11 @@ const EditorCardPreview = ({
                     descricaoExtra={editorCardModal.descricaoExtra || ""}
                     nomeDescricao={editorCardModal.nome || ""}
                     descricao={editorCardModal.descricaoPrevia || editorCardModal.descricao || ""}
+                    atributoPersonalizado={{
+                      rotulo: editorCardModal.atributoPersonalizadoRotulo || "",
+                      nome: editorCardModal.atributoPersonalizadoNome || "",
+                      valor: editorCardModal.atributoPersonalizadoValor || "",
+                    }}
                     linkExterno={editorCardModal.linkExterno || ""}
                     imagem={imagemPreviewEditorCard}
                     idNome={`card-editor-preview-${editorCardModal.card?.id || "novo"}`}

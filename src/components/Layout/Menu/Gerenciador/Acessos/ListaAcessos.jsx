@@ -6,6 +6,7 @@ import {
   atualizarStatusLinkRastreavelNoGerenciador,
   atualizarStatusQrPrintNoGerenciador,
   criarLinkRastreavelNoGerenciador,
+  isManagerQuotaExceededError,
   listarAcessosNoGerenciador,
   listarAcessosLinksRastreaveisNoGerenciador,
   listarLinksRastreaveisNoGerenciador,
@@ -318,8 +319,57 @@ function resolveAccessUserIdentifiers(acesso) {
   return normalizarUsuariosBloqueados([acesso?.uid, acesso?.email]);
 }
 
-function isAccessRecordBlocked(acesso = {}) {
-  return acesso?.registroBloqueado === true || acesso?.bloqueado === true;
+function isAccessRecordBlockedOrHidden(acesso = {}) {
+  const status = normalizeText(acesso?.status || acesso?.estado).toLowerCase();
+  return (
+    acesso?.registroBloqueado === true ||
+    acesso?.bloqueado === true ||
+    acesso?.registroOculto === true ||
+    acesso?.oculto === true ||
+    acesso?.ocultado === true ||
+    acesso?.ocultadoNaVisualizacao === true ||
+    acesso?.arquivado === true ||
+    acesso?.removido === true ||
+    acesso?.excluido === true ||
+    acesso?.deletado === true ||
+    [
+      "bloqueado",
+      "blocked",
+      "oculto",
+      "ocultado",
+      "hidden",
+      "arquivado",
+      "archived",
+      "removido",
+      "excluido",
+      "deletado",
+      "deleted",
+    ].includes(status)
+  );
+}
+
+function isAccessRecordBlockedByConfig(
+  acesso = {},
+  ipsBloqueadosSet = new Set(),
+  usuariosBloqueadosSet = new Set()
+) {
+  const ipNormalizado = normalizeIpBloqueio(resolveAccessIp(acesso));
+  const usuarios = resolveAccessUserIdentifiers(acesso);
+  return (
+    Boolean(ipNormalizado && ipsBloqueadosSet.has(ipNormalizado)) ||
+    usuarios.some((usuario) => usuariosBloqueadosSet.has(usuario))
+  );
+}
+
+function isAccessRecordHiddenFromMainView(
+  acesso = {},
+  ipsBloqueadosSet = new Set(),
+  usuariosBloqueadosSet = new Set()
+) {
+  return (
+    isAccessRecordBlockedOrHidden(acesso) ||
+    isAccessRecordBlockedByConfig(acesso, ipsBloqueadosSet, usuariosBloqueadosSet)
+  );
 }
 
 function isAccessRead(acesso = {}) {
@@ -984,7 +1034,11 @@ function ListaAcessos({ modo = "acessos" }) {
     } catch (error) {
       if (!mountedRef.current) return;
       console.error("Erro ao carregar acessos do gerenciador:", error);
-      setErro("Nao foi possivel carregar os acessos.");
+      setErro(
+        isManagerQuotaExceededError(error)
+          ? "A cota do Firestore foi temporariamente esgotada. Aguarde a renovacao da cota e tente novamente."
+          : "Nao foi possivel carregar os acessos."
+      );
       setAcessos([]);
     } finally {
       if (mountedRef.current) {
@@ -1479,6 +1533,16 @@ function ListaAcessos({ modo = "acessos" }) {
       .slice(0, 80);
   }, [filtroPainelEspaco, filtroPainelOrigem, filtroProjeto, linksRastreaveis]);
 
+  const ipsBloqueadosSet = useMemo(
+    () => new Set(normalizarIpsBloqueados(ipsBloqueadosRegistro)),
+    [ipsBloqueadosRegistro]
+  );
+
+  const usuariosBloqueadosSet = useMemo(
+    () => new Set(normalizarUsuariosBloqueados(usuariosBloqueadosRegistro)),
+    [usuariosBloqueadosRegistro]
+  );
+
   const acessosFiltrados = useMemo(() => {
     return acessos.filter((acesso) => {
       const projectKey = resolveAccessProjectKey(acesso);
@@ -1486,7 +1550,12 @@ function ListaAcessos({ modo = "acessos" }) {
       const ipAtual = resolveAccessIp(acesso).toLowerCase();
       const acessoTimestamp = resolveDataTimestampMs(acesso?.data || acesso?.criadoEm);
       const lido = isAccessRead(acesso);
-      if (!mostrarRegistrosBloqueados && isAccessRecordBlocked(acesso)) return false;
+      if (
+        !mostrarRegistrosBloqueados &&
+        isAccessRecordHiddenFromMainView(acesso, ipsBloqueadosSet, usuariosBloqueadosSet)
+      ) {
+        return false;
+      }
       if (filtroProjeto && projectKey !== filtroProjeto) return false;
       if (filtroOrigem && resolveOrigemAcesso(acesso) !== filtroOrigem) return false;
       if (filtroTipoUsuario && resolveTipoUsuario(acesso) !== filtroTipoUsuario) return false;
@@ -1516,12 +1585,17 @@ function ListaAcessos({ modo = "acessos" }) {
     filtroProjeto,
     filtroStatusLeitura,
     filtroTipoUsuario,
+    ipsBloqueadosSet,
     mostrarRegistrosBloqueados,
+    usuariosBloqueadosSet,
   ]);
 
   const totalRegistrosBloqueadosOcultos = useMemo(
-    () => acessos.filter((acesso) => isAccessRecordBlocked(acesso)).length,
-    [acessos]
+    () =>
+      acessos.filter((acesso) =>
+        isAccessRecordHiddenFromMainView(acesso, ipsBloqueadosSet, usuariosBloqueadosSet)
+      ).length,
+    [acessos, ipsBloqueadosSet, usuariosBloqueadosSet]
   );
 
   const acessosNaoLidosFiltrados = useMemo(
@@ -2967,18 +3041,10 @@ function ListaAcessos({ modo = "acessos" }) {
     filtroProjeto,
     filtroStatusLeitura,
     filtroTipoUsuario,
+    ipsBloqueadosSet,
     mostrarRegistrosBloqueados,
+    usuariosBloqueadosSet,
   ]);
-
-  const ipsBloqueadosSet = useMemo(
-    () => new Set(normalizarIpsBloqueados(ipsBloqueadosRegistro)),
-    [ipsBloqueadosRegistro]
-  );
-
-  const usuariosBloqueadosSet = useMemo(
-    () => new Set(normalizarUsuariosBloqueados(usuariosBloqueadosRegistro)),
-    [usuariosBloqueadosRegistro]
-  );
 
   const gruposAcessos = useMemo(() => {
     const gruposMap = new Map();
@@ -3048,7 +3114,9 @@ function ListaAcessos({ modo = "acessos" }) {
           projectKey: grupo.projectKey,
           items: itemsOrdenados,
           total: itemsOrdenados.length,
-          totalBloqueados: itemsOrdenados.filter((item) => isAccessRecordBlocked(item)).length,
+          totalBloqueados: itemsOrdenados.filter((item) =>
+            isAccessRecordHiddenFromMainView(item, ipsBloqueadosSet, usuariosBloqueadosSet)
+          ).length,
           totalNaoLidos: itemsOrdenados.filter((item) => !isAccessRead(item)).length,
           usuario: Array.from(grupo.usersSet).filter(Boolean)[0] || "Visitante",
           projetos: Array.from(grupo.projetosSet).filter(Boolean),
@@ -3071,7 +3139,7 @@ function ListaAcessos({ modo = "acessos" }) {
         };
       })
       .sort((a, b) => b.eventoMaisRecenteMs - a.eventoMaisRecenteMs);
-  }, [acessosFiltrados]);
+  }, [acessosFiltrados, ipsBloqueadosSet, usuariosBloqueadosSet]);
 
   const totalPaginas = Math.max(1, Math.ceil(gruposAcessos.length / GROUP_PAGE_SIZE));
   const paginaAtualSegura = Math.min(paginaAtual, totalPaginas);
@@ -3203,7 +3271,7 @@ function ListaAcessos({ modo = "acessos" }) {
                 checked={mostrarRegistrosBloqueados}
                 onChange={(event) => setMostrarRegistrosBloqueados(event.target.checked)}
               />
-              <span>Mostrar bloqueados</span>
+              <span>Mostrar bloqueados/ocultos</span>
             </label>
           ) : null}
         </div>
@@ -4542,7 +4610,7 @@ function ListaAcessos({ modo = "acessos" }) {
           <div className="gerenciador-acessos__summary">
         <span>{`Total exibido: ${gruposAcessos.length} grupo(s) / ${acessosFiltrados.length} evento(s)`}</span>
         <span>{`Nao lidos: ${acessosNaoLidosFiltrados.length}`}</span>
-        <span>{`Bloqueados ocultos: ${
+        <span>{`Bloqueados/ocultos fora da visualizacao: ${
           mostrarRegistrosBloqueados ? 0 : totalRegistrosBloqueadosOcultos
         }`}</span>
         <span>{`Pagina: ${paginaAtualSegura}/${totalPaginas}`}</span>
@@ -4673,7 +4741,7 @@ function ListaAcessos({ modo = "acessos" }) {
                   ) : null}
                   {grupo.totalBloqueados ? (
                     <span className="gerenciador-acessos__blocked-badge">
-                      {`Bloqueados: ${grupo.totalBloqueados}`}
+                      {`Bloqueados/ocultos: ${grupo.totalBloqueados}`}
                     </span>
                   ) : null}
                   <span>{`Primeiro: ${formatarData(
@@ -4779,7 +4847,11 @@ function ListaAcessos({ modo = "acessos" }) {
                     const motivoRegistro = resolveGeoText(
                       acesso?.registroMotivo || acesso?.motivoRegistro
                     );
-                    const registroBloqueado = isAccessRecordBlocked(acesso);
+                    const registroBloqueado = isAccessRecordHiddenFromMainView(
+                      acesso,
+                      ipsBloqueadosSet,
+                      usuariosBloqueadosSet
+                    );
                     const acessoLido = isAccessRead(acesso);
                     const removendoEsteAcesso = removendoAcessoId === normalizeText(acesso?.id);
                     const podeRemoverAcesso = usuarioPodeRemoverRegistrosAuditaveis(
@@ -4801,7 +4873,7 @@ function ListaAcessos({ modo = "acessos" }) {
                           <strong>{resolveAccessUserLabel(acesso)}</strong>
                           {registroBloqueado ? (
                             <span className="gerenciador-acessos__blocked-badge">
-                              BLOQUEADO
+                              BLOQUEADO/OCULTO
                             </span>
                           ) : null}
                           <span
@@ -4834,7 +4906,7 @@ function ListaAcessos({ modo = "acessos" }) {
                             </>
                           ) : null}
                           <span>{`Motivo: ${motivoRegistro}`}</span>
-                          <span>{`Bloqueio: ${registroBloqueado ? motivoBloqueio : "--"}`}</span>
+                          <span>{`Bloqueio/ocultacao: ${registroBloqueado ? motivoBloqueio : "--"}`}</span>
                           <span>{`Visibilidade: ${visibilidadeAba}`}</span>
                           <span>{`Tempo aba: ${tempoAba}`}</span>
                           <span>{`Origem: ${origemAcesso}`}</span>
