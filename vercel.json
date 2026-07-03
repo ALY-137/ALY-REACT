@@ -9,6 +9,17 @@
       "destination": "/api/sitemap"
     },
     {
+      "source": "/:path((?!api/|.*\\..*).*)",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(Googlebot|Google-InspectionTool|GoogleOther|Bingbot|bingbot|DuckDuckBot|Slurp|Baiduspider|YandexBot|facebookexternalhit|Twitterbot|LinkedInBot|WhatsApp|bot|Bot|crawler|Crawler|spider|Spider).*"
+        }
+      ],
+      "destination": "/api/seo-page?path=/:path"
+    },
+    {
       "source": "/((?!api/|.*\\..*).*)",
       "destination": "/index.html"
     }

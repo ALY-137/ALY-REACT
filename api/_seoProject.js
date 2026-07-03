@@ -404,6 +404,436 @@ function buildUrlEntry(loc, lastmod = "", priority = "0.7") {
   };
 }
 
+function cleanSeoText(value = "", maxLength = 300) {
+  const text = normalizeText(value)
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!maxLength || text.length <= maxLength) return text;
+  return `${text.slice(0, Math.max(0, maxLength - 1)).trim()}...`;
+}
+
+function getFirstSeoValue(values = [], maxLength = 300) {
+  for (const value of values) {
+    const text = cleanSeoText(value, maxLength);
+    if (text) return text;
+  }
+  return "";
+}
+
+function decodePathSegments(pathname = "") {
+  const rawPath = normalizeText(pathname)
+    .replace(/^https?:\/\/[^/]+/i, "")
+    .split("?")[0]
+    .split("#")[0];
+
+  return rawPath
+    .split("/")
+    .map((segment) => {
+      try {
+        return decodeURIComponent(segment);
+      } catch {
+        return segment;
+      }
+    })
+    .map((segment) => normalizeText(segment))
+    .filter(Boolean);
+}
+
+function normalizeRouteMatch(value = "") {
+  return normalizeText(value).toLowerCase();
+}
+
+function getSpaceId(space = {}) {
+  return normalizeText(space.data?.id_espaco || space.data?.id || space.id);
+}
+
+function getSpaceName(space = {}) {
+  return normalizeText(space.data?.nome || space.data?.titulo || getSpaceId(space));
+}
+
+function getBlockTitle(block = {}) {
+  return cleanSeoText(block.data?.titulo || block.data?.nome || block.id || "Bloco", 90);
+}
+
+function getBlockDescription(block = {}) {
+  return cleanSeoText(
+    getFirstSeoValue(
+      [
+        block.data?.descricao,
+        block.data?.conteudo,
+        block.data?.textoResumoPublico,
+        block.data?.textoSubtitulo,
+        block.data?.textoConteudoCriptografado ? "" : block.data?.textoCorpo,
+        block.data?.textoModo,
+      ],
+      500
+    ),
+    500
+  );
+}
+
+function getBlockImage(block = {}) {
+  return normalizeText(
+    block.data?.imagem ||
+      block.data?.imagemUrl ||
+      block.data?.urlImagem ||
+      block.data?.capaUrl ||
+      ""
+  );
+}
+
+function normalizeSeoCard(card = {}, index = 0) {
+  const data = card.data || card;
+  const id = normalizeText(data?.id || card.id || `card_${index}`);
+  const atributo = data?.atributoPersonalizado || data?.atributoCustomizado || data?.customAttribute || {};
+  return {
+    id,
+    ordem: Number.isFinite(Number(data?.ordem)) ? Number(data.ordem) : index,
+    nome: cleanSeoText(data?.nome || data?.titulo || id, 90),
+    descricao: cleanSeoText(
+      [
+        data?.descricaoExtra,
+        data?.descricaoCompleta,
+        data?.descricaoPrevia,
+        data?.descricao,
+        atributo?.rotulo,
+        atributo?.nome,
+        atributo?.valor,
+      ].join(" "),
+      500
+    ),
+    imagem: normalizeText(data?.imagem || data?.imagemUrl || data?.urlImagem || ""),
+    visibilidade: data?.visibilidade,
+  };
+}
+
+function isPublicSeoData(data = {}) {
+  return isPublicVisibility(data?.visibilidade);
+}
+
+async function getPublicSpaces(context) {
+  const { runtime, systemKey, ownerUid } = context;
+  const espacosPath = getSpacePublicPath({ runtime, systemKey, ownerUid });
+  const espacos = await fetchPublicVisibilityCollection({
+    projectId: runtime.projectId,
+    apiKey: runtime.apiKey,
+    path: espacosPath,
+    pageSize: 200,
+  });
+
+  return espacos
+    .filter((item) => isPublicSeoData(item.data))
+    .sort((a, b) => Number(a.data?.ordem || 0) - Number(b.data?.ordem || 0));
+}
+
+async function getPublicBlocks(context, espacoId) {
+  const { runtime, systemKey, ownerUid } = context;
+  const blocosPath = getBlocksPath({ runtime, systemKey, ownerUid, espacoId });
+  const blocos = await fetchPublicVisibilityCollection({
+    projectId: runtime.projectId,
+    apiKey: runtime.apiKey,
+    path: blocosPath,
+    pageSize: 100,
+  });
+
+  return blocos
+    .filter((item) => isPublicSeoData(item.data))
+    .sort((a, b) => Number(a.data?.ordem || 0) - Number(b.data?.ordem || 0));
+}
+
+async function getPublicCards(context, espacoId, block) {
+  const inlineCards = Array.isArray(block.data?.cards) ? block.data.cards : [];
+  const cards = inlineCards
+    .map((card, index) => normalizeSeoCard(card, index))
+    .filter((card) => card.id && isPublicVisibility(card.visibilidade));
+
+  const cardsPath = getCardsPath({
+    runtime: context.runtime,
+    systemKey: context.systemKey,
+    ownerUid: context.ownerUid,
+    espacoId,
+    blocoId: block.id,
+  });
+  const cardDocs = await fetchCollection({
+    projectId: context.runtime.projectId,
+    apiKey: context.runtime.apiKey,
+    path: cardsPath,
+    pageSize: 100,
+  });
+
+  cardDocs
+    .filter((cardDoc) => isPublicSeoData(cardDoc.data))
+    .forEach((cardDoc, index) => cards.push(normalizeSeoCard(cardDoc, cards.length + index)));
+
+  const dedupe = new Map();
+  cards.forEach((card) => {
+    if (!card.id || dedupe.has(card.id)) return;
+    dedupe.set(card.id, card);
+  });
+
+  return Array.from(dedupe.values()).sort((a, b) => Number(a.ordem || 0) - Number(b.ordem || 0));
+}
+
+function buildPublicUrl(origin = "", segments = []) {
+  const path = segments
+    .map((segment) => encodePathSegment(segment))
+    .filter(Boolean)
+    .join("/");
+  return `${origin.replace(/\/+$/, "")}/${path}`;
+}
+
+async function resolveSeoPageForPath(context, pathname = "/") {
+  if (
+    !context?.indexable ||
+    !context?.origin ||
+    !context?.runtime?.projectId ||
+    !context?.runtime?.apiKey ||
+    !context?.ownerUid
+  ) {
+    return null;
+  }
+
+  const segments = decodePathSegments(pathname);
+  const spaces = await getPublicSpaces(context);
+  if (!spaces.length) return null;
+
+  const requestedSpaceSegment = normalizeRouteMatch(segments[0] || "home");
+  const space =
+    spaces.find((item) => {
+      const name = normalizeRouteMatch(getSpaceName(item));
+      const id = normalizeRouteMatch(getSpaceId(item));
+      return name === requestedSpaceSegment || id === requestedSpaceSegment;
+    }) ||
+    (!segments[0] ? spaces[0] : null);
+
+  if (!space) return null;
+
+  const espacoId = getSpaceId(space);
+  const espacoName = getSpaceName(space);
+  if (!espacoId || !espacoName) return null;
+
+  const siteName = cleanSeoText(
+    context.configSistema?.tituloSistema || context.project?.name || context.host || "ALY-137",
+    90
+  );
+  const spaceUrl = buildPublicUrl(context.origin, [espacoName]);
+  const blocks = await getPublicBlocks(context, espacoId);
+  const isCardRoute =
+    normalizeRouteMatch(segments[1]) === "card" &&
+    normalizeText(segments[2]) &&
+    normalizeText(segments[3]);
+
+  if (isCardRoute) {
+    const requestedBlockId = normalizeText(segments[2]);
+    const requestedCardId = normalizeText(segments[3]);
+    const block = blocks.find((item) => normalizeText(item.id) === requestedBlockId);
+    if (!block) return null;
+
+    const cards = await getPublicCards(context, espacoId, block).catch(() => []);
+    const card = cards.find((item) => normalizeText(item.id) === requestedCardId);
+    if (!card) return null;
+
+    const title = `${card.nome || getBlockTitle(block)} | ${siteName}`;
+    const description =
+      cleanSeoText(card.descricao || getBlockDescription(block), 300) ||
+      cleanSeoText(context.configSistema?.seoDescricaoPublica || siteName, 300);
+    const canonicalUrl = buildPublicUrl(context.origin, [
+      espacoName,
+      "card",
+      block.id,
+      card.id,
+    ]);
+
+    return {
+      kind: "card",
+      indexable: true,
+      title,
+      description,
+      image: card.imagem || getBlockImage(block) || context.configSistema?.seoImagemUrl || "",
+      canonicalUrl,
+      siteName,
+      heading: card.nome || title,
+      bodyText: description,
+      links: [
+        { href: spaceUrl, label: espacoName },
+        ...cards
+          .filter((item) => item.id !== card.id)
+          .slice(0, 12)
+          .map((item) => ({
+            href: buildPublicUrl(context.origin, [espacoName, "card", block.id, item.id]),
+            label: item.nome || item.id,
+          })),
+      ],
+      jsonLd: {
+        "@context": "https://schema.org",
+        "@type": "CreativeWork",
+        name: card.nome || title,
+        description,
+        image: card.imagem || undefined,
+        url: canonicalUrl,
+        inLanguage: "pt-BR",
+        isPartOf: {
+          "@type": "WebSite",
+          name: siteName,
+          url: context.origin,
+        },
+      },
+    };
+  }
+
+  const blocksWithCards = [];
+  for (const block of blocks.slice(0, 20)) {
+    const cards = await getPublicCards(context, espacoId, block).catch(() => []);
+    blocksWithCards.push({ block, cards });
+  }
+
+  const blockTexts = blocksWithCards
+    .flatMap(({ block, cards }) => [
+      getBlockTitle(block),
+      getBlockDescription(block),
+      ...cards.slice(0, 8).flatMap((card) => [card.nome, card.descricao]),
+    ])
+    .filter(Boolean);
+  const title =
+    normalizeRouteMatch(espacoName) === "home"
+      ? siteName
+      : `${cleanSeoText(espacoName, 80)} | ${siteName}`;
+  const description =
+    cleanSeoText(
+      getFirstSeoValue(
+        [
+          context.configSistema?.seoDescricaoPublica,
+          space.data?.descricao,
+          space.data?.conteudo,
+          ...blockTexts,
+          siteName,
+        ],
+        500
+      ),
+      300
+    ) || siteName;
+  const links = [
+    ...spaces
+      .filter((item) => getSpaceId(item) !== espacoId)
+      .slice(0, 20)
+      .map((item) => ({
+        href: buildPublicUrl(context.origin, [getSpaceName(item)]),
+        label: getSpaceName(item),
+      })),
+    ...blocksWithCards.flatMap(({ block, cards }) =>
+      cards.slice(0, 12).map((card) => ({
+        href: buildPublicUrl(context.origin, [espacoName, "card", block.id, card.id]),
+        label: card.nome || card.id,
+      }))
+    ),
+  ];
+
+  return {
+    kind: "space",
+    indexable: true,
+    title,
+    description,
+    image:
+      getFirstSeoValue(
+        [
+          ...blocksWithCards.flatMap(({ block, cards }) => [
+            getBlockImage(block),
+            ...cards.map((card) => card.imagem),
+          ]),
+          context.configSistema?.seoImagemUrl,
+          context.configSistema?.logoLoginUrl,
+        ],
+        2000
+      ) || "",
+    canonicalUrl: spaceUrl,
+    siteName,
+    heading: title,
+    bodyText: blockTexts.join(" "),
+    links,
+    jsonLd: {
+      "@context": "https://schema.org",
+      "@type": "WebPage",
+      name: title,
+      description,
+      url: spaceUrl,
+      inLanguage: "pt-BR",
+      isPartOf: {
+        "@type": "WebSite",
+        name: siteName,
+        url: context.origin,
+      },
+    },
+  };
+}
+
+function buildSeoHtmlPage(page = {}) {
+  const indexable = page.indexable === true;
+  const title = cleanSeoText(page.title || "Pagina", 90);
+  const description = cleanSeoText(page.description || title, 300);
+  const canonicalUrl = normalizeText(page.canonicalUrl || "");
+  const siteName = cleanSeoText(page.siteName || title, 90);
+  const image = normalizeText(page.image || "");
+  const heading = cleanSeoText(page.heading || title, 120);
+  const bodyText = cleanSeoText(page.bodyText || description, 2000);
+  const robots = indexable
+    ? "index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1"
+    : "noindex,nofollow";
+  const links = Array.isArray(page.links) ? page.links : [];
+  const jsonLd = page.jsonLd && typeof page.jsonLd === "object" ? page.jsonLd : null;
+  const jsonLdTag = jsonLd
+    ? `<script type="application/ld+json">${JSON.stringify(jsonLd).replace(/</g, "\\u003c")}</script>`
+    : "";
+  const imageTags = image
+    ? [
+        `<meta property="og:image" content="${escapeXml(image)}" />`,
+        `<meta name="twitter:image" content="${escapeXml(image)}" />`,
+      ].join("\n    ")
+    : "";
+  const linksHtml = links
+    .filter((link) => link?.href && link?.label)
+    .slice(0, 80)
+    .map(
+      (link) =>
+        `<li><a href="${escapeXml(link.href)}">${escapeXml(cleanSeoText(link.label, 120))}</a></li>`
+    )
+    .join("\n        ");
+
+  return `<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeXml(title)}</title>
+    <meta name="description" content="${escapeXml(description)}" />
+    <meta name="robots" content="${escapeXml(robots)}" />
+    ${canonicalUrl ? `<link rel="canonical" href="${escapeXml(canonicalUrl)}" />` : ""}
+    <meta property="og:title" content="${escapeXml(title)}" />
+    <meta property="og:description" content="${escapeXml(description)}" />
+    <meta property="og:type" content="${page.kind === "card" ? "article" : "website"}" />
+    ${canonicalUrl ? `<meta property="og:url" content="${escapeXml(canonicalUrl)}" />` : ""}
+    <meta property="og:site_name" content="${escapeXml(siteName)}" />
+    ${imageTags}
+    <meta name="twitter:card" content="${image ? "summary_large_image" : "summary"}" />
+    <meta name="twitter:title" content="${escapeXml(title)}" />
+    <meta name="twitter:description" content="${escapeXml(description)}" />
+    ${jsonLdTag}
+  </head>
+  <body>
+    <main>
+      <h1>${escapeXml(heading)}</h1>
+      <p>${escapeXml(bodyText || description)}</p>
+      ${linksHtml ? `<nav aria-label="Conteudo publico relacionado"><ul>${linksHtml}</ul></nav>` : ""}
+      ${canonicalUrl ? `<p><a href="${escapeXml(canonicalUrl)}">Abrir pagina publica</a></p>` : ""}
+    </main>
+  </body>
+</html>
+`;
+}
+
 async function buildPublicSitemapEntries(context) {
   const { origin, indexable, runtime, systemKey, ownerUid } = context;
   if (!origin || !indexable || !runtime?.projectId || !runtime?.apiKey || !ownerUid) {
@@ -498,9 +928,11 @@ function buildSitemapXml(entries = []) {
 }
 
 module.exports = {
+  buildSeoHtmlPage,
   buildPublicSitemapEntries,
   buildSitemapXml,
   escapeXml,
   getRequestOrigin,
   resolveProjectForRequest,
+  resolveSeoPageForPath,
 };
