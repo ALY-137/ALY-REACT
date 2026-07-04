@@ -198,6 +198,138 @@ service cloud.firestore {
         );
     }
 
+    function isNullableString(value) {
+      return value == null || value is string;
+    }
+
+    function isAnonymousSiteSearchAuditLogCreate() {
+      return !signedIn() &&
+        request.resource.data.keys().hasAll([
+          "action",
+          "entityType",
+          "entityId",
+          "projectSystemKey",
+          "runtimeProjectKey",
+          "runtimeProjectId",
+          "ownerUserId",
+          "espacoId",
+          "espacoNome",
+          "blocoId",
+          "cardId",
+          "actorUid",
+          "actorEmail",
+          "actorDisplayName",
+          "motivo",
+          "source",
+          "auditCategory",
+          "severity",
+          "snapshotAntes",
+          "snapshotDepois",
+          "metadata",
+          "clientContext",
+          "criadoEm",
+          "expiresAt"
+        ]) &&
+        request.resource.data.keys().hasOnly([
+          "action",
+          "entityType",
+          "entityId",
+          "projectSystemKey",
+          "runtimeProjectKey",
+          "runtimeProjectId",
+          "ownerUserId",
+          "espacoId",
+          "espacoNome",
+          "blocoId",
+          "cardId",
+          "actorUid",
+          "actorEmail",
+          "actorDisplayName",
+          "motivo",
+          "source",
+          "auditCategory",
+          "severity",
+          "snapshotAntes",
+          "snapshotDepois",
+          "metadata",
+          "clientContext",
+          "criadoEm",
+          "expiresAt"
+        ]) &&
+        request.resource.data.action == "pesquisou_conteudo" &&
+        request.resource.data.entityType == "siteSearch" &&
+        (request.resource.data.entityId is string) &&
+        isNullableString(request.resource.data.projectSystemKey) &&
+        isNullableString(request.resource.data.runtimeProjectKey) &&
+        isNullableString(request.resource.data.runtimeProjectId) &&
+        isNullableString(request.resource.data.ownerUserId) &&
+        isNullableString(request.resource.data.espacoId) &&
+        isNullableString(request.resource.data.espacoNome) &&
+        request.resource.data.blocoId == null &&
+        request.resource.data.cardId == null &&
+        request.resource.data.actorUid == null &&
+        request.resource.data.actorEmail == null &&
+        request.resource.data.actorDisplayName == null &&
+        request.resource.data.motivo == null &&
+        request.resource.data.source == "espaco_busca" &&
+        request.resource.data.auditCategory == "conteudo" &&
+        request.resource.data.severity == "baixo" &&
+        request.resource.data.snapshotAntes == null &&
+        request.resource.data.snapshotDepois == null &&
+        (request.resource.data.metadata is map) &&
+        request.resource.data.metadata.keys().hasAll([
+          "auditCategory",
+          "navigationId",
+          "termo",
+          "termoNormalizado",
+          "totalResultados",
+          "autenticado",
+          "privacidadeAplicada"
+        ]) &&
+        request.resource.data.metadata.keys().hasOnly([
+          "auditCategory",
+          "navigationId",
+          "termo",
+          "termoNormalizado",
+          "totalResultados",
+          "autenticado",
+          "privacidadeAplicada"
+        ]) &&
+        request.resource.data.metadata.auditCategory == "conteudo" &&
+        (request.resource.data.metadata.navigationId is string) &&
+        (request.resource.data.metadata.termo is string) &&
+        (request.resource.data.metadata.termoNormalizado is string) &&
+        (request.resource.data.metadata.totalResultados is number) &&
+        request.resource.data.metadata.autenticado == false &&
+        request.resource.data.metadata.privacidadeAplicada == true &&
+        (request.resource.data.clientContext is map) &&
+        request.resource.data.clientContext.keys().hasAll([
+          "path",
+          "hostname",
+          "referrer",
+          "userAgent"
+        ]) &&
+        request.resource.data.clientContext.keys().hasOnly([
+          "path",
+          "hostname",
+          "referrer",
+          "userAgent"
+        ]) &&
+        isNullableString(request.resource.data.clientContext.path) &&
+        isNullableString(request.resource.data.clientContext.hostname) &&
+        isNullableString(request.resource.data.clientContext.referrer) &&
+        isNullableString(request.resource.data.clientContext.userAgent) &&
+        request.resource.data.criadoEm == request.time &&
+        (
+          request.resource.data.expiresAt == null ||
+          request.resource.data.expiresAt is timestamp
+        );
+    }
+
+    function canCreateAuditLog() {
+      return isValidAuditLogCreate() || isAnonymousSiteSearchAuditLogCreate();
+    }
+
     function isBlocoCoCriador(data) {
       return signedIn() &&
         (data.coCriadoresUids is list) &&
@@ -1210,7 +1342,7 @@ service cloud.firestore {
     }
 
     match /auditLogs/{auditId} {
-      allow create: if isValidAuditLogCreate();
+      allow create: if canCreateAuditLog();
       allow read: if canViewAuditLogData(resource.data);
       allow update, delete: if false;
     }
@@ -1353,7 +1485,7 @@ service cloud.firestore {
     // Namespace de dados por projeto (oneowners em runtime compartilhado).
     match /projetos/{projectKey} {
       match /auditLogs/{auditId} {
-        allow create: if isValidAuditLogCreate() &&
+        allow create: if canCreateAuditLog() &&
           (
             isAdmin() ||
             isProjetoAdmin(projectKey) ||
