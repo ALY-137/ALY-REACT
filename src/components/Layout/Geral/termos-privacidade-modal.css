@@ -1,3 +1,5 @@
+@import "./termos-privacidade-theme.css";
+
 .termos-privacidade-modal {
   position: fixed;
   inset: 0;
@@ -5,7 +7,8 @@
   display: grid;
   place-items: center;
   padding: 18px;
-  color: var(--text-color, inherit);
+  color: var(--terms-text);
+  font-family: inherit;
 }
 
 .termos-privacidade-modal__backdrop {
@@ -13,7 +16,7 @@
   inset: 0;
   border: 0;
   padding: 0;
-  background: rgba(0, 0, 0, 0.68);
+  background: var(--terms-backdrop);
   cursor: pointer;
 }
 
@@ -24,11 +27,11 @@
   height: min(760px, calc(100vh - 36px));
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
-  border: 1px solid var(--subtheme-border-color, currentColor);
+  border: 1px solid var(--terms-border);
   border-radius: 8px;
-  background: var(--surface-color, var(--bg-color, #111116));
-  color: inherit;
-  box-shadow: 0 24px 72px rgba(0, 0, 0, 0.42);
+  background: var(--terms-surface);
+  color: var(--terms-text);
+  box-shadow: var(--terms-shadow);
   overflow: hidden;
 }
 
@@ -38,7 +41,8 @@
   justify-content: space-between;
   gap: 14px;
   padding: 16px;
-  border-bottom: 1px solid var(--subtheme-border-color, rgba(255, 255, 255, 0.14));
+  border-bottom: 1px solid var(--terms-border);
+  background: var(--terms-surface-alt);
 }
 
 .termos-privacidade-modal__header p,
@@ -53,7 +57,7 @@
   font-size: 0.74rem;
   font-weight: 700;
   text-transform: uppercase;
-  color: var(--subtheme-accent-color, currentColor);
+  color: var(--terms-accent);
 }
 
 .termos-privacidade-modal__header h2 {
@@ -64,7 +68,7 @@
   display: block;
   margin-top: 5px;
   font-size: 0.82rem;
-  opacity: 0.74;
+  color: var(--terms-muted);
 }
 
 .termos-privacidade-modal button,
@@ -77,13 +81,38 @@
 .termos-privacidade-modal__footer button,
 .termos-privacidade-modal__footer a {
   min-height: 34px;
-  border: 1px solid var(--subtheme-border-color, currentColor);
+  border: 1px solid var(--terms-border);
   border-radius: 6px;
   padding: 7px 11px;
-  background: var(--button-bg, transparent);
-  color: inherit;
+  background: var(--terms-button-surface);
+  color: var(--terms-text);
   text-decoration: none;
   cursor: pointer;
+}
+
+.termos-privacidade-modal .termos-privacidade-modal__close {
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  min-height: 36px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.termos-privacidade-modal__close:hover,
+.termos-privacidade-modal__close:focus-visible,
+.termos-privacidade-modal__tabs button:hover,
+.termos-privacidade-modal__tabs button:focus-visible,
+.termos-privacidade-modal__footer button:hover,
+.termos-privacidade-modal__footer button:focus-visible,
+.termos-privacidade-modal__footer a:hover,
+.termos-privacidade-modal__footer a:focus-visible {
+  border-color: var(--terms-border-strong);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--terms-focus-ring);
 }
 
 .termos-privacidade-modal__tabs {
@@ -91,18 +120,21 @@
   flex-wrap: wrap;
   gap: 8px;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--subtheme-border-color, rgba(255, 255, 255, 0.12));
+  border-bottom: 1px solid var(--terms-border);
+  background: var(--terms-surface);
 }
 
 .termos-privacidade-modal__tabs button.is-active {
-  border-color: var(--subtheme-accent-color, currentColor);
-  box-shadow: 0 0 0 1px var(--subtheme-accent-color, currentColor);
+  border-color: var(--terms-accent);
+  background: var(--terms-surface-alt);
+  color: var(--terms-accent);
+  box-shadow: inset 0 -2px 0 var(--terms-accent);
 }
 
 .termos-privacidade-modal__content {
   min-height: 0;
   padding: 0;
-  background: rgba(0, 0, 0, 0.12);
+  background: var(--terms-surface-alt);
 }
 
 .termos-privacidade-modal__content iframe {
@@ -125,7 +157,7 @@
   max-width: 520px;
   margin: 0;
   line-height: 1.55;
-  opacity: 0.82;
+  color: var(--terms-muted);
 }
 
 .termos-privacidade-modal__footer {
@@ -134,11 +166,40 @@
   align-items: center;
   gap: 10px;
   padding: 12px 16px;
-  border-top: 1px solid var(--subtheme-border-color, rgba(255, 255, 255, 0.12));
+  border-top: 1px solid var(--terms-border);
+  background: var(--terms-surface-alt);
 }
 
 .termos-privacidade-modal__footer span {
-  opacity: 0.72;
+  color: var(--terms-muted);
+}
+
+body.theme-cyberpink .termos-privacidade-modal__panel {
+  border-radius: 0;
+  clip-path: polygon(
+    14px 0,
+    100% 0,
+    100% calc(100% - 14px),
+    calc(100% - 14px) 100%,
+    0 100%,
+    0 14px
+  );
+}
+
+body.theme-cyberpink .termos-privacidade-modal__close,
+body.theme-cyberpink .termos-privacidade-modal__tabs button,
+body.theme-cyberpink .termos-privacidade-modal__footer button,
+body.theme-cyberpink .termos-privacidade-modal__footer a {
+  border-radius: 0;
+  clip-path: polygon(
+    7px 0,
+    100% 0,
+    100% calc(100% - 7px),
+    calc(100% - 7px) 100%,
+    0 100%,
+    0 7px
+  );
+  text-shadow: 0 0 4px var(--cyberpink-subtheme-button-text-glow);
 }
 
 @media (max-width: 680px) {
@@ -160,5 +221,10 @@
   .termos-privacidade-modal__footer a {
     width: 100%;
     text-align: center;
+  }
+
+  .termos-privacidade-modal .termos-privacidade-modal__close {
+    width: 36px;
+    justify-self: end;
   }
 }

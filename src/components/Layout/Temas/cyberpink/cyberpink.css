@@ -91,17 +91,22 @@ body.theme-cyberpink #navbar-menu .navbar-menu__row {
   position: relative;
   z-index: 2;
   width: 100%;
+  min-width: 0;
   min-height: 34px;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: center;
+  justify-content: stretch;
+  gap: 8px;
 }
 
 body.theme-cyberpink #navbar-menu .navbar-menu__row > p {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  position: relative;
+  left: auto;
+  top: auto;
+  transform: none;
+  grid-column: 1;
+  justify-self: start;
   margin: 0;
   min-width: 34px;
   line-height: 1;
@@ -109,10 +114,14 @@ body.theme-cyberpink #navbar-menu .navbar-menu__row > p {
 }
 
 body.theme-cyberpink #navbar-menu .navbar-menu__login-cta {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  position: relative;
+  left: auto;
+  top: auto;
+  transform: none;
+  grid-column: 1;
+  justify-self: start;
+  min-width: 0;
+  max-width: 100%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -122,16 +131,20 @@ body.theme-cyberpink #navbar-menu .navbar-menu__login-cta {
 }
 
 body.theme-cyberpink #navbar-menu .navbar-menu__search {
-  position: absolute;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: min(32vw, 330px);
-  min-width: 210px;
+  position: relative;
+  right: auto;
+  top: auto;
+  transform: none;
+  grid-column: 2;
+  justify-self: end;
+  width: min(100%, 330px);
+  max-width: 100%;
+  min-width: 0;
   height: 30px;
   display: flex;
   align-items: stretch;
   gap: 5px;
+  box-sizing: border-box;
 }
 
 body.theme-cyberpink #navbar-menu .navbar-menu__search input {
@@ -183,6 +196,8 @@ body.theme-cyberpink #navbar-menu .loginButton {
   align-self: center;
   margin-top: 0;
   line-height: 1;
+  max-width: 100%;
+  min-width: 0;
 }
 
 body.theme-cyberpink #navbar-menu .txtLoginButton,
@@ -229,10 +244,12 @@ body.theme-cyberpink #navbar-menu .navbar-menu__login-arrow--right::before {
 }
 
 body.theme-cyberpink #navbar-menu .navbar-menu__login-arrow--left {
+  margin-top: -3px;
   animation: cyberpink-navbar-login-arrow-left 880ms ease-in-out infinite alternate;
 }
 
 body.theme-cyberpink #navbar-menu .navbar-menu__login-arrow--right {
+  margin-top: -3px;
   animation: cyberpink-navbar-login-arrow-right 880ms ease-in-out infinite alternate;
 }
 
@@ -6995,23 +7012,36 @@ body.theme-cyberpink .cardContainerDesktop {
 
   body.theme-cyberpink #navbar-menu .navbar-menu__row {
     width: 100%;
+    min-width: 0;
     min-height: 34px;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px;
   }
 
   body.theme-cyberpink #navbar-menu .navbar-menu__row > p {
-    left: 0;
+    grid-column: 1;
+    justify-self: start;
+    left: auto;
     width: 34px;
     height: 34px;
-    transform: translateY(-50%);
+    transform: none;
     display: flex;
     align-items: center;
     justify-content: flex-start;
     text-align: left;
   }
 
+  body.theme-cyberpink #navbar-menu .navbar-menu__login-cta {
+    grid-column: 1;
+    justify-self: start;
+  }
+
   body.theme-cyberpink #navbar-menu .navbar-menu__search {
-    width: min(42vw, 220px);
-    min-width: 132px;
+    grid-column: 2;
+    justify-self: end;
+    width: clamp(64px, 44vw, 220px);
+    max-width: 100%;
+    min-width: 0;
   }
 
   body.theme-cyberpink #navbar-menu .navbar-menu__search input {

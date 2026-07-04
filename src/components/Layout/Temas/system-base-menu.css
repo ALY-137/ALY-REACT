@@ -51,6 +51,8 @@ body.layout-navbar-tabs-sticky-disabled .menu-navbar {
   display: flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
+  min-width: 0;
 }
 
 #navbar-menu p {
@@ -58,6 +60,66 @@ body.layout-navbar-tabs-sticky-disabled .menu-navbar {
   font-size: 24px;
   line-height: 1;
   cursor: pointer;
+}
+
+#navbar-menu .navbar-menu__row {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  justify-content: stretch;
+  gap: 10px;
+  box-sizing: border-box;
+}
+
+#navbar-menu .navbar-menu__row > p {
+  grid-column: 1;
+  justify-self: start;
+}
+
+#navbar-menu .navbar-menu__login-cta {
+  min-width: 0;
+  max-width: 100%;
+  grid-column: 1;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#navbar-menu .navbar-menu__search {
+  grid-column: 2;
+  justify-self: end;
+  width: min(42vw, 340px);
+  max-width: min(42vw, 340px);
+  min-width: 0;
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  box-sizing: border-box;
+}
+
+#navbar-menu .navbar-menu__search input {
+  flex: 1 1 auto;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+#navbar-menu .navbar-menu__search button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+@media (max-width: 520px) {
+  #navbar-menu .navbar-menu__row {
+    gap: 6px;
+  }
+
+  #navbar-menu .navbar-menu__search {
+    width: clamp(64px, 44vw, 220px);
+    max-width: 100%;
+  }
 }
 
 #abas.navbar-tabs {

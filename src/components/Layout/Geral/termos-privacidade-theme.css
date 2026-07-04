@@ -1,0 +1,140 @@
+.termos-privacidade-modal,
+.lgpd-consent-gate,
+.loginCadastroTerms {
+  --terms-text: currentColor;
+  --terms-muted: color-mix(in srgb, currentColor 68%, transparent);
+  --terms-accent: currentColor;
+  --terms-border: color-mix(in srgb, currentColor 28%, transparent);
+  --terms-border-strong: color-mix(in srgb, currentColor 58%, transparent);
+  --terms-surface: color-mix(in srgb, var(--bg-color, #15151a) 94%, black);
+  --terms-surface-alt: color-mix(in srgb, var(--bg-color, #15151a) 84%, white 8%);
+  --terms-button-surface: color-mix(in srgb, var(--bg-color, #15151a) 82%, currentColor 8%);
+  --terms-focus-ring: color-mix(in srgb, currentColor 24%, transparent);
+  --terms-backdrop: rgba(0, 0, 0, 0.72);
+  --terms-shadow: 0 24px 72px rgba(0, 0, 0, 0.42);
+}
+
+body.theme-cyberpink .termos-privacidade-modal,
+body.theme-cyberpink .lgpd-consent-gate,
+body.theme-cyberpink .loginCadastroTerms {
+  --terms-text: var(--cyberpink-subtheme-text);
+  --terms-muted: var(--cyberpink-subtheme-text-soft);
+  --terms-accent: var(--cyberpink-subtheme-primary);
+  --terms-border: color-mix(in srgb, var(--cyberpink-subtheme-frame-stroke) 68%, transparent);
+  --terms-border-strong: var(--cyberpink-subtheme-focus-border);
+  --terms-surface: color-mix(in srgb, var(--cyberpink-subtheme-card-surface-shadow) 92%, black);
+  --terms-surface-alt: color-mix(in srgb, var(--cyberpink-subtheme-card-surface) 78%, black);
+  --terms-button-surface: color-mix(in srgb, var(--cyberpink-subtheme-card-surface) 72%, black);
+  --terms-focus-ring: var(--cyberpink-subtheme-button-focus);
+  --terms-backdrop: color-mix(in srgb, #02000a 78%, transparent);
+  --terms-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-frame-inner) 48%, transparent),
+    0 0 28px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 54%, transparent);
+}
+
+body.theme-passy .termos-privacidade-modal,
+body.theme-passy .lgpd-consent-gate,
+body.theme-passy .loginCadastroTerms {
+  --terms-text: var(--passy-ink);
+  --terms-muted: var(--passy-text-soft);
+  --terms-accent: var(--passy-deep);
+  --terms-border: var(--passy-border);
+  --terms-border-strong: #ff6aa8;
+  --terms-surface: #fff1f7;
+  --terms-surface-alt: #ffe2ef;
+  --terms-button-surface: #ffd4e6;
+  --terms-focus-ring: rgba(255, 106, 168, 0.2);
+  --terms-backdrop: rgba(42, 33, 69, 0.56);
+  --terms-shadow: var(--passy-shadow);
+}
+
+body.theme-obeydom .termos-privacidade-modal,
+body.theme-obeydom .lgpd-consent-gate,
+body.theme-obeydom .loginCadastroTerms {
+  --terms-text: var(--obey-text-primary);
+  --terms-muted: var(--obey-text-muted);
+  --terms-accent: #c98c8c;
+  --terms-border: var(--obey-gray-3);
+  --terms-border-strong: var(--obey-red-muted);
+  --terms-surface: var(--obey-black);
+  --terms-surface-alt: var(--obey-gray-1);
+  --terms-button-surface: var(--obey-gray-2);
+  --terms-focus-ring: rgba(90, 51, 51, 0.28);
+  --terms-backdrop: rgba(0, 0, 0, 0.82);
+  --terms-shadow: 0 24px 64px rgba(0, 0, 0, 0.64);
+}
+
+body.theme-padrao .termos-privacidade-modal,
+body.theme-padrao .lgpd-consent-gate,
+body.theme-padrao .loginCadastroTerms {
+  --terms-text: #151515;
+  --terms-muted: #5f5f5f;
+  --terms-accent: #111111;
+  --terms-border: rgba(0, 0, 0, 0.2);
+  --terms-border-strong: rgba(0, 0, 0, 0.58);
+  --terms-surface: #ffffff;
+  --terms-surface-alt: #f5f5f5;
+  --terms-button-surface: #eeeeee;
+  --terms-focus-ring: rgba(0, 0, 0, 0.12);
+  --terms-backdrop: rgba(0, 0, 0, 0.52);
+}
+
+body.theme-jornal .termos-privacidade-modal,
+body.theme-jornal .lgpd-consent-gate,
+body.theme-jornal .loginCadastroTerms {
+  --terms-text: #1f1f1f;
+  --terms-muted: #5a5a55;
+  --terms-accent: #111111;
+  --terms-border: rgba(31, 31, 31, 0.26);
+  --terms-border-strong: rgba(31, 31, 31, 0.62);
+  --terms-surface: #f8f8f4;
+  --terms-surface-alt: #ecece7;
+  --terms-button-surface: #ffffff;
+  --terms-focus-ring: rgba(31, 31, 31, 0.12);
+  --terms-backdrop: rgba(24, 24, 22, 0.58);
+}
+
+body.theme-lojaderoupas .termos-privacidade-modal,
+body.theme-lojaderoupas .lgpd-consent-gate,
+body.theme-lojaderoupas .loginCadastroTerms {
+  --terms-text: #4f2f22;
+  --terms-muted: #795746;
+  --terms-accent: #8a4f2b;
+  --terms-border: rgba(138, 79, 43, 0.3);
+  --terms-border-strong: rgba(138, 79, 43, 0.68);
+  --terms-surface: #fffaf4;
+  --terms-surface-alt: #f4e8dc;
+  --terms-button-surface: #fff0e2;
+  --terms-focus-ring: rgba(138, 79, 43, 0.15);
+  --terms-backdrop: rgba(55, 31, 22, 0.55);
+}
+
+body.theme-pura .termos-privacidade-modal,
+body.theme-pura .lgpd-consent-gate,
+body.theme-pura .loginCadastroTerms {
+  --terms-text: #174f2e;
+  --terms-muted: #3f7655;
+  --terms-accent: #1c8a46;
+  --terms-border: rgba(28, 138, 70, 0.3);
+  --terms-border-strong: rgba(28, 138, 70, 0.68);
+  --terms-surface: #f3fff7;
+  --terms-surface-alt: #dff6e8;
+  --terms-button-surface: #d5f2e0;
+  --terms-focus-ring: rgba(28, 138, 70, 0.16);
+  --terms-backdrop: rgba(8, 42, 21, 0.54);
+}
+
+body.theme-sunshine .termos-privacidade-modal,
+body.theme-sunshine .lgpd-consent-gate,
+body.theme-sunshine .loginCadastroTerms {
+  --terms-text: #5f2929;
+  --terms-muted: #875555;
+  --terms-accent: #b83d3d;
+  --terms-border: rgba(184, 61, 61, 0.28);
+  --terms-border-strong: rgba(184, 61, 61, 0.66);
+  --terms-surface: #fff8ed;
+  --terms-surface-alt: #ffe8d0;
+  --terms-button-surface: #ffe0bd;
+  --terms-focus-ring: rgba(184, 61, 61, 0.16);
+  --terms-backdrop: rgba(70, 28, 20, 0.54);
+}

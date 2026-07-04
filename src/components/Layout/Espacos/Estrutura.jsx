@@ -113,17 +113,66 @@ const visibilidadeEspacoPermitida = (visibilidade = "", autenticado = false) => 
   return false;
 };
 
+const visibilidadeEspacoNavegavel = (visibilidade = "") => {
+  const visibilidadeNormalizada = String(visibilidade || "")
+    .trim()
+    .toLowerCase();
+  return (
+    !visibilidadeNormalizada ||
+    visibilidadeNormalizada === "publico" ||
+    visibilidadeNormalizada === "publico_restritivo" ||
+    visibilidadeNormalizada === "privado" ||
+    visibilidadeNormalizada === "exclusivo_assinante"
+  );
+};
+
+const obterEspacoNavKey = (espaco = {}, index = 0) =>
+  String(
+    espaco?.id_espaco ||
+      espaco?.id ||
+      espaco?.espacoId ||
+      espaco?.nome ||
+      `espaco_${index}`
+  ).trim();
+
+const ordenarEspacosNavegacao = (espacos = []) =>
+  [...(Array.isArray(espacos) ? espacos : [])].sort(
+    (a, b) => (Number(a?.ordem) || 0) - (Number(b?.ordem) || 0)
+  );
+
+const mesclarEspacosNavegacao = (espacosBase = [], espacosExtras = []) => {
+  const mapa = new Map();
+
+  ordenarEspacosNavegacao(espacosBase).forEach((espaco, index) => {
+    const chave = obterEspacoNavKey(espaco, index);
+    if (!chave) return;
+    mapa.set(chave, espaco);
+  });
+
+  ordenarEspacosNavegacao(espacosExtras).forEach((espaco, index) => {
+    const chave = obterEspacoNavKey(espaco, index);
+    if (!chave || mapa.has(chave)) return;
+    mapa.set(chave, espaco);
+  });
+
+  return ordenarEspacosNavegacao(Array.from(mapa.values()));
+};
+
 const filtrarEspacosFallbackPorSkin = ({
   espacos = [],
   skinId = "",
   autenticado = false,
+  manterRestritosNaNavegacao = false,
 } = {}) => {
   const skinIdNormalizado = String(skinId || "").trim();
 
   return (Array.isArray(espacos) ? espacos : [])
     .filter((espaco) => {
       const visibilidade = espaco?.visibilidade;
-      if (!visibilidadeEspacoPermitida(visibilidade, autenticado)) return false;
+      const permitido = manterRestritosNaNavegacao
+        ? visibilidadeEspacoNavegavel(visibilidade)
+        : visibilidadeEspacoPermitida(visibilidade, autenticado);
+      if (!permitido) return false;
 
       if (!skinIdNormalizado) return true;
 
@@ -512,14 +561,31 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
     ];
 
     if (ownerUid) {
+      let estruturaPublicaUsada = false;
+      if (oneOwnerPublicaAtiva && !usuarioEhOwnerOneOwner) {
+        try {
+          const estruturaPublica = await getEspacosEstruturaPublica(ownerUid);
+          if (estruturaPublica.length) {
+            espacosFallback = estruturaPublica;
+            estruturaPublicaUsada = true;
+          }
+        } catch (publicErr) {
+          if (!erroConsultaRecuperavelSkin(publicErr)) {
+            throw publicErr;
+          }
+        }
+      }
+
       try {
-        const espacosOwner = await getEspacosDoOwner({
-          userId: ownerUid,
-          viewerUserId: authUserAtual?.uid || null,
-          ignorarVisibilidade: Boolean(usuarioEhOwnerOneOwner),
-        });
-        if (espacosOwner.length) {
-          espacosFallback = espacosOwner;
+        if (!estruturaPublicaUsada) {
+          const espacosOwner = await getEspacosDoOwner({
+            userId: ownerUid,
+            viewerUserId: authUserAtual?.uid || null,
+            ignorarVisibilidade: Boolean(usuarioEhOwnerOneOwner),
+          });
+          if (espacosOwner.length) {
+            espacosFallback = espacosOwner;
+          }
         }
       } catch (err) {
         if (!erroConsultaRecuperavelSkin(err)) {
@@ -876,6 +942,16 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
               viewerUserId: authUserAtual?.uid || null,
               ignorarVisibilidade: Boolean(usuarioEhOwnerOneOwner),
             });
+            if (!usuarioEhOwnerOneOwner) {
+              try {
+                const estruturaPublica = await getEspacosEstruturaPublica(skinData.ownerUserId);
+                if (estruturaPublica.length) {
+                  pagesList = mesclarEspacosNavegacao(pagesList, estruturaPublica);
+                }
+              } catch (estruturaErr) {
+                if (!erroConsultaRecuperavelSkin(estruturaErr)) throw estruturaErr;
+              }
+            }
             if (usuarioEhOwnerOneOwner && pagesList.length) {
               await Promise.all(
                 pagesList.map((espaco) =>
@@ -909,6 +985,20 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
               skinId,
               viewerUserId: authUserAtual?.uid || null,
             });
+            try {
+              const espacosEstruturaPublica = await getEspacosEstruturaPublica(
+                skinData.ownerUserId
+              );
+              const espacosNavegaveisDaSkin = filtrarEspacosFallbackPorSkin({
+                espacos: espacosEstruturaPublica,
+                skinId,
+                autenticado: Boolean(authUserAtual?.uid),
+                manterRestritosNaNavegacao: true,
+              });
+              pagesList = mesclarEspacosNavegacao(pagesList, espacosNavegaveisDaSkin);
+            } catch (estruturaErr) {
+              if (!erroConsultaRecuperavelSkin(estruturaErr)) throw estruturaErr;
+            }
           } catch (espacosErr) {
             if (espacosErr?.code !== "permission-denied") throw espacosErr;
             console.warn(
@@ -923,6 +1013,7 @@ function Estrutura({ username: propUsername, skins: propSkins }) {
                 espacos: espacosEstruturaPublica,
                 skinId,
                 autenticado: Boolean(authUserAtual?.uid),
+                manterRestritosNaNavegacao: true,
               });
             } catch (estruturaErr) {
               if (!erroConsultaRecuperavelSkin(estruturaErr)) throw estruturaErr;
