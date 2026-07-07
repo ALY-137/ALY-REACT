@@ -48,6 +48,7 @@ const EditorBlocoCardsModal = ({
     <div
       role="dialog"
       aria-modal="true"
+      className="editor-bloco-modal"
       style={{
         position: "fixed",
         inset: 0,
@@ -56,16 +57,25 @@ const EditorBlocoCardsModal = ({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        padding: 16,
+        width: "100vw",
+        height: "100dvh",
+        boxSizing: "border-box",
+        overflow: "hidden",
+        padding: "max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left))",
       }}
     >
       <div
-        className="menuContentArea"
+        className="menuContentArea editor-bloco-modal__content"
         onClick={(event) => event.stopPropagation()}
         style={{
           width: "min(96vw, 760px)",
-          maxHeight: "92vh",
+          maxWidth: "calc(100vw - 16px)",
+          maxHeight: "calc(100dvh - 16px)",
+          boxSizing: "border-box",
           overflowY: "auto",
+          overflowX: "hidden",
+          overscrollBehavior: "contain",
+          WebkitOverflowScrolling: "touch",
           border: "1px solid rgba(255,255,255,0.16)",
           background: "rgba(10, 6, 22, 0.96)",
           padding: 18,
