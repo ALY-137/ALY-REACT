@@ -1261,7 +1261,8 @@ export default function BlocoPublicoRenderer({
               <section key={`${bloco.id}-${subBloco.id}`} className="addons-bloco-subbloco">
                 {subBloco.titulo ? <h4 className="addons-bloco-subbloco-title">{subBloco.titulo}</h4> : null}
                 <EdgeHorizontalScrollArea className="addons-bloco-carousel" role="region" aria-label={`Carrossel de add-ons: ${subBloco.titulo || "Subbloco"}`}>
-                  <div className="addons-bloco-track">
+                  <div className="addons-bloco-shelf">
+                    <div className="addons-bloco-track">
                     {subBloco.addOns.map((addOn) => {
                       const addOnId = String(addOn?.addonId || addOn?.id || "").trim();
                       const addOnUrl = String(addOn?.url_img || "").trim();
@@ -1308,6 +1309,7 @@ export default function BlocoPublicoRenderer({
                         </button>
                       );
                     })}
+                    </div>
                   </div>
                 </EdgeHorizontalScrollArea>
               </section>

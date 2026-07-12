@@ -7938,12 +7938,17 @@ body.theme-cyberpink .addons-bloco-grid {
 
 body.theme-cyberpink .addons-bloco-carousel {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   margin-top: 8px;
   overflow-x: auto;
   overflow-y: hidden;
   display: block;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scroll-padding-inline: 12px;
 }
 
 body.theme-cyberpink .addons-bloco-carousel::-webkit-scrollbar {
@@ -7980,33 +7985,109 @@ body.theme-cyberpink .addons-bloco-carousel.edge-horizontal-scroll::-webkit-scro
 }
 
 body.theme-cyberpink .addons-bloco-track {
-  width: 100%;
-  min-width: max-content;
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-flow: row nowrap;
   align-items: stretch;
   justify-content: center;
   gap: 18px;
-  padding: 4px 3px 10px;
+  padding: 0;
+  box-sizing: border-box;
   scroll-snap-type: x proximity;
+}
+
+body.theme-cyberpink .addons-bloco-shelf {
+  position: relative;
+  width: max-content;
+  min-width: 100%;
+  padding: 14px 16px 16px;
+  box-sizing: border-box;
+  isolation: isolate;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--cyberpink-subtheme-card-surface-shadow) 74%, black 26%),
+      color-mix(in srgb, var(--cyberpink-subtheme-card-surface) 40%, black 60%)
+    );
+  border: 1px solid color-mix(in srgb, var(--cyberpink-subtheme-frame-inner) 78%, transparent);
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  box-shadow:
+    inset 0 10px 18px color-mix(in srgb, black 52%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--cyberpink-subtheme-text) 8%, transparent),
+    0 0 16px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 18%, transparent);
+}
+
+body.theme-cyberpink .addons-bloco-shelf::before,
+body.theme-cyberpink .addons-bloco-shelf::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+body.theme-cyberpink .addons-bloco-shelf::before {
+  top: 7px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--cyberpink-subtheme-primary) 62%, transparent),
+    transparent
+  );
+}
+
+body.theme-cyberpink .addons-bloco-shelf::after {
+  bottom: 6px;
+  height: 16px;
+  background: radial-gradient(
+    ellipse at center,
+    color-mix(in srgb, var(--cyberpink-subtheme-primary) 12%, transparent) 0,
+    transparent 72%
+  );
 }
 
 body.theme-cyberpink .addons-bloco-subblocos {
   width: min(100%, 820px);
+  max-width: 100%;
   margin: 8px auto 0;
   display: grid;
-  gap: 18px;
+  gap: 24px;
+  box-sizing: border-box;
+  min-width: 0;
 }
 
 body.theme-cyberpink .addons-bloco-subbloco,
 body.theme-cyberpink .bloco-addons-editor__subbloco {
   position: relative;
-  margin-inline: 10px;
-  padding: 16px 14px 14px;
+  width: calc(100% - 24px);
+  max-width: 100%;
+  min-width: 0;
+  margin: 14px auto 0;
+  padding: 32px 14px 14px;
+  box-sizing: border-box;
   color: var(--cyberpink-subtheme-text);
   background:
+    radial-gradient(
+      circle at 18% 0,
+      color-mix(in srgb, var(--cyberpink-subtheme-primary) 13%, transparent) 0 38px,
+      transparent 78px
+    ),
     linear-gradient(135deg, var(--cyberpink-subtheme-surface-a), var(--cyberpink-subtheme-surface-b));
   border: 1px solid var(--cyberpink-subtheme-frame-inner) !important;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 5%, transparent),
+    0 0 16px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 18%, transparent);
+}
+
+body.theme-cyberpink .addons-bloco-subbloco {
+  overflow: visible;
+  clip-path: none;
+}
+
+body.theme-cyberpink .bloco-addons-editor__subbloco {
   clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
 }
 
@@ -8037,19 +8118,75 @@ body.theme-cyberpink .bloco-addons-editor__subbloco::after {
 }
 
 body.theme-cyberpink .addons-bloco-subbloco-title {
-  margin: 0 0 18px;
+  position: absolute;
+  top: 1px;
+  left: clamp(14px, 4vw, 28px);
+  z-index: 3;
+  max-width: calc(100% - clamp(28px, 8vw, 56px));
+  margin: 0;
+  padding: 7px 14px 8px;
+  transform: translateY(-50%);
+  border: 1px solid color-mix(in srgb, var(--cyberpink-subtheme-primary) 72%, var(--cyberpink-subtheme-frame-inner));
+  border-radius: 0;
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--cyberpink-subtheme-card-surface-shadow) 94%, black 6%),
+      color-mix(in srgb, var(--cyberpink-subtheme-card-surface) 74%, var(--cyberpink-subtheme-primary) 10%)
+    );
   color: var(--cyberpink-subtheme-text);
   font-family: "DotGothic16", "Rajdhani", sans-serif;
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 800;
-  line-height: 1.05;
-  letter-spacing: 0.12em;
+  line-height: 1.16;
+  letter-spacing: 0;
   text-transform: uppercase;
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
   text-shadow:
     0 0 1px var(--cyberpink-subtheme-primary),
     0 0 2px var(--cyberpink-subtheme-primary),
-    0 0 4px var(--cyberpink-subtheme-primary),
-    0 0 7px var(--cyberpink-subtheme-primary);
+    0 0 5px var(--cyberpink-subtheme-primary);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 12%, transparent),
+    0 0 12px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 38%, transparent);
+}
+
+body.theme-cyberpink .bloco-addons-editor__subbloco {
+  width: 100%;
+  padding: 16px 14px 14px;
+}
+
+@media (max-width: 520px) {
+  body.theme-cyberpink .addons-bloco-subblocos {
+    width: 100%;
+    gap: 22px;
+  }
+
+  body.theme-cyberpink .addons-bloco-subbloco {
+    width: calc(100% - 12px);
+    margin-top: 14px;
+    padding: 32px 8px 12px;
+  }
+
+  body.theme-cyberpink .addons-bloco-shelf {
+    padding: 12px 10px 14px;
+  }
+
+  body.theme-cyberpink .addons-bloco-subbloco-title {
+    left: 12px;
+    max-width: calc(100% - 24px);
+    padding-inline: 11px;
+    font-size: 13px;
+  }
+
+  body.theme-cyberpink .addons-bloco-track {
+    justify-content: flex-start;
+    gap: 12px;
+  }
 }
 
 body.theme-cyberpink .addons-bloco-item {
