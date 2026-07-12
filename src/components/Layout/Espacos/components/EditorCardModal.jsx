@@ -5,6 +5,7 @@ import EditorCardImpressaoTab from "./EditorCardImpressaoTab";
 import EditorCardPreview from "./EditorCardPreview";
 import EditorCardRastreabilidadeTab from "./EditorCardRastreabilidadeTab";
 import EditorCardVisualTab from "./EditorCardVisualTab";
+import useEdgeHorizontalScroll from "../../../../hooks/useEdgeHorizontalScroll";
 
 
 const EditorCardModal = ({
@@ -71,6 +72,8 @@ const EditorCardModal = ({
   cardEmAtualizacaoId,
   salvarEdicaoCardDoBloco,
 }) => {
+  const editorTabsEdgeScroll = useEdgeHorizontalScroll();
+
   if (!editorCardModal?.aberto) return null;
 
   return (
@@ -102,7 +105,17 @@ const EditorCardModal = ({
               </button>
             </div>
 
-            <div className="card-editor-tabs" role="tablist" aria-label="Abas do editor de card">
+            <div
+              ref={editorTabsEdgeScroll.ref}
+              className="card-editor-tabs edge-horizontal-scroll"
+              data-edge-horizontal-scroll="true"
+              role="tablist"
+              aria-label="Abas do editor de card"
+              onMouseEnter={editorTabsEdgeScroll.onMouseEnter}
+              onMouseMove={editorTabsEdgeScroll.onMouseMove}
+              onMouseLeave={editorTabsEdgeScroll.onMouseLeave}
+              onBlur={editorTabsEdgeScroll.onBlur}
+            >
               {[
                 ["conteudo", "Conteudo"],
                 ["visual", "Visual"],

@@ -55,6 +55,7 @@ import {
 import { isProjectInMaintenance } from "./components/Layout/Sistema/projectStatus";
 import { verificarAcessoGerenciador } from "./components/Layout/Sistema/gerenciadorSistemasApi";
 import { isLgpdConsentRequired } from "./components/Layout/Sistema/lgpdConsentApi";
+import { usePageEdgeHorizontalScroll } from "./hooks/useEdgeHorizontalScroll";
 
 import "./App.css";
 import "./components/Layout/Temas/system-base-login.css";
@@ -592,6 +593,10 @@ const App = () => {
   const isUserLoginRoute = !isManagerProject && rotaAtual === "/login";
   const isAdminLoginRoute = !isManagerProject && rotaAtual === "/loginowner";
   const isLoginUiRoute = isUserLoginRoute || isAdminLoginRoute || isAuthHandlerRoute;
+  usePageEdgeHorizontalScroll({
+    enabled: !isAuthHandlerRoute,
+  });
+
   const modoAcessoProjeto = configSistema?.modoAcessoProjeto || DEFAULT_SISTEMA_CONFIG.modoAcessoProjeto;
   const tipoExperiencia = configSistema?.tipoExperiencia || DEFAULT_SISTEMA_CONFIG.tipoExperiencia;
   const oneOwnerPublicaAtiva =

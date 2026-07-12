@@ -20,8 +20,154 @@ body.layout-header-sticky-disabled #cabecalho{
   opacity: 0;;
 }
 
+:root {
+  --system-scrollbar-width: 0px;
+  --system-scrollbar-height: 0px;
+}
+
 ::-webkit-scrollbar{
-  width: 0px;
+  width: var(--system-scrollbar-width);
+  height: var(--system-scrollbar-height);
+}
+
+html.is-page-vertical-scrollbar-revealed,
+body.is-page-vertical-scrollbar-revealed {
+  --system-scrollbar-width: 8px;
+  --system-scrollbar-height: 8px;
+  scrollbar-width: thin;
+}
+
+html.is-page-vertical-scrollbar-revealed::-webkit-scrollbar,
+body.is-page-vertical-scrollbar-revealed::-webkit-scrollbar,
+html.is-page-vertical-scrollbar-revealed *::-webkit-scrollbar,
+body.is-page-vertical-scrollbar-revealed *::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+html.is-page-vertical-scrollbar-revealed::-webkit-scrollbar-track,
+body.is-page-vertical-scrollbar-revealed::-webkit-scrollbar-track,
+html.is-page-vertical-scrollbar-revealed *::-webkit-scrollbar-track,
+body.is-page-vertical-scrollbar-revealed *::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+html.is-page-vertical-scrollbar-revealed::-webkit-scrollbar-thumb,
+body.is-page-vertical-scrollbar-revealed::-webkit-scrollbar-thumb,
+html.is-page-vertical-scrollbar-revealed *::-webkit-scrollbar-thumb,
+body.is-page-vertical-scrollbar-revealed *::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.32);
+}
+
+.edge-horizontal-scroll {
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  scroll-behavior: smooth;
+}
+
+.edge-horizontal-scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.edge-horizontal-scroll:hover,
+.edge-horizontal-scroll.is-edge-scroll-active {
+  scrollbar-width: thin;
+}
+
+.edge-horizontal-scroll:hover::-webkit-scrollbar,
+.edge-horizontal-scroll.is-edge-scroll-active::-webkit-scrollbar {
+  height: 8px;
+}
+
+.edge-horizontal-scroll::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.edge-horizontal-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.32);
+}
+
+.edge-horizontal-scroll[data-edge-scroll-direction="left"] {
+  cursor: w-resize;
+}
+
+.edge-horizontal-scroll[data-edge-scroll-direction="right"] {
+  cursor: e-resize;
+}
+
+.page-edge-scroll-target {
+  scroll-behavior: smooth;
+}
+
+.page-edge-scroll-target.is-edge-scroll-active {
+  scrollbar-width: thin;
+}
+
+.page-edge-scroll-target.is-edge-scroll-active::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.page-edge-scroll-target.is-edge-scroll-active::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.page-edge-scroll-target.is-edge-scroll-active::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.32);
+}
+
+.page-edge-scroll-target[data-edge-scroll-direction="left"] {
+  cursor: w-resize;
+}
+
+.page-edge-scroll-target[data-edge-scroll-direction="right"] {
+  cursor: e-resize;
+}
+
+.page-edge-scroll-target[data-edge-scroll-direction="top"] {
+  cursor: n-resize;
+}
+
+.page-edge-scroll-target[data-edge-scroll-direction="bottom"] {
+  cursor: s-resize;
+}
+
+.page-edge-vertical-scrollbar {
+  position: fixed;
+  top: var(--page-edge-scrollbar-top, 8px);
+  right: 5px;
+  z-index: 2147483000;
+  width: 9px;
+  height: var(--page-edge-scrollbar-height, calc(100dvh - 16px));
+  border-radius: 999px;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(8px);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+html.is-page-vertical-scrollbar-revealed .page-edge-vertical-scrollbar,
+body.is-page-vertical-scrollbar-revealed .page-edge-vertical-scrollbar {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.page-edge-vertical-scrollbar__thumb {
+  position: absolute;
+  top: var(--page-edge-scrollbar-thumb-top, 0px);
+  left: 1px;
+  right: 1px;
+  height: var(--page-edge-scrollbar-thumb-height, 48px);
+  min-height: 24px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.38);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.18);
 }
 
 

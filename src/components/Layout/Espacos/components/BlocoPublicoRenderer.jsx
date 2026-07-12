@@ -17,6 +17,7 @@ import {
   decryptTextBlockContent,
   isEncryptedTextBlockPayload,
 } from "../../../Banco/textBlockCrypto";
+import useEdgeHorizontalScroll from "../../../../hooks/useEdgeHorizontalScroll";
 
 const POST_LOGIN_REDIRECT_KEY = "postLoginRedirectPath";
 
@@ -26,6 +27,25 @@ const CAMPOS_MEDIDAS_OBRIGATORIAS_VENDA = [
   ["quadril", "Quadril"],
   ["altura", "Altura"],
 ];
+
+function EdgeHorizontalScrollArea({ className = "", children, ...props }) {
+  const edgeScroll = useEdgeHorizontalScroll();
+
+  return (
+    <div
+      {...props}
+      ref={edgeScroll.ref}
+      className={`${className} edge-horizontal-scroll`.trim()}
+      data-edge-horizontal-scroll="true"
+      onMouseEnter={edgeScroll.onMouseEnter}
+      onMouseMove={edgeScroll.onMouseMove}
+      onMouseLeave={edgeScroll.onMouseLeave}
+      onBlur={edgeScroll.onBlur}
+    >
+      {children}
+    </div>
+  );
+}
 
 function CardActionIcon({ type }) {
   if (type === "eye") {
@@ -1240,7 +1260,7 @@ export default function BlocoPublicoRenderer({
             addOnsPorSubBloco.map((subBloco) => (
               <section key={`${bloco.id}-${subBloco.id}`} className="addons-bloco-subbloco">
                 {subBloco.titulo ? <h4 className="addons-bloco-subbloco-title">{subBloco.titulo}</h4> : null}
-                <div className="addons-bloco-carousel" role="region" aria-label={`Carrossel de add-ons: ${subBloco.titulo || "Subbloco"}`}>
+                <EdgeHorizontalScrollArea className="addons-bloco-carousel" role="region" aria-label={`Carrossel de add-ons: ${subBloco.titulo || "Subbloco"}`}>
                   <div className="addons-bloco-track">
                     {subBloco.addOns.map((addOn) => {
                       const addOnId = String(addOn?.addonId || addOn?.id || "").trim();
@@ -1289,7 +1309,7 @@ export default function BlocoPublicoRenderer({
                       );
                     })}
                   </div>
-                </div>
+                </EdgeHorizontalScrollArea>
               </section>
             ))
           ) : (

@@ -4644,6 +4644,95 @@ body.theme-cyberpink .card-editor-tabs::-webkit-scrollbar {
   display: none;
 }
 
+body.theme-cyberpink .card-editor-tabs.edge-horizontal-scroll {
+  scrollbar-color: transparent transparent;
+}
+
+body.theme-cyberpink .card-editor-tabs.edge-horizontal-scroll:hover,
+body.theme-cyberpink .card-editor-tabs.edge-horizontal-scroll.is-edge-scroll-active {
+  scrollbar-color: color-mix(in srgb, var(--cyberpink-subtheme-primary) 58%, transparent) transparent;
+}
+
+body.theme-cyberpink .card-editor-tabs.edge-horizontal-scroll::-webkit-scrollbar {
+  display: block;
+  height: 0;
+}
+
+body.theme-cyberpink .card-editor-tabs.edge-horizontal-scroll:hover::-webkit-scrollbar,
+body.theme-cyberpink .card-editor-tabs.edge-horizontal-scroll.is-edge-scroll-active::-webkit-scrollbar {
+  height: 8px;
+}
+
+body.theme-cyberpink .card-editor-tabs.edge-horizontal-scroll::-webkit-scrollbar-track {
+  background: color-mix(in srgb, var(--cyberpink-subtheme-card-surface-shadow) 36%, transparent);
+}
+
+body.theme-cyberpink .card-editor-tabs.edge-horizontal-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cyberpink-subtheme-primary) 58%, transparent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 44%, transparent);
+}
+
+body.theme-cyberpink .page-edge-scroll-target.is-edge-scroll-active {
+  scrollbar-color: color-mix(in srgb, var(--cyberpink-subtheme-primary) 58%, transparent) transparent;
+}
+
+body.theme-cyberpink .page-edge-scroll-target.is-edge-scroll-active::-webkit-scrollbar-track {
+  background: color-mix(in srgb, var(--cyberpink-subtheme-card-surface-shadow) 36%, transparent);
+}
+
+body.theme-cyberpink .page-edge-scroll-target.is-edge-scroll-active::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cyberpink-subtheme-primary) 58%, transparent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 44%, transparent);
+}
+
+body.theme-cyberpink .page-edge-vertical-scrollbar {
+  width: 10px;
+  right: 5px;
+  border: 1px solid color-mix(in srgb, var(--cyberpink-subtheme-border) 38%, transparent);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--cyberpink-subtheme-card-surface-shadow) 34%, transparent),
+      color-mix(in srgb, var(--cyberpink-subtheme-card-surface) 18%, transparent)
+    );
+  box-shadow:
+    inset 0 0 8px color-mix(in srgb, var(--cyberpink-subtheme-primary) 10%, transparent),
+    0 0 12px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 24%, transparent);
+}
+
+body.theme-cyberpink .page-edge-vertical-scrollbar__thumb {
+  left: 2px;
+  right: 2px;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--cyberpink-subtheme-text) 20%, var(--cyberpink-subtheme-primary) 80%),
+      color-mix(in srgb, var(--cyberpink-subtheme-primary-2, var(--cyberpink-subtheme-primary)) 72%, transparent)
+    );
+  box-shadow:
+    0 0 9px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 58%, transparent),
+    0 0 2px color-mix(in srgb, var(--cyberpink-subtheme-text) 36%, transparent);
+}
+
+html.is-page-vertical-scrollbar-revealed body.theme-cyberpink,
+body.theme-cyberpink.is-page-vertical-scrollbar-revealed {
+  scrollbar-color: color-mix(in srgb, var(--cyberpink-subtheme-primary) 58%, transparent) transparent;
+}
+
+html.is-page-vertical-scrollbar-revealed::-webkit-scrollbar-track,
+body.theme-cyberpink.is-page-vertical-scrollbar-revealed::-webkit-scrollbar-track {
+  background: color-mix(in srgb, var(--cyberpink-subtheme-card-surface-shadow) 36%, transparent);
+}
+
+html.is-page-vertical-scrollbar-revealed::-webkit-scrollbar-thumb,
+body.theme-cyberpink.is-page-vertical-scrollbar-revealed::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cyberpink-subtheme-primary) 58%, transparent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 44%, transparent);
+}
+
 body.theme-cyberpink .menuContentArea .card-editor-tab {
   min-height: 32px !important;
   padding: 7px 12px !important;
@@ -7859,6 +7948,35 @@ body.theme-cyberpink .addons-bloco-carousel {
 
 body.theme-cyberpink .addons-bloco-carousel::-webkit-scrollbar {
   display: none;
+}
+
+body.theme-cyberpink .addons-bloco-carousel.edge-horizontal-scroll {
+  scrollbar-color: transparent transparent;
+}
+
+body.theme-cyberpink .addons-bloco-carousel.edge-horizontal-scroll:hover,
+body.theme-cyberpink .addons-bloco-carousel.edge-horizontal-scroll.is-edge-scroll-active {
+  scrollbar-color: color-mix(in srgb, var(--cyberpink-subtheme-primary) 58%, transparent) transparent;
+}
+
+body.theme-cyberpink .addons-bloco-carousel.edge-horizontal-scroll::-webkit-scrollbar {
+  display: block;
+  height: 0;
+}
+
+body.theme-cyberpink .addons-bloco-carousel.edge-horizontal-scroll:hover::-webkit-scrollbar,
+body.theme-cyberpink .addons-bloco-carousel.edge-horizontal-scroll.is-edge-scroll-active::-webkit-scrollbar {
+  height: 8px;
+}
+
+body.theme-cyberpink .addons-bloco-carousel.edge-horizontal-scroll::-webkit-scrollbar-track {
+  background: color-mix(in srgb, var(--cyberpink-subtheme-card-surface-shadow) 36%, transparent);
+}
+
+body.theme-cyberpink .addons-bloco-carousel.edge-horizontal-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cyberpink-subtheme-primary) 58%, transparent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 44%, transparent);
 }
 
 body.theme-cyberpink .addons-bloco-track {

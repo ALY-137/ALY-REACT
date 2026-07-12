@@ -404,6 +404,38 @@ function buildUrlEntry(loc, lastmod = "", priority = "0.7") {
   };
 }
 
+function normalizeSitemapEntries(entries = [], origin = "") {
+  const originUrl = normalizeText(origin);
+  const originHost = normalizeHost(originUrl);
+  const dedupe = new Map();
+
+  (Array.isArray(entries) ? entries : []).forEach((entry) => {
+    const loc = normalizeText(entry?.loc);
+    if (!loc) return;
+
+    let url;
+    try {
+      url = new URL(loc);
+    } catch {
+      return;
+    }
+
+    if (!["http:", "https:"].includes(url.protocol)) return;
+    if (originHost && normalizeHost(url.host) !== originHost) return;
+
+    const canonicalLoc = url.toString();
+    if (dedupe.has(canonicalLoc)) return;
+
+    const lastmod = getTimestampIso(entry?.lastmod);
+    dedupe.set(canonicalLoc, {
+      loc: canonicalLoc,
+      lastmod,
+    });
+  });
+
+  return Array.from(dedupe.values()).slice(0, 1000);
+}
+
 function cleanSeoText(value = "", maxLength = 300) {
   const text = normalizeText(value)
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
@@ -919,8 +951,7 @@ function buildSitemapXml(entries = []) {
   const urls = (Array.isArray(entries) ? entries : [])
     .map((entry) => {
       const lastmod = entry.lastmod ? `\n    <lastmod>${escapeXml(entry.lastmod)}</lastmod>` : "";
-      const priority = entry.priority ? `\n    <priority>${escapeXml(entry.priority)}</priority>` : "";
-      return `  <url>\n    <loc>${escapeXml(entry.loc)}</loc>${lastmod}${priority}\n  </url>`;
+      return `  <url>\n    <loc>${escapeXml(entry.loc)}</loc>${lastmod}\n  </url>`;
     })
     .join("\n");
 
@@ -933,6 +964,7 @@ module.exports = {
   buildSitemapXml,
   escapeXml,
   getRequestOrigin,
+  normalizeSitemapEntries,
   resolveProjectForRequest,
   resolveSeoPageForPath,
 };
