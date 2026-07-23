@@ -362,10 +362,37 @@ function encodePathSegment(value = "") {
 }
 
 function getTimestampIso(value) {
+  if (!value) return "";
+
+  if (typeof value === "object") {
+    if (typeof value.toDate === "function") {
+      const dateValue = value.toDate();
+      return Number.isNaN(dateValue?.getTime?.()) ? "" : dateValue.toISOString();
+    }
+
+    const seconds = Number(value.seconds ?? value._seconds);
+    if (Number.isFinite(seconds) && seconds > 0) {
+      const nanos = Number(value.nanoseconds ?? value._nanoseconds ?? 0);
+      return new Date(seconds * 1000 + Math.floor(nanos / 1000000)).toISOString();
+    }
+  }
+
   const raw = normalizeText(value);
   if (!raw) return "";
-  const date = new Date(raw);
+
+  const numeric = Number(raw);
+  const date = Number.isFinite(numeric) && numeric > 1000000000
+    ? new Date(numeric > 100000000000 ? numeric : numeric * 1000)
+    : new Date(raw);
   return Number.isNaN(date.getTime()) ? "" : date.toISOString();
+}
+
+function getFirstTimestampIso(...values) {
+  for (const value of values) {
+    const timestamp = getTimestampIso(value);
+    if (timestamp) return timestamp;
+  }
+  return "";
 }
 
 function getSpacePublicPath({ runtime, systemKey, ownerUid }) {
@@ -904,7 +931,15 @@ async function buildPublicSitemapEntries(context) {
     if (!espacoNome || !espacoId) continue;
 
     const espacoUrl = `${origin}/${encodePathSegment(espacoNome)}`;
-    entries.push(buildUrlEntry(espacoUrl, getTimestampIso(espaco.data?.atualizadoEm), "0.8"));
+    const espacoLastmod = getFirstTimestampIso(
+      espaco.data?.atualizadoEm,
+      espaco.data?.updatedAt,
+      espaco.data?.dataAtualizacao,
+      espaco.data?.criadoEm,
+      espaco.data?.createdAt,
+      espaco.data?.dataCriacao
+    );
+    entries.push(buildUrlEntry(espacoUrl, espacoLastmod, "0.8"));
 
     const blocosPath = getBlocksPath({ runtime, systemKey, ownerUid, espacoId });
     const blocos = await fetchPublicVisibilityCollection({
@@ -921,10 +956,24 @@ async function buildPublicSitemapEntries(context) {
       cardsInline.forEach((card, index) => {
         const cardId = normalizeText(card?.id || `card_${index}`);
         if (!cardId) return;
+        const cardLastmod = getFirstTimestampIso(
+          card?.atualizadoEm,
+          card?.updatedAt,
+          card?.dataAtualizacao,
+          card?.criadoEm,
+          card?.createdAt,
+          card?.dataCriacao,
+          bloco.data?.atualizadoEm,
+          bloco.data?.updatedAt,
+          bloco.data?.dataAtualizacao,
+          bloco.data?.criadoEm,
+          bloco.data?.createdAt,
+          bloco.data?.dataCriacao
+        );
         entries.push(
           buildUrlEntry(
             `${espacoUrl}/card/${encodePathSegment(blocoId)}/${encodePathSegment(cardId)}`,
-            getTimestampIso(bloco.data?.atualizadoEm),
+            cardLastmod,
             "0.6"
           )
         );
@@ -940,10 +989,24 @@ async function buildPublicSitemapEntries(context) {
       cardsDocs.forEach((cardDoc) => {
         const cardId = normalizeText(cardDoc.id);
         if (!cardId) return;
+        const cardLastmod = getFirstTimestampIso(
+          cardDoc.data?.atualizadoEm,
+          cardDoc.data?.updatedAt,
+          cardDoc.data?.dataAtualizacao,
+          cardDoc.data?.criadoEm,
+          cardDoc.data?.createdAt,
+          cardDoc.data?.dataCriacao,
+          bloco.data?.atualizadoEm,
+          bloco.data?.updatedAt,
+          bloco.data?.dataAtualizacao,
+          bloco.data?.criadoEm,
+          bloco.data?.createdAt,
+          bloco.data?.dataCriacao
+        );
         entries.push(
           buildUrlEntry(
             `${espacoUrl}/card/${encodePathSegment(blocoId)}/${encodePathSegment(cardId)}`,
-            getTimestampIso(cardDoc.data?.atualizadoEm || bloco.data?.atualizadoEm),
+            cardLastmod,
             "0.6"
           )
         );
