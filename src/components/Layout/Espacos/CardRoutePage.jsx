@@ -558,72 +558,74 @@ export default function CardRoutePage() {
           />
         </div>
         <aside className="card-route-page__details" aria-label="Detalhes do card">
-          <span className="card-route-page__details-kicker">Card ampliado</span>
-          <h1>{estado.card.nome || "Card"}</h1>
-          {estado.card.descricaoExtra ? <p>{estado.card.descricaoExtra}</p> : null}
-          {atributoPersonalizadoCard ? (
-            <p className="card-route-page__custom-attribute">
-              {atributoPersonalizadoCard.rotulo || atributoPersonalizadoCard.nome ? (
-                <strong>{atributoPersonalizadoCard.rotulo || atributoPersonalizadoCard.nome}</strong>
-              ) : null}
-              {atributoPersonalizadoCard.valor ? (
-                <span>{atributoPersonalizadoCard.valor}</span>
-              ) : null}
-            </p>
-          ) : null}
-          {descricaoCompletaParagrafos.length ? (
-            <section className="card-route-page__full-description">
-              {descricaoCompletaParagrafos.map((paragrafo, index) => (
-                <p key={`${estado.card.id || "card"}-descricao-${index}`}>
-                  {paragrafo}
-                </p>
-              ))}
-            </section>
-          ) : null}
-          <dl>
-            <div>
-              <dt>Bloco</dt>
-              <dd>{estado.bloco?.titulo || estado.bloco?.nome || blocoId}</dd>
-            </div>
-            <div>
-              <dt>Add-ons</dt>
-              <dd>{estado.addOns.length}</dd>
-            </div>
-          </dl>
-          {estado.addOns.length ? (
-            <div className="card-route-page__addons">
-              {estado.addOns.map((addOn) => (
-                <span key={addOn.id} className="card-route-page__addon">
-                  {addOn.url_img ? <img src={addOn.url_img} alt="" /> : null}
-                  <span>{addOn.nome || "Add-on"}</span>
-                </span>
-              ))}
-            </div>
-          ) : (
-            <span className="card-route-page__empty">Nenhum add-on vinculado.</span>
-          )}
-          {estado.card.linkExterno ? (
-            <a
-              className="card-route-page__external"
-              href={estado.card.linkExterno}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Abrir link externo
-            </a>
-          ) : null}
-          {urlCardAtual ? (
-            <div className="card-route-page__qr">
-              <QRCodeImage
-                value={urlCardAtual}
-                size={72}
-                alt="QR code da visualizacao unica do card"
-                color="var(--cyberpink-subtheme-card-surface-shadow)"
-                bgColor="var(--cyberpink-subtheme-text)"
-              />
-              <span>QR da rota unica</span>
-            </div>
-          ) : null}
+          <div className="card-route-page__details-scroll">
+            <span className="card-route-page__details-kicker">Card ampliado</span>
+            <h1>{estado.card.nome || "Card"}</h1>
+            {estado.card.descricaoExtra ? <p>{estado.card.descricaoExtra}</p> : null}
+            {atributoPersonalizadoCard ? (
+              <p className="card-route-page__custom-attribute">
+                {atributoPersonalizadoCard.rotulo || atributoPersonalizadoCard.nome ? (
+                  <strong>{atributoPersonalizadoCard.rotulo || atributoPersonalizadoCard.nome}</strong>
+                ) : null}
+                {atributoPersonalizadoCard.valor ? (
+                  <span>{atributoPersonalizadoCard.valor}</span>
+                ) : null}
+              </p>
+            ) : null}
+            {descricaoCompletaParagrafos.length ? (
+              <section className="card-route-page__full-description">
+                {descricaoCompletaParagrafos.map((paragrafo, index) => (
+                  <p key={`${estado.card.id || "card"}-descricao-${index}`}>
+                    {paragrafo}
+                  </p>
+                ))}
+              </section>
+            ) : null}
+            <dl>
+              <div>
+                <dt>Bloco</dt>
+                <dd>{estado.bloco?.titulo || estado.bloco?.nome || blocoId}</dd>
+              </div>
+              <div>
+                <dt>Add-ons</dt>
+                <dd>{estado.addOns.length}</dd>
+              </div>
+            </dl>
+            {estado.addOns.length ? (
+              <div className="card-route-page__addons">
+                {estado.addOns.map((addOn) => (
+                  <span key={addOn.id} className="card-route-page__addon">
+                    {addOn.url_img ? <img src={addOn.url_img} alt="" /> : null}
+                    <span>{addOn.nome || "Add-on"}</span>
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <span className="card-route-page__empty">Nenhum add-on vinculado.</span>
+            )}
+            {estado.card.linkExterno ? (
+              <a
+                className="card-route-page__external"
+                href={estado.card.linkExterno}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Abrir link externo
+              </a>
+            ) : null}
+            {urlCardAtual ? (
+              <div className="card-route-page__qr">
+                <QRCodeImage
+                  value={urlCardAtual}
+                  size={72}
+                  alt="QR code da visualizacao unica do card"
+                  color="var(--cyberpink-subtheme-card-surface-shadow)"
+                  bgColor="var(--cyberpink-subtheme-text)"
+                />
+                <span>QR da rota unica</span>
+              </div>
+            ) : null}
+          </div>
         </aside>
       </div>
     </main>
