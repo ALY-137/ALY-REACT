@@ -522,22 +522,24 @@ function normalizeSeoCard(card = {}, index = 0) {
   const data = card.data || card;
   const id = normalizeText(data?.id || card.id || `card_${index}`);
   const atributo = data?.atributoPersonalizado || data?.atributoCustomizado || data?.customAttribute || {};
+  const descricaoCompleta = cleanSeoText(
+    [
+      data?.descricaoExtra,
+      data?.descricaoCompleta,
+      data?.descricaoPrevia,
+      data?.descricao,
+      atributo?.rotulo,
+      atributo?.nome,
+      atributo?.valor,
+    ].join(" "),
+    5000
+  );
+
   return {
     id,
     ordem: Number.isFinite(Number(data?.ordem)) ? Number(data.ordem) : index,
     nome: cleanSeoText(data?.nome || data?.titulo || id, 90),
-    descricao: cleanSeoText(
-      [
-        data?.descricaoExtra,
-        data?.descricaoCompleta,
-        data?.descricaoPrevia,
-        data?.descricao,
-        atributo?.rotulo,
-        atributo?.nome,
-        atributo?.valor,
-      ].join(" "),
-      500
-    ),
+    descricao: descricaoCompleta,
     imagem: normalizeText(data?.imagem || data?.imagemUrl || data?.urlImagem || ""),
     visibilidade: data?.visibilidade,
   };
@@ -670,6 +672,16 @@ async function resolveSeoPageForPath(context, pathname = "/") {
     if (!card) return null;
 
     const title = `${card.nome || getBlockTitle(block)} | ${siteName}`;
+    const bodyText =
+      cleanSeoText(
+        [
+          card.nome,
+          card.descricao,
+          getBlockTitle(block),
+          getBlockDescription(block),
+        ].join(" "),
+        5000
+      ) || card.descricao;
     const description =
       cleanSeoText(card.descricao || getBlockDescription(block), 300) ||
       cleanSeoText(context.configSistema?.seoDescricaoPublica || siteName, 300);
@@ -689,7 +701,7 @@ async function resolveSeoPageForPath(context, pathname = "/") {
       canonicalUrl,
       siteName,
       heading: card.nome || title,
-      bodyText: description,
+      bodyText,
       links: [
         { href: spaceUrl, label: espacoName },
         ...cards
@@ -705,6 +717,7 @@ async function resolveSeoPageForPath(context, pathname = "/") {
         "@type": "CreativeWork",
         name: card.nome || title,
         description,
+        text: bodyText,
         image: card.imagem || undefined,
         url: canonicalUrl,
         inLanguage: "pt-BR",
@@ -810,7 +823,7 @@ function buildSeoHtmlPage(page = {}) {
   const siteName = cleanSeoText(page.siteName || title, 90);
   const image = normalizeText(page.image || "");
   const heading = cleanSeoText(page.heading || title, 120);
-  const bodyText = cleanSeoText(page.bodyText || description, 2000);
+  const bodyText = cleanSeoText(page.bodyText || description, 5000);
   const robots = indexable
     ? "index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1"
     : "noindex,nofollow";
