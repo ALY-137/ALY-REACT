@@ -536,8 +536,8 @@ const SkinsManager = () => {
       <h2 className="menu-panel-main-title">Gerenciar {nomeSkinGestao}</h2>
 
       {!projetoOneOwner && exibirSecaoCriacao ? (
-        <div className="create-skin menu-panel-block">
-          <h3 className="menu-panel-title">{`Criar nova ${nomeSkinSingular}`}</h3>
+        <section className="skins-manager__section skins-manager__section--create create-skin">
+          <h3 className="skins-manager__section-title menu-panel-title">{`Criar nova ${nomeSkinSingular}`}</h3>
 
           <input
             placeholder={`Nome da ${nomeSkinSingular}`}
@@ -567,115 +567,122 @@ const SkinsManager = () => {
 
           {textoLimite ? <p className="menu-panel-note">{textoLimite}</p> : null}
           {!!feedback && <p className="menu-panel-message menu-panel-message--error">{feedback}</p>}
-        </div>
+        </section>
       ) : (
         textoLimite ? <p className="menu-panel-note">{textoLimite}</p> : null
       )}
 
-      <ul className="skins-list">
-        {skins.map((skin) => (
-          <li key={skin.id} className="skin-item">
-            <div className="skin-item__avatar-row">
-              {String(skin.iconSkin || iconSkinPadraoUrl || "").trim() ? (
-                <img
-                  src={String(skin.iconSkin || iconSkinPadraoUrl || "").trim()}
-                  alt={`Avatar da ${nomeSkinSingular} ${skin.username}`}
-                  className="skin-item__avatar"
-                />
-              ) : null}
-              <label className="skin-item__upload">
-                <span>Trocar avatar</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(event) => {
-                    const arquivo = event.target.files?.[0];
-                    if (!arquivo) return;
-                    void subirAvatarSkin(skin, arquivo);
-                    event.target.value = "";
-                  }}
-                  disabled={avatarUploadSkinId === skin.id}
-                />
-              </label>
-              {String(skin.iconSkin || "").trim() ? (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    for (const skinRef of getSkinDocRefs(skin.id)) {
-                      await setDoc(
-                        skinRef,
-                        {
-                          iconSkin: iconSkinPadraoUrl || null,
-                          iconSkinPath: null,
-                        },
-                        { merge: true }
-                      );
-                    }
-                    await fetchSkins();
-                  }}
-                  disabled={avatarUploadSkinId === skin.id}
+      <section className="skins-manager__section skins-manager__section--list">
+        <h3 className="skins-manager__section-title menu-panel-title">
+          {`${nomeSkinPlural} cadastradas`}
+        </h3>
+        <div className="skins-manager__shelf">
+          <ul className="skins-list skins-manager__track">
+            {skins.map((skin) => (
+              <li key={skin.id} className="skin-item">
+                <div className="skin-item__avatar-row">
+                  {String(skin.iconSkin || iconSkinPadraoUrl || "").trim() ? (
+                    <img
+                      src={String(skin.iconSkin || iconSkinPadraoUrl || "").trim()}
+                      alt={`Avatar da ${nomeSkinSingular} ${skin.username}`}
+                      className="skin-item__avatar"
+                    />
+                  ) : null}
+                  <label className="skin-item__upload">
+                    <span>Trocar avatar</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(event) => {
+                        const arquivo = event.target.files?.[0];
+                        if (!arquivo) return;
+                        void subirAvatarSkin(skin, arquivo);
+                        event.target.value = "";
+                      }}
+                      disabled={avatarUploadSkinId === skin.id}
+                    />
+                  </label>
+                  {String(skin.iconSkin || "").trim() ? (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        for (const skinRef of getSkinDocRefs(skin.id)) {
+                          await setDoc(
+                            skinRef,
+                            {
+                              iconSkin: iconSkinPadraoUrl || null,
+                              iconSkinPath: null,
+                            },
+                            { merge: true }
+                          );
+                        }
+                        await fetchSkins();
+                      }}
+                      disabled={avatarUploadSkinId === skin.id}
+                    >
+                      Usar avatar padrao
+                    </button>
+                  ) : null}
+                </div>
+                <strong
+                  onClick={() => handleSelectSkin(skin.username)}
+                  className="skin-item__name"
                 >
-                  Usar avatar padrao
-                </button>
-              ) : null}
-            </div>
-            <strong
-              onClick={() => handleSelectSkin(skin.username)}
-              className="skin-item__name"
-            >
-              {skin.username}
-            </strong>
+                  {skin.username}
+                </strong>
 
-            {editingSkinId === skin.id && permitirTemasSkinSecundarios ? (
-              <div className="skin-item__actions">
-                <select value={editingTheme} onChange={(event) => setEditingTheme(event.target.value)}>
-                  <option value="">Tema</option>
-                  {temasDisponiveis.map((theme) => (
-                    <option key={theme.id} value={theme.id}>
-                      {labelTemaSkin(theme)}
-                    </option>
-                  ))}
-                </select>
+                {editingSkinId === skin.id && permitirTemasSkinSecundarios ? (
+                  <div className="skin-item__actions">
+                    <select value={editingTheme} onChange={(event) => setEditingTheme(event.target.value)}>
+                      <option value="">Tema</option>
+                      {temasDisponiveis.map((theme) => (
+                        <option key={theme.id} value={theme.id}>
+                          {labelTemaSkin(theme)}
+                        </option>
+                      ))}
+                    </select>
 
-                <button onClick={() => handleUpdateTheme(skin.id)}>Salvar</button>
-                <button onClick={() => setEditingSkinId(null)}>Cancelar</button>
-              </div>
-            ) : (
-              <div className="skin-item__actions">
-                {permitirTemasSkinSecundarios ? (
-                  <span className="skin-item__theme">{labelSkinAtual(skin.theme)}</span>
-                ) : null}
-                {podeUsarCardcaptor && String(skin.username || "").trim() ? (
-                  <button type="button" onClick={() => setCardcaptorSkin(skin)}>
-                    Cardcaptor
-                  </button>
-                ) : null}
-                {permitirTemasSkinSecundarios && (
-                  <button
-                    onClick={() => {
-                      setEditingSkinId(skin.id);
-                      setEditingTheme(
-                        resolverTemaSkinEfetivo(
-                          skin.theme,
-                          configSistema.temaPadraoSistema,
-                          permitirTemasSkinSecundarios
-                        )
-                      );
-                    }}
-                  >
-                    Alterar tema
-                  </button>
+                    <button onClick={() => handleUpdateTheme(skin.id)}>Salvar</button>
+                    <button onClick={() => setEditingSkinId(null)}>Cancelar</button>
+                  </div>
+                ) : (
+                  <div className="skin-item__actions">
+                    {permitirTemasSkinSecundarios ? (
+                      <span className="skin-item__theme">{labelSkinAtual(skin.theme)}</span>
+                    ) : null}
+                    {podeUsarCardcaptor && String(skin.username || "").trim() ? (
+                      <button type="button" onClick={() => setCardcaptorSkin(skin)}>
+                        Cardcaptor
+                      </button>
+                    ) : null}
+                    {permitirTemasSkinSecundarios && (
+                      <button
+                        onClick={() => {
+                          setEditingSkinId(skin.id);
+                          setEditingTheme(
+                            resolverTemaSkinEfetivo(
+                              skin.theme,
+                              configSistema.temaPadraoSistema,
+                              permitirTemasSkinSecundarios
+                            )
+                          );
+                        }}
+                      >
+                        Alterar tema
+                      </button>
+                    )}
+                    {!projetoOneOwner ? (
+                      <button onClick={() => handleDeleteSkin(skin)} className="skin-item__danger">
+                        Excluir
+                      </button>
+                    ) : null}
+                  </div>
                 )}
-                {!projetoOneOwner ? (
-                  <button onClick={() => handleDeleteSkin(skin)} className="skin-item__danger">
-                    Excluir
-                  </button>
-                ) : null}
-              </div>
-            )}
-          </li>
-        ))}
-      </ul>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
       {!!avatarUploadMensagem ? (
         <p className="menu-panel-message">{avatarUploadMensagem}</p>
       ) : null}
