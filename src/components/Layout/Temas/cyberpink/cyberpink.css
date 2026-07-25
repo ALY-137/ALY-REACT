@@ -3536,6 +3536,55 @@ body.theme-cyberpink .editor-bloco-acoes {
   gap: 8px;
 }
 
+body.theme-cyberpink .bloco-creator > button,
+body.theme-cyberpink .bloco-acoes > button {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-color: color-mix(in srgb, var(--cyberpink-subtheme-primary) 70%, transparent);
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  --cyberpink-button-cut-size: 9px;
+  --cyberpink-button-corner-color: color-mix(
+    in srgb,
+    var(--cyberpink-subtheme-primary) 86%,
+    var(--cyberpink-subtheme-text) 14%
+  );
+}
+
+body.theme-cyberpink .bloco-creator > button::after,
+body.theme-cyberpink .bloco-acoes > button::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    var(--cyberpink-button-corner-color),
+    var(--cyberpink-button-corner-color)
+  );
+  -webkit-mask-image:
+    var(--cyberpink-simple-cut-tl),
+    var(--cyberpink-simple-cut-br);
+  -webkit-mask-repeat: no-repeat, no-repeat;
+  -webkit-mask-size:
+    var(--cyberpink-button-cut-size) var(--cyberpink-button-cut-size),
+    var(--cyberpink-button-cut-size) var(--cyberpink-button-cut-size);
+  -webkit-mask-position:
+    left top,
+    right bottom;
+  mask-image:
+    var(--cyberpink-simple-cut-tl),
+    var(--cyberpink-simple-cut-br);
+  mask-repeat: no-repeat, no-repeat;
+  mask-size:
+    var(--cyberpink-button-cut-size) var(--cyberpink-button-cut-size),
+    var(--cyberpink-button-cut-size) var(--cyberpink-button-cut-size);
+  mask-position:
+    left top,
+    right bottom;
+  filter: drop-shadow(0 0 2px var(--cyberpink-button-corner-color));
+}
+
 body.theme-cyberpink .image-zoom-trigger,
 body.theme-cyberpink .image-zoom-trigger:hover,
 body.theme-cyberpink .image-zoom-trigger:focus,
@@ -8049,10 +8098,12 @@ body.theme-cyberpink .addons-bloco-track {
 body.theme-cyberpink .addons-bloco-shelf {
   position: relative;
   width: max-content;
-  min-width: 100%;
+  min-width: calc(100% - 12px);
+  margin: 1px 6px 5px;
   padding: 14px 16px 16px;
   box-sizing: border-box;
   isolation: isolate;
+  overflow: hidden;
   background:
     linear-gradient(
       180deg,
@@ -8060,11 +8111,11 @@ body.theme-cyberpink .addons-bloco-shelf {
       color-mix(in srgb, var(--cyberpink-subtheme-card-surface-shadow) 22%, black 78%)
     );
   border: 1px solid color-mix(in srgb, var(--cyberpink-subtheme-frame-inner) 78%, transparent);
-  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  clip-path: none;
   box-shadow:
-    inset 0 12px 22px color-mix(in srgb, black 74%, transparent),
-    inset 0 -10px 18px color-mix(in srgb, black 52%, transparent),
-    inset 0 -1px 0 color-mix(in srgb, var(--cyberpink-subtheme-text) 8%, transparent),
+    inset 13px 0 22px color-mix(in srgb, var(--cyberpink-subtheme-primary) 14%, transparent),
+    inset -13px 0 22px color-mix(in srgb, var(--cyberpink-subtheme-primary) 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 5%, transparent),
     0 0 16px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 18%, transparent);
 }
 
@@ -8072,30 +8123,28 @@ body.theme-cyberpink .addons-bloco-shelf::before,
 body.theme-cyberpink .addons-bloco-shelf::after {
   content: "";
   position: absolute;
-  left: 12px;
-  right: 12px;
+  top: 8px;
+  bottom: 8px;
+  width: 22px;
   pointer-events: none;
   z-index: 0;
 }
 
 body.theme-cyberpink .addons-bloco-shelf::before {
-  top: 7px;
-  height: 1px;
+  left: 0;
   background: linear-gradient(
     90deg,
-    transparent,
-    color-mix(in srgb, var(--cyberpink-subtheme-primary) 62%, transparent),
+    color-mix(in srgb, var(--cyberpink-subtheme-primary) 20%, transparent),
     transparent
   );
 }
 
 body.theme-cyberpink .addons-bloco-shelf::after {
-  bottom: 6px;
-  height: 16px;
-  background: radial-gradient(
-    ellipse at center,
-    color-mix(in srgb, var(--cyberpink-subtheme-primary) 12%, transparent) 0,
-    transparent 72%
+  right: 0;
+  background: linear-gradient(
+    270deg,
+    color-mix(in srgb, var(--cyberpink-subtheme-primary) 20%, transparent),
+    transparent
   );
 }
 
@@ -8111,7 +8160,9 @@ body.theme-cyberpink .addons-bloco-subblocos {
 
 body.theme-cyberpink .addons-bloco-subbloco,
 body.theme-cyberpink .bloco-addons-editor__subbloco {
+  --addons-bloco-subbloco-cut: 16px;
   position: relative;
+  isolation: isolate;
   width: calc(100% - 24px);
   max-width: 100%;
   min-width: 0;
@@ -8119,6 +8170,18 @@ body.theme-cyberpink .bloco-addons-editor__subbloco {
   padding: 32px 14px 14px;
   box-sizing: border-box;
   color: var(--cyberpink-subtheme-text);
+  background: transparent;
+  border: 0 !important;
+  box-shadow: none;
+}
+
+body.theme-cyberpink .addons-bloco-subbloco {
+  overflow: visible;
+  clip-path: none;
+}
+
+body.theme-cyberpink .bloco-addons-editor__subbloco {
+  clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
   background:
     radial-gradient(
       circle at 18% 0,
@@ -8132,17 +8195,48 @@ body.theme-cyberpink .bloco-addons-editor__subbloco {
     0 0 16px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 18%, transparent);
 }
 
-body.theme-cyberpink .addons-bloco-subbloco {
-  overflow: visible;
-  clip-path: none;
-}
-
-body.theme-cyberpink .bloco-addons-editor__subbloco {
-  clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
-}
-
 body.theme-cyberpink .addons-bloco-subbloco::before,
-body.theme-cyberpink .addons-bloco-subbloco::after,
+body.theme-cyberpink .addons-bloco-subbloco::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  clip-path: polygon(
+    var(--addons-bloco-subbloco-cut) 0,
+    calc(100% - var(--addons-bloco-subbloco-cut)) 0,
+    100% var(--addons-bloco-subbloco-cut),
+    100% calc(100% - var(--addons-bloco-subbloco-cut)),
+    calc(100% - var(--addons-bloco-subbloco-cut)) 100%,
+    var(--addons-bloco-subbloco-cut) 100%,
+    0 calc(100% - var(--addons-bloco-subbloco-cut)),
+    0 var(--addons-bloco-subbloco-cut)
+  );
+}
+
+body.theme-cyberpink .addons-bloco-subbloco::before {
+  z-index: 0;
+  background: var(--cyberpink-subtheme-frame-inner);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 18%, transparent);
+}
+
+body.theme-cyberpink .addons-bloco-subbloco::after {
+  z-index: 1;
+  inset: 1px;
+  background:
+    radial-gradient(
+      circle at 18% 0,
+      color-mix(in srgb, var(--cyberpink-subtheme-primary) 13%, transparent) 0 38px,
+      transparent 78px
+    ),
+    linear-gradient(135deg, var(--cyberpink-subtheme-surface-a), var(--cyberpink-subtheme-surface-b));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cyberpink-subtheme-text) 5%, transparent);
+}
+
+body.theme-cyberpink .addons-bloco-subbloco > :not(.addons-bloco-subbloco-title) {
+  position: relative;
+  z-index: 2;
+}
+
 body.theme-cyberpink .bloco-addons-editor__subbloco::before,
 body.theme-cyberpink .bloco-addons-editor__subbloco::after {
   content: "";
@@ -8153,14 +8247,12 @@ body.theme-cyberpink .bloco-addons-editor__subbloco::after {
   background-color: var(--cyberpink-subtheme-frame-inner);
 }
 
-body.theme-cyberpink .addons-bloco-subbloco::before,
 body.theme-cyberpink .bloco-addons-editor__subbloco::before {
   top: 0;
   left: 0;
   clip-path: polygon(0 0, 100% 0, 0 100%);
 }
 
-body.theme-cyberpink .addons-bloco-subbloco::after,
 body.theme-cyberpink .bloco-addons-editor__subbloco::after {
   right: 0;
   bottom: 0;
@@ -8168,7 +8260,10 @@ body.theme-cyberpink .bloco-addons-editor__subbloco::after {
 }
 
 body.theme-cyberpink .addons-bloco-subbloco-title {
+  --addons-bloco-title-cut: clamp(5px, 0.62em, 10px);
+  --addons-bloco-title-corner-size: calc(var(--addons-bloco-title-cut) + 2px);
   position: absolute;
+  isolation: isolate;
   top: 1px;
   left: clamp(14px, 4vw, 28px);
   z-index: 3;
@@ -8195,7 +8290,16 @@ body.theme-cyberpink .addons-bloco-subbloco-title {
   overflow: visible;
   overflow-wrap: anywhere;
   text-overflow: clip;
-  clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+  clip-path: polygon(
+    var(--addons-bloco-title-cut) 0,
+    calc(100% - var(--addons-bloco-title-cut)) 0,
+    100% var(--addons-bloco-title-cut),
+    100% calc(100% - var(--addons-bloco-title-cut)),
+    calc(100% - var(--addons-bloco-title-cut)) 100%,
+    var(--addons-bloco-title-cut) 100%,
+    0 calc(100% - var(--addons-bloco-title-cut)),
+    0 var(--addons-bloco-title-cut)
+  );
   text-shadow:
     0 0 1px var(--cyberpink-subtheme-primary),
     0 0 2px var(--cyberpink-subtheme-primary),
@@ -8208,6 +8312,7 @@ body.theme-cyberpink .addons-bloco-subbloco-title {
 body.theme-cyberpink .addons-bloco-subbloco-title::before {
   content: "";
   position: absolute;
+  z-index: 2;
   left: 11px;
   top: 50%;
   width: 13px;
@@ -8220,6 +8325,54 @@ body.theme-cyberpink .addons-bloco-subbloco-title::before {
   filter:
     drop-shadow(0 0 2px var(--cyberpink-subtheme-primary))
     drop-shadow(0 0 5px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 58%, transparent));
+}
+
+body.theme-cyberpink .addons-bloco-subbloco-title::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      color-mix(in srgb, var(--cyberpink-subtheme-primary) 84%, var(--cyberpink-subtheme-text) 16%),
+      color-mix(in srgb, var(--cyberpink-subtheme-primary) 84%, var(--cyberpink-subtheme-text) 16%)
+    );
+  -webkit-mask-image:
+    var(--cyberpink-simple-cut-tl),
+    var(--cyberpink-simple-cut-tr),
+    var(--cyberpink-simple-cut-bl),
+    var(--cyberpink-simple-cut-br);
+  -webkit-mask-repeat: no-repeat, no-repeat, no-repeat, no-repeat;
+  -webkit-mask-size:
+    var(--addons-bloco-title-corner-size) var(--addons-bloco-title-corner-size),
+    var(--addons-bloco-title-corner-size) var(--addons-bloco-title-corner-size),
+    var(--addons-bloco-title-corner-size) var(--addons-bloco-title-corner-size),
+    var(--addons-bloco-title-corner-size) var(--addons-bloco-title-corner-size);
+  -webkit-mask-position:
+    left top,
+    right top,
+    left bottom,
+    right bottom;
+  mask-image:
+    var(--cyberpink-simple-cut-tl),
+    var(--cyberpink-simple-cut-tr),
+    var(--cyberpink-simple-cut-bl),
+    var(--cyberpink-simple-cut-br);
+  mask-repeat: no-repeat, no-repeat, no-repeat, no-repeat;
+  mask-size:
+    var(--addons-bloco-title-corner-size) var(--addons-bloco-title-corner-size),
+    var(--addons-bloco-title-corner-size) var(--addons-bloco-title-corner-size),
+    var(--addons-bloco-title-corner-size) var(--addons-bloco-title-corner-size),
+    var(--addons-bloco-title-corner-size) var(--addons-bloco-title-corner-size);
+  mask-position:
+    left top,
+    right top,
+    left bottom,
+    right bottom;
+  filter:
+    drop-shadow(0 0 2px var(--cyberpink-subtheme-primary))
+    drop-shadow(0 0 5px color-mix(in srgb, var(--cyberpink-subtheme-card-glow) 42%, transparent));
 }
 
 body.theme-cyberpink .bloco-addons-editor__subbloco {
@@ -8240,6 +8393,8 @@ body.theme-cyberpink .bloco-addons-editor__subbloco {
   }
 
   body.theme-cyberpink .addons-bloco-shelf {
+    min-width: calc(100% - 8px);
+    margin: 1px 4px 5px;
     padding: 12px 10px 14px;
   }
 
